@@ -1,0 +1,354 @@
+html, body {
+  width: 450px !important;
+  height: 600px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: linear-gradient(135deg, #f5f5f5 0%, #ffffff 100%);
+  color: #1a1a1a;
+  width: 450px;
+  height: 600px;
+  padding: 0;
+  margin: 0;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  width: 450px;
+  height: 100%;
+  min-height: 600px;
+  position: relative;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* ===== HEADER ===== */
+.header {
+  padding: 24px 32px 16px;
+  text-align: center;
+  position: relative;
+  z-index: 2;
+}
+
+.logo-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.logo {
+  font-size: 32px;
+  font-weight: 900;
+  letter-spacing: -1px;
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+}
+
+.logo-letter {
+  color: #1a1a1a;
+}
+
+.logo-letter-accent {
+  color: #00ff7f;
+  font-weight: 900;
+}
+
+.subtitle {
+  font-size: 12px;
+  font-weight: 500;
+  color: #666;
+  letter-spacing: 0.5px;
+  text-transform: capitalize;
+}
+
+/* ===== STATUS BADGE ===== */
+.status-badge-container {
+  display: flex;
+  justify-content: center;
+  padding: 0 32px 20px;
+  position: relative;
+  z-index: 2;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #00ff7f;
+  color: #1a1a1a;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0, 255, 127, 0.2);
+  min-width: fit-content;
+}
+
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.8;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ===== CARDS ===== */
+.card {
+  margin: 0 20px 16px;
+  padding: 16px;
+  border-radius: 16px;
+  border: 2px solid #e0e0e0;
+  background: #ffffff;
+  position: relative;
+  z-index: 2;
+}
+
+.domain-card {
+  margin-bottom: 12px;
+}
+
+.domain-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.info-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.label {
+  font-weight: 600;
+  color: #1a1a1a;
+  min-width: 60px;
+}
+
+.value {
+  color: #333;
+  word-break: break-all;
+  font-family: "Courier New", monospace;
+  font-size: 12px;
+  flex: 1;
+}
+
+/* ===== MESSAGE CARD ===== */
+.message-card {
+  background: #ffffff;
+  border: 2px solid #e0e0e0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  margin: 0 20px 16px;
+  gap: 12px;
+}
+
+.message-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 8px;
+  letter-spacing: -0.3px;
+}
+
+.message-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+.message-body {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #333;
+}
+
+.message-suggestion {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #555;
+  font-style: italic;
+}
+
+/* ===== STATUS-SPECIFIC STYLING ===== */
+
+/* SAFE Status */
+.status-safe .status-badge {
+  background: #4caf50;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.2);
+}
+
+.status-safe .domain-card {
+  border-color: #4caf50;
+  background: #f1f8f4;
+}
+
+.status-safe .message-card {
+  border-color: #4caf50;
+  background: #f1f8f4;
+}
+
+.status-safe .message-title {
+  color: #2e7d32;
+}
+
+/* UNSAFE Status */
+.status-unsafe .status-badge {
+  background: #f44336;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(244, 67, 54, 0.2);
+}
+
+.status-unsafe .domain-card {
+  border-color: #f44336;
+  background: #ffebee;
+}
+
+.status-unsafe .message-card {
+  border-color: #f44336;
+  background: #ffebee;
+}
+
+.status-unsafe .message-title {
+  color: #c62828;
+}
+
+/* UNLISTED Status */
+.status-unlisted .status-badge {
+  background: #ff6b9d;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(255, 107, 157, 0.2);
+}
+
+.status-unlisted .domain-card {
+  border-color: #ff6b9d;
+  background: #ffe4f0;
+}
+
+.status-unlisted .message-card {
+  border-color: #ff6b9d;
+  background: #ffe4f0;
+}
+
+.status-unlisted .message-title {
+  color: #c2185b;
+}
+
+/* ===== FOOTER ===== */
+.footer {
+  text-align: center;
+  padding: 12px;
+  font-size: 11px;
+  color: #999;
+  position: relative;
+  z-index: 2;
+}
+
+.version {
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+/* ===== GEOMETRIC DECORATIONS ===== */
+.container::before,
+.container::after {
+  content: "";
+  position: absolute;
+  background: #00ff7f;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.container::before {
+  width: 60px;
+  height: 12px;
+  border-radius: 6px;
+  top: 20px;
+  left: 20px;
+}
+
+.container::after {
+  width: 60px;
+  height: 12px;
+  border-radius: 6px;
+  top: 20px;
+  right: 20px;
+}
+
+/* ===== RESPONSIVE ===== */
+/* Extension popups are fixed size, so minimal responsive needed */
+@media (max-width: 470px) {
+  html, body {
+    width: 100% !important;
+    min-height: auto !important;
+  }
+  
+  .container {
+    width: 100% !important;
+  }
+
+  .header {
+    padding: 16px 20px 12px;
+  }
+
+  .logo {
+    font-size: 28px;
+  }
+
+  .card {
+    margin: 0 12px 12px;
+    padding: 12px;
+  }
+
+  .message-card {
+    padding: 16px;
+  }
+
+  .status-badge {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+}
+
+/* ===== ACCESSIBILITY ===== */
+@media (prefers-reduced-motion: reduce) {
+  .status-indicator {
+    animation: none;
+    opacity: 0.8;
+  }
+}
+
+/* Focus styles for keyboard navigation */
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid #00ff7f;
+  outline-offset: 2px;
+}

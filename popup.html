@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ABLE - Extension</title>
+  <link rel="stylesheet" href="popup.css">
+  <style>
+    html, body {
+      width: 450px;
+      height: 600px;
+      margin: 0;
+      padding: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header with Logo and Title -->
+    <header class="header">
+      <div class="logo-section">
+        <h1 class="logo">
+          <span class="logo-letter">A</span><span class="logo-letter">B</span><span class="logo-letter-accent">L</span><span class="logo-letter-accent">E</span>
+        </h1>
+        <p class="subtitle">Adaptive Browser-Level Extension</p>
+      </div>
+    </header>
+
+    <!-- Status Badge -->
+    <div class="status-badge-container">
+      <div class="status-badge" id="statusBadge">
+        <span class="status-indicator"></span>
+        <span class="status-text" id="statusText">Status: Analyzing...</span>
+      </div>
+    </div>
+
+    <!-- Domain Info Card -->
+    <div class="card domain-card" id="domainCard">
+      <div class="domain-info">
+        <div class="info-row">
+          <span class="label">Domain:</span>
+          <span class="value" id="domainValue">https://website.com/...</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Status:</span>
+          <span class="value" id="statusValue">Analyzing...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Message Card -->
+    <div class="card message-card" id="messageCard">
+      <h2 class="message-title" id="messageTitle">Welcome to ABLE</h2>
+      
+      <div class="message-content" id="messageContent">
+        <p class="message-body" id="messageBody">
+          Initialize the extension to analyze the current website's security status.
+        </p>
+        <p class="message-suggestion" id="messageSuggestion"></p>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <span class="version">v0.0.1</span>
+    </footer>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
