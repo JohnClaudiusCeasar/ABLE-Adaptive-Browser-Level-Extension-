@@ -1,219 +1,114 @@
-/**
- * ABLE Extension - Domain Safety Configuration
- * Hard-coded rulesets for domain classification
- * Easy to update and maintain
- */
+const COMPANY_NAME = "ABLE";
+
+const WEBSITE_ALTERNATIVES = {
+  "Government & Official": { label: "government & official", alternatives: [] },
+  "Major Tech Companies": { label: "major tech", alternatives: [] },
+  "Banking & Finance": { label: "banking & finance", alternatives: ["PayPal", "Stripe"] },
+  "Email Services": { label: "email", alternatives: ["Gmail", "Outlook"] },
+  "Shopping": { label: "shopping", alternatives: ["Amazon", "eBay"] },
+  "Streaming": { label: "streaming", alternatives: ["Netflix", "Spotify"] },
+  "News & Media": { label: "news & media", alternatives: ["CNN", "Reuters"] },
+  "Security Tools": { label: "security", alternatives: ["VirusTotal", "Malwarebytes"] },
+  "Educational": { label: "educational", alternatives: ["Coursera", "edX"] },
+  "Development": { label: "development", alternatives: ["GitHub", "AWS"] },
+  "Phishing Attempts": { label: "phishing", alternatives: [] },
+  "Malware Distribution": { label: "malware", alternatives: [] },
+  "Ransomware & Exploits": { label: "ransomware", alternatives: [] },
+  "Scam Sites": { label: "scam", alternatives: [] },
+  "Illegal Markets": { label: "illegal market", alternatives: [] }
+};
 
 const DOMAIN_CONFIG = {
-  // SAFE DOMAINS - Trusted, verified safe websites
   safe: {
-    domains: [
-      // Government & Official
-      "google.com",
-      "microsoft.com",
-      "apple.com",
-      "github.com",
-      "stackoverflow.com",
-      "wikipedia.org",
-      "bbc.com",
-      "wikipedia.org",
-      "khan-academy.org",
-      "britannica.com",
-      
-      // Major Tech Companies
-      "facebook.com",
-      "meta.com",
-      "twitter.com",
-      "linkedin.com",
-      "reddit.com",
-      "medium.com",
-      "youtube.com",
-      "vimeo.com",
-      "twitch.tv",
-      
-      // Banking & Finance (Major Institutions)
-      "paypal.com",
-      "stripe.com",
-      "coinbase.com",
-      
-      // Email Services
-      "gmail.com",
-      "outlook.com",
-      "protonmail.com",
-      "tutanota.com",
-      
-      // Shopping
-      "amazon.com",
-      "ebay.com",
-      "etsy.com",
-      
-      // Streaming
-      "netflix.com",
-      "spotify.com",
-      "disneyplus.com",
-      
-      // News & Media
-      "cnn.com",
-      "bbc.co.uk",
-      "reuters.com",
-      "apnews.com",
-      "theguardian.com",
-      
-      // Security Tools
-      "virustotal.com",
-      "malwarebytes.com",
-      "kaspersky.com",
-      "mcafee.com",
-      
-      // Educational
-      "coursera.org",
-      "edx.org",
-      "udemy.com",
-      "duolingo.com",
-      
-      // Development
-      "npm.org",
-      "npmjs.com",
-      "pypi.org",
-      "crates.io",
-      "rubygems.org",
-      "maven.apache.org",
-      "docker.com",
-      "aws.amazon.com",
-      "azure.microsoft.com",
-      "cloud.google.com"
-    ],
-    
-    // Pattern matching for safe domains
+    categories: {
+      "Government & Official": [
+        "google.com", "microsoft.com", "apple.com", "github.com", "stackoverflow.com",
+        "wikipedia.org", "bbc.com", "khan-academy.org", "britannica.com"
+      ],
+      "Major Tech Companies": [
+        "facebook.com", "meta.com", "twitter.com", "linkedin.com", "reddit.com",
+        "medium.com", "youtube.com", "vimeo.com", "twitch.tv"
+      ],
+      "Banking & Finance": [
+        "paypal.com", "stripe.com", "coinbase.com"
+      ],
+      "Email Services": [
+        "gmail.com", "outlook.com", "protonmail.com", "tutanota.com"
+      ],
+      "Shopping": [
+        "amazon.com", "ebay.com", "etsy.com"
+      ],
+      "Streaming": [
+        "netflix.com", "spotify.com", "disneyplus.com"
+      ],
+      "News & Media": [
+        "cnn.com", "bbc.co.uk", "reuters.com", "apnews.com", "theguardian.com"
+      ],
+      "Security Tools": [
+        "virustotal.com", "malwarebytes.com", "kaspersky.com", "mcafee.com"
+      ],
+      "Educational": [
+        "coursera.org", "edx.org", "udemy.com", "duolingo.com"
+      ],
+      "Development": [
+        "npm.org", "npmjs.com", "pypi.org", "crates.io", "rubygems.org",
+        "maven.apache.org", "docker.com", "aws.amazon.com", "azure.microsoft.com", "cloud.google.com"
+      ]
+    },
     patterns: [
-      /^([\w-]+\.)*\.(edu|gov|org)$/i,  // Educational, government, nonprofit
-      /^([\w-]+\.)*gov\.(uk|au|nz|ca)$/i,  // Government domains worldwide
-      /^(www\.)?github\.com\/.+/i,  // GitHub repositories
-      /^(www\.)?youtube\.com\/.+/i   // YouTube videos
+      /^([\w-]+\.)*\.(edu|gov|org)$/i,
+      /^([\w-]+\.)*gov\.(uk|au|nz|ca)$/i,
+      /^(www\.)?github\.com\/.+/i,
+      /^(www\.)?youtube\.com\/.+/i
     ]
   },
 
-  // UNSAFE DOMAINS - Known malicious, phishing, malware sites
   unsafe: {
-    domains: [
-      // Known Phishing
-      "paypa1.com",
-      "amaz0n.com",
-      "goog1e.com",
-      "micr0soft.com",
-      
-      // Known Malware Distribution
-      "malicious-site.xyz",
-      "phishing-bank.com",
-      "fake-login.net",
-      "credential-stealer.io",
-      
-      // Ransomware & Exploit Sites
-      "ransomware-as-service.net",
-      "exploit-kit.ru",
-      
-      // Scam Sites
-      "nigerian-prince-fortune.com",
-      "claim-your-prize.net",
-      "you-won-lottery.xyz",
-      "urgent-account-verify.net",
-      
-      // Darknet & Illegal Markets (demonstrative examples)
-      "illegal-marketplace.onion",
-      "stolen-data-sales.net"
-    ],
-    
-    // Pattern matching for unsafe indicators
+    categories: {
+      "Phishing Attempts": [
+        "paypa1.com", "amaz0n.com", "goog1e.com", "micr0soft.com"
+      ],
+      "Malware Distribution": [
+        "malicious-site.xyz", "phishing-bank.com", "fake-login.net", "credential-stealer.io"
+      ],
+      "Ransomware & Exploits": [
+        "ransomware-as-service.net", "exploit-kit.ru"
+      ],
+      "Scam Sites": [
+        "nigerian-prince-fortune.com", "claim-your-prize.net",
+        "you-won-lottery.xyz", "urgent-account-verify.net"
+      ],
+      "Illegal Markets": [
+        "illegal-marketplace.onion", "stolen-data-sales.net"
+      ]
+    },
     patterns: [
-      /^([\w-]*phish[\w-]*\.)+\w+$/i,  // Domain containing "phish"
-      /^([\w-]*malware[\w-]*\.)+\w+$/i,  // Domain containing "malware"
-      /^([\w-]*exploit[\w-]*\.)+\w+$/i,  // Domain containing "exploit"
-      /^([\w-]*ransomware[\w-]*\.)+\w+$/i,  // Domain containing "ransomware"
-      /^([\w-]*scam[\w-]*\.)+\w+$/i,  // Domain containing "scam"
-      /^([\w-]*fake[\w-]*\.)+\w+$/i,  // Domain containing "fake"
-      /^([\w-]*trojan[\w-]*\.)+\w+$/i,  // Domain containing "trojan"
-      /^([\w-]*virus[\w-]*\.)+\w+$/i,  // Domain containing "virus"
-      /localhost|127\.0\.0\.1|192\.168\.|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2[0-9]|3[01])\./  // Private/local IPs
+      /^([\w-]*phish[\w-]*\.)+\w+$/i,
+      /^([\w-]*malware[\w-]*\.)+\w+$/i,
+      /^([\w-]*exploit[\w-]*\.)+\w+$/i,
+      /^([\w-]*ransomware[\w-]*\.)+\w+$/i,
+      /^([\w-]*scam[\w-]*\.)+\w+$/i,
+      /^([\w-]*fake[\w-]*\.)+\w+$/i,
+      /^([\w-]*trojan[\w-]*\.)+\w+$/i,
+      /^([\w-]*virus[\w-]*\.)+\w+$/i,
+      /localhost|127\.0\.0\.1|192\.168\.|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2[0-9]|3[01])\./
     ]
   },
 
-  // UNLISTED DOMAINS - Not in safe or unsafe lists (unknown/unverified)
   unlisted: {
     message: "This domain has not been reviewed and verified by ABLE. Exercise caution when entering sensitive information.",
     suggestion: "Consider using verified alternative services when available."
   }
 };
 
-/**
- * Classify a domain based on the rulesets
- * @param {string} url - The full URL or domain to check
- * @returns {Object} - { status: 'safe'|'unsafe'|'unlisted', domain: string }
- */
-function classifyDomain(url) {
-  try {
-    // Extract domain from URL
-    const urlObj = new URL(url);
-    const hostname = urlObj.hostname.toLowerCase();
-    const domain = hostname.replace(/^www\./, ""); // Remove www prefix for matching
-
-    // Check UNSAFE first (most critical)
-    if (isInList(domain, DOMAIN_CONFIG.unsafe.domains) || 
-        matchesPatterns(domain, DOMAIN_CONFIG.unsafe.patterns)) {
-      return {
-        status: "unsafe",
-        domain: domain,
-        reason: "This domain is known to be unsafe or malicious"
-      };
-    }
-
-    // Check SAFE
-    if (isInList(domain, DOMAIN_CONFIG.safe.domains) || 
-        matchesPatterns(domain, DOMAIN_CONFIG.safe.patterns)) {
-      return {
-        status: "safe",
-        domain: domain,
-        reason: "This domain has been verified as safe"
-      };
-    }
-
-    // Default to UNLISTED
-    return {
-      status: "unlisted",
-      domain: domain,
-      reason: "This domain has not been reviewed and verified"
-    };
-  } catch (error) {
-    console.error("Error classifying domain:", error);
-    return {
-      status: "unlisted",
-      domain: "unknown",
-      reason: "Error analyzing domain"
-    };
-  }
-}
-
-/**
- * Check if domain is in the provided list
- * @param {string} domain - Domain to check
- * @param {Array} list - List of domains to match against
- * @returns {boolean}
- */
 function isInList(domain, list) {
   return list.some(item => {
-    // Exact match
     if (domain === item) return true;
-    // Subdomain match (e.g., mail.google.com matches google.com)
     if (domain.endsWith("." + item)) return true;
     return false;
   });
 }
 
-/**
- * Check if domain matches any pattern in the provided list
- * @param {string} domain - Domain to check
- * @param {Array} patterns - Array of regex patterns to match against
- * @returns {boolean}
- */
 function matchesPatterns(domain, patterns) {
   return patterns.some(pattern => {
     try {
@@ -225,27 +120,87 @@ function matchesPatterns(domain, patterns) {
   });
 }
 
-/**
- * Get detailed message for a status
- * @param {string} status - The domain status
- * @returns {Object} - { title, message, suggestion }
- */
-function getStatusMessage(status) {
+function classifyDomain(url) {
+  try {
+    const urlObj = new URL(url);
+    const hostname = urlObj.hostname.toLowerCase();
+    const domain = hostname.replace(/^www\./, "");
+
+    for (const [categoryName, domains] of Object.entries(DOMAIN_CONFIG.unsafe.categories)) {
+      if (isInList(domain, domains)) {
+        const info = WEBSITE_ALTERNATIVES[categoryName];
+        return {
+          status: "unsafe",
+          domain: domain,
+          category: info ? info.label : null,
+          alternatives: info ? info.alternatives : []
+        };
+      }
+    }
+
+    if (matchesPatterns(domain, DOMAIN_CONFIG.unsafe.patterns)) {
+      return {
+        status: "unsafe",
+        domain: domain,
+        category: null,
+        alternatives: []
+      };
+    }
+
+    for (const [categoryName, domains] of Object.entries(DOMAIN_CONFIG.safe.categories)) {
+      if (isInList(domain, domains)) {
+        const info = WEBSITE_ALTERNATIVES[categoryName];
+        return {
+          status: "safe",
+          domain: domain,
+          category: info ? info.label : null,
+          alternatives: info ? info.alternatives : []
+        };
+      }
+    }
+
+    if (matchesPatterns(domain, DOMAIN_CONFIG.safe.patterns)) {
+      return {
+        status: "safe",
+        domain: domain,
+        category: null,
+        alternatives: []
+      };
+    }
+
+    return {
+      status: "unlisted",
+      domain: domain,
+      category: null,
+      alternatives: []
+    };
+  } catch (error) {
+    console.error("Error classifying domain:", error);
+    return {
+      status: "unlisted",
+      domain: "unknown",
+      category: null,
+      alternatives: []
+    };
+  }
+}
+
+function getStatusMessage(status, domain, category, alternatives) {
   const messages = {
     safe: {
       title: "The site you are entering is SAFE",
-      message: "This domain has been reviewed and verified by the ABLE security team. It is a trusted and secure website.",
-      suggestion: "Feel free to use the website to share your sensitive information."
+      message: `${domain} has been reviewed, and analyzed by the ${COMPANY_NAME} IT security department and thus declared safe to use and operate.\n\nFeel free to use the website to your heart\u2019s content,\n\nHave a nice day :)`,
+      suggestion: ""
     },
     unsafe: {
       title: "The site you are entering is UNSAFE",
-      message: "This domain has been identified as malicious, phishing, or potentially harmful. It may attempt to steal your credentials or infect your device with malware.",
-      suggestion: "Please refrain from accessing sensitive institutional data to this website. To improve your browser experience, we recommend using one of the suggested secure alternatives."
+      message: `${domain} has been reviewed, and analyzed by the ${COMPANY_NAME} IT security department and thus declared to be unsafe to use.\nPlease refrain from sending sensitive institutional data to this website.${category && alternatives.length ? `\n\nSince you are entering a ${category} website, to make your internet experience safe, please consider the following alternatives: ${alternatives.join(", ")}.` : ""}`,
+      suggestion: ""
     },
     unlisted: {
       title: "The site you are entering is UNLISTED",
-      message: "This domain is an unknown service and has not been reviewed or evaluated by the ABLE security team yet. While it may be safe, we cannot confirm its legitimacy.",
-      suggestion: "We recommend exploring alternative services that have been verified. If you must proceed, do not share sensitive personal or financial information."
+      message: `${domain} is an unlisted service that has not been reviewed, and analyzed by the ${COMPANY_NAME} IT security department. While the service is not labeled unsafe by our security team, please refrain from sending any sensitive institutional data from this website until it is properly reviewed.`,
+      suggestion: ""
     }
   };
 

@@ -4,7 +4,7 @@
  */
 
 // DOM Elements
-const statusBadge = document.getElementById("statusBadge");
+const statusBadge = document.querySelector(".status-pill");
 const statusText = document.getElementById("statusText");
 const statusValue = document.getElementById("statusValue");
 const domainValue = document.getElementById("domainValue");
@@ -12,7 +12,7 @@ const messageTitle = document.getElementById("messageTitle");
 const messageBody = document.getElementById("messageBody");
 const messageSuggestion = document.getElementById("messageSuggestion");
 const container = document.querySelector(".container");
-const domainCard = document.getElementById("domainCard");
+const domainCard = document.querySelector(".info-card");
 
 /**
  * Get the current active tab and its URL
@@ -46,14 +46,14 @@ function formatDomain(url) {
  * Update UI based on classification result
  */
 function updateUI(classification) {
-  const { status, domain } = classification;
-  const messages = getStatusMessage(status);
+  const { status, domain, category, alternatives } = classification;
+  const messages = getStatusMessage(status, domain, category, alternatives);
 
   // Update container class for styling
   container.className = `container status-${status}`;
 
   // Update status badge
-  statusText.textContent = `Status: ${status.charAt(0).toUpperCase() + status.slice(1)}`;
+  statusText.textContent = "Status: Active";
 
   // Update domain card
   domainValue.textContent = domain;
@@ -63,12 +63,7 @@ function updateUI(classification) {
   messageTitle.textContent = messages.title;
   messageBody.textContent = messages.message;
   
-  if (messages.suggestion) {
-    messageSuggestion.textContent = messages.suggestion;
-    messageSuggestion.style.display = "block";
-  } else {
-    messageSuggestion.style.display = "none";
-  }
+  messageSuggestion.textContent = "";
 
   // Add animation
   animateUpdate();
@@ -147,7 +142,7 @@ async function initializeExtension() {
  */
 function showErrorState(errorMessage) {
   container.className = "container status-unlisted";
-  statusText.textContent = "Status: Error";
+  statusText.textContent = "Status: Active";
   messageTitle.textContent = "Unable to Analyze";
   messageBody.textContent = errorMessage;
   messageSuggestion.textContent = "Please try refreshing the page or checking your browser permissions.";
@@ -160,7 +155,7 @@ function showErrorState(errorMessage) {
  */
 function showSpecialPageState(url) {
   container.className = "container status-safe";
-  statusText.textContent = "Status: Protected";
+  statusText.textContent = "Status: Active";
   
   const pageType = url.split("://")[0].toUpperCase() || "System";
   
