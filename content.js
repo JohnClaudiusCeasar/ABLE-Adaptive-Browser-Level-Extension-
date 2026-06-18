@@ -1,0 +1,277 @@
+const SENSITIVE_PATTERNS = [
+  { pattern: /\b(?:\d{4}[-\s]?){3}\d{4}\b/g, label: "Credit Card Number", weight: 20 },
+  { pattern: /\b\d{3}-\d{2}-\d{4}\b/g, label: "Social Security Number (SSN)", weight: 30 },
+  { pattern: /(?:api[_-]?key|api[_-]?secret|access[_-]?token|auth[_-]?token|secret[_-]?key)\s*[:=]\s*\S+/gi, label: "API Key / Token", weight: 25 },
+  { pattern: /-----BEGIN\s+(?:RSA\s+)?PRIVATE\s+KEY-----/g, label: "Private Key", weight: 35 },
+  { pattern: /(?:password|passwd|pwd)\s*[:=]\s*\S+/gi, label: "Plaintext Password", weight: 25 },
+  { pattern: /(?:jdbc|postgresql|mysql|mongodb|redis):\/\/\S+:\S+@/gi, label: "Database Connection String", weight: 25 },
+];
+
+let domainStatus = null;
+let processedInputs = new WeakSet();
+
+function getWebsiteName() {
+  const hostname = window.location.hostname.replace(/^www\./, "");
+  const parts = hostname.split(".");
+  if (parts.length >= 2) {
+    return parts[0].charAt(0).toUpperCase() + parts[0].slice(1) + "." + parts.slice(1).join(".");
+  }
+  return hostname;
+}
+
+async function classifyCurrentDomain() {
+  try {
+    const result = await chrome.runtime.sendMessage({
+      type: "classifyDomain",
+      url: window.location.href,
+    });
+    domainStatus = result;
+    return result;
+  } catch {
+    domainStatus = { status: "unlisted", domain: window.location.hostname };
+    return domainStatus;
+  }
+}
+
+function shouldActivate() {
+  return domainStatus && (domainStatus.status === "unsafe" || domainStatus.status === "unlisted");
+}
+
+async function hasSessionConsent() {
+  try {
+    const key = domainStatus.domain;
+    const data = await chrome.storage.session.get(key);
+    return !!data[key];
+  } catch {
+    return false;
+  }
+}
+
+async function setSessionConsent() {
+  try {
+    const key = domainStatus.domain;
+    await chrome.storage.session.set({ [key]: true });
+  } catch {
+  }
+}
+
+function calculateRiskScore(text) {
+  let totalScore = 0;
+  const flaggedItems = [];
+
+  for (const entry of SENSITIVE_PATTERNS) {
+    const matches = [...text.matchAll(entry.pattern)];
+    if (matches.length > 0) {
+      totalScore += entry.weight;
+      flaggedItems.push({
+        label: entry.label,
+        count: matches.length,
+        weight: entry.weight,
+      });
+    }
+  }
+
+  return {
+    score: Math.min(100, totalScore),
+    flaggedItems,
+  };
+}
+
+function readFileContent(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsText(file);
+  });
+}
+
+async function handleFileUpload(fileInput, file) {
+  const consent = await hasSessionConsent();
+  if (consent) return;
+
+  let text;
+  try {
+    text = await readFileContent(file);
+  } catch {
+    return;
+  }
+
+  const result = calculateRiskScore(text);
+
+  if (result.score > 85) {
+    showModal({
+      score: result.score,
+      flaggedItems: result.flaggedItems,
+      domain: domainStatus.domain,
+      status: domainStatus.status,
+      websiteName: getWebsiteName(),
+      fileName: file.name,
+      fileSize: file.size,
+      fileInput: fileInput,
+    });
+  }
+}
+
+function resetFileInput(fileInput) {
+  const form = fileInput.closest("form");
+  if (form) {
+    form.reset();
+  } else {
+    fileInput.value = "";
+  }
+}
+
+function showModal(data) {
+  removeModal();
+
+  const backdrop = document.createElement("div");
+  backdrop.className = "able-modal-backdrop";
+
+  const statusLabel = data.status === "unsafe" ? "Unsafe" : "Unlisted";
+
+  const scoreAngle = data.score * 3.6;
+  const gapStart = scoreAngle;
+  const gapEnd = Math.min(scoreAngle + 11, 360);
+
+  const gradient = `conic-gradient(
+    var(--score-orange) 0deg ${gapStart}deg,
+    var(--dark-gray) ${gapStart}deg ${gapEnd}deg,
+    var(--track-gray) ${gapEnd}deg 360deg
+  )`;
+
+  const flaggedSummary = data.flaggedItems
+    .map((item) => `${item.label} (${item.count}x)`)
+    .join(", ");
+
+  backdrop.innerHTML = `
+    <div class="able-modal-card">
+      <div class="able-banner-edge"></div>
+      <div class="able-modal-content">
+        <h1 class="able-modal-title">HOLD IT RIGHT THERE!</h1>
+        <div class="able-score-ring-wrapper" role="button" tabindex="0">
+          <div class="able-score-ring-chart" style="background: ${gradient};">
+            <div class="able-score-ring-inner">
+              <span class="able-score-percentage">${data.score}%</span>
+              <span class="able-score-label">Risk Score</span>
+            </div>
+          </div>
+        </div>
+        <h2 class="able-modal-subtitle">This File Contains Sensitive Information</h2>
+        <div class="able-modal-body">
+          <p>
+            ABLE has detected sensitive information (<span class="able-highlight-text">${flaggedSummary}</span>)
+            in the file "<span class="able-highlight-text">${data.fileName}</span>" being uploaded to
+            <span class="able-highlight-text">${data.websiteName}</span>.
+            This website is marked as <span class="able-highlight-text">${statusLabel}</span> by the system
+            and sending this file may expose your information to third parties.
+          </p>
+          <p>
+            Please consider whether this upload is necessary or use a verified alternative service instead.
+          </p>
+        </div>
+        <div class="able-modal-actions">
+          <button class="able-btn able-btn-proceed" id="ableProceedBtn">I Understand the Risk, But I Wish to Proceed.</button>
+          <button class="able-btn able-btn-cancel" id="ableCancelBtn">Cancel</button>
+        </div>
+      </div>
+      <div class="able-banner-edge"></div>
+    </div>
+  `;
+
+  document.documentElement.appendChild(backdrop);
+
+  backdrop.querySelector("#ableProceedBtn").addEventListener("click", async () => {
+    await setSessionConsent();
+    removeModal();
+  });
+
+  backdrop.querySelector("#ableCancelBtn").addEventListener("click", () => {
+    resetFileInput(data.fileInput);
+    removeModal();
+  });
+
+  backdrop.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      resetFileInput(data.fileInput);
+      removeModal();
+    }
+  });
+
+  backdrop.querySelector(".able-score-ring-wrapper").addEventListener("click", () => {
+  });
+}
+
+function removeModal() {
+  const existing = document.querySelector(".able-modal-backdrop");
+  if (existing) existing.remove();
+}
+
+function initFileScanner() {
+  const inputs = document.querySelectorAll('input[type="file"]');
+  for (const input of inputs) {
+    attachFileHandler(input);
+  }
+
+  const observer = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      for (const node of mutation.addedNodes) {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          if (node.matches && node.matches('input[type="file"]')) {
+            attachFileHandler(node);
+          }
+          if (node.querySelectorAll) {
+            const fileInputs = node.querySelectorAll('input[type="file"]');
+            for (const fi of fileInputs) {
+              attachFileHandler(fi);
+            }
+          }
+        }
+      }
+    }
+  });
+
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+  });
+}
+
+function attachFileHandler(input) {
+  if (processedInputs.has(input)) return;
+  processedInputs.add(input);
+
+  input.addEventListener("change", async (event) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    for (const file of files) {
+      await handleFileUpload(input, file);
+    }
+  });
+}
+
+function injectFonts() {
+  if (document.getElementById("able-fonts")) return;
+  const link = document.createElement("link");
+  link.id = "able-fonts";
+  link.rel = "stylesheet";
+  link.href = "https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700&family=Unbounded:wght@700&display=swap";
+  document.head.appendChild(link);
+}
+
+async function initialize() {
+  injectFonts();
+  await classifyCurrentDomain();
+
+  if (shouldActivate()) {
+    initFileScanner();
+  }
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initialize);
+} else {
+  initialize();
+}
