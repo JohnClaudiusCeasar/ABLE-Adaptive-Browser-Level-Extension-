@@ -1,0 +1,192 @@
+/* --- CSS Variables --- */
+:root {
+    --brand-green: #00FF44;
+    --score-orange: #FFB900;
+    --track-gray: #E2E2E2;
+    --dark-gray: #B0B0B0;
+    --text-black: #000000;
+    --bg-white: #FFFFFF;
+    
+    /* Button Colors */
+    --proceed-bg: #FFE7D1;
+    --proceed-border: #FFC99E;
+    --cancel-bg: #FBCBCB;
+    --cancel-border: #FFA3A3;
+}
+
+/* --- Base Setup --- */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: #F5F5F5; /* Temporary canvas background for visibility */
+    font-family: 'Archivo', sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+/* --- Modal Container --- */
+.modal-card {
+    width: 480px;
+    background-color: var(--bg-white);
+    border-radius: 32px;
+    box-shadow: 0px 12px 32px rgba(0, 0, 0, 0.05);
+    overflow: hidden; /* Clips the top/bottom banners to the modal's rounded corners */
+    display: flex;
+    flex-direction: column;
+}
+
+/* --- Top & Bottom Envelope Rectangles --- */
+.banner-edge {
+    width: 100%;
+    height: 44px;
+    background-color: var(--brand-green);
+    flex-shrink: 0;
+}
+
+/* --- Inside Content Layout --- */
+.modal-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 30px;
+    text-align: center;
+}
+
+/* --- Typography Styles --- */
+.modal-title {
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 700;
+    font-size: 1.85rem;
+    color: var(--text-black);
+    letter-spacing: -0.5px;
+    margin-bottom: 35px;
+}
+
+.modal-subtitle {
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 700;
+    font-size: 1.15rem;
+    color: var(--text-black);
+    margin-top: 30px;
+    margin-bottom: 25px;
+    letter-spacing: -0.2px;
+}
+
+.modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    margin-bottom: 35px;
+    padding: 0 5px;
+}
+
+.modal-body p {
+    font-size: 0.95rem;
+    line-height: 1.45;
+    color: var(--text-black);
+    font-style: italic; /* Matches the sloped styling in prototype */
+}
+
+.highlight-text {
+    font-weight: 700;
+    font-style: normal;
+}
+
+/* --- Layered Circular Score Meter --- */
+.score-ring-wrapper {
+    cursor: pointer;
+    outline: none;
+    transition: transform 0.2s ease;
+}
+
+.score-ring-wrapper:hover {
+    transform: scale(1.03);
+}
+
+.score-ring-chart {
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    /* Math: 83% of 360 deg = ~299deg. Uses conic-gradient to recreate the exact layout split */
+    background: conic-gradient(
+        var(--score-orange) 0deg 299deg,
+        var(--dark-gray) 299deg 310deg,
+        var(--track-gray) 310deg 360deg
+    );
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: inset 0px 2px 4px rgba(0,0,0,0.06);
+}
+
+.score-ring-inner {
+    width: 124px;
+    height: 124px;
+    background-color: var(--bg-white);
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.score-percentage {
+    font-family: 'Archivo', sans-serif;
+    font-weight: 700;
+    font-size: 2.2rem;
+    color: var(--score-orange);
+    line-height: 1;
+}
+
+.score-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-black);
+    margin-top: 4px;
+}
+
+/* --- Action Buttons --- */
+.modal-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    gap: 15px;
+}
+
+.btn {
+    font-family: 'Archivo', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-black);
+    border: 1.5px solid transparent;
+    cursor: pointer;
+    transition: filter 0.15s ease;
+}
+
+.btn:hover {
+    filter: brightness(0.97);
+}
+
+.btn-proceed {
+    width: 100%;
+    background-color: var(--proceed-bg);
+    border-color: var(--proceed-border);
+    padding: 16px 20px;
+    border-radius: 16px;
+}
+
+.btn-cancel {
+    width: 45%;
+    background-color: var(--cancel-bg);
+    border-color: var(--cancel-border);
+    padding: 10px 20px;
+    border-radius: 20px;
+}

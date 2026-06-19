@@ -55,6 +55,24 @@ async function setSessionConsent() {
   }
 }
 
+async function hasSiteWarningConsent() {
+  try {
+    const key = domainStatus.domain + "-warning";
+    const data = await chrome.storage.session.get(key);
+    return !!data[key];
+  } catch {
+    return false;
+  }
+}
+
+async function setSiteWarningConsent() {
+  try {
+    const key = domainStatus.domain + "-warning";
+    await chrome.storage.session.set({ [key]: true });
+  } catch {
+  }
+}
+
 function calculateRiskScore(text) {
   let totalScore = 0;
   const flaggedItems = [];
@@ -140,10 +158,6 @@ function showModal(data) {
     var(--track-gray) ${gapEnd}deg 360deg
   )`;
 
-  const flaggedSummary = data.flaggedItems
-    .map((item) => `${item.label} (${item.count}x)`)
-    .join(", ");
-
   backdrop.innerHTML = `
     <div class="able-modal-card">
       <div class="able-banner-edge"></div>
@@ -157,17 +171,15 @@ function showModal(data) {
             </div>
           </div>
         </div>
-        <h2 class="able-modal-subtitle">This File Contains Sensitive Information</h2>
         <div class="able-modal-body">
           <p>
-            ABLE has detected sensitive information (<span class="able-highlight-text">${flaggedSummary}</span>)
-            in the file "<span class="able-highlight-text">${data.fileName}</span>" being uploaded to
+            ABLE has detected sensitive information from
+            "<span class="able-highlight-text">${data.fileName}</span>" that is being uploaded into
             <span class="able-highlight-text">${data.websiteName}</span>.
-            This website is marked as <span class="able-highlight-text">${statusLabel}</span> by the system
-            and sending this file may expose your information to third parties.
-          </p>
-          <p>
-            Please consider whether this upload is necessary or use a verified alternative service instead.
+            Please be informed that the website is marked as
+            <span class="able-highlight-text">${statusLabel}</span> by our security team
+            and sending this file may expose your information to these third-party services.
+            Please consider whether this upload is necessary or use our verified alternative service instead.
           </p>
         </div>
         <div class="able-modal-actions">
@@ -206,6 +218,44 @@ function showModal(data) {
 function removeModal() {
   const existing = document.querySelector(".able-modal-backdrop");
   if (existing) existing.remove();
+}
+
+function showSiteWarningModal(data) {
+  removeModal();
+
+  const backdrop = document.createElement("div");
+  backdrop.className = "able-modal-backdrop";
+
+  backdrop.innerHTML = `
+    <div class="able-modal-card">
+      <div class="able-banner-edge"></div>
+      <div class="able-modal-content">
+        <h1 class="able-modal-title">${data.title}</h1>
+        <div class="able-modal-body">
+          <p>${data.message}</p>
+        </div>
+        <div class="able-modal-actions">
+          <button class="able-btn able-btn-proceed" id="ableWarningDismiss">I Understand</button>
+        </div>
+      </div>
+      <div class="able-banner-edge"></div>
+    </div>
+  `;
+
+  document.documentElement.appendChild(backdrop);
+
+  backdrop.querySelector("#ableWarningDismiss").addEventListener("click", async () => {
+    await setSiteWarningConsent();
+    removeModal();
+  });
+
+  backdrop.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      removeModal();
+      setSiteWarningConsent();
+    }
+  });
 }
 
 function initFileScanner() {
@@ -266,6 +316,13 @@ async function initialize() {
   await classifyCurrentDomain();
 
   if (shouldActivate()) {
+    const consent = await hasSiteWarningConsent();
+    if (!consent && domainStatus.title && domainStatus.message) {
+      showSiteWarningModal({
+        title: domainStatus.title,
+        message: domainStatus.message,
+      });
+    }
     initFileScanner();
   }
 }

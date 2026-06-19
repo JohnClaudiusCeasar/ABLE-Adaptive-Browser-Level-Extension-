@@ -63,14 +63,6 @@ function updateUI(classification) {
   messageTitle.textContent = messages.title;
   messageBody.textContent = messages.message;
   
-  if (status === "unsafe") {
-    messageSuggestion.textContent = "File upload monitoring is active on this page. Use extreme caution when uploading files.";
-  } else if (status === "unlisted") {
-    messageSuggestion.textContent = "File upload monitoring is active on this page.";
-  } else {
-    messageSuggestion.textContent = "";
-  }
-
   // Add animation
   animateUpdate();
 }
