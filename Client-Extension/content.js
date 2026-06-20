@@ -7,6 +7,15 @@ const SENSITIVE_PATTERNS = [
   { pattern: /(?:jdbc|postgresql|mysql|mongodb|redis):\/\/\S+:\S+@/gi, label: "Database Connection String", weight: 25 },
 ];
 
+const PIE_COLORS = {
+  "Credit Card Number": "var(--pie-cc)",
+  "Social Security Number (SSN)": "var(--pie-ssn)",
+  "API Key / Token": "var(--pie-api-key)",
+  "Private Key": "var(--pie-private-key)",
+  "Plaintext Password": "var(--pie-password)",
+  "Database Connection String": "var(--pie-db-string)",
+};
+
 let domainStatus = null;
 let processedInputs = new WeakSet();
 
@@ -173,14 +182,24 @@ function showModal(data) {
     : "";
 
   const scoreAngle = data.score * 3.6;
-  const gapStart = scoreAngle;
-  const gapEnd = Math.min(scoreAngle + 11, 360);
+
+  const stops = [];
+  let currentAngle = 0;
+
+  for (const item of data.flaggedItems) {
+    const sliceAngle = (item.weight / data.score) * scoreAngle;
+    const color = PIE_COLORS[item.label] || "var(--score-orange)";
+    stops.push(`${color} ${currentAngle}deg ${currentAngle + sliceAngle}deg`);
+    currentAngle += sliceAngle;
+  }
+
+  const gapEnd = Math.min(currentAngle + 11, 360);
 
   const gradient = `conic-gradient(
-    var(--score-orange) 0deg ${gapStart}deg,
-    var(--dark-gray) ${gapStart}deg ${gapEnd}deg,
-    var(--track-gray) ${gapEnd}deg 360deg
-  )`;
+  ${stops.join(",\n  ")},
+  var(--dark-gray) ${currentAngle}deg ${gapEnd}deg,
+  var(--track-gray) ${gapEnd}deg 360deg
+)`;
 
   backdrop.innerHTML = `
     <div class="able-modal-card">
