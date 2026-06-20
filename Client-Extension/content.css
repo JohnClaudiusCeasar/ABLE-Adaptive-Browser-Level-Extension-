@@ -9,6 +9,12 @@
   --proceed-border: #FFC99E;
   --cancel-bg: #FBCBCB;
   --cancel-border: #FFA3A3;
+  --pie-cc: #EF4444;
+  --pie-ssn: #06B6D4;
+  --pie-api-key: #F59E0B;
+  --pie-private-key: #F97316;
+  --pie-password: #8B5CF6;
+  --pie-db-string: #3B82F6;
 }
 
 .able-modal-backdrop {
@@ -70,6 +76,8 @@
   cursor: pointer;
   outline: none;
   transition: transform 0.2s ease;
+  margin-top: 6px;
+  margin-bottom: 6px;
 }
 
 .able-score-ring-wrapper:hover {
@@ -77,8 +85,8 @@
 }
 
 .able-score-ring-chart {
-  width: 105px;
-  height: 105px;
+  width: 120px;
+  height: 120px;
   border-radius: 50%;
   display: flex;
   justify-content: center;
@@ -87,8 +95,8 @@
 }
 
 .able-score-ring-inner {
-  width: 80px;
-  height: 80px;
+  width: 90px;
+  height: 90px;
   background-color: var(--bg-white);
   border-radius: 50%;
   display: flex;
@@ -162,6 +170,78 @@
   align-items: center;
   width: 100%;
   gap: 10px;
+}
+
+.able-detail-list {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 0;
+}
+
+.able-detail-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 4px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.able-detail-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.able-detail-label {
+  flex: 1;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-black);
+}
+
+.able-detail-count {
+  font-size: 0.75rem;
+  color: var(--dark-gray);
+  min-width: 28px;
+  text-align: right;
+}
+
+.able-detail-weight {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-black);
+  min-width: 30px;
+  text-align: right;
+}
+
+.able-detail-pct {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--score-orange);
+  min-width: 36px;
+  text-align: right;
+}
+
+.able-detail-total {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 10px;
+  margin-bottom: 10px;
+  border-top: 1px solid var(--track-gray);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-black);
+}
+
+.able-detail-total-score {
+  font-size: 1.1rem;
+  color: var(--score-orange);
 }
 
 .able-btn {

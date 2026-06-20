@@ -177,19 +177,18 @@ function showModal(data) {
   backdrop.className = "able-modal-backdrop";
 
   const statusLabel = data.status === "unsafe" ? "Unsafe" : "Unlisted";
-  const fileTypeBadge = data.fileType && data.fileType !== "plain"
-    ? `<span class="able-file-type-badge">${data.fileType.toUpperCase()}</span>`
-    : "";
 
-  const scoreAngle = data.score * 3.6;
+  const totalWeight = data.flaggedItems.reduce((sum, item) => sum + item.weight, 0);
 
   const stops = [];
   let currentAngle = 0;
 
   for (const item of data.flaggedItems) {
-    const sliceAngle = (item.weight / data.score) * scoreAngle;
+    const sliceAngle = totalWeight > 0 ? (item.weight / totalWeight) * 360 : 0;
     const color = PIE_COLORS[item.label] || "var(--score-orange)";
-    stops.push(`${color} ${currentAngle}deg ${currentAngle + sliceAngle}deg`);
+    if (sliceAngle > 0) {
+      stops.push(`${color} ${currentAngle}deg ${currentAngle + sliceAngle}deg`);
+    }
     currentAngle += sliceAngle;
   }
 
@@ -217,7 +216,7 @@ function showModal(data) {
         <div class="able-modal-body">
           <p>
             ABLE has detected sensitive information from
-            "<span class="able-highlight-text">${data.fileName}</span>${fileTypeBadge}" that is being uploaded into
+            "<span class="able-highlight-text">${data.fileName}</span>" that is being uploaded into
             <span class="able-highlight-text">${data.websiteName}</span>.
             Please be informed that the website is marked as
             <span class="able-highlight-text">${statusLabel}</span> by our security team
@@ -255,6 +254,53 @@ function showModal(data) {
   });
 
   backdrop.querySelector(".able-score-ring-wrapper").addEventListener("click", () => {
+    showScoreDetails(data);
+  });
+}
+
+function showScoreDetails(data) {
+  const modalCard = document.querySelector(".able-modal-card");
+  if (!modalCard) return;
+
+  const totalWeight = data.flaggedItems.reduce((sum, item) => sum + item.weight, 0);
+
+  const itemsHtml = data.flaggedItems.map((item) => {
+    const color = PIE_COLORS[item.label] || "var(--score-orange)";
+    const pct = totalWeight > 0 ? ((item.weight / totalWeight) * 100).toFixed(0) : 0;
+    return `
+      <div class="able-detail-item">
+        <span class="able-detail-swatch" style="background: ${color};"></span>
+        <span class="able-detail-label">${item.label}</span>
+        <span class="able-detail-count">x${item.count}</span>
+        <span class="able-detail-weight">+${item.weight}</span>
+        <span class="able-detail-pct">${pct}%</span>
+      </div>`;
+  }).join("");
+
+  modalCard.innerHTML = `
+    <div class="able-banner-edge"></div>
+    <div class="able-modal-content">
+      <h1 class="able-modal-title">SCORE BREAKDOWN</h1>
+      <div class="able-detail-list">${itemsHtml}</div>
+      <div class="able-detail-total">
+        <span>Total Risk Score</span>
+        <span class="able-detail-total-score">${data.score}%</span>
+      </div>
+      <div class="able-modal-actions">
+        <button class="able-btn able-btn-proceed" id="ableDetailBackBtn">Back to Warning</button>
+        <button class="able-btn able-btn-cancel" id="ableDetailCancelBtn">Cancel Upload</button>
+      </div>
+    </div>
+    <div class="able-banner-edge"></div>
+  `;
+
+  document.querySelector("#ableDetailBackBtn").addEventListener("click", () => {
+    showModal(data);
+  });
+
+  document.querySelector("#ableDetailCancelBtn").addEventListener("click", () => {
+    resetFileInput(data.fileInput);
+    removeModal();
   });
 }
 
