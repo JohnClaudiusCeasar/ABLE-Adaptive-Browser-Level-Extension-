@@ -143,6 +143,19 @@
   font-style: normal;
 }
 
+.able-file-type-badge {
+  display: inline-block;
+  background: var(--brand-green);
+  color: #000;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  vertical-align: middle;
+  margin-left: 4px;
+  font-style: normal;
+}
+
 .able-modal-actions {
   display: flex;
   flex-direction: column;

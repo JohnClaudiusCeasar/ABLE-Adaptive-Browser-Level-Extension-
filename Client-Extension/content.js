@@ -115,10 +115,24 @@ async function handleFileUpload(fileInput, file) {
   if (consent) return;
 
   let text;
-  try {
-    text = await readFileContent(file);
-  } catch {
-    return;
+  let fileFormat = 'plain';
+
+  const officeFormat = detectOfficeFormat(file);
+  if (officeFormat) {
+    try {
+      const result = await extractOfficeText(file);
+      text = result.text;
+      fileFormat = result.format;
+    } catch (err) {
+      console.warn('ABLE: Office parsing skipped:', err.message || err);
+      return;
+    }
+  } else {
+    try {
+      text = await readFileContent(file);
+    } catch {
+      return;
+    }
   }
 
   const result = calculateRiskScore(text);
@@ -133,6 +147,7 @@ async function handleFileUpload(fileInput, file) {
       fileName: file.name,
       fileSize: file.size,
       fileInput: fileInput,
+      fileType: fileFormat,
     });
   }
 }
@@ -153,6 +168,9 @@ function showModal(data) {
   backdrop.className = "able-modal-backdrop";
 
   const statusLabel = data.status === "unsafe" ? "Unsafe" : "Unlisted";
+  const fileTypeBadge = data.fileType && data.fileType !== "plain"
+    ? `<span class="able-file-type-badge">${data.fileType.toUpperCase()}</span>`
+    : "";
 
   const scoreAngle = data.score * 3.6;
   const gapStart = scoreAngle;
@@ -180,7 +198,7 @@ function showModal(data) {
         <div class="able-modal-body">
           <p>
             ABLE has detected sensitive information from
-            "<span class="able-highlight-text">${data.fileName}</span>" that is being uploaded into
+            "<span class="able-highlight-text">${data.fileName}</span>${fileTypeBadge}" that is being uploaded into
             <span class="able-highlight-text">${data.websiteName}</span>.
             Please be informed that the website is marked as
             <span class="able-highlight-text">${statusLabel}</span> by our security team
