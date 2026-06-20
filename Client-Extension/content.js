@@ -28,7 +28,13 @@ async function classifyCurrentDomain() {
     domainStatus = result;
     return result;
   } catch {
-    domainStatus = { status: "unlisted", domain: window.location.hostname };
+    const hostname = window.location.hostname;
+    domainStatus = {
+      status: "unlisted",
+      domain: hostname,
+      title: "The site you are entering is UNLISTED",
+      message: `${hostname} is an unlisted service that has not been reviewed by our security team. Please refrain from sending sensitive institutional data from this website until it is properly reviewed.`
+    };
     return domainStatus;
   }
 }
