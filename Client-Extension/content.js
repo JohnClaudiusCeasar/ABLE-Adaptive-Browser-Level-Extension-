@@ -72,8 +72,8 @@ async function setSessionConsent() {
 
 async function hasSiteWarningConsent() {
   try {
-    const key = domainStatus.domain + "-warning";
-    const data = await chrome.storage.session.get(key);
+    const key = "able:warning:" + domainStatus.domain;
+    const data = await chrome.storage.local.get(key);
     return !!data[key];
   } catch {
     return false;
@@ -82,8 +82,21 @@ async function hasSiteWarningConsent() {
 
 async function setSiteWarningConsent() {
   try {
-    const key = domainStatus.domain + "-warning";
-    await chrome.storage.session.set({ [key]: true });
+    const key = "able:warning:" + domainStatus.domain;
+    await chrome.storage.local.set({ [key]: true });
+  } catch {
+  }
+}
+
+async function migrateOldSessionConsent() {
+  try {
+    const oldKey = domainStatus.domain + "-warning";
+    const oldData = await chrome.storage.session.get(oldKey);
+    if (oldData[oldKey]) {
+      const newKey = "able:warning:" + domainStatus.domain;
+      await chrome.storage.local.set({ [newKey]: true });
+      await chrome.storage.session.remove(oldKey);
+    }
   } catch {
   }
 }
@@ -405,6 +418,7 @@ async function initialize() {
   await classifyCurrentDomain();
 
   if (shouldActivate()) {
+    await migrateOldSessionConsent();
     const consent = await hasSiteWarningConsent();
     if (!consent && domainStatus.title && domainStatus.message) {
       showSiteWarningModal({
