@@ -17,7 +17,8 @@ const PIE_COLORS = {
 };
 
 let domainStatus = null;
-let processedInputs = new WeakSet();
+
+// ─── Domain helpers ────────────────────────────────────────────────
 
 function getWebsiteName() {
   const hostname = window.location.hostname.replace(/^www\./, "");
@@ -101,6 +102,8 @@ async function migrateOldSessionConsent() {
   }
 }
 
+// ─── File scanning ─────────────────────────────────────────────────
+
 function calculateRiskScore(text) {
   let totalScore = 0;
   const flaggedItems = [];
@@ -132,12 +135,40 @@ function readFileContent(file) {
   });
 }
 
-async function handleFileUpload(fileInput, file) {
-  const consent = await hasSessionConsent();
-  if (consent) return;
+// ─── Network interception (inject.js bridge) ───────────────────────
 
+function injectPageScript() {
+  if (document.getElementById("able-inject-script")) return;
+  const script = document.createElement("script");
+  script.id = "able-inject-script";
+  script.src = chrome.runtime.getURL("inject.js");
+  script.onload = () => script.remove();
+  (document.head || document.documentElement).appendChild(script);
+}
+
+function sendDecision(requestId, action) {
+  window.postMessage({
+    source: "ABLE_CONTENT",
+    type: "ABLE_DECISION",
+    payload: { requestId, action }
+  }, "*");
+}
+
+async function handleInterceptedFile(file, requestId) {
+  if (!shouldActivate()) {
+    sendDecision(requestId, "proceed");
+    return;
+  }
+
+  const consent = await hasSessionConsent();
+  if (consent) {
+    sendDecision(requestId, "proceed");
+    return;
+  }
+
+  const MAX_TEXT_FILE_SIZE = 100 * 1024 * 1024; // 100MB
   let text;
-  let fileFormat = 'plain';
+  let fileFormat = "plain";
 
   const officeFormat = detectOfficeFormat(file);
   if (officeFormat) {
@@ -146,13 +177,20 @@ async function handleFileUpload(fileInput, file) {
       text = result.text;
       fileFormat = result.format;
     } catch (err) {
-      console.warn('ABLE: Office parsing skipped:', err.message || err);
+      console.warn("ABLE: Office parsing skipped:", err.message || err);
+      sendDecision(requestId, "proceed");
       return;
     }
   } else {
+    if (file.size > MAX_TEXT_FILE_SIZE) {
+      console.warn("ABLE: File too large for scanning, auto-proceeding:", file.name);
+      sendDecision(requestId, "proceed");
+      return;
+    }
     try {
       text = await readFileContent(file);
     } catch {
+      sendDecision(requestId, "proceed");
       return;
     }
   }
@@ -160,7 +198,7 @@ async function handleFileUpload(fileInput, file) {
   const result = calculateRiskScore(text);
 
   if (result.score > 85) {
-    showModal({
+    showInterceptModal({
       score: result.score,
       flaggedItems: result.flaggedItems,
       domain: domainStatus.domain,
@@ -168,22 +206,29 @@ async function handleFileUpload(fileInput, file) {
       websiteName: getWebsiteName(),
       fileName: file.name,
       fileSize: file.size,
-      fileInput: fileInput,
       fileType: fileFormat,
+      requestId: requestId,
     });
-  }
-}
-
-function resetFileInput(fileInput) {
-  const form = fileInput.closest("form");
-  if (form) {
-    form.reset();
   } else {
-    fileInput.value = "";
+    sendDecision(requestId, "proceed");
   }
 }
 
-function showModal(data) {
+function setupInterceptionListener() {
+  window.addEventListener("message", async (event) => {
+    if (event.data?.source !== "ABLE_INJECT") return;
+    if (event.data.type === "ABLE_READY") return;
+    if (event.data.type === "ABLE_INTERCEPT") {
+      const { requestId, file } = event.data.payload;
+      if (!requestId || !file) return;
+      await handleInterceptedFile(file, requestId);
+    }
+  });
+}
+
+// ─── Intercept modal ───────────────────────────────────────────────
+
+function showInterceptModal(data) {
   removeModal();
 
   const backdrop = document.createElement("div");
@@ -250,28 +295,29 @@ function showModal(data) {
 
   backdrop.querySelector("#ableProceedBtn").addEventListener("click", async () => {
     await setSessionConsent();
+    sendDecision(data.requestId, "proceed");
     removeModal();
   });
 
   backdrop.querySelector("#ableCancelBtn").addEventListener("click", () => {
-    resetFileInput(data.fileInput);
+    sendDecision(data.requestId, "cancel");
     removeModal();
   });
 
   backdrop.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       e.preventDefault();
-      resetFileInput(data.fileInput);
+      sendDecision(data.requestId, "cancel");
       removeModal();
     }
   });
 
   backdrop.querySelector(".able-score-ring-wrapper").addEventListener("click", () => {
-    showScoreDetails(data);
+    showInterceptScoreDetails(data);
   });
 }
 
-function showScoreDetails(data) {
+function showInterceptScoreDetails(data) {
   const modalCard = document.querySelector(".able-modal-card");
   if (!modalCard) return;
 
@@ -308,11 +354,11 @@ function showScoreDetails(data) {
   `;
 
   document.querySelector("#ableDetailBackBtn").addEventListener("click", () => {
-    showModal(data);
+    showInterceptModal(data);
   });
 
   document.querySelector("#ableDetailCancelBtn").addEventListener("click", () => {
-    resetFileInput(data.fileInput);
+    sendDecision(data.requestId, "cancel");
     removeModal();
   });
 }
@@ -321,6 +367,8 @@ function removeModal() {
   const existing = document.querySelector(".able-modal-backdrop");
   if (existing) existing.remove();
 }
+
+// ─── Site warning modal ────────────────────────────────────────────
 
 function showSiteWarningModal(data) {
   removeModal();
@@ -360,49 +408,7 @@ function showSiteWarningModal(data) {
   });
 }
 
-function initFileScanner() {
-  const inputs = document.querySelectorAll('input[type="file"]');
-  for (const input of inputs) {
-    attachFileHandler(input);
-  }
-
-  const observer = new MutationObserver((mutations) => {
-    for (const mutation of mutations) {
-      for (const node of mutation.addedNodes) {
-        if (node.nodeType === Node.ELEMENT_NODE) {
-          if (node.matches && node.matches('input[type="file"]')) {
-            attachFileHandler(node);
-          }
-          if (node.querySelectorAll) {
-            const fileInputs = node.querySelectorAll('input[type="file"]');
-            for (const fi of fileInputs) {
-              attachFileHandler(fi);
-            }
-          }
-        }
-      }
-    }
-  });
-
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true,
-  });
-}
-
-function attachFileHandler(input) {
-  if (processedInputs.has(input)) return;
-  processedInputs.add(input);
-
-  input.addEventListener("change", async (event) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
-
-    for (const file of files) {
-      await handleFileUpload(input, file);
-    }
-  });
-}
+// ─── Fonts ──────────────────────────────────────────────────────────
 
 function injectFonts() {
   if (document.getElementById("able-fonts")) return;
@@ -412,6 +418,8 @@ function injectFonts() {
   link.href = "https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700&family=Unbounded:wght@700&display=swap";
   document.head.appendChild(link);
 }
+
+// ─── Initialization ─────────────────────────────────────────────────
 
 async function initialize() {
   injectFonts();
@@ -426,9 +434,11 @@ async function initialize() {
         message: domainStatus.message,
       });
     }
-    initFileScanner();
   }
 }
+
+injectPageScript();
+setupInterceptionListener();
 
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", initialize);
