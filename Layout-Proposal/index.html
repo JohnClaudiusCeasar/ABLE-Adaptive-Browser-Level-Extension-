@@ -15,7 +15,7 @@
     <div class="app-container">
         <aside class="sidebar">
             <div class="brand">
-                <h1>ABL<span class="brand-accent">E</span> <span class="version">v0.0.1</span></h1>
+                <h1><span class="brand-text">ABL<span class="brand-accent">E</span><span class="version">v0.0.1</span></span></h1>
             </div>
             
             <div class="action-buttons">
@@ -70,9 +70,106 @@
             </header>
             
             <section class="hero">
-                </section>
+                <div class="dashboard-wrapper">
+                    <header class="dashboard-header">
+                        <h3 class="welcome-text">Welcome to</h3>
+                        <h1 class="logo">ABL<span class="highlight">E</span></h1>
+                        <p class="subtitle">"An Adaptive Security System designed to monitor shadow-related activities from all over the world, and help users secure their personal information against third-party websites."</p>
+                        <div class="separator"></div>
+                    </header>
+
+                    <main class="dashboard-content">
+                        <section class="metrics-row">
+                            <div class="metric-card">
+                                <p class="metric-title">Active Users</p>
+                                <p class="metric-value highlight-value">45</p>
+                            </div>
+                            <div class="metric-card">
+                                <p class="metric-title">Total Egress Attempts</p>
+                                <p class="metric-value">1,500</p>
+                            </div>
+                            <div class="metric-card">
+                                <p class="metric-title">Inactive Users</p>
+                                <p class="metric-value">65</p>
+                            </div>
+                        </section>
+
+                        <section class="charts-row">
+                            <div class="chart-card">
+                                <div class="donut-chart nudge-chart">
+                                    <div class="inner-circle">
+                                        <span>Nudge<br>Success</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="chart-card">
+                                <div class="donut-chart domain-chart">
+                                    <div class="inner-circle">
+                                        <span>Domain<br>Usage</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="table-container">
+                            <h2>Recent Logs</h2>
+                            <table class="logs-table">
+                                <thead>
+                                    <tr>
+                                        <th>Date/Time</th>
+                                        <th>Destination URL</th>
+                                        <th>Status</th>
+                                        <th>User Endpoint</th>
+                                        <th>Risk Score</th>
+                                        <th>Action Taken</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>2026-06-22 1:30 PM</td>
+                                        <td>chatgpt.com</td>
+                                        <td><span class="badge badge-unsafe">UNSAFE</span></td>
+                                        <td>USER78291</td>
+                                        <td>82%</td>
+                                        <td>Proceeded</td>
+                                    </tr>
+                                    <tr>
+                                        <td>2026-06-22 1:25 PM</td>
+                                        <td>deepseek.com</td>
+                                        <td><span class="badge badge-unsafe">UNSAFE</span></td>
+                                        <td>USER81191</td>
+                                        <td>81%</td>
+                                        <td>Denied</td>
+                                    </tr>
+                                    <tr>
+                                        <td>2026-06-12 1:20 PM</td>
+                                        <td>canva.pro</td>
+                                        <td><span class="badge badge-unlisted">UNLISTED</span></td>
+                                        <td>USER90012</td>
+                                        <td>92%</td>
+                                        <td>Proceeded</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </section>
+                    </main>
+                </div>
+            </section>
         </main>
     </div>
 
+<script>
+    document.querySelectorAll('.nav-card').forEach(card => {
+        card.addEventListener('click', function(e) {
+            e.preventDefault();
+            document.querySelectorAll('.nav-card').forEach(c => {
+                c.classList.remove('active');
+                c.classList.add('transparent');
+            });
+            this.classList.remove('transparent');
+            this.classList.add('active');
+        });
+    });
+</script>
 </body>
 </html>
