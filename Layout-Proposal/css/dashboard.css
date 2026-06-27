@@ -1,0 +1,209 @@
+/* ==============================
+   Page: Dashboard
+   Scoped under [data-page="dashboard"]
+   ============================== */
+
+[data-page="dashboard"] .dashboard-wrapper {
+    max-width: 1100px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 30px;
+    position: relative;
+    z-index: 1;
+}
+
+[data-page="dashboard"] .dashboard-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+[data-page="dashboard"] .welcome-text {
+    font-size: 1.2rem;
+    font-weight: 400;
+    color: var(--text-secondary);
+    margin-bottom: -5px;
+}
+
+[data-page="dashboard"] .logo {
+    font-size: 5rem;
+    font-weight: 700;
+    letter-spacing: 4px;
+    margin: 0;
+    font-family: 'Unbounded', sans-serif;
+}
+
+[data-page="dashboard"] .logo .highlight {
+    color: var(--accent-green);
+}
+
+[data-page="dashboard"] .subtitle {
+    font-size: 0.9rem;
+    font-style: italic;
+    color: var(--text-secondary);
+    max-width: 600px;
+    margin: 15px auto;
+    line-height: 1.4;
+}
+
+[data-page="dashboard"] .separator {
+    width: 8px;
+    height: 8px;
+    background-color: var(--text-primary);
+    border-radius: 50%;
+    margin: 30px auto;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+[data-page="dashboard"] .metric-card,
+[data-page="dashboard"] .chart-card,
+[data-page="dashboard"] .table-container {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--header-border);
+    border-radius: 8px;
+    backdrop-filter: blur(10px);
+}
+
+[data-page="dashboard"] .metrics-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin-bottom: 20px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--header-border);
+    border-radius: 8px;
+    padding: 20px;
+}
+
+[data-page="dashboard"] .metrics-row .metric-card {
+    border: none;
+    background: transparent;
+    text-align: center;
+}
+
+[data-page="dashboard"] .metric-title {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+}
+
+[data-page="dashboard"] .metric-value {
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+[data-page="dashboard"] .highlight-value {
+    color: var(--accent-green);
+}
+
+[data-page="dashboard"] .charts-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+[data-page="dashboard"] .chart-card {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 30px;
+}
+
+[data-page="dashboard"] .donut-chart {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+[data-page="dashboard"] .nudge-chart {
+    background: conic-gradient(#ff3b3b 0% 25%, var(--accent-green) 25% 100%);
+}
+
+[data-page="dashboard"] .domain-chart {
+    background: conic-gradient(#ff3b3b 0% 15%, #ff007f 15% 45%, var(--accent-green) 45% 100%);
+}
+
+[data-page="dashboard"] .inner-circle {
+    width: 130px;
+    height: 130px;
+    background: #1a4033;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+[data-page="dashboard"] .inner-circle span {
+    font-size: 0.85rem;
+    font-weight: 500;
+    line-height: 1.2;
+}
+
+[data-page="dashboard"] .table-container {
+    padding: 25px;
+}
+
+[data-page="dashboard"] .table-container h2 {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 1.5rem;
+    margin-bottom: 20px;
+    font-weight: 600;
+}
+
+[data-page="dashboard"] .logs-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+[data-page="dashboard"] .logs-table th,
+[data-page="dashboard"] .logs-table td {
+    padding: 12px 10px;
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-page="dashboard"] .logs-table th {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+[data-page="dashboard"] .logs-table tr:last-child td {
+    border-bottom: none;
+}
+
+[data-page="dashboard"] .badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+[data-page="dashboard"] .badge-unsafe {
+    background-color: #ff4d4d;
+    color: #ffffff;
+    border: 1px solid #ff7a7a;
+}
+
+[data-page="dashboard"] .badge-unlisted {
+    background-color: #cc66ff;
+    color: #ffffff;
+    border: 1px solid #d98cff;
+}
+
+@media (max-width: 900px) {
+    [data-page="dashboard"] .metrics-row,
+    [data-page="dashboard"] .charts-row {
+        grid-template-columns: 1fr;
+    }
+    [data-page="dashboard"] .logs-table {
+        display: block;
+        overflow-x: auto;
+    }
+}
