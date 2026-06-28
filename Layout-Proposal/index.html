@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ABLE Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Unbounded:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Shell layout -->
+    <link rel="stylesheet" href="index.css">
+    <!-- Page modules -->
+    <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="css/egress.css">
+    <link rel="stylesheet" href="css/analytics.css">
+    <link rel="stylesheet" href="css/risk.css">
+    <link rel="stylesheet" href="css/policy.css">
+</head>
+<body>
+
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="brand">
+                <h1><span class="brand-text">ABL<span class="brand-accent">E</span><span class="version">v0.0.1</span></span></h1>
+            </div>
+            
+            <div class="action-buttons">
+                <i class="fas fa-user-circle"></i>
+                <i class="fas fa-cog"></i>
+                <i class="fas fa-bell"></i>
+            </div>
+            
+            <div class="search-bar">
+                <i class="fas fa-search"></i>
+                <input type="text" placeholder="">
+            </div>
+            
+            <hr class="divider">
+            
+            <nav class="nav-menu">
+                <a href="#" class="nav-card active">
+                    <i class="fas fa-desktop"></i>
+                    <span>Dashboard</span>
+                    <span class="status-dot"></span>
+                </a>
+                
+                <a href="#" class="nav-card transparent">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Egress Logs</span>
+                    <span class="status-dot"></span>
+                </a>
+                
+                <a href="#" class="nav-card transparent">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Security Analytics</span>
+                    <span class="status-dot"></span>
+                </a>
+                
+                <a href="#" class="nav-card transparent">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>Risk Algorithm</span>
+                    <span class="status-dot"></span>
+                </a>
+                
+                <a href="#" class="nav-card transparent">
+                    <i class="fas fa-user-shield"></i>
+                    <span>Policy Algorithm</span>
+                    <span class="status-dot"></span>
+                </a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="header">
+                <h2 id="page-title">Dashboard</h2>
+            </header>
+            
+            <section class="hero">
+                <!-- ============================================================
+                     PAGE: Dashboardc
+                     ============================================================ -->
+                <div class="page-section" data-page="dashboard">
+                    <div class="dashboard-wrapper">
+                        <header class="dashboard-header">
+                            <h3 class="welcome-text">Welcome to</h3>
+                            <h1 class="logo">ABL<span class="highlight">E</span></h1>
+                            <p class="subtitle">"An Adaptive Security System designed to monitor shadow-related activities from all over the world, and help users secure their personal information against third-party websites."</p>
+                            <div class="separator"></div>
+                        </header>
+
+                        <main class="dashboard-content">
+                            <section class="metrics-row">
+                                <div class="metric-card">
+                                    <p class="metric-title">Active Users</p>
+                                    <p class="metric-value highlight-value">45</p>
+                                </div>
+                                <div class="metric-card">
+                                    <p class="metric-title">Total Egress Attempts</p>
+                                    <p class="metric-value">1,500</p>
+                                </div>
+                                <div class="metric-card">
+                                    <p class="metric-title">Inactive Users</p>
+                                    <p class="metric-value">65</p>
+                                </div>
+                            </section>
+
+                            <section class="charts-row">
+                                <div class="chart-card">
+                                    <div class="donut-chart nudge-chart">
+                                        <div class="inner-circle">
+                                            <span>Nudge<br>Success</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="chart-card">
+                                    <div class="donut-chart domain-chart">
+                                        <div class="inner-circle">
+                                            <span>Domain<br>Usage</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section class="table-container">
+                                <h2>Recent Logs</h2>
+                                <table class="logs-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Date/Time</th>
+                                            <th>Destination URL</th>
+                                            <th>Status</th>
+                                            <th>User Endpoint</th>
+                                            <th>Risk Score</th>
+                                            <th>Action Taken</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>2026-06-22 1:30 PM</td>
+                                            <td>chatgpt.com</td>
+                                            <td><span class="badge badge-unsafe">UNSAFE</span></td>
+                                            <td>USER78291</td>
+                                            <td>82%</td>
+                                            <td>Proceeded</td>
+                                        </tr>
+                                        <tr>
+                                            <td>2026-06-22 1:25 PM</td>
+                                            <td>deepseek.com</td>
+                                            <td><span class="badge badge-unsafe">UNSAFE</span></td>
+                                            <td>USER81191</td>
+                                            <td>81%</td>
+                                            <td>Denied</td>
+                                        </tr>
+                                        <tr>
+                                            <td>2026-06-12 1:20 PM</td>
+                                            <td>canva.pro</td>
+                                            <td><span class="badge badge-unlisted">UNLISTED</span></td>
+                                            <td>USER90012</td>
+                                            <td>92%</td>
+                                            <td>Proceeded</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </section>
+                        </main>
+                    </div>
+                </div>
+
+                <!-- ============================================================
+                     PAGE: Egress Logs
+                     ============================================================ -->
+                <div class="page-section hidden" data-page="egress">
+                    <div class="page-content">
+                        <header class="page-header">
+                            <h1 class="page-title">EGRESS LOGS</h1>
+                            <p class="page-description">Displays raw, telemetry data being intercepted by the ABLE browser extension.</p>
+                            
+                            <div class="search-container">
+                                <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="11" cy="11" r="8"></circle>
+                                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                                </svg>
+                                <input type="text" class="search-input" placeholder="Search">
+                            </div>
+                        </header>
+
+                        <main class="glass-panel">
+                            <div class="table-responsive">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Date/Time</th>
+                                            <th>Destination URL</th>
+                                            <th>Status</th>
+                                            <th>User ID</th>
+                                            <th>Risk Score</th>
+                                            <th>User Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>2026-06-22 1:30 PM</td>
+                                            <td>chatgpt.com</td>
+                                            <td><span class="badge badge-unsafe">UNSAFE</span></td>
+                                            <td>USER78291</td>
+                                            <td>82%</td>
+                                            <td>Proceeded</td>
+                                        </tr>
+                                        <tr>
+                                            <td>2026-06-22 1:25 PM</td>
+                                            <td>deepseek.com</td>
+                                            <td><span class="badge badge-unsafe">UNSAFE</span></td>
+                                            <td>USER81191</td>
+                                            <td>81%</td>
+                                            <td>Denied</td>
+                                        </tr>
+                                        <tr>
+                                            <td>2026-06-12 1:20 PM</td>
+                                            <td>canva.pro</td>
+                                            <td><span class="badge badge-unlisted">UNLISTED</span></td>
+                                            <td>USER90012</td>
+                                            <td>92%</td>
+                                            <td>Proceeded</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="pagination">
+                                <a href="#" class="page-nav">&lt;</a>
+                                <a href="#" class="page-num active">1</a>
+                                <a href="#" class="page-num">2</a>
+                                <a href="#" class="page-num">3</a>
+                                <a href="#" class="page-num">4</a>
+                                <span class="page-dots">...</span>
+                                <a href="#" class="page-nav">&gt;</a>
+                            </div>
+                        </main>
+                    </div>
+                </div>
+
+                <!-- ============================================================
+                     PAGE: Security Analytics
+                     ============================================================ -->
+                <div class="page-section hidden" data-page="analytics">
+                    <div class="page-content">
+                        <header class="main-header">
+                            <h1 class="dashboard-title">SECURITY ANALYTICS</h1>
+                            <p class="dashboard-subtitle">Monitors and Displays Domain Information and Nudge Success Percentage extracted from the Browser Extension for Admin Review and Approval.</p>
+                        </header>
+
+                        <main class="dashboard-grid">
+                            <section class="row-two-columns">
+                                <div class="glass-panel center-content split-30">
+                                    <h3 class="panel-title">Detected Domains</h3>
+                                    <div class="large-metric">45</div>
+                                </div>
+                                
+                                <div class="glass-panel split-70">
+                                    <div class="panel-header-inline">
+                                        <h3 class="panel-title">Domain Usage Over time</h3>
+                                        <div class="dropdown-mock">Daily <span class="arrow">▼</span></div>
+                                    </div>
+                                    <div class="progress-group">
+                                        <div class="progress-row">
+                                            <span class="progress-label">SAFE</span>
+                                            <div class="progress-bar-container">
+                                                <div class="progress-bar bar-safe" style="width: 65%;"></div>
+                                            </div>
+                                            <span class="progress-val">215</span>
+                                        </div>
+                                        <div class="progress-row">
+                                            <span class="progress-label">UNSAFE</span>
+                                            <div class="progress-bar-container">
+                                                <div class="progress-bar bar-unsafe" style="width: 35%;"></div>
+                                            </div>
+                                            <span class="progress-val">115</span>
+                                        </div>
+                                        <div class="progress-row">
+                                            <span class="progress-label">UNLISTED</span>
+                                            <div class="progress-bar-container">
+                                                <div class="progress-bar bar-unlisted" style="width: 85%;"></div>
+                                            </div>
+                                            <span class="progress-val">530</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section class="glass-panel full-width">
+                                <h3 class="panel-title table-title">Shadow Footprint Catalog</h3>
+                                <div class="table-responsive">
+                                    <table class="analytics-table border-header">
+                                        <thead>
+                                            <tr>
+                                                <th>App Name</th>
+                                                <th>Domain URL</th>
+                                                <th>Category</th>
+                                                <th>Risk Weight</th>
+                                                <th>Active Users</th>
+                                                <th>Status</th>
+                                                <th class="center-text">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>ChatGPT</td>
+                                                <td>chat.open.ai</td>
+                                                <td>Gen AI</td>
+                                                <td><span class="badge badge-high">HIGH</span></td>
+                                                <td>149</td>
+                                                <td>Unapproved</td>
+                                                <td class="center-text"><button class="action-btn"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button></td>
+                                            </tr>
+                                            <tr>
+                                                <td>Notion</td>
+                                                <td>notion.so</td>
+                                                <td>Productivity</td>
+                                                <td><span class="badge badge-low">LOW</span></td>
+                                                <td>89</td>
+                                                <td>Pending</td>
+                                                <td class="center-text"><button class="action-btn"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button></td>
+                                            </tr>
+                                            <tr>
+                                                <td>Github</td>
+                                                <td>github.com</td>
+                                                <td>Develop...</td>
+                                                <td><span class="badge badge-low">LOW</span></td>
+                                                <td>110</td>
+                                                <td>Approved</td>
+                                                <td class="center-text"><button class="action-btn"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button></td>
+                                            </tr>
+                                            <tr>
+                                                <td>Quillbot</td>
+                                                <td>quillbot.com</td>
+                                                <td>Productivity</td>
+                                                <td><span class="badge badge-low">LOW</span></td>
+                                                <td>98</td>
+                                                <td>Approved</td>
+                                                <td class="center-text"><button class="action-btn"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="pagination">
+                                    <span class="page-num active">1</span>
+                                    <span class="page-num">2</span>
+                                    <span class="page-num">3</span>
+                                    <span class="page-num">4</span>
+                                    <span class="page-dots">...</span>
+                                    <span class="page-nav">&gt;</span>
+                                </div>
+                            </section>
+
+                            <section class="row-three-columns">
+                                <div class="glass-panel center-content padded-card">
+                                    <h4 class="panel-sub-title">Total Nudges Deployed</h4>
+                                    <div class="medium-metric">1,578</div>
+                                </div>
+                                <div class="glass-panel center-content padded-card">
+                                    <h4 class="panel-sub-title">Avg. Success Rate</h4>
+                                    <div class="medium-metric highlight-yellow">82.3%</div>
+                                </div>
+                                <div class="glass-panel center-content padded-card">
+                                    <h4 class="panel-sub-title">Data Saved</h4>
+                                    <div class="medium-metric">1.5GB</div>
+                                </div>
+                            </section>
+
+                            <section class="row-two-columns">
+                                <div class="glass-panel">
+                                    <h3 class="panel-title table-title">Nudge Effectiveness</h3>
+                                    <div class="table-responsive">
+                                        <table class="analytics-table plain-header">
+                                            <thead>
+                                                <tr>
+                                                    <th>Date</th>
+                                                    <th>Proceeded</th>
+                                                    <th>Cancelled</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr><td>06-20-2026</td><td>12</td><td>9</td></tr>
+                                                <tr><td>06-19-2026</td><td>7</td><td>14</td></tr>
+                                                <tr><td>06-18-2026</td><td>14</td><td>2</td></tr>
+                                                <tr><td>06-17-2026</td><td>7</td><td>14</td></tr>
+                                                <tr><td>06-16-2026</td><td>15</td><td>13</td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div class="pagination">
+                                        <span class="page-num active">1</span>
+                                        <span class="page-num">2</span>
+                                        <span class="page-num">3</span>
+                                        <span class="page-num">4</span>
+                                        <span class="page-dots">...</span>
+                                        <span class="page-nav">&gt;</span>
+                                    </div>
+                                </div>
+
+                                <div class="glass-panel">
+                                    <h3 class="panel-title table-title">Top Domains</h3>
+                                    <div class="table-responsive">
+                                        <table class="analytics-table plain-header">
+                                            <thead>
+                                                <tr>
+                                                    <th>Domain</th>
+                                                    <th>Total Nudges</th>
+                                                    <th>Cancelled</th>
+                                                    <th>Proceeded</th>
+                                                    <th>Success</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr><td>ChatGPT</td><td>450</td><td>391</td><td>59</td><td><div class="micro-badge badge-green">86.8%</div></td></tr>
+                                                <tr><td>notion</td><td>234</td><td>197</td><td>47</td><td><div class="micro-badge badge-green">84.1%</div></td></tr>
+                                                <tr><td>Discord</td><td>156</td><td>142</td><td>14</td><td><div class="micro-badge badge-green">91.0%</div></td></tr>
+                                                <tr><td>Gemini</td><td>189</td><td>159</td><td>30</td><td><div class="micro-badge badge-green">84.1%</div></td></tr>
+                                                <tr><td>Pastebin</td><td>95</td><td>71</td><td>24</td><td><div class="micro-badge badge-orange">74.7%</div></td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div class="pagination">
+                                        <span class="page-num active">1</span>
+                                        <span class="page-num">2</span>
+                                        <span class="page-num">3</span>
+                                        <span class="page-num">4</span>
+                                        <span class="page-dots">...</span>
+                                        <span class="page-nav">&gt;</span>
+                                    </div>
+                                </div>
+                            </section>
+                        </main>
+                    </div>
+                </div>
+
+                <!-- ============================================================
+                     PAGE: Risk Algorithm
+                     ============================================================ -->
+                <div class="page-section hidden" data-page="risk">
+                    <div class="page-content">
+                        <header class="dashboard-header">
+                            <h1>RISK ALGORITHM</h1>
+                            <p class="subtitle">Risk Score Algorithm Management for Javascript Regex Configuration. Helps ABLE determine and flag certain key words for DOM file scanning.</p>
+                            
+                            <div class="search-box">
+                                <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="11" cy="11" r="8"></circle>
+                                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                                </svg>
+                                <input type="text" placeholder="Search">
+                            </div>
+                        </header>
+
+                        <main class="data-card">
+                            <div class="card-header">
+                                <h2>Data Classification</h2>
+                                <button class="btn-add">+ Add Pattern</button>
+                            </div>
+
+                            <div class="table-container">
+                                <table class="pattern-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Pattern Name</th>
+                                            <th>Regex Pattern</th>
+                                            <th>Score</th>
+                                            <th>Status</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr class="group-header-row">
+                                            <td colspan="5">
+                                                <div class="group-header-content">
+                                                    <div class="group-title">
+                                                        <span class="main-title">University Data</span>
+                                                        <span class="badge">+4 Items</span>
+                                                    </div>
+                                                    <svg class="arrow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                        <polyline points="6 9 12 15 18 9"></polyline>
+                                                    </svg>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <tr class="grouped-row">
+                                            <td class="pattern-name">Student ID Format</td>
+                                            <td class="regex-text">^\d{2}-\d{4}-\d{3}$</td>
+                                            <td class="score-text">95</td>
+                                            <td>Active</td>
+                                            <td class="actions">
+                                                <button class="btn-action edit" aria-label="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></button>
+                                                <button class="btn-action delete" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
+                                            </td>
+                                        </tr>
+                                        <tr class="grouped-row">
+                                            <td class="pattern-name">University Email</td>
+                                            <td class="regex-text">^[a-zA-Z0-9._%+-]+@...</td>
+                                            <td class="score-text">72</td>
+                                            <td>Active</td>
+                                            <td class="actions">
+                                                <button class="btn-action edit" aria-label="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></button>
+                                                <button class="btn-action delete" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
+                                            </td>
+                                        </tr>
+                                        <tr class="grouped-row">
+                                            <td class="pattern-name">Phone Number</td>
+                                            <td class="regex-text">^(\+63|0)[0-9]{9,10}$</td>
+                                            <td class="score-text">85</td>
+                                            <td>Active</td>
+                                            <td class="actions">
+                                                <button class="btn-action edit" aria-label="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></button>
+                                                <button class="btn-action delete" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
+                                            </td>
+                                        </tr>
+                                        <tr class="grouped-row last-grouped-row">
+                                            <td class="pattern-name">Research Data</td>
+                                            <td class="regex-text">(proprietary|confidentia...</td>
+                                            <td class="score-text">85</td>
+                                            <td>Active</td>
+                                            <td class="actions">
+                                                <button class="btn-action edit" aria-label="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></button>
+                                                <button class="btn-action delete" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
+                                            </td>
+                                        </tr>
+
+                                        <tr class="standard-row">
+                                            <td class="pattern-name">Credit Card</td>
+                                            <td class="regex-text">^(?:4[0-9]{12}(?:[0-9...</td>
+                                            <td class="score-text">98</td>
+                                            <td>Active</td>
+                                            <td class="actions">
+                                                <button class="btn-action edit-standard" aria-label="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></button>
+                                                <button class="btn-action delete-standard" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <footer class="pagination-container">
+                                <div class="pagination">
+                                    <span class="page-num active">1</span>
+                                    <span class="page-num">2</span>
+                                    <span class="page-num">3</span>
+                                    <span class="page-num">4</span>
+                                    <span class="page-ellipsis">...</span>
+                                    <span class="page-next">&gt;</span>
+                                </div>
+                            </footer>
+                        </main>
+                    </div>
+                </div>
+
+                <!-- ============================================================
+                     PAGE: Policy Algorithm
+                     ============================================================ -->
+                <div class="page-section hidden" data-page="policy">
+                    <div class="page-content">
+                        <header class="dashboard-header">
+                            <h1>POLICY ALGORITHM</h1>
+                            <p class="subtitle">Domain Management for website security checking.</p>
+                            
+                            <div class="search-box">
+                                <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="11" cy="11" r="8"></circle>
+                                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                                </svg>
+                                <input type="text" placeholder="Search">
+                            </div>
+                        </header>
+
+                        <main class="data-card">
+                            <div class="card-header">
+                                <h2>Domain Policy</h2>
+                                <button class="btn-add">+ Add Domain</button>
+                            </div>
+
+                            <div class="table-container">
+                                <table class="policy-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Domain Name</th>
+                                            <th>Type</th>
+                                            <th>Category</th>
+                                            <th>Risk Weight</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td class="domain-name">lms.msu.edu.ph</td>
+                                            <td class="type-text">Whitelisted</td>
+                                            <td>95</td>
+                                            <td class="muted-text">0</td>
+                                            <td class="status-tag safe">Safe</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="domain-name">msu.edu.ph</td>
+                                            <td class="type-text">Whitelisted</td>
+                                            <td>72</td>
+                                            <td class="muted-text">0</td>
+                                            <td class="status-tag safe">Safe</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="domain-name">ChatGPT</td>
+                                            <td class="type-text">Blacklisted</td>
+                                            <td>85</td>
+                                            <td class="risk-text high">85</td>
+                                            <td class="status-tag blocked">Blocked</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="domain-name">Mega</td>
+                                            <td class="type-text">Blacklisted</td>
+                                            <td>85</td>
+                                            <td class="risk-text high">70</td>
+                                            <td class="status-tag blocked">Blocked</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="domain-name">notion.so</td>
+                                            <td class="type-text">Under Review</td>
+                                            <td>98</td>
+                                            <td class="risk-text mid">35</td>
+                                            <td class="status-tag review">Review</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <footer class="pagination-container">
+                                <div class="pagination">
+                                    <span class="page-num active">1</span>
+                                    <span class="page-num">2</span>
+                                    <span class="page-num">3</span>
+                                    <span class="page-num">4</span>
+                                    <span class="page-ellipsis">...</span>
+                                    <span class="page-next">&gt;</span>
+                                </div>
+                            </footer>
+                        </main>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+<script src="app.js"></script>
+</body>
+</html>

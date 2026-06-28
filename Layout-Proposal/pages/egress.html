@@ -1,0 +1,66 @@
+<!-- Egress Logs — reference content block (inlined in index.html) -->
+<header class="page-header">
+    <h1 class="page-title">EGRESS LOGS</h1>
+    <p class="page-description">Displays raw, telemetry data being intercepted by the ABLE browser extension.</p>
+    
+    <div class="search-container">
+        <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" class="search-input" placeholder="Search">
+    </div>
+</header>
+
+<main class="glass-panel">
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Date/Time</th>
+                    <th>Destination URL</th>
+                    <th>Status</th>
+                    <th>User ID</th>
+                    <th>Risk Score</th>
+                    <th>User Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>2026-06-22 1:30 PM</td>
+                    <td>chatgpt.com</td>
+                    <td><span class="badge badge-unsafe">UNSAFE</span></td>
+                    <td>USER78291</td>
+                    <td>82%</td>
+                    <td>Proceeded</td>
+                </tr>
+                <tr>
+                    <td>2026-06-22 1:25 PM</td>
+                    <td>deepseek.com</td>
+                    <td><span class="badge badge-unsafe">UNSAFE</span></td>
+                    <td>USER81191</td>
+                    <td>81%</td>
+                    <td>Denied</td>
+                </tr>
+                <tr>
+                    <td>2026-06-12 1:20 PM</td>
+                    <td>canva.pro</td>
+                    <td><span class="badge badge-unlisted">UNLISTED</span></td>
+                    <td>USER90012</td>
+                    <td>92%</td>
+                    <td>Proceeded</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="pagination">
+        <a href="#" class="page-nav">&lt;</a>
+        <a href="#" class="page-num active">1</a>
+        <a href="#" class="page-num">2</a>
+        <a href="#" class="page-num">3</a>
+        <a href="#" class="page-num">4</a>
+        <span class="page-dots">...</span>
+        <a href="#" class="page-nav">&gt;</a>
+    </div>
+</main>
