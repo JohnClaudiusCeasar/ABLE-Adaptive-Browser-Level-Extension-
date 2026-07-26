@@ -1,5 +1,6 @@
-import { Breadcrumbs } from '@/components/breadcrumbs';
-import { SidebarTrigger } from '@/components/ui/sidebar';
+import { router } from '@inertiajs/react';
+import { LogOut } from 'lucide-react';
+import { login, logout } from '@/routes';
 import type { BreadcrumbItem as BreadcrumbItemType } from '@/types';
 
 export function AppSidebarHeader({
@@ -8,11 +9,29 @@ export function AppSidebarHeader({
     breadcrumbs?: BreadcrumbItemType[];
 }) {
     return (
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b border-sidebar-border/50 px-6 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 md:px-4">
-            <div className="flex items-center gap-2">
-                <SidebarTrigger className="-ml-1" />
-                <Breadcrumbs breadcrumbs={breadcrumbs} />
-            </div>
+        <header
+            className="flex h-16 shrink-0 items-center justify-between px-6 transition-[width,height] ease-linear md:px-4 sticky top-0 z-10"
+            style={{
+                background: '#1e4b3e',
+                borderBottom: '2px solid rgba(34, 197, 94, 0.7)',
+                boxShadow: '0px 8px 20px -5px rgba(34, 197, 94, 0.4)',
+            }}
+        >
+            <h2
+                className="text-lg font-semibold text-foreground"
+                style={{ fontFamily: "'Unbounded', sans-serif" }}
+            >
+                {breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].title : 'Dashboard'}
+            </h2>
+
+            <button
+                onClick={() => router.post(logout(), {}, { onFinish: () => router.visit(login()) })}
+                className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-white/10 hover:text-red-400"
+                aria-label="Logout"
+            >
+                <LogOut size={18} />
+                <span>Logout</span>
+            </button>
         </header>
     );
 }
