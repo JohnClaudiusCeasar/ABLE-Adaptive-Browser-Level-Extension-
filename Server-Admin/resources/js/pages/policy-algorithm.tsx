@@ -1,7 +1,7 @@
 import { Head } from '@inertiajs/react';
 import { Search } from 'lucide-react';
 
-const glassCard = 'bg-white/5 border border-[rgba(34,197,94,0.7)] rounded-lg backdrop-blur-[10px]';
+const glassCard = 'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
 
 const domains = [
     { name: 'lms.msu.edu.ph', type: 'Whitelisted', category: '95', risk: '0', status: 'safe' },
@@ -32,20 +32,20 @@ export default function PolicyAlgorithm() {
                     {/* Header */}
                     <header className="mb-8">
                         <h1
-                            className="text-[2.5rem] font-medium tracking-wide mb-2 text-white"
+                            className="text-[2.5rem] font-medium tracking-wide mb-2 text-foreground"
                             style={{ fontFamily: "'Unbounded', sans-serif" }}
                         >
                             POLICY ALGORITHM
                         </h1>
-                        <p className="text-base text-[#cbd5e1] mb-6">
+                        <p className="text-base text-muted-foreground mb-6">
                             Domain Management for website security checking.
                         </p>
                         <div className="relative w-[300px]">
-                            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94a3b8]" />
+                            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                             <input
                                 type="text"
                                 placeholder="Search"
-                                className="w-full py-2.5 pl-11 pr-3.5 bg-[rgba(15,23,42,0.4)] border border-white/10 rounded-full text-white text-[0.9rem] outline-none placeholder:text-[#94a3b8]"
+                                className="w-full py-2.5 pl-11 pr-3.5 bg-black/5 border border-black/10 rounded-full text-foreground text-[0.9rem] outline-none placeholder:text-muted-foreground dark:bg-[rgba(15,23,42,0.4)] dark:border-white/10"
                             />
                         </div>
                     </header>
@@ -64,17 +64,17 @@ export default function PolicyAlgorithm() {
                                 <thead>
                                     <tr>
                                         {['Domain Name', 'Type', 'Category', 'Risk Weight', 'Status'].map((h) => (
-                                            <th key={h} className="text-[#e2e8f0] font-normal py-3 px-4 border-b border-[rgba(34,197,94,0.7)]">{h}</th>
+                                            <th key={h} className="text-muted-foreground font-normal py-3 px-4 border-b border-[rgba(34,197,94,0.7)]">{h}</th>
                                         ))}
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {domains.map((d, i) => (
-                                        <tr key={i} className="border-b border-white/10 last:border-b-0">
-                                            <td className="py-5 px-4 font-semibold text-white">{d.name}</td>
-                                            <td className="py-5 px-4 text-[#cbd5e1]">{d.type}</td>
+                                        <tr key={i} className="border-b border-black/10 last:border-b-0 dark:border-white/10">
+                                            <td className="py-5 px-4 font-semibold">{d.name}</td>
+                                            <td className="py-5 px-4 text-muted-foreground">{d.type}</td>
                                             <td className="py-5 px-4">{d.category}</td>
-                                            <td className={`py-5 px-4 ${parseInt(d.risk) > 0 ? 'text-[#f87171] font-semibold' : 'text-[#64748b]'}`}>{d.risk}</td>
+                                            <td className={`py-5 px-4 ${parseInt(d.risk) > 0 ? 'text-[#f87171] font-semibold' : 'text-muted-foreground'}`}>{d.risk}</td>
                                             <td className={`py-5 px-4 text-[0.85rem] ${statusStyles[d.status]}`}>{statusLabels[d.status]}</td>
                                         </tr>
                                     ))}
@@ -83,13 +83,13 @@ export default function PolicyAlgorithm() {
                         </div>
 
                         {/* Pagination */}
-                        <div className="flex justify-end mt-8 items-center gap-3 text-[0.95rem] text-[#94a3b8]">
+                        <div className="flex justify-end mt-8 items-center gap-3 text-[0.95rem] text-muted-foreground">
                             <span className="w-[26px] h-[26px] flex items-center justify-center rounded-full bg-able-green text-white font-semibold cursor-pointer">1</span>
-                            <span className="w-[26px] h-[26px] flex items-center justify-center rounded-full cursor-pointer hover:text-white">2</span>
-                            <span className="w-[26px] h-[26px] flex items-center justify-center rounded-full cursor-pointer hover:text-white">3</span>
-                            <span className="w-[26px] h-[26px] flex items-center justify-center rounded-full cursor-pointer hover:text-white">4</span>
+                            <span className="w-[26px] h-[26px] flex items-center justify-center rounded-full cursor-pointer hover:bg-black/5 dark:hover:text-white">2</span>
+                            <span className="w-[26px] h-[26px] flex items-center justify-center rounded-full cursor-pointer hover:bg-black/5 dark:hover:text-white">3</span>
+                            <span className="w-[26px] h-[26px] flex items-center justify-center rounded-full cursor-pointer hover:bg-black/5 dark:hover:text-white">4</span>
                             <span className="cursor-default">...</span>
-                            <span className="cursor-pointer font-bold hover:text-white">&gt;</span>
+                            <span className="cursor-pointer font-bold hover:bg-black/5 dark:hover:text-white">&gt;</span>
                         </div>
                     </div>
 

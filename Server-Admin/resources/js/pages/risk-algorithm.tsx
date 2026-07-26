@@ -2,7 +2,7 @@ import { Head } from '@inertiajs/react';
 import { ChevronDown, Pencil, Search, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
-const glassCard = 'bg-white/5 border border-[rgba(34,197,94,0.7)] rounded-lg backdrop-blur-[10px]';
+const glassCard = 'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
 
 const groupedPatterns = [
     { name: 'Student ID Format', regex: '^\\d{2}-\\d{4}-\\d{3}$', score: '95' },
@@ -26,20 +26,20 @@ export default function RiskAlgorithm() {
                     {/* Header */}
                     <header className="mb-8">
                         <h1
-                            className="text-[2.5rem] font-medium tracking-wide mb-3"
+                            className="text-[2.5rem] font-medium tracking-wide mb-3 text-foreground"
                             style={{ fontFamily: "'Unbounded', sans-serif" }}
                         >
                             RISK ALGORITHM
                         </h1>
-                        <p className="text-[0.95rem] text-[#b0c1c8] leading-relaxed max-w-[800px] mb-6">
+                        <p className="text-[0.95rem] text-muted-foreground leading-relaxed max-w-[800px] mb-6">
                             Risk Score Algorithm Management for Javascript Regex Configuration. Helps ABLE determine and flag certain key words for DOM file scanning.
                         </p>
                         <div className="relative w-[300px]">
-                            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8da2ab]" />
+                            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                             <input
                                 type="text"
                                 placeholder="Search"
-                                className="w-full py-2 pl-10 pr-3 bg-[rgba(20,32,38,0.4)] border border-white/10 rounded-full text-white text-[0.9rem] outline-none placeholder:text-[#8da2ab]"
+                                className="w-full py-2 pl-10 pr-3 bg-black/5 border border-black/10 rounded-full text-foreground text-[0.9rem] outline-none placeholder:text-muted-foreground dark:bg-[rgba(20,32,38,0.4)] dark:border-white/10"
                             />
                         </div>
                     </header>
@@ -58,7 +58,7 @@ export default function RiskAlgorithm() {
                                 <thead>
                                     <tr>
                                         {['Pattern Name', 'Regex Pattern', 'Score', 'Status', 'Action'].map((h) => (
-                                            <th key={h} className="text-white font-normal text-[0.9rem] py-3 px-4 border-b border-[rgba(34,197,94,0.7)]">{h}</th>
+                                            <th key={h} className="text-muted-foreground font-normal text-[0.9rem] py-3 px-4 border-b border-[rgba(34,197,94,0.7)]">{h}</th>
                                         ))}
                                     </tr>
                                 </thead>
@@ -82,13 +82,13 @@ export default function RiskAlgorithm() {
                                     {/* Grouped Rows */}
                                     {groupOpen && groupedPatterns.map((p, i) => (
                                         <tr key={i} className="bg-[rgba(56,193,73,0.1)]">
-                                            <td className="py-3.5 px-4 font-semibold border-t border-[rgba(56,193,73,0.2)] border-b border-b-[rgba(56,193,73,0.2)] border-l-2 border-l-[#38c149] text-white">
+                                            <td className="py-3.5 px-4 font-semibold border-t border-[rgba(56,193,73,0.2)] border-b border-b-[rgba(56,193,73,0.2)] border-l-2 border-l-[#38c149]">
                                                 {p.name}
                                             </td>
-                                            <td className="py-3.5 px-4 font-mono text-[#b0c1c8] border-t border-[rgba(56,193,73,0.2)] border-b border-b-[rgba(56,193,73,0.2)]">
+                                            <td className="py-3.5 px-4 font-mono text-muted-foreground border-t border-[rgba(56,193,73,0.2)] border-b border-b-[rgba(56,193,73,0.2)]">
                                                 {p.regex}
                                             </td>
-                                            <td className="py-3.5 px-4 text-white border-t border-[rgba(56,193,73,0.2)] border-b border-b-[rgba(56,193,73,0.2)]">
+                                            <td className="py-3.5 px-4 border-t border-[rgba(56,193,73,0.2)] border-b border-b-[rgba(56,193,73,0.2)]">
                                                 {p.score}
                                             </td>
                                             <td className="py-3.5 px-4 border-t border-[rgba(56,193,73,0.2)] border-b border-b-[rgba(56,193,73,0.2)]">Active</td>
@@ -113,14 +113,14 @@ export default function RiskAlgorithm() {
                                     {/* Standard Rows */}
                                     {standardPatterns.map((p, i) => (
                                         <tr key={i}>
-                                            <td className="py-5 px-4 font-semibold border-b border-[#2e434d]">{p.name}</td>
-                                            <td className="py-5 px-4 font-mono text-[#b0c1c8] border-b border-[#2e434d]">{p.regex}</td>
-                                            <td className="py-5 px-4 text-white border-b border-[#2e434d]">{p.score}</td>
-                                            <td className="py-5 px-4 border-b border-[#2e434d]">Active</td>
-                                            <td className="py-5 px-4 border-b border-[#2e434d]">
+                                            <td className="py-5 px-4 font-semibold border-b border-black/10 dark:border-[#2e434d]">{p.name}</td>
+                                            <td className="py-5 px-4 font-mono text-muted-foreground border-b border-black/10 dark:border-[#2e434d]">{p.regex}</td>
+                                            <td className="py-5 px-4 border-b border-black/10 dark:border-[#2e434d]">{p.score}</td>
+                                            <td className="py-5 px-4 border-b border-black/10 dark:border-[#2e434d]">Active</td>
+                                            <td className="py-5 px-4 border-b border-black/10 dark:border-[#2e434d]">
                                                 <div className="flex gap-3">
                                                     <button className="bg-transparent border-none cursor-pointer p-0"><Pencil size={18} className="text-[#36cfc9]" /></button>
-                                                    <button className="bg-transparent border-none cursor-pointer p-0"><Trash2 size={18} className="text-[#8da2ab]" /></button>
+                                                    <button className="bg-transparent border-none cursor-pointer p-0"><Trash2 size={18} className="text-muted-foreground" /></button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -130,13 +130,13 @@ export default function RiskAlgorithm() {
                         </div>
 
                         {/* Pagination */}
-                        <div className="flex justify-end mt-6 items-center gap-3 text-[0.9rem] text-[#8da2ab]">
+                        <div className="flex justify-end mt-6 items-center gap-3 text-[0.9rem] text-muted-foreground">
                             <span className="w-6 h-6 flex items-center justify-center rounded-full bg-able-green text-white font-semibold cursor-pointer">1</span>
-                            <span className="w-6 h-6 flex items-center justify-center rounded-full cursor-pointer hover:text-white">2</span>
-                            <span className="w-6 h-6 flex items-center justify-center rounded-full cursor-pointer hover:text-white">3</span>
-                            <span className="w-6 h-6 flex items-center justify-center rounded-full cursor-pointer hover:text-white">4</span>
+                            <span className="w-6 h-6 flex items-center justify-center rounded-full cursor-pointer hover:bg-black/5 dark:hover:text-white">2</span>
+                            <span className="w-6 h-6 flex items-center justify-center rounded-full cursor-pointer hover:bg-black/5 dark:hover:text-white">3</span>
+                            <span className="w-6 h-6 flex items-center justify-center rounded-full cursor-pointer hover:bg-black/5 dark:hover:text-white">4</span>
                             <span className="cursor-default">...</span>
-                            <span className="cursor-pointer font-semibold hover:text-white">&gt;</span>
+                            <span className="cursor-pointer font-semibold hover:bg-black/5 dark:hover:text-white">&gt;</span>
                         </div>
                     </div>
 

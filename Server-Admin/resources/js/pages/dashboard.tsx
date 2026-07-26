@@ -1,16 +1,8 @@
 import { Head } from '@inertiajs/react';
 import { dashboard } from '@/routes';
+import { Badge } from '@/components/ui/badge';
 
-const glassCard = 'bg-white/5 border border-[rgba(34,197,94,0.7)] rounded-lg backdrop-blur-[10px]';
-
-function Badge({ variant, children }: { variant: 'unsafe' | 'unlisted' | 'safe'; children: React.ReactNode }) {
-    const styles = {
-        unsafe: 'bg-[#ff4d4d] text-white border border-[#ff7a7a]',
-        unlisted: 'bg-[#cc66ff] text-white border border-[#d98cff]',
-        safe: 'bg-able-green text-white border border-able-green',
-    };
-    return <span className={`px-2.5 py-1 rounded-xl text-[11px] font-semibold tracking-wide ${styles[variant]}`}>{children}</span>;
-}
+const glassCard = 'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
 
 export default function Dashboard() {
     return (
@@ -30,29 +22,57 @@ export default function Dashboard() {
                         <p className="text-sm italic text-muted-foreground max-w-[600px] mx-auto mt-3 leading-relaxed">
                             "An Adaptive Security System designed to monitor shadow-related activities from all over the world, and help users secure their personal information against third-party websites."
                         </p>
-                        <div className="w-2 h-2 bg-foreground rounded-full mx-auto mt-7 shadow-[0_0_10px_rgba(255,255,255,0.5)]" />
+                        <div className="flex items-center gap-3 max-w-[200px] mx-auto mt-7">
+                            <div className="flex-1 h-px bg-muted-foreground/30" />
+                            <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50" />
+                            <div className="flex-1 h-px bg-muted-foreground/30" />
+                        </div>
                     </header>
 
                     {/* Metrics Row */}
-                    <div className={`${glassCard} p-5 mb-5`}>
-                        <div className="grid grid-cols-3 gap-4 text-center">
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                        <div className={`${glassCard} p-5`}>
+                            <div className="grid grid-cols-2 gap-4 text-center">
+                                <div>
+                                    <p className="text-sm text-muted-foreground mb-2.5">Active Users</p>
+                                    <p className="text-2xl font-semibold text-able-green">45</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-muted-foreground mb-2.5">Inactive Users</p>
+                                    <p className="text-2xl font-semibold">65</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className={`${glassCard} p-5 flex flex-col justify-center items-center`}>
+                            <div className="grid grid-cols-2 gap-4 text-center w-full">
+                                <div>
+                                    <p className="text-sm text-muted-foreground mb-2.5">Total Domain Visits</p>
+                                    <p className="text-2xl font-semibold">1,500</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-muted-foreground mb-2.5">Total Egress Attempts</p>
+                                    <p className="text-2xl font-semibold">--</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Data Usage Card */}
+                    <div className={`${glassCard} p-5 mb-6`}>
+                        <div className="grid grid-cols-2 gap-4 text-center">
                             <div>
-                                <p className="text-sm text-muted-foreground mb-2.5">Active Users</p>
-                                <p className="text-2xl font-semibold text-able-green">45</p>
+                                <p className="text-sm text-muted-foreground mb-2.5">Data Saved</p>
+                                <p className="text-2xl font-semibold text-able-green">--</p>
                             </div>
                             <div>
-                                <p className="text-sm text-muted-foreground mb-2.5">Total Egress Attempts</p>
-                                <p className="text-2xl font-semibold">1,500</p>
-                            </div>
-                            <div>
-                                <p className="text-sm text-muted-foreground mb-2.5">Inactive Users</p>
-                                <p className="text-2xl font-semibold">65</p>
+                                <p className="text-sm text-muted-foreground mb-2.5">Data Lost</p>
+                                <p className="text-2xl font-semibold">--</p>
                             </div>
                         </div>
                     </div>
 
                     {/* Charts Row */}
-                    <div className="grid grid-cols-2 gap-5 mb-5">
+                    <div className="grid grid-cols-2 gap-5 mb-6">
                         <div className={`${glassCard} p-8 flex justify-center items-center`}>
                             <div className="w-[200px] h-[200px] rounded-full flex justify-center items-center shadow-lg"
                                 style={{ background: 'conic-gradient(#ff3b3b 0% 25%, #22c55e 25% 100%)' }}>
@@ -71,38 +91,82 @@ export default function Dashboard() {
                         </div>
                     </div>
 
-                    {/* Recent Logs Table */}
-                    <div className={`${glassCard} p-6`}>
+                    {/* Recent Egress Events Table */}
+                    <div className={`${glassCard} p-6 mb-5`}>
                         <h2
-                            className="text-2xl mb-5 font-semibold"
+                            className="text-2xl mb-8 font-semibold"
                             style={{ fontFamily: "'Unbounded', sans-serif" }}
                         >
-                            Recent Logs
+                            Recent Egress Events
                         </h2>
                         <div className="overflow-x-auto">
                             <table className="w-full border-collapse text-[0.85rem]">
                                 <thead>
                                     <tr className="text-muted-foreground">
-                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-white/10">Date/Time</th>
-                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-white/10">Destination URL</th>
+                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-white/10">Date</th>
+                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-white/10">Time</th>
+                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-white/10">Domain Name</th>
                                         <th className="text-left pb-3 pr-2.5 font-medium border-b border-white/10">Status</th>
-                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-white/10">User Endpoint</th>
-                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-white/10">Risk Score</th>
+                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-white/10">User ID</th>
+                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-white/10">File Name</th>
                                         <th className="text-left pb-3 font-medium border-b border-white/10">Action Taken</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {[
-                                        { date: '2026-06-22 1:30 PM', url: 'chatgpt.com', status: 'unsafe' as const, user: 'USER78291', score: '82%', action: 'Proceeded' },
-                                        { date: '2026-06-22 1:25 PM', url: 'deepseek.com', status: 'unsafe' as const, user: 'USER81191', score: '81%', action: 'Denied' },
-                                        { date: '2026-06-12 1:20 PM', url: 'canva.pro', status: 'unlisted' as const, user: 'USER90012', score: '92%', action: 'Proceeded' },
+                                        { date: '2026-06-22', time: '1:30 PM', domain: 'chatgpt.com', status: 'glass-unsafe' as const, user: 'USER78291', fileName: 'quarterly_report.pdf', action: 'Denied' },
+                                        { date: '2026-06-22', time: '1:25 PM', domain: 'deepseek.com', status: 'glass-unsafe' as const, user: 'USER81191', fileName: 'meeting_notes.docx', action: 'Denied' },
+                                        { date: '2026-06-12', time: '1:20 PM', domain: 'canva.pro', status: 'glass-unlisted' as const, user: 'USER90012', fileName: 'banner_design.png', action: 'Proceeded' },
                                     ].map((row, i) => (
                                         <tr key={i} className="border-b border-white/10 last:border-b-0">
                                             <td className="py-3 pr-2.5">{row.date}</td>
-                                            <td className="py-3 pr-2.5">{row.url}</td>
-                                            <td className="py-3 pr-2.5"><Badge variant={row.status}>{row.status.toUpperCase()}</Badge></td>
+                                            <td className="py-3 pr-2.5">{row.time}</td>
+                                            <td className="py-3 pr-2.5">{row.domain}</td>
+                                            <td className="py-3 pr-2.5"><Badge variant={row.status}>{row.status.replace('glass-', '').toUpperCase()}</Badge></td>
                                             <td className="py-3 pr-2.5">{row.user}</td>
-                                            <td className="py-3 pr-2.5">{row.score}</td>
+                                            <td className="py-3 pr-2.5">{row.fileName}</td>
+                                            <td className="py-3">{row.action}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {/* Recent Domain Visit Table */}
+                    <div className={`${glassCard} p-6 mb-3`}>
+                        <h2
+                            className="text-2xl mb-8 font-semibold"
+                            style={{ fontFamily: "'Unbounded', sans-serif" }}
+                        >
+                            Recent Domain Visit
+                        </h2>
+                        <div className="overflow-x-auto">
+                            <table className="w-full border-collapse text-[0.85rem]">
+                                <thead>
+                                    <tr className="text-muted-foreground">
+                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-white/10">Date</th>
+                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-white/10">Time</th>
+                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-white/10">URL</th>
+                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-white/10">Domain Name</th>
+                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-white/10">Status</th>
+                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-white/10">User ID</th>
+                                        <th className="text-left pb-3 font-medium border-b border-white/10">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {[
+                                        { time: '2:15 PM', date: '2026-06-22', url: 'https://chat.openai.com', domain: 'openai.com', status: 'glass-safe' as const, user: 'USER78291', action: 'Allowed' },
+                                        { time: '2:10 PM', date: '2026-06-22', url: 'https://deepseek.com/chat', domain: 'deepseek.com', status: 'glass-unsafe' as const, user: 'USER81191', action: 'Blocked' },
+                                        { time: '1:55 PM', date: '2026-06-22', url: 'https://canva.pro/design', domain: 'canva.pro', status: 'glass-unlisted' as const, user: 'USER90012', action: 'Warned' },
+                                    ].map((row, i) => (
+                                        <tr key={i} className="border-b border-white/10 last:border-b-0">
+                                            <td className="py-3 pr-2.5">{row.time}</td>
+                                            <td className="py-3 pr-2.5">{row.date}</td>
+                                            <td className="py-3 pr-2.5">{row.url}</td>
+                                            <td className="py-3 pr-2.5">{row.domain}</td>
+                                            <td className="py-3 pr-2.5"><Badge variant={row.status}>{row.status.replace('glass-', '').toUpperCase()}</Badge></td>
+                                            <td className="py-3 pr-2.5">{row.user}</td>
                                             <td className="py-3">{row.action}</td>
                                         </tr>
                                     ))}

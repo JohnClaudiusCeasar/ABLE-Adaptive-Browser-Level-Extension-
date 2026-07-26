@@ -169,7 +169,10 @@ function Sidebar({
           "text-sidebar-foreground flex h-svh w-(--sidebar-width) flex-col",
           className
         )}
-        style={{ background: 'linear-gradient(180deg, #1e4b3e 0%, #143a2e 50%, #0f1f1b 100%)' }}
+        style={{
+          background: `linear-gradient(180deg, var(--sidebar-gradient-from) 0%, var(--sidebar-gradient-via) 50%, var(--sidebar-gradient-to) 100%)`,
+          boxShadow: `var(--sidebar-shadow), var(--sidebar-outer-shadow)`
+        }}
         {...props}
       >
         {children}
@@ -192,7 +195,7 @@ function Sidebar({
           style={
             {
               "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
-              background: 'linear-gradient(180deg, #1e4b3e 0%, #143a2e 50%, #0f1f1b 100%)',
+              background: `linear-gradient(180deg, var(--sidebar-gradient-from) 0%, var(--sidebar-gradient-via) 50%, var(--sidebar-gradient-to) 100%)`,
             } as React.CSSProperties
           }
           side={side}
@@ -222,7 +225,9 @@ function Sidebar({
             ? "group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4)))]"
             : "group-data-[collapsible=icon]:w-(--sidebar-width-icon)"
         )}
-        style={{ background: 'linear-gradient(180deg, #1e4b3e 0%, #143a2e 50%, #0f1f1b 100%)' }}
+        style={{
+          background: `linear-gradient(180deg, var(--sidebar-gradient-from) 0%, var(--sidebar-gradient-via) 50%, var(--sidebar-gradient-to) 100%)`
+        }}
       />
       <div
         className={cn(
@@ -241,7 +246,10 @@ function Sidebar({
         <div
           data-sidebar="sidebar"
           className="group-data-[variant=floating]:border-sidebar-border flex h-full w-full flex-col group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:shadow-sm"
-          style={{ background: 'linear-gradient(180deg, #1e4b3e 0%, #143a2e 50%, #0f1f1b 100%)', boxShadow: 'inset -8px 0 15px -5px rgba(0,0,0,0.5)' }}
+          style={{
+            background: `linear-gradient(180deg, var(--sidebar-gradient-from) 0%, var(--sidebar-gradient-via) 50%, var(--sidebar-gradient-to) 100%)`,
+            boxShadow: `var(--sidebar-shadow), var(--sidebar-outer-shadow)`
+          }}
         >
           {children}
         </div>
@@ -309,7 +317,9 @@ function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
         "relative flex max-w-full flex-1 flex-col",
         className
       )}
-      style={{ background: 'linear-gradient(180deg, #1e4b3e 0%, #143a2e 50%, #0f1f1b 100%)' }}
+      style={{
+        background: `linear-gradient(180deg, var(--sidebar-gradient-from) 0%, var(--sidebar-gradient-via) 50%, var(--sidebar-gradient-to) 100%)`
+      }}
       {...props}
     />
   )

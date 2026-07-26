@@ -1,13 +1,13 @@
 import { Head } from '@inertiajs/react';
 import { Eye } from 'lucide-react';
 
-const glassCard = 'bg-white/5 border border-[rgba(34,197,94,0.7)] rounded-lg backdrop-blur-[10px]';
+const glassCard = 'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
 
 function ProgressBar({ label, value, total, color }: { label: string; value: number; total: number; color: string }) {
     return (
         <div className="flex items-center justify-between text-[0.85rem]">
             <span className="w-[70px] font-medium">{label}</span>
-            <div className="flex-1 h-3 bg-white/10 rounded-md mx-4 overflow-hidden">
+            <div className="flex-1 h-3 bg-black/5 dark:bg-white/10 rounded-md mx-4 overflow-hidden">
                 <div className="h-full rounded-md" style={{ width: `${(value / total) * 100}%`, backgroundColor: color }} />
             </div>
             <span className="w-[30px] text-right">{total}</span>
@@ -29,7 +29,7 @@ export default function SecurityAnalytics() {
                         >
                             SECURITY ANALYTICS
                         </h1>
-                        <p className="text-base text-[#b2c4cb] max-w-[850px] leading-relaxed">
+                        <p className="text-base text-muted-foreground max-w-[850px] leading-relaxed">
                             Monitors and Displays Domain Information and Nudge Success Percentage extracted from the Browser Extension for Admin Review and Approval.
                         </p>
                     </header>
@@ -43,7 +43,7 @@ export default function SecurityAnalytics() {
                         <div className={`${glassCard} p-6`}>
                             <div className="flex justify-between items-center mb-5">
                                 <h3 className="text-[1.1rem] font-semibold" style={{ fontFamily: "'Unbounded', sans-serif" }}>Domain Usage Over time</h3>
-                                <div className="bg-white/10 border border-[rgba(34,197,94,0.7)] px-4 py-1 rounded-md text-[0.85rem] cursor-pointer flex items-center gap-2">
+                                <div className="bg-black/5 dark:bg-white/10 border border-[rgba(34,197,94,0.7)] px-4 py-1 rounded-md text-[0.85rem] cursor-pointer flex items-center gap-2">
                                     Daily <span className="text-[0.6rem] text-able-green">&#9660;</span>
                                 </div>
                             </div>
@@ -63,7 +63,7 @@ export default function SecurityAnalytics() {
                                 <thead>
                                     <tr>
                                         {['App Name', 'Domain URL', 'Category', 'Risk Weight', 'Active Users', 'Status', 'Action'].map((h) => (
-                                            <th key={h} className={`pb-3 text-[#b2c4cb] font-medium ${h === 'Action' ? 'text-center' : ''} border-b border-[rgba(34,197,94,0.7)]`}>{h}</th>
+                                            <th key={h} className={`pb-3 text-muted-foreground font-medium ${h === 'Action' ? 'text-center' : ''} border-b border-[rgba(34,197,94,0.7)]`}>{h}</th>
                                         ))}
                                     </tr>
                                 </thead>
@@ -74,10 +74,10 @@ export default function SecurityAnalytics() {
                                         { app: 'Github', domain: 'github.com', cat: 'Develop...', risk: 'low', users: 110, status: 'Approved' },
                                         { app: 'Quillbot', domain: 'quillbot.com', cat: 'Productivity', risk: 'low', users: 98, status: 'Approved' },
                                     ].map((row, i) => (
-                                        <tr key={i} className="border-b border-white/10 last:border-b-0">
-                                            <td className="py-3.5 text-white">{row.app}</td>
-                                            <td className="py-3.5 text-white">{row.domain}</td>
-                                            <td className="py-3.5 text-white">{row.cat}</td>
+                                        <tr key={i} className="border-b border-black/10 last:border-b-0 dark:border-white/10">
+                                            <td className="py-3.5">{row.app}</td>
+                                            <td className="py-3.5">{row.domain}</td>
+                                            <td className="py-3.5">{row.cat}</td>
                                             <td className="py-3.5">
                                                 <span className={`px-2.5 py-0.5 rounded text-[12px] font-bold ${
                                                     row.risk === 'high'
@@ -85,10 +85,10 @@ export default function SecurityAnalytics() {
                                                         : 'bg-[rgba(0,255,102,0.2)] text-[#00ff66] border border-[#00ff66]'
                                                 }`}>{row.risk.toUpperCase()}</span>
                                             </td>
-                                            <td className="py-3.5 text-white">{row.users}</td>
-                                            <td className="py-3.5 text-white">{row.status}</td>
+                                            <td className="py-3.5">{row.users}</td>
+                                            <td className="py-3.5">{row.status}</td>
                                             <td className="py-3.5 text-center">
-                                                <button className="text-[#b2c4cb] hover:text-able-green transition-colors bg-transparent border-none cursor-pointer">
+                                                <button className="text-muted-foreground hover:text-able-green transition-colors bg-transparent border-none cursor-pointer">
                                                     <Eye size={16} />
                                                 </button>
                                             </td>
@@ -99,11 +99,11 @@ export default function SecurityAnalytics() {
                         </div>
                         <div className="flex justify-end items-center gap-2.5 mt-5 text-[0.85rem]">
                             <span className="w-[22px] h-[22px] flex items-center justify-center rounded-full bg-able-green text-white font-bold">1</span>
-                            <span className="w-[22px] h-[22px] flex items-center justify-center rounded-full cursor-pointer hover:bg-white/10">2</span>
-                            <span className="w-[22px] h-[22px] flex items-center justify-center rounded-full cursor-pointer hover:bg-white/10">3</span>
-                            <span className="w-[22px] h-[22px] flex items-center justify-center rounded-full cursor-pointer hover:bg-white/10">4</span>
-                            <span className="text-[#b2c4cb]">...</span>
-                            <span className="text-[#b2c4cb] cursor-pointer font-bold">&gt;</span>
+                            <span className="w-[22px] h-[22px] flex items-center justify-center rounded-full cursor-pointer hover:bg-black/5 dark:hover:bg-white/10">2</span>
+                            <span className="w-[22px] h-[22px] flex items-center justify-center rounded-full cursor-pointer hover:bg-black/5 dark:hover:bg-white/10">3</span>
+                            <span className="w-[22px] h-[22px] flex items-center justify-center rounded-full cursor-pointer hover:bg-black/5 dark:hover:bg-white/10">4</span>
+                            <span className="text-muted-foreground">...</span>
+                            <span className="text-muted-foreground cursor-pointer font-bold">&gt;</span>
                         </div>
                     </div>
 
@@ -130,7 +130,7 @@ export default function SecurityAnalytics() {
                                 <thead>
                                     <tr>
                                         {['Date', 'Proceeded', 'Cancelled'].map((h) => (
-                                            <th key={h} className="pb-3 text-[#b2c4cb] font-medium border-b border-white/20">{h}</th>
+                                            <th key={h} className="pb-3 text-muted-foreground font-medium border-b border-black/10 dark:border-white/20">{h}</th>
                                         ))}
                                     </tr>
                                 </thead>
@@ -142,10 +142,10 @@ export default function SecurityAnalytics() {
                                         { date: '06-17-2026', proc: 7, canc: 14 },
                                         { date: '06-16-2026', proc: 15, canc: 13 },
                                     ].map((row, i) => (
-                                        <tr key={i} className="border-b border-white/10 last:border-b-0">
-                                            <td className="py-3.5 text-white">{row.date}</td>
-                                            <td className="py-3.5 text-white">{row.proc}</td>
-                                            <td className="py-3.5 text-white">{row.canc}</td>
+                                        <tr key={i} className="border-b border-black/10 last:border-b-0 dark:border-white/10">
+                                            <td className="py-3.5">{row.date}</td>
+                                            <td className="py-3.5">{row.proc}</td>
+                                            <td className="py-3.5">{row.canc}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -159,7 +159,7 @@ export default function SecurityAnalytics() {
                                 <thead>
                                     <tr>
                                         {['Domain', 'Total Nudges', 'Cancelled', 'Proceeded', 'Success'].map((h) => (
-                                            <th key={h} className="pb-3 text-[#b2c4cb] font-medium border-b border-white/20">{h}</th>
+                                            <th key={h} className="pb-3 text-muted-foreground font-medium border-b border-black/10 dark:border-white/20">{h}</th>
                                         ))}
                                     </tr>
                                 </thead>
@@ -171,11 +171,11 @@ export default function SecurityAnalytics() {
                                         { domain: 'Gemini', total: 189, canc: 159, proc: 30, success: '84.1%' },
                                         { domain: 'Pastebin', total: 95, canc: 71, proc: 24, success: '74.7%' },
                                     ].map((row, i) => (
-                                        <tr key={i} className="border-b border-white/10 last:border-b-0">
-                                            <td className="py-3.5 text-white">{row.domain}</td>
-                                            <td className="py-3.5 text-white">{row.total}</td>
-                                            <td className="py-3.5 text-white">{row.canc}</td>
-                                            <td className="py-3.5 text-white">{row.proc}</td>
+                                        <tr key={i} className="border-b border-black/10 last:border-b-0 dark:border-white/10">
+                                            <td className="py-3.5">{row.domain}</td>
+                                            <td className="py-3.5">{row.total}</td>
+                                            <td className="py-3.5">{row.canc}</td>
+                                            <td className="py-3.5">{row.proc}</td>
                                             <td className="py-3.5">
                                                 <span className={`px-2 py-0.5 rounded-[10px] text-[12px] font-bold inline-block ${
                                                     parseFloat(row.success) >= 85 ? 'bg-[#00ff66] text-[#15382e]' : 'bg-[#f39c12] text-white'

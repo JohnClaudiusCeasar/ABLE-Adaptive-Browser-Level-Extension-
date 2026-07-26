@@ -1,4 +1,5 @@
 import { BarChart3, Bell, LayoutGrid, Search, Settings, Shield, ShieldCheck, TrendingUp, UserCircle } from 'lucide-react';
+import { router } from '@inertiajs/react';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
 import {
@@ -39,7 +40,7 @@ const mainNavItems: NavItem[] = [
 
 export function AppSidebar() {
     return (
-        <Sidebar collapsible="none" variant="inset" className="border-r border-white/5" style={{ boxShadow: 'inset -8px 0 15px -5px rgba(0,0,0,0.5)' }}>
+        <Sidebar collapsible="none" variant="inset" className="border-r border-black/10 dark:border-white/5">
             <SidebarHeader className="pt-6 pb-4">
                 {/* ABLE Brand - Read Only */}
                 <div className="px-2 py-2">
@@ -48,20 +49,20 @@ export function AppSidebar() {
 
                 {/* Action Buttons */}
                 <div className="flex items-center justify-center gap-4 py-2 text-able-green">
-                    <button className="transition-colors hover:text-white" aria-label="Profile">
+                    <button className="transition-colors hover:text-able-green-muted dark:hover:text-white" aria-label="Profile" onClick={() => router.visit('/settings/profile')}>
                         <UserCircle size={20} />
                     </button>
-                    <button className="transition-colors hover:text-white" aria-label="Settings">
+                    <button className="transition-colors hover:text-able-green-muted dark:hover:text-white" aria-label="Settings" onClick={() => router.visit('/settings')}>
                         <Settings size={20} />
                     </button>
-                    <button className="transition-colors hover:text-white" aria-label="Notifications">
+                    <button className="transition-colors hover:text-able-green-muted dark:hover:text-white" aria-label="Notifications">
                         <Bell size={20} />
                     </button>
                 </div>
 
                 {/* Search Bar */}
                 <div className="mx-auto w-4/5">
-                    <div className="flex items-center rounded-full bg-black/20 border border-white/10 px-3.5 py-2">
+                    <div className="flex items-center rounded-full bg-black/5 border border-black/10 px-3.5 py-2 dark:bg-black/20 dark:border-white/10">
                         <Search size={14} className="text-muted-foreground" />
                         <input
                             type="text"
@@ -72,7 +73,7 @@ export function AppSidebar() {
                 </div>
 
                 {/* Divider */}
-                <div className="mx-auto w-4/5 border-t border-white/10 my-2" />
+                <div className="mx-auto w-4/5 border-t border-black/10 my-2 dark:border-white/10" />
             </SidebarHeader>
 
             <SidebarContent>
