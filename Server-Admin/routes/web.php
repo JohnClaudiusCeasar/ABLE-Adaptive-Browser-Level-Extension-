@@ -16,6 +16,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('security-analytics', 'security-analytics')->name('security-analytics');
     Route::inertia('risk-algorithm', 'risk-algorithm')->name('risk-algorithm');
     Route::inertia('policy-algorithm', 'policy-algorithm')->name('policy-algorithm');
+    Route::inertia('notifications', 'notifications')->name('notifications');
 });
 
 require __DIR__.'/settings.php';

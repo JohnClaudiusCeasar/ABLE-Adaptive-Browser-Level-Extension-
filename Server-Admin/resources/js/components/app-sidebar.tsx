@@ -7,7 +7,7 @@ import {
     SidebarContent,
     SidebarHeader,
 } from '@/components/ui/sidebar';
-import { dashboard } from '@/routes';
+import { dashboard, notifications } from '@/routes';
 import type { NavItem } from '@/types';
 
 const mainNavItems: NavItem[] = [
@@ -55,7 +55,7 @@ export function AppSidebar() {
                     <button className="transition-colors hover:text-able-green-muted dark:hover:text-white" aria-label="Settings" onClick={() => router.visit('/settings')}>
                         <Settings size={20} />
                     </button>
-                    <button className="transition-colors hover:text-able-green-muted dark:hover:text-white" aria-label="Notifications">
+                    <button className="transition-colors hover:text-able-green-muted dark:hover:text-white" aria-label="Notifications" onClick={() => router.visit(notifications())}>
                         <Bell size={20} />
                     </button>
                 </div>
