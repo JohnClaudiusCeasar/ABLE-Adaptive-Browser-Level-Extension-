@@ -396,16 +396,30 @@ function showSiteWarningModal(data) {
 
   backdrop.querySelector("#ableWarningDismiss").addEventListener("click", async () => {
     await setSiteWarningConsent();
+    logDomainVisit();
     removeModal();
   });
 
   backdrop.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       e.preventDefault();
-      removeModal();
       setSiteWarningConsent();
+      logDomainVisit();
+      removeModal();
     }
   });
+}
+
+// ─── Logging ─────────────────────────────────────────────────────────
+
+function logDomainVisit() {
+  if (!domainStatus || !domainStatus.domain) return;
+  chrome.runtime.sendMessage({
+    type: "logVisit",
+    domain: domainStatus.domain,
+    status: domainStatus.status || "unlisted",
+    source: domainStatus.source || "unknown",
+  }).catch(() => {});
 }
 
 // ─── Fonts ──────────────────────────────────────────────────────────

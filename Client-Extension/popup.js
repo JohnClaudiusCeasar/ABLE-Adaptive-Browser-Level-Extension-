@@ -121,8 +121,30 @@ async function initializeExtension() {
       return;
     }
 
-    // Classify the domain
-    const classification = classifyDomain(tab.url);
+    let classification;
+
+    // Try server classification via background script
+    try {
+      classification = await chrome.runtime.sendMessage({
+        type: "classifyDomain",
+        url: tab.url,
+      });
+    } catch (bgError) {
+      console.warn("Background script unavailable, falling back to local classification:", bgError);
+    }
+
+    // Fall back to local classification if server unavailable
+    if (!classification) {
+      classification = classifyDomain(tab.url);
+      const messages = getStatusMessage(
+        classification.status,
+        classification.domain,
+        classification.category,
+        classification.alternatives
+      );
+      classification.title = messages.title;
+      classification.message = messages.message;
+    }
 
     // Update UI with results
     updateUI(classification);

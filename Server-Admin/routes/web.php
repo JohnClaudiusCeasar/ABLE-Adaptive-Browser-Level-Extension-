@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DomainPolicyController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -15,7 +16,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('egress-logs', 'egress-logs')->name('egress-logs');
     Route::inertia('security-analytics', 'security-analytics')->name('security-analytics');
     Route::inertia('risk-algorithm', 'risk-algorithm')->name('risk-algorithm');
-    Route::inertia('policy-algorithm', 'policy-algorithm')->name('policy-algorithm');
+    Route::get('policy-algorithm', [DomainPolicyController::class, 'index'])->name('policy-algorithm');
+    Route::post('policy-algorithm', [DomainPolicyController::class, 'store'])->name('policy-algorithm.store');
+    Route::patch('policy-algorithm/{domainPolicy}', [DomainPolicyController::class, 'update'])->name('policy-algorithm.update');
+    Route::delete('policy-algorithm/{domainPolicy}', [DomainPolicyController::class, 'destroy'])->name('policy-algorithm.destroy');
+    Route::delete('policy-algorithm-all', [DomainPolicyController::class, 'destroyAll'])->name('policy-algorithm.destroyAll');
     Route::inertia('notifications', 'notifications')->name('notifications');
 });
 
