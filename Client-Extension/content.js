@@ -1,20 +1,5 @@
-const SENSITIVE_PATTERNS = [
-  { pattern: /\b(?:\d{4}[-\s]?){3}\d{4}\b/g, label: "Credit Card Number", weight: 20 },
-  { pattern: /\b\d{3}-\d{2}-\d{4}\b/g, label: "Social Security Number (SSN)", weight: 30 },
-  { pattern: /(?:api[_-]?key|api[_-]?secret|access[_-]?token|auth[_-]?token|secret[_-]?key)\s*[:=]\s*\S+/gi, label: "API Key / Token", weight: 25 },
-  { pattern: /-----BEGIN\s+(?:RSA\s+)?PRIVATE\s+KEY-----/g, label: "Private Key", weight: 35 },
-  { pattern: /(?:password|passwd|pwd)\s*[:=]\s*\S+/gi, label: "Plaintext Password", weight: 25 },
-  { pattern: /(?:jdbc|postgresql|mysql|mongodb|redis):\/\/\S+:\S+@/gi, label: "Database Connection String", weight: 25 },
-];
-
-const PIE_COLORS = {
-  "Credit Card Number": "var(--pie-cc)",
-  "Social Security Number (SSN)": "var(--pie-ssn)",
-  "API Key / Token": "var(--pie-api-key)",
-  "Private Key": "var(--pie-private-key)",
-  "Plaintext Password": "var(--pie-password)",
-  "Database Connection String": "var(--pie-db-string)",
-};
+// Dynamic pie colors - will be generated based on pattern titles
+const PIE_COLORS = {};
 
 let domainStatus = null;
 
@@ -104,18 +89,64 @@ async function migrateOldSessionConsent() {
 
 // ─── File scanning ─────────────────────────────────────────────────
 
-function calculateRiskScore(text) {
+async function calculateRiskScore(text) {
   let totalScore = 0;
   const flaggedItems = [];
 
-  for (const entry of SENSITIVE_PATTERNS) {
-    const matches = [...text.matchAll(entry.pattern)];
-    if (matches.length > 0) {
-      totalScore += entry.weight;
+  // Get patterns from server/cache via api.js
+  const patterns = await getRiskPatterns();
+
+  // If no patterns available, return zero score
+  if (patterns.length === 0) {
+    console.warn('ABLE: No risk patterns available for scoring.');
+    return {
+      score: 0,
+      flaggedItems: [],
+    };
+  }
+
+  // Process single patterns
+  const singlePatterns = patterns.filter(p => p.type === 'single');
+  for (const pattern of singlePatterns) {
+    try {
+      const regex = new RegExp(pattern.regex, 'g');
+      const matches = [...text.matchAll(regex)];
+      if (matches.length > 0) {
+        totalScore += pattern.score;
+        flaggedItems.push({
+          label: pattern.title,
+          count: matches.length,
+          weight: pattern.score,
+        });
+      }
+    } catch (error) {
+      console.warn('ABLE: Invalid regex pattern:', pattern.regex, error);
+    }
+  }
+
+  // Process criteria patterns
+  const criteriaPatterns = patterns.filter(p => p.type === 'criteria');
+  for (const criteria of criteriaPatterns) {
+    let allMatched = true;
+    for (const item of criteria.criteria_pattern_items) {
+      try {
+        const regex = new RegExp(item.regex, 'g');
+        if (!regex.test(text)) {
+          allMatched = false;
+          break;
+        }
+      } catch (error) {
+        console.warn('ABLE: Invalid regex pattern in criteria:', item.regex, error);
+        allMatched = false;
+        break;
+      }
+    }
+    if (allMatched) {
+      totalScore += criteria.score;
       flaggedItems.push({
-        label: entry.label,
-        count: matches.length,
-        weight: entry.weight,
+        label: criteria.title,
+        count: 1,
+        weight: criteria.score,
       });
     }
   }
@@ -195,7 +226,7 @@ async function handleInterceptedFile(file, requestId) {
     }
   }
 
-  const result = calculateRiskScore(text);
+  const result = await calculateRiskScore(text);
 
   if (result.score > 85) {
     showInterceptModal({

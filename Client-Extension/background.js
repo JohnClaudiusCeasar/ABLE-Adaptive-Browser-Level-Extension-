@@ -1,5 +1,10 @@
 self.importScripts("config.js", "api.js");
 
+chrome.runtime.onInstalled.addListener(async () => {
+  // Sync risk patterns when extension is installed or updated
+  await refreshRiskPatternsCache();
+});
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "classifyDomain") {
     handleClassifyDomain(message.url, sendResponse);
@@ -16,14 +21,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 async function handleClassifyDomain(url, sendResponse) {
   try {
-    // Try server classification first
+    // Try server classification first (includes offline cache fallback)
     const serverResult = await getDomainClassification(url);
 
     if (serverResult) {
-      // Server responded successfully — we're online.
-      // Clear the offline cache since we don't need it when online.
-      clearOfflineCache();
-
+      // Server or offline cache responded successfully
       const messages = getStatusMessage(serverResult.status, serverResult.domain, serverResult.category, []);
       sendResponse({
         status: serverResult.status,
@@ -37,40 +39,46 @@ async function handleClassifyDomain(url, sendResponse) {
         message: messages.message,
       });
     } else {
-      // Server is unreachable — try the offline cache (last saved data from when admin was online)
-      const offlineResult = await classifyFromOfflineCache(url);
-
-      if (offlineResult) {
-        const messages = getStatusMessage(offlineResult.status, offlineResult.domain, offlineResult.category, []);
-        sendResponse({
-          ...offlineResult,
-          title: messages.title,
-          message: messages.message,
-          source: "offline_cache",
-        });
-      } else {
-        // Last resort: fall back to hardcoded local config
-        const result = classifyDomain(url);
-        const messages = getStatusMessage(result.status, result.domain, result.category, result.alternatives);
-        sendResponse({
-          ...result,
-          title: messages.title,
-          message: messages.message,
-          source: "local_fallback",
-        });
-      }
+      // No classification available from server or cache — return default unlisted
+      const urlObj = new URL(url);
+      const domain = urlObj.hostname.replace(/^www\./, "");
+      const defaultResult = getDefaultClassification(domain);
+      const messages = getStatusMessage(defaultResult.status, defaultResult.domain, defaultResult.category, defaultResult.alternatives);
+      sendResponse({
+        ...defaultResult,
+        title: messages.title,
+        message: messages.message,
+        source: "default",
+      });
     }
   } catch (error) {
     console.error("Error classifying domain:", error);
-    // Ultimate fallback to local
-    const result = classifyDomain(url);
-    const messages = getStatusMessage(result.status, result.domain, result.category, result.alternatives);
-    sendResponse({
-      ...result,
-      title: messages.title,
-      message: messages.message,
-      source: "local_fallback",
-    });
+    // Error fallback — return default unlisted
+    try {
+      const urlObj = new URL(url);
+      const domain = urlObj.hostname.replace(/^www\./, "");
+      const defaultResult = getDefaultClassification(domain);
+      const messages = getStatusMessage(defaultResult.status, defaultResult.domain, defaultResult.category, defaultResult.alternatives);
+      sendResponse({
+        ...defaultResult,
+        title: messages.title,
+        message: messages.message,
+        source: "error",
+      });
+    } catch {
+      const messages = getStatusMessage("unlisted", "unknown", null, []);
+      sendResponse({
+        status: "unlisted",
+        domain: "unknown",
+        category: null,
+        alternatives: [],
+        policy: "under_review",
+        risk_score: 0,
+        title: messages.title,
+        message: messages.message,
+        source: "error",
+      });
+    }
   }
 }
 

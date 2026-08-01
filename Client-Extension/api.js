@@ -11,6 +11,13 @@ const CACHE_TTL = 5 * 60 * 1000;
 const OFFLINE_CACHE_KEY = "able:domain_policies";
 const OFFLINE_CACHE_TIMESTAMP_KEY = "able:domain_policies_timestamp";
 
+// Storage key for risk patterns cache
+const RISK_PATTERNS_KEY = "able:risk_patterns";
+const RISK_PATTERNS_TIMESTAMP_KEY = "able:risk_patterns_timestamp";
+
+// Risk patterns sync interval (24 hours)
+const RISK_PATTERNS_SYNC_INTERVAL = 24 * 60 * 60 * 1000;
+
 /**
  * Fetch all domain policies from the server and store them in chrome.storage.local
  * for offline/fallback use. This is called when the server is online.
@@ -211,5 +218,98 @@ async function logDomainVisit(domain, status, source) {
     }
   } catch (error) {
     // Silently fail — logging visits is non-critical
+  }
+}
+
+/**
+ * Fetch risk patterns from the server and store them in chrome.storage.local
+ * for offline/fallback use. This is called when the server is online.
+ */
+async function refreshRiskPatternsCache() {
+  try {
+    const response = await fetch(
+      `${SERVER_URL}/api/risk-patterns`,
+      { method: "GET", headers: { "Accept": "application/json" } }
+    );
+
+    if (!response.ok) throw new Error(`Server responded with status ${response.status}`);
+
+    const data = await response.json();
+
+    if (data.patterns && Array.isArray(data.patterns)) {
+      await chrome.storage.local.set({
+        [RISK_PATTERNS_KEY]: data.patterns,
+        [RISK_PATTERNS_TIMESTAMP_KEY]: Date.now(),
+      });
+      console.log(`ABLE: Risk patterns cache updated with ${data.count} patterns.`);
+    }
+
+    return data.patterns || [];
+  } catch (error) {
+    console.warn("ABLE: Failed to refresh risk patterns cache:", error.message);
+    return null;
+  }
+}
+
+/**
+ * Retrieve the risk patterns offline cache from chrome.storage.local.
+ */
+async function getRiskPatternsOfflineCache() {
+  try {
+    const result = await chrome.storage.local.get([RISK_PATTERNS_KEY, RISK_PATTERNS_TIMESTAMP_KEY]);
+    return {
+      patterns: result[RISK_PATTERNS_KEY] || [],
+      timestamp: result[RISK_PATTERNS_TIMESTAMP_KEY] || 0,
+    };
+  } catch {
+    return { patterns: [], timestamp: 0 };
+  }
+}
+
+/**
+ * Clear the risk patterns cache (called when admin is online and data may have changed).
+ */
+async function clearRiskPatternsCache() {
+  try {
+    await chrome.storage.local.remove([RISK_PATTERNS_KEY, RISK_PATTERNS_TIMESTAMP_KEY]);
+    console.log("ABLE: Risk patterns cache cleared.");
+  } catch (error) {
+    console.warn("ABLE: Failed to clear risk patterns cache:", error.message);
+  }
+}
+
+/**
+ * Get risk patterns, using:
+ * 1. Server API (if online) — also refreshes offline cache
+ * 2. Offline cache (chrome.storage.local, last saved data)
+ */
+async function getRiskPatterns() {
+  try {
+    // Step 1: Try server first
+    const serverPatterns = await refreshRiskPatternsCache();
+    if (serverPatterns) {
+      // Server is online — clear offline cache since we have fresh data
+      await clearRiskPatternsCache();
+      // Store fresh data as the new cache
+      await chrome.storage.local.set({
+        [RISK_PATTERNS_KEY]: serverPatterns,
+        [RISK_PATTERNS_TIMESTAMP_KEY]: Date.now(),
+      });
+      return serverPatterns;
+    }
+
+    // Step 2: Server unavailable — try offline cache
+    const { patterns } = await getRiskPatternsOfflineCache();
+    if (patterns.length > 0) {
+      console.log(`ABLE: Using offline risk patterns cache (${patterns.length} patterns).`);
+      return patterns;
+    }
+
+    // Step 3: No patterns available
+    console.warn("ABLE: No risk patterns available from server or cache.");
+    return [];
+  } catch (error) {
+    console.warn("ABLE: Failed to get risk patterns:", error.message);
+    return [];
   }
 }

@@ -130,12 +130,13 @@ async function initializeExtension() {
         url: tab.url,
       });
     } catch (bgError) {
-      console.warn("Background script unavailable, falling back to local classification:", bgError);
+      console.warn("Background script unavailable:", bgError);
     }
 
-    // Fall back to local classification if server unavailable
+    // If background script failed, use default classification
     if (!classification) {
-      classification = classifyDomain(tab.url);
+      const domain = formatDomain(tab.url);
+      classification = getDefaultClassification(domain);
       const messages = getStatusMessage(
         classification.status,
         classification.domain,
@@ -144,6 +145,7 @@ async function initializeExtension() {
       );
       classification.title = messages.title;
       classification.message = messages.message;
+      classification.source = "default";
     }
 
     // Update UI with results
