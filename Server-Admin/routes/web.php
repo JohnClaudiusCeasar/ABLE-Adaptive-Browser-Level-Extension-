@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\DomainPolicyController;
 use App\Http\Controllers\RiskPatternController;
+use App\Http\Controllers\SecurityAnalyticsController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -15,7 +16,9 @@ Route::get('/', function () {
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'dashboard')->name('dashboard');
     Route::inertia('egress-logs', 'egress-logs')->name('egress-logs');
-    Route::inertia('security-analytics', 'security-analytics')->name('security-analytics');
+    Route::get('security-analytics', [SecurityAnalyticsController::class, 'index'])->name('security-analytics');
+    Route::inertia('security-analytics/shadow-footprints', 'security-analytics/shadow-footprints')
+        ->name('security-analytics.shadow-footprints');
     Route::get('risk-algorithm', [RiskPatternController::class, 'index'])->name('risk-algorithm');
     Route::post('risk-algorithm', [RiskPatternController::class, 'store'])->name('risk-algorithm.store');
     Route::patch('risk-algorithm/{riskPattern}', [RiskPatternController::class, 'update'])->name('risk-algorithm.update');

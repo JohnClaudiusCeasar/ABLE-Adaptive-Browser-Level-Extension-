@@ -1,5 +1,13 @@
-import { Head } from '@inertiajs/react';
-import { Eye } from 'lucide-react';
+import { Head, Link } from '@inertiajs/react';
+import { useState, useMemo } from 'react';
+import { Button } from '@/components/ui/button';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 
 const glassCard = 'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
 
@@ -8,14 +16,54 @@ function ProgressBar({ label, value, total, color }: { label: string; value: num
         <div className="flex items-center justify-between text-[0.85rem]">
             <span className="w-[70px] font-medium">{label}</span>
             <div className="flex-1 h-3 bg-black/5 dark:bg-white/10 rounded-md mx-4 overflow-hidden">
-                <div className="h-full rounded-md" style={{ width: `${(value / total) * 100}%`, backgroundColor: color }} />
+                <div className="h-full rounded-md" style={{ width: `${total > 0 ? (value / total) * 100 : 0}%`, backgroundColor: color }} />
             </div>
-            <span className="w-[30px] text-right">{total}</span>
+            <span className="w-[30px] text-right">{value}</span>
         </div>
     );
 }
 
-export default function SecurityAnalytics() {
+interface NudgeEffectivenessRow {
+    date: string;
+    proceeded: number;
+    cancelled: number;
+}
+
+interface TopDomainRow {
+    domain: string;
+    totalVisits: number;
+    activeUsers: number;
+}
+
+interface SecurityAnalyticsProps {
+    uniqueDomains: number;
+    domainUsage: {
+        safe: number;
+        unsafe: number;
+        unlisted: number;
+    };
+    totalNudgesDeployed: number;
+    nudgeEffectiveness: NudgeEffectivenessRow[];
+    avgSuccessRate: number;
+    dataSaved: string;
+    dataLost: string;
+    topDomains: TopDomainRow[];
+}
+
+export default function SecurityAnalytics({
+    uniqueDomains,
+    domainUsage,
+    totalNudgesDeployed,
+    nudgeEffectiveness,
+    avgSuccessRate,
+    dataSaved,
+    dataLost,
+    topDomains,
+}: SecurityAnalyticsProps) {
+    const [timeFilter, setTimeFilter] = useState('daily');
+
+    const totalDomains = domainUsage.safe + domainUsage.unsafe + domainUsage.unlisted;
+
     return (
         <>
             <Head title="Security Analytics" />
@@ -34,85 +82,70 @@ export default function SecurityAnalytics() {
                         </p>
                     </header>
 
+                    {/* Data Transfer Summary - Unified Card */}
+                    <div className={`${glassCard} p-6`}>
+                        <h3 className="text-[1.1rem] font-semibold mb-6" style={{ fontFamily: "'Unbounded', sans-serif" }}>Data Transfer Summary</h3>
+                        <div className="grid grid-cols-2 gap-8">
+                            <div className="flex flex-col items-center text-center">
+                                <p className="text-sm text-muted-foreground mb-2">Data Saved</p>
+                                <p className="text-[2.5rem] font-bold text-[#00ff66]">{dataSaved}</p>
+                            </div>
+                            <div className="flex flex-col items-center text-center">
+                                <p className="text-sm text-muted-foreground mb-2">Data Loss</p>
+                                <p className="text-[2.5rem] font-bold text-[#ff4d4d]">{dataLost}</p>
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Row: Detected Domains + Domain Usage */}
                     <div className="grid grid-cols-[3fr_7fr] gap-6">
                         <div className={`${glassCard} p-6 flex flex-col items-center justify-center text-center`}>
                             <h3 className="text-[1.1rem] font-semibold mb-4" style={{ fontFamily: "'Unbounded', sans-serif" }}>Detected Domains</h3>
-                            <div className="text-[4rem] font-bold mt-2.5">45</div>
+                            <div className="text-[4rem] font-bold mt-2.5">{uniqueDomains}</div>
                         </div>
                         <div className={`${glassCard} p-6`}>
                             <div className="flex justify-between items-center mb-5">
                                 <h3 className="text-[1.1rem] font-semibold" style={{ fontFamily: "'Unbounded', sans-serif" }}>Domain Usage Over time</h3>
-                                <div className="bg-black/5 dark:bg-white/10 border border-[rgba(34,197,94,0.7)] px-4 py-1 rounded-md text-[0.85rem] cursor-pointer flex items-center gap-2">
-                                    Daily <span className="text-[0.6rem] text-able-green">&#9660;</span>
-                                </div>
+                                <Select value={timeFilter} onValueChange={setTimeFilter}>
+                                    <SelectTrigger className="w-[120px] bg-black/5 dark:bg-white/10 border border-[rgba(34,197,94,0.7)]">
+                                        <SelectValue placeholder="Daily" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="daily">Daily</SelectItem>
+                                        <SelectItem value="weekly">Weekly</SelectItem>
+                                        <SelectItem value="monthly">Monthly</SelectItem>
+                                        <SelectItem value="yearly">Yearly</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
                             <div className="flex flex-col gap-4">
-                                <ProgressBar label="SAFE" value={215} total={215} color="#00ff66" />
-                                <ProgressBar label="UNSAFE" value={115} total={115} color="#ff4d4d" />
-                                <ProgressBar label="UNLISTED" value={530} total={530} color="#f066ff" />
+                                <ProgressBar label="SAFE" value={domainUsage.safe} total={totalDomains} color="#00ff66" />
+                                <ProgressBar label="UNSAFE" value={domainUsage.unsafe} total={totalDomains} color="#ff4d4d" />
+                                <ProgressBar label="UNLISTED" value={domainUsage.unlisted} total={totalDomains} color="#f066ff" />
                             </div>
                         </div>
                     </div>
 
-                    {/* Shadow Footprint Catalog */}
-                    <div className={`${glassCard} p-6`}>
-                        <h3 className="text-[1.1rem] font-semibold mb-4" style={{ fontFamily: "'Unbounded', sans-serif" }}>Shadow Footprint Catalog</h3>
-                        <div className="overflow-x-auto">
-                            <table className="w-full border-collapse text-[0.9rem] text-left">
-                                <thead>
-                                    <tr>
-                                        {['App Name', 'Domain URL', 'Category', 'Risk Weight', 'Active Users', 'Status', 'Action'].map((h) => (
-                                            <th key={h} className={`pb-3 text-muted-foreground font-medium ${h === 'Action' ? 'text-center' : ''} border-b border-[rgba(34,197,94,0.7)]`}>{h}</th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {[
-                                        { app: 'ChatGPT', domain: 'chat.open.ai', cat: 'Gen AI', risk: 'high', users: 149, status: 'Unapproved' },
-                                        { app: 'Notion', domain: 'notion.so', cat: 'Productivity', risk: 'low', users: 89, status: 'Pending' },
-                                        { app: 'Github', domain: 'github.com', cat: 'Develop...', risk: 'low', users: 110, status: 'Approved' },
-                                        { app: 'Quillbot', domain: 'quillbot.com', cat: 'Productivity', risk: 'low', users: 98, status: 'Approved' },
-                                    ].map((row, i) => (
-                                        <tr key={i} className="border-b border-black/10 last:border-b-0 dark:border-white/10">
-                                            <td className="py-3.5">{row.app}</td>
-                                            <td className="py-3.5">{row.domain}</td>
-                                            <td className="py-3.5">{row.cat}</td>
-                                            <td className="py-3.5">
-                                                <span className={`px-2.5 py-0.5 rounded text-[12px] font-bold ${
-                                                    row.risk === 'high'
-                                                        ? 'bg-[rgba(255,77,77,0.2)] text-[#ff4d4d] border border-[#ff4d4d]'
-                                                        : 'bg-[rgba(0,255,102,0.2)] text-[#00ff66] border border-[#00ff66]'
-                                                }`}>{row.risk.toUpperCase()}</span>
-                                            </td>
-                                            <td className="py-3.5">{row.users}</td>
-                                            <td className="py-3.5">{row.status}</td>
-                                            <td className="py-3.5 text-center">
-                                                <button className="text-muted-foreground hover:text-able-green transition-colors bg-transparent border-none cursor-pointer">
-                                                    <Eye size={16} />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                    {/* Shadow Footprint Catalog - Header + View All */}
+                    <div className={`${glassCard} p-6 py-12`}>
+                        <div className="flex flex-row items-center justify-between mb-2">
+                            <h3 className="text-[1.92rem] font-semibold" style={{ fontFamily: "'Unbounded', sans-serif" }}>
+                                Shadow Footprint Catalog
+                            </h3>
+                            <Link href="/security-analytics/shadow-footprints">
+                                <Button variant="outline" className="border-[rgba(34,197,94,0.7)] hover:bg-[rgba(34,197,94,0.1)]">
+                                    View All
+                                </Button>
+                            </Link>
                         </div>
-                        <div className="flex justify-end items-center gap-2.5 mt-5 text-[0.85rem]">
-                            <span className="w-[22px] h-[22px] flex items-center justify-center rounded-full bg-able-green text-white font-bold">1</span>
-                            <span className="w-[22px] h-[22px] flex items-center justify-center rounded-full cursor-pointer hover:bg-black/5 dark:hover:bg-white/10">2</span>
-                            <span className="w-[22px] h-[22px] flex items-center justify-center rounded-full cursor-pointer hover:bg-black/5 dark:hover:bg-white/10">3</span>
-                            <span className="w-[22px] h-[22px] flex items-center justify-center rounded-full cursor-pointer hover:bg-black/5 dark:hover:bg-white/10">4</span>
-                            <span className="text-muted-foreground">...</span>
-                            <span className="text-muted-foreground cursor-pointer font-bold">&gt;</span>
-                        </div>
+                        <p className="text-muted-foreground text-[1.3rem] italic">Monitor and manage shadow application footprints</p>
                     </div>
 
-                    {/* Metrics Row */}
-                    <div className="grid grid-cols-3 gap-6">
+                    {/* Metrics Row: Total Nudges + Success Rate */}
+                    <div className="grid grid-cols-2 gap-6">
                         {[
-                            { label: 'Total Nudges Deployed', value: '1,578' },
-                            { label: 'Avg. Success Rate', value: '82.3%', highlight: true },
-                            { label: 'Data Saved', value: '1.5GB' },
+                            { label: 'Total Nudges Deployed', value: totalNudgesDeployed.toLocaleString() },
+                            { label: 'Avg. Success Rate', value: `${avgSuccessRate}%`, highlight: true },
                         ].map((m) => (
                             <div key={m.label} className={`${glassCard} p-6 flex flex-col items-center justify-center text-center`}>
                                 <h4 className="text-[1.2rem] font-medium mb-5" style={{ fontFamily: "'Unbounded', sans-serif" }}>{m.label}</h4>
@@ -129,25 +162,29 @@ export default function SecurityAnalytics() {
                             <table className="w-full border-collapse text-[0.9rem] text-left">
                                 <thead>
                                     <tr>
-                                        {['Date', 'Proceeded', 'Cancelled'].map((h) => (
-                                            <th key={h} className="pb-3 text-muted-foreground font-medium border-b border-black/10 dark:border-white/20">{h}</th>
-                                        ))}
+                                        <th className="pb-3 text-muted-foreground font-medium border-b border-[rgba(34,197,94,0.7)] w-[35%]">Date</th>
+                                        <th className="pb-3 text-muted-foreground font-medium border-b border-[rgba(34,197,94,0.7)] w-[20%]">Proceeded</th>
+                                        <th className="pb-3 text-muted-foreground font-medium border-b border-[rgba(34,197,94,0.7)] w-[20%]">Cancelled</th>
+                                        <th className="pb-3 text-muted-foreground font-medium border-b border-[rgba(34,197,94,0.7)] w-[25%]">Success</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {[
-                                        { date: '06-20-2026', proc: 12, canc: 9 },
-                                        { date: '06-19-2026', proc: 7, canc: 14 },
-                                        { date: '06-18-2026', proc: 14, canc: 2 },
-                                        { date: '06-17-2026', proc: 7, canc: 14 },
-                                        { date: '06-16-2026', proc: 15, canc: 13 },
-                                    ].map((row, i) => (
-                                        <tr key={i} className="border-b border-black/10 last:border-b-0 dark:border-white/10">
-                                            <td className="py-3.5">{row.date}</td>
-                                            <td className="py-3.5">{row.proc}</td>
-                                            <td className="py-3.5">{row.canc}</td>
-                                        </tr>
-                                    ))}
+                                    {nudgeEffectiveness.map((row, i) => {
+                                        const total = row.proceeded + row.cancelled;
+                                        const success = total > 0 ? ((row.proceeded / total) * 100).toFixed(1) + '%' : '0%';
+                                        return (
+                                            <tr key={i} className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0">
+                                                <td className="py-3.5">{row.date}</td>
+                                                <td className="py-3.5">{row.proceeded}</td>
+                                                <td className="py-3.5">{row.cancelled}</td>
+                                                <td className="py-3.5">
+                                                    <span className={`px-2 py-0.5 rounded-[10px] text-[12px] font-bold inline-block ${
+                                                        parseFloat(success) >= 50 ? 'bg-[#00ff66] text-[#15382e]' : 'bg-[#f39c12] text-white'
+                                                    }`}>{success}</span>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
@@ -158,29 +195,17 @@ export default function SecurityAnalytics() {
                             <table className="w-full border-collapse text-[0.9rem] text-left">
                                 <thead>
                                     <tr>
-                                        {['Domain', 'Total Nudges', 'Cancelled', 'Proceeded', 'Success'].map((h) => (
-                                            <th key={h} className="pb-3 text-muted-foreground font-medium border-b border-black/10 dark:border-white/20">{h}</th>
+                                        {['Domain Name', 'Total Visit', 'Active Users'].map((h) => (
+                                            <th key={h} className="pb-3 text-muted-foreground font-medium border-b border-[rgba(34,197,94,0.7)]">{h}</th>
                                         ))}
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {[
-                                        { domain: 'ChatGPT', total: 450, canc: 391, proc: 59, success: '86.8%' },
-                                        { domain: 'notion', total: 234, canc: 197, proc: 47, success: '84.1%' },
-                                        { domain: 'Discord', total: 156, canc: 142, proc: 14, success: '91.0%' },
-                                        { domain: 'Gemini', total: 189, canc: 159, proc: 30, success: '84.1%' },
-                                        { domain: 'Pastebin', total: 95, canc: 71, proc: 24, success: '74.7%' },
-                                    ].map((row, i) => (
-                                        <tr key={i} className="border-b border-black/10 last:border-b-0 dark:border-white/10">
+                                    {topDomains.map((row, i) => (
+                                        <tr key={i} className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0">
                                             <td className="py-3.5">{row.domain}</td>
-                                            <td className="py-3.5">{row.total}</td>
-                                            <td className="py-3.5">{row.canc}</td>
-                                            <td className="py-3.5">{row.proc}</td>
-                                            <td className="py-3.5">
-                                                <span className={`px-2 py-0.5 rounded-[10px] text-[12px] font-bold inline-block ${
-                                                    parseFloat(row.success) >= 85 ? 'bg-[#00ff66] text-[#15382e]' : 'bg-[#f39c12] text-white'
-                                                }`}>{row.success}</span>
-                                            </td>
+                                            <td className="py-3.5">{row.totalVisits.toLocaleString()}</td>
+                                            <td className="py-3.5">{row.activeUsers}</td>
                                         </tr>
                                     ))}
                                 </tbody>

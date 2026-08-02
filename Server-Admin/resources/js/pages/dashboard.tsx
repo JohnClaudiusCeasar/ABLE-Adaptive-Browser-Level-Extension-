@@ -103,13 +103,13 @@ export default function Dashboard() {
                             <table className="w-full border-collapse text-[0.85rem]">
                                 <thead>
                                     <tr className="text-muted-foreground">
-                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-white/10">Date</th>
-                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-white/10">Time</th>
-                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-white/10">Domain Name</th>
-                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-white/10">Status</th>
-                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-white/10">User ID</th>
-                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-white/10">File Name</th>
-                                        <th className="text-left pb-3 font-medium border-b border-white/10">Action Taken</th>
+                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">Date</th>
+                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">Time</th>
+                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">Domain Name</th>
+                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">Status</th>
+                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">User ID</th>
+                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">File Name</th>
+                                        <th className="text-left pb-3 font-medium border-b border-[rgba(34,197,94,0.7)]">Action Taken</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -118,7 +118,7 @@ export default function Dashboard() {
                                         { date: '2026-06-22', time: '1:25 PM', domain: 'deepseek.com', status: 'glass-unsafe' as const, user: 'USER81191', fileName: 'meeting_notes.docx', action: 'Denied' },
                                         { date: '2026-06-12', time: '1:20 PM', domain: 'canva.pro', status: 'glass-unlisted' as const, user: 'USER90012', fileName: 'banner_design.png', action: 'Proceeded' },
                                     ].map((row, i) => (
-                                        <tr key={i} className="border-b border-white/10 last:border-b-0">
+                                        <tr key={i} className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0">
                                             <td className="py-3 pr-2.5">{row.date}</td>
                                             <td className="py-3 pr-2.5">{row.time}</td>
                                             <td className="py-3 pr-2.5">{row.domain}</td>
@@ -145,13 +145,13 @@ export default function Dashboard() {
                             <table className="w-full border-collapse text-[0.85rem]">
                                 <thead>
                                     <tr className="text-muted-foreground">
-                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-white/10">Date</th>
-                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-white/10">Time</th>
-                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-white/10">URL</th>
-                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-white/10">Domain Name</th>
-                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-white/10">Status</th>
-                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-white/10">User ID</th>
-                                        <th className="text-left pb-3 font-medium border-b border-white/10">Action</th>
+                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">Date</th>
+                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">Time</th>
+                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">URL</th>
+                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">Domain Name</th>
+                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">Status</th>
+                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">User ID</th>
+                                        <th className="text-left pb-3 font-medium border-b border-[rgba(34,197,94,0.7)]">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -160,7 +160,7 @@ export default function Dashboard() {
                                         { time: '2:10 PM', date: '2026-06-22', url: 'https://deepseek.com/chat', domain: 'deepseek.com', status: 'glass-unsafe' as const, user: 'USER81191', action: 'Blocked' },
                                         { time: '1:55 PM', date: '2026-06-22', url: 'https://canva.pro/design', domain: 'canva.pro', status: 'glass-unlisted' as const, user: 'USER90012', action: 'Warned' },
                                     ].map((row, i) => (
-                                        <tr key={i} className="border-b border-white/10 last:border-b-0">
+                                        <tr key={i} className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0">
                                             <td className="py-3 pr-2.5">{row.time}</td>
                                             <td className="py-3 pr-2.5">{row.date}</td>
                                             <td className="py-3 pr-2.5">{row.url}</td>

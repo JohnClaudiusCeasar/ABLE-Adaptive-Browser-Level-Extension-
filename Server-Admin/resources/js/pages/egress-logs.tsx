@@ -43,17 +43,17 @@ export default function EgressLogs() {
                             <table className="w-full border-collapse text-[0.95rem] mb-5">
                                 <thead>
                                     <tr>
-                                        <th className="text-left text-muted-foreground font-medium pb-4 border-b border-white/10 dark:border-white/10">Date/Time</th>
-                                        <th className="text-left text-muted-foreground font-medium pb-4 border-b border-white/10 dark:border-white/10">Destination URL</th>
-                                        <th className="text-left text-muted-foreground font-medium pb-4 border-b border-white/10 dark:border-white/10">Status</th>
-                                        <th className="text-left text-muted-foreground font-medium pb-4 border-b border-white/10 dark:border-white/10">User ID</th>
-                                        <th className="text-left text-muted-foreground font-medium pb-4 border-b border-white/10 dark:border-white/10">Risk Score</th>
-                                        <th className="text-left text-muted-foreground font-medium pb-4 border-b border-white/10 dark:border-white/10">User Action</th>
+                                        <th className="text-left text-muted-foreground font-medium pb-4 border-b border-[rgba(34,197,94,0.7)]">Date/Time</th>
+                                        <th className="text-left text-muted-foreground font-medium pb-4 border-b border-[rgba(34,197,94,0.7)]">Destination URL</th>
+                                        <th className="text-left text-muted-foreground font-medium pb-4 border-b border-[rgba(34,197,94,0.7)]">Status</th>
+                                        <th className="text-left text-muted-foreground font-medium pb-4 border-b border-[rgba(34,197,94,0.7)]">User ID</th>
+                                        <th className="text-left text-muted-foreground font-medium pb-4 border-b border-[rgba(34,197,94,0.7)]">Risk Score</th>
+                                        <th className="text-left text-muted-foreground font-medium pb-4 border-b border-[rgba(34,197,94,0.7)]">User Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {logs.map((row, i) => (
-                                        <tr key={i} className="border-b border-black/10 last:border-b-0 dark:border-white/15">
+                                        <tr key={i} className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0">
                                             <td className="py-[18px]">{row.date}</td>
                                             <td className="py-[18px]">{row.url}</td>
                                             <td className="py-[18px]"><Badge variant={row.status}>{row.status.replace('glass-', '').toUpperCase()}</Badge></td>
