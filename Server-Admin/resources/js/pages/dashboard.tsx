@@ -103,13 +103,13 @@ export default function Dashboard() {
                             <table className="w-full border-collapse text-[0.85rem]">
                                 <thead>
                                     <tr className="text-muted-foreground">
-                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">Date</th>
-                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">Time</th>
-                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">Domain Name</th>
-                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">Status</th>
-                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">User ID</th>
-                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">File Name</th>
-                                        <th className="text-left pb-3 font-medium border-b border-[rgba(34,197,94,0.7)]">Action Taken</th>
+                                        <th className="text-left pb-5 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">Date</th>
+                                        <th className="text-left pb-5 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">Time</th>
+                                        <th className="text-left pb-5 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">Domain Name</th>
+                                        <th className="text-left pb-5 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">Status</th>
+                                        <th className="text-left pb-5 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">User ID</th>
+                                        <th className="text-left pb-5 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">File Name</th>
+                                        <th className="text-left pb-5 font-medium border-b border-[rgba(34,197,94,0.7)]">Action Taken</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -145,13 +145,13 @@ export default function Dashboard() {
                             <table className="w-full border-collapse text-[0.85rem]">
                                 <thead>
                                     <tr className="text-muted-foreground">
-                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">Date</th>
-                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">Time</th>
-                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">URL</th>
-                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">Domain Name</th>
-                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">Status</th>
-                                        <th className="text-left pb-3 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">User ID</th>
-                                        <th className="text-left pb-3 font-medium border-b border-[rgba(34,197,94,0.7)]">Action</th>
+                                        <th className="text-left pb-5 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">Date</th>
+                                        <th className="text-left pb-5 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">Time</th>
+                                        <th className="text-left pb-5 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">URL</th>
+                                        <th className="text-left pb-5 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">Domain Name</th>
+                                        <th className="text-left pb-5 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">Status</th>
+                                        <th className="text-left pb-5 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">User ID</th>
+                                        <th className="text-left pb-5 font-medium border-b border-[rgba(34,197,94,0.7)]">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>

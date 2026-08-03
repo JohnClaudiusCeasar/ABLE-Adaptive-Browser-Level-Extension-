@@ -158,18 +158,25 @@ export default function SecurityAnalytics({
                     <div className="grid grid-cols-2 gap-6">
                         {/* Nudge Effectiveness */}
                         <div className={`${glassCard} p-6`}>
-                            <h3 className="text-[1.1rem] font-semibold mb-4" style={{ fontFamily: "'Unbounded', sans-serif" }}>Nudge Effectiveness</h3>
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-[1.1rem] font-semibold" style={{ fontFamily: "'Unbounded', sans-serif" }}>Nudge Effectiveness</h3>
+                                <Link href="/security-analytics/nudge-effectiveness">
+                                    <Button variant="outline" className="border-[rgba(34,197,94,0.7)] hover:bg-[rgba(34,197,94,0.1)] text-sm">
+                                        View All
+                                    </Button>
+                                </Link>
+                            </div>
                             <table className="w-full border-collapse text-[0.9rem] text-left">
                                 <thead>
                                     <tr>
-                                        <th className="pb-3 text-muted-foreground font-medium border-b border-[rgba(34,197,94,0.7)] w-[35%]">Date</th>
-                                        <th className="pb-3 text-muted-foreground font-medium border-b border-[rgba(34,197,94,0.7)] w-[20%]">Proceeded</th>
-                                        <th className="pb-3 text-muted-foreground font-medium border-b border-[rgba(34,197,94,0.7)] w-[20%]">Cancelled</th>
-                                        <th className="pb-3 text-muted-foreground font-medium border-b border-[rgba(34,197,94,0.7)] w-[25%]">Success</th>
+                                        <th className="pb-5 text-muted-foreground font-medium border-b border-[rgba(34,197,94,0.7)] w-[35%]">Date</th>
+                                        <th className="pb-5 text-muted-foreground font-medium border-b border-[rgba(34,197,94,0.7)] w-[20%]">Proceeded</th>
+                                        <th className="pb-5 text-muted-foreground font-medium border-b border-[rgba(34,197,94,0.7)] w-[20%]">Cancelled</th>
+                                        <th className="pb-5 text-muted-foreground font-medium border-b border-[rgba(34,197,94,0.7)] w-[25%]">Success</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {nudgeEffectiveness.map((row, i) => {
+                                    {nudgeEffectiveness.slice(0, 5).map((row, i) => {
                                         const total = row.proceeded + row.cancelled;
                                         const success = total > 0 ? ((row.proceeded / total) * 100).toFixed(1) + '%' : '0%';
                                         return (
@@ -196,7 +203,7 @@ export default function SecurityAnalytics({
                                 <thead>
                                     <tr>
                                         {['Domain Name', 'Total Visit', 'Active Users'].map((h) => (
-                                            <th key={h} className="pb-3 text-muted-foreground font-medium border-b border-[rgba(34,197,94,0.7)]">{h}</th>
+                                            <th key={h} className="pb-5 text-muted-foreground font-medium border-b border-[rgba(34,197,94,0.7)]">{h}</th>
                                         ))}
                                     </tr>
                                 </thead>

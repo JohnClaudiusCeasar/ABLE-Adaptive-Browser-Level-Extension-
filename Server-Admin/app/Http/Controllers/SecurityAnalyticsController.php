@@ -38,7 +38,7 @@ class SecurityAnalyticsController extends Controller
         )
             ->groupBy(DB::raw("DATE(interacted_at)"))
             ->orderByDesc('date')
-            ->limit(5)
+            ->limit(10)
             ->get()
             ->map(function ($row) {
                 return [
@@ -88,6 +88,69 @@ class SecurityAnalyticsController extends Controller
             'dataSaved' => $this->formatBytes($dataSaved),
             'dataLost' => $this->formatBytes($dataLost),
             'topDomains' => $topDomains,
+        ]);
+    }
+
+    /**
+     * Display the Shadow Footprint Catalog page with live data.
+     */
+    public function shadowFootprints(): Response
+    {
+        $shadowFootprints = DomainPolicy::select(
+            'id', 'domain', 'category', 'risk_score', 'policy'
+        )
+            ->addSelect(DB::raw('(SELECT COUNT(DISTINCT user_id) FROM domain_visits WHERE domain_visits.domain = domain_policies.domain) as active_users'))
+            ->orderByDesc('risk_score')
+            ->get()
+            ->map(function ($row) {
+                $domainName = explode('.', $row->domain)[0];
+                $appName = ucfirst($domainName);
+
+                $statusMap = [
+                    'whitelisted' => 'Approved',
+                    'blacklisted' => 'Unapproved',
+                    'under_review' => 'Pending',
+                ];
+
+                return [
+                    'id' => $row->id,
+                    'app' => $appName,
+                    'domain' => $row->domain,
+                    'category' => $row->category ?? '—',
+                    'risk' => $row->risk_score > 50 ? 'high' : 'low',
+                    'users' => (int) $row->active_users,
+                    'status' => $statusMap[$row->policy] ?? 'Pending',
+                ];
+            });
+
+        return Inertia::render('security-analytics/shadow-footprints', [
+            'shadowFootprints' => $shadowFootprints,
+        ]);
+    }
+
+    /**
+     * Display the Nudge Effectiveness subpage with full data.
+     */
+    public function nudgeEffectiveness(): Response
+    {
+        $nudgeEffectiveness = NudgeInteraction::select(
+            DB::raw("DATE(interacted_at) as date"),
+            DB::raw("SUM(CASE WHEN user_action = 'proceeded' THEN 1 ELSE 0 END) as proceeded"),
+            DB::raw("SUM(CASE WHEN user_action = 'cancelled' THEN 1 ELSE 0 END) as cancelled")
+        )
+            ->groupBy(DB::raw("DATE(interacted_at)"))
+            ->orderByDesc('date')
+            ->get()
+            ->map(function ($row) {
+                return [
+                    'date' => $row->date,
+                    'proceeded' => (int) $row->proceeded,
+                    'cancelled' => (int) $row->cancelled,
+                ];
+            });
+
+        return Inertia::render('security-analytics/nudge-effectiveness', [
+            'nudgeEffectiveness' => $nudgeEffectiveness,
         ]);
     }
 

@@ -17,7 +17,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'dashboard')->name('dashboard');
     Route::inertia('egress-logs', 'egress-logs')->name('egress-logs');
     Route::get('security-analytics', [SecurityAnalyticsController::class, 'index'])->name('security-analytics');
-    Route::inertia('security-analytics/shadow-footprints', 'security-analytics/shadow-footprints')
+    Route::get('security-analytics/nudge-effectiveness', [SecurityAnalyticsController::class, 'nudgeEffectiveness'])
+        ->name('security-analytics.nudge-effectiveness');
+    Route::get('security-analytics/shadow-footprints', [SecurityAnalyticsController::class, 'shadowFootprints'])
         ->name('security-analytics.shadow-footprints');
     Route::get('risk-algorithm', [RiskPatternController::class, 'index'])->name('risk-algorithm');
     Route::post('risk-algorithm', [RiskPatternController::class, 'store'])->name('risk-algorithm.store');
