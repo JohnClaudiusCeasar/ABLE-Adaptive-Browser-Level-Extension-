@@ -462,7 +462,7 @@ function showSiteWarningModal(data) {
       <div class="able-banner-edge"></div>
       <div class="able-modal-content">
         <h1 class="able-modal-title">${data.title}</h1>
-        <div class="able-modal-divider">--- * ---</div>
+        <div class="able-modal-divider"><div class="able-modal-divider-circle"></div></div>
         <div class="able-modal-body">
           <p>${data.message}</p>
         </div>
@@ -503,7 +503,7 @@ function showRepeatVisitModal(data) {
       <div class="able-banner-edge"></div>
       <div class="able-modal-content">
         <h1 class="able-modal-title">BEFORE YOU PROCEED</h1>
-        <div class="able-modal-divider">--- * ---</div>
+        <div class="able-modal-divider"><div class="able-modal-divider-circle"></div></div>
         <div class="able-modal-body">
           <p>
             You have visited <span class="able-highlight-text">${data.domain}</span>
