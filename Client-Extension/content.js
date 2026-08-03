@@ -87,6 +87,56 @@ async function migrateOldSessionConsent() {
   }
 }
 
+// ─── Visit count and modal cooldown tracking ──────────────────────
+
+async function getDomainVisitCount() {
+  try {
+    const key = "able:visit_count:" + domainStatus.domain;
+    const data = await chrome.storage.local.get(key);
+    return data[key] || 0;
+  } catch {
+    return 0;
+  }
+}
+
+async function incrementDomainVisitCount() {
+  try {
+    const key = "able:visit_count:" + domainStatus.domain;
+    const count = await getDomainVisitCount();
+    const newCount = count + 1;
+    await chrome.storage.local.set({ [key]: newCount });
+    return newCount;
+  } catch {
+    return 0;
+  }
+}
+
+async function getLastModalShownTime() {
+  try {
+    const key = "able:last_modal:" + domainStatus.domain;
+    const data = await chrome.storage.local.get(key);
+    return data[key] || 0;
+  } catch {
+    return 0;
+  }
+}
+
+async function setLastModalShownTime() {
+  try {
+    const key = "able:last_modal:" + domainStatus.domain;
+    await chrome.storage.local.set({ [key]: Date.now() });
+  } catch {
+  }
+}
+
+async function shouldShowRepeatVisitModal() {
+  const lastShown = await getLastModalShownTime();
+  if (!lastShown) return false;
+
+  const COOLDOWN_MS = 10000; // 10 seconds
+  return Date.now() - lastShown >= COOLDOWN_MS;
+}
+
 // ─── File scanning ─────────────────────────────────────────────────
 
 async function calculateRiskScore(text) {
@@ -412,6 +462,7 @@ function showSiteWarningModal(data) {
       <div class="able-banner-edge"></div>
       <div class="able-modal-content">
         <h1 class="able-modal-title">${data.title}</h1>
+        <div class="able-modal-divider">--- * ---</div>
         <div class="able-modal-body">
           <p>${data.message}</p>
         </div>
@@ -427,7 +478,6 @@ function showSiteWarningModal(data) {
 
   backdrop.querySelector("#ableWarningDismiss").addEventListener("click", async () => {
     await setSiteWarningConsent();
-    logDomainVisit();
     removeModal();
   });
 
@@ -435,7 +485,58 @@ function showSiteWarningModal(data) {
     if (e.key === "Escape") {
       e.preventDefault();
       setSiteWarningConsent();
-      logDomainVisit();
+      removeModal();
+    }
+  });
+}
+
+// ─── Repeat visit modal ─────────────────────────────────────────
+
+function showRepeatVisitModal(data) {
+  removeModal();
+
+  const backdrop = document.createElement("div");
+  backdrop.className = "able-modal-backdrop";
+
+  backdrop.innerHTML = `
+    <div class="able-modal-card">
+      <div class="able-banner-edge"></div>
+      <div class="able-modal-content">
+        <h1 class="able-modal-title">BEFORE YOU PROCEED</h1>
+        <div class="able-modal-divider">--- * ---</div>
+        <div class="able-modal-body">
+          <p>
+            You have visited <span class="able-highlight-text">${data.domain}</span>
+            for <span class="able-highlight-text">${data.visitCount} time${data.visitCount !== 1 ? 's' : ''}</span> now.
+            The ABLE security team is still marking this site as ${data.status}.
+          </p>
+          <br>
+          <p>
+            Please be advised that your visits are being recorded for security monitoring purposes.
+            So please exercise caution when sharing sensitive information on this website.
+          </p>
+          <br>
+          <p>Happy Surfing :)</p>
+        </div>
+        <div class="able-modal-actions">
+          <button class="able-btn able-btn-proceed" id="ableRepeatDismiss">I Understand</button>
+        </div>
+      </div>
+      <div class="able-banner-edge"></div>
+    </div>
+  `;
+
+  document.documentElement.appendChild(backdrop);
+
+  backdrop.querySelector("#ableRepeatDismiss").addEventListener("click", async () => {
+    await setLastModalShownTime();
+    removeModal();
+  });
+
+  backdrop.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      setLastModalShownTime();
       removeModal();
     }
   });
@@ -443,8 +544,28 @@ function showSiteWarningModal(data) {
 
 // ─── Logging ─────────────────────────────────────────────────────────
 
-function logDomainVisit() {
+async function logDomainVisit() {
   if (!domainStatus || !domainStatus.domain) return;
+
+  // Debounce: Don't log the same domain within 5 seconds
+  const DEBOUNCE_KEY = `able:last_visit:${domainStatus.domain}`;
+  try {
+    const result = await chrome.storage.session.get(DEBOUNCE_KEY);
+    const lastVisit = result[DEBOUNCE_KEY];
+
+    if (lastVisit && Date.now() - lastVisit < 5000) {
+      return; // Skip duplicate visit
+    }
+  } catch (error) {
+    // Continue even if debounce check fails
+  }
+
+  try {
+    await chrome.storage.session.set({ [DEBOUNCE_KEY]: Date.now() });
+  } catch (error) {
+    // Continue even if debounce storage fails
+  }
+
   chrome.runtime.sendMessage({
     type: "logVisit",
     domain: domainStatus.domain,
@@ -470,14 +591,37 @@ async function initialize() {
   injectFonts();
   await classifyCurrentDomain();
 
+  // Log the visit immediately after classification
+  await logDomainVisit();
+
   if (shouldActivate()) {
     await migrateOldSessionConsent();
     const consent = await hasSiteWarningConsent();
-    if (!consent && domainStatus.title && domainStatus.message) {
-      showSiteWarningModal({
-        title: domainStatus.title,
-        message: domainStatus.message,
-      });
+
+    if (!consent) {
+      // First visit to this unsafe/unlisted domain - show initial warning
+      if (domainStatus.title && domainStatus.message) {
+        // Increment visit count for first visit
+        await incrementDomainVisitCount();
+        await setLastModalShownTime();
+
+        showSiteWarningModal({
+          title: domainStatus.title,
+          message: domainStatus.message,
+        });
+      }
+    } else {
+      // Repeat visit - increment count and check cooldown
+      const visitCount = await incrementDomainVisitCount();
+      const shouldShow = await shouldShowRepeatVisitModal();
+
+      if (shouldShow) {
+        showRepeatVisitModal({
+          domain: domainStatus.domain,
+          status: domainStatus.status === "unsafe" ? "Unsafe" : "Unlisted",
+          visitCount: visitCount,
+        });
+      }
     }
   }
 }
