@@ -132,7 +132,10 @@ class DomainPolicyController extends Controller
             'visited_at' => now(),
         ]);
 
-        return response()->json(['success' => true]);
+        return response()->json([
+            'success' => true,
+            'visit_count' => $policy->visit_count,
+        ]);
     }
 
     /**

@@ -215,9 +215,14 @@ async function logDomainVisit(domain, status, source) {
 
     if (!response.ok) {
       console.warn("ABLE: Failed to log domain visit:", response.status);
+      return null;
     }
+
+    const data = await response.json();
+    return data.visit_count ?? null;
   } catch (error) {
     // Silently fail — logging visits is non-critical
+    return null;
   }
 }
 
@@ -315,16 +320,9 @@ async function clearRiskPatternsCache() {
  */
 async function getRiskPatterns() {
   try {
-    // Step 1: Try server first
+    // Step 1: Try server first (refreshRiskPatternsCache already stores to chrome.storage.local)
     const serverPatterns = await refreshRiskPatternsCache();
     if (serverPatterns) {
-      // Server is online — clear offline cache since we have fresh data
-      await clearRiskPatternsCache();
-      // Store fresh data as the new cache
-      await chrome.storage.local.set({
-        [RISK_PATTERNS_KEY]: serverPatterns,
-        [RISK_PATTERNS_TIMESTAMP_KEY]: Date.now(),
-      });
       return serverPatterns;
     }
 

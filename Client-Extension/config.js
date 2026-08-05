@@ -36,6 +36,6 @@ function getDefaultClassification(domain) {
     category: null,
     alternatives: [],
     policy: "under_review",
-    risk_score: 0,
+    risk_score: 70,
   };
 }

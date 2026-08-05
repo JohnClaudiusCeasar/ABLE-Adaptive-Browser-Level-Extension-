@@ -1,8 +1,19 @@
 self.importScripts("config.js", "api.js");
 
+const RISK_PATTERNS_ALARM = "risk-patterns-sync";
+
 chrome.runtime.onInstalled.addListener(async () => {
   // Sync risk patterns when extension is installed or updated
   await refreshRiskPatternsCache();
+
+  // Set up periodic sync every 24 hours
+  chrome.alarms.create(RISK_PATTERNS_ALARM, { periodInMinutes: 24 * 60 });
+});
+
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name === RISK_PATTERNS_ALARM) {
+    await refreshRiskPatternsCache();
+  }
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -11,9 +22,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   if (message.type === "logVisit") {
-    // Fire-and-forget: log the domain visit to the server
-    logDomainVisit(message.domain, message.status, message.source);
-    sendResponse({ success: true });
+    logDomainVisit(message.domain, message.status, message.source)
+      .then((visitCount) => sendResponse({ success: true, visit_count: visitCount }))
+      .catch(() => sendResponse({ success: false, visit_count: null }));
     return true;
   }
   return true;

@@ -87,29 +87,7 @@ async function migrateOldSessionConsent() {
   }
 }
 
-// ─── Visit count and modal cooldown tracking ──────────────────────
-
-async function getDomainVisitCount() {
-  try {
-    const key = "able:visit_count:" + domainStatus.domain;
-    const data = await chrome.storage.local.get(key);
-    return data[key] || 0;
-  } catch {
-    return 0;
-  }
-}
-
-async function incrementDomainVisitCount() {
-  try {
-    const key = "able:visit_count:" + domainStatus.domain;
-    const count = await getDomainVisitCount();
-    const newCount = count + 1;
-    await chrome.storage.local.set({ [key]: newCount });
-    return newCount;
-  } catch {
-    return 0;
-  }
-}
+// ─── Modal cooldown tracking ──────────────────────────────────────
 
 async function getLastModalShownTime() {
   try {
@@ -178,24 +156,41 @@ async function calculateRiskScore(text) {
   const criteriaPatterns = patterns.filter(p => p.type === 'criteria');
   for (const criteria of criteriaPatterns) {
     let allMatched = true;
-    for (const item of criteria.criteria_pattern_items) {
+    let matchCount = 0;
+
+    function checkItem(item) {
       try {
         const regex = new RegExp(item.regex, 'g');
-        if (!regex.test(text)) {
-          allMatched = false;
-          break;
-        }
+        const matches = [...text.matchAll(regex)];
+        if (matches.length === 0) return false;
+        matchCount += matches.length;
+        return true;
       } catch (error) {
         console.warn('ABLE: Invalid regex pattern in criteria:', item.regex, error);
-        allMatched = false;
-        break;
+        return false;
       }
     }
+
+    function checkItemsRecursive(items) {
+      for (const item of items) {
+        if (!checkItem(item)) {
+          allMatched = false;
+          return;
+        }
+        if (item.sub_items && item.sub_items.length > 0) {
+          checkItemsRecursive(item.sub_items);
+          if (!allMatched) return;
+        }
+      }
+    }
+
+    checkItemsRecursive(criteria.criteria_pattern_items);
+
     if (allMatched) {
       totalScore += criteria.score;
       flaggedItems.push({
         label: criteria.title,
-        count: 1,
+        count: matchCount,
         weight: criteria.score,
       });
     }
@@ -278,10 +273,36 @@ async function handleInterceptedFile(file, requestId) {
 
   const result = await calculateRiskScore(text);
 
-  if (result.score > 85) {
+  // Combine domain base risk score with pattern match score
+  const domainRiskScore = domainStatus?.risk_score || 0;
+  const totalScore = Math.min(100, domainRiskScore + result.score);
+
+  // Build flagged items list, including domain risk as a line item
+  const flaggedItems = [];
+  if (domainRiskScore > 0) {
+    flaggedItems.push({
+      label: "Domain Risk (" + (domainStatus.status === "unlisted" ? "Unlisted" : "Unsafe") + ")",
+      count: 1,
+      weight: domainRiskScore,
+    });
+  }
+  flaggedItems.push(...result.flaggedItems);
+
+  console.log("ABLE Scan:", {
+    domain: domainStatus.domain,
+    domain_status: domainStatus.status,
+    domain_risk_score: domainRiskScore,
+    pattern_score: result.score,
+    total_score: totalScore,
+    threshold: 85,
+    triggered: totalScore > 85,
+    flagged_items: flaggedItems,
+  });
+
+  if (totalScore > 85) {
     showInterceptModal({
-      score: result.score,
-      flaggedItems: result.flaggedItems,
+      score: totalScore,
+      flaggedItems: flaggedItems,
       domain: domainStatus.domain,
       status: domainStatus.status,
       websiteName: getWebsiteName(),
@@ -577,7 +598,7 @@ function showRepeatVisitModal(data) {
 // ─── Logging ─────────────────────────────────────────────────────────
 
 async function logDomainVisit() {
-  if (!domainStatus || !domainStatus.domain) return;
+  if (!domainStatus || !domainStatus.domain) return null;
 
   // Debounce: Don't log the same domain within 5 seconds
   const DEBOUNCE_KEY = `able:last_visit:${domainStatus.domain}`;
@@ -586,7 +607,7 @@ async function logDomainVisit() {
     const lastVisit = result[DEBOUNCE_KEY];
 
     if (lastVisit && Date.now() - lastVisit < 5000) {
-      return; // Skip duplicate visit
+      return null; // Skip duplicate visit
     }
   } catch (error) {
     // Continue even if debounce check fails
@@ -598,12 +619,17 @@ async function logDomainVisit() {
     // Continue even if debounce storage fails
   }
 
-  chrome.runtime.sendMessage({
-    type: "logVisit",
-    domain: domainStatus.domain,
-    status: domainStatus.status || "unlisted",
-    source: domainStatus.source || "unknown",
-  }).catch(() => {});
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: "logVisit",
+      domain: domainStatus.domain,
+      status: domainStatus.status || "unlisted",
+      source: domainStatus.source || "unknown",
+    });
+    return response?.visit_count ?? null;
+  } catch {
+    return null;
+  }
 }
 
 // ─── Fonts ──────────────────────────────────────────────────────────
@@ -623,8 +649,8 @@ async function initialize() {
   injectFonts();
   await classifyCurrentDomain();
 
-  // Log the visit immediately after classification
-  await logDomainVisit();
+  // Log the visit and get the authoritative count from the server
+  const serverVisitCount = await logDomainVisit();
 
   if (shouldActivate()) {
     await migrateOldSessionConsent();
@@ -633,8 +659,6 @@ async function initialize() {
     if (!consent) {
       // First visit to this unsafe/unlisted domain - show initial warning
       if (domainStatus.title && domainStatus.message) {
-        // Increment visit count for first visit
-        await incrementDomainVisitCount();
         await setLastModalShownTime();
 
         showSiteWarningModal({
@@ -643,15 +667,14 @@ async function initialize() {
         });
       }
     } else {
-      // Repeat visit - increment count and check cooldown
-      const visitCount = await incrementDomainVisitCount();
+      // Repeat visit - check cooldown and show modal with server count
       const shouldShow = await shouldShowRepeatVisitModal();
 
       if (shouldShow) {
         showRepeatVisitModal({
           domain: domainStatus.domain,
           status: domainStatus.status === "unsafe" ? "Unsafe" : "Unlisted",
-          visitCount: visitCount,
+          visitCount: serverVisitCount || 1,
         });
       }
     }
