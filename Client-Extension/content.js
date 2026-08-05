@@ -377,11 +377,27 @@ function showInterceptModal(data) {
   backdrop.querySelector("#ableProceedBtn").addEventListener("click", async () => {
     await setSessionConsent();
     sendDecision(data.requestId, "proceed");
+    logEgressEvent({
+      domain: data.domain,
+      fileName: data.fileName,
+      fileSize: data.fileSize,
+      riskScore: data.score,
+      action: "proceeded",
+      userAction: "proceeded",
+    });
     removeModal();
   });
 
   backdrop.querySelector("#ableCancelBtn").addEventListener("click", () => {
     sendDecision(data.requestId, "cancel");
+    logEgressEvent({
+      domain: data.domain,
+      fileName: data.fileName,
+      fileSize: data.fileSize,
+      riskScore: data.score,
+      action: "denied",
+      userAction: "cancelled",
+    });
     removeModal();
   });
 
@@ -389,6 +405,14 @@ function showInterceptModal(data) {
     if (e.key === "Escape") {
       e.preventDefault();
       sendDecision(data.requestId, "cancel");
+      logEgressEvent({
+        domain: data.domain,
+        fileName: data.fileName,
+        fileSize: data.fileSize,
+        riskScore: data.score,
+        action: "denied",
+        userAction: "cancelled",
+      });
       removeModal();
     }
   });
@@ -440,6 +464,14 @@ function showInterceptScoreDetails(data) {
 
   document.querySelector("#ableDetailCancelBtn").addEventListener("click", () => {
     sendDecision(data.requestId, "cancel");
+    logEgressEvent({
+      domain: data.domain,
+      fileName: data.fileName,
+      fileSize: data.fileSize,
+      riskScore: data.score,
+      action: "denied",
+      userAction: "cancelled",
+    });
     removeModal();
   });
 }

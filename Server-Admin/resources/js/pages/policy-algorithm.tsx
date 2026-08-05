@@ -2,6 +2,7 @@ import { Head, router, usePage } from '@inertiajs/react';
 import { Search, ExternalLink, Pencil, Trash2, Plus, X, ArrowUpDown, Layers, Trash, Eye } from 'lucide-react';
 import { useState, FormEvent, useMemo, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
+import DomainPolicyController from '@/actions/App/Http/Controllers/DomainPolicyController';
 
 const glassCard = 'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
 
@@ -37,7 +38,7 @@ const emptyForm: FormData = {
     domain_status: 'unlisted',
     policy: 'under_review',
     category: '',
-    risk_score: 0,
+    risk_score: 70,
 };
 
 const ROWS_PER_PAGE = 5;
@@ -84,10 +85,14 @@ export default function PolicyAlgorithm() {
     const [sortDir, setSortDir] = useState<SortDir>('asc');
     const [groupField, setGroupField] = useState<GroupField>('none');
 
+    // Form state
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
     // Domain detail modal state
     const [selectedDomain, setSelectedDomain] = useState<DomainPolicy | null>(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
-    const [domainVisits, setDomainVisits] = useState<any[]>([]);
+    const [domainVisits, setDomainVisits] = useState<{ id: number; domain_policy_id: number; domain: string; user_id: string | null; visited_at: string }[]>([]);
     const [visitsLoading, setVisitsLoading] = useState(false);
     const [visitsPagination, setVisitsPagination] = useState({
         current_page: 1,
@@ -157,7 +162,7 @@ export default function PolicyAlgorithm() {
     }, [processedPolicies, currentPage, groupField]);
 
     // Reset page when search/sort changes
-    useMemo(() => {
+    useEffect(() => {
         setCurrentPage(1);
     }, [searchQuery, sortField, sortDir, groupField]);
 
@@ -183,28 +188,40 @@ export default function PolicyAlgorithm() {
         setShowModal(false);
         setEditingId(null);
         setForm(emptyForm);
+        setFormErrors({});
     }
 
     function handleSubmit(e: FormEvent) {
         e.preventDefault();
+        setIsSubmitting(true);
+        setFormErrors({});
+
+        const options = {
+            onSuccess: () => closeModal(),
+            onError: (errors: Record<string, string>) => {
+                setFormErrors(errors);
+                setIsSubmitting(false);
+            },
+            onFinish: () => setIsSubmitting(false),
+        };
 
         if (editingId) {
-            router.patch(`/policy-algorithm/${editingId}`, form as any);
+            router.patch(DomainPolicyController.update.url(editingId), form as any, options);
         } else {
-            router.post('/policy-algorithm', form as any);
+            router.post(DomainPolicyController.store.url(), form as any, options);
         }
-
-        closeModal();
     }
 
     function handleDelete(id: number) {
-        router.delete(`/policy-algorithm/${id}`);
-        setDeleteConfirmId(null);
+        router.delete(DomainPolicyController.destroy.url(id), {
+            onSuccess: () => setDeleteConfirmId(null),
+        });
     }
 
     function handleDeleteAll() {
-        router.delete('/policy-algorithm-all');
-        setDeleteAllConfirm(false);
+        router.delete(DomainPolicyController.destroyAll.url(), {
+            onSuccess: () => setDeleteAllConfirm(false),
+        });
     }
 
     function formatDomainUrl(domain: string): string {
@@ -222,15 +239,15 @@ export default function PolicyAlgorithm() {
     async function fetchDomainVisits(domainPolicyId: number, page: number = 1, search: string = '') {
         setVisitsLoading(true);
         try {
-            const params = new URLSearchParams({
-                page: page.toString(),
-                per_page: visitsPagination.per_page.toString(),
+            const url = DomainPolicyController.getDomainVisits.url(domainPolicyId, {
+                query: {
+                    page: page.toString(),
+                    per_page: visitsPagination.per_page.toString(),
+                    ...(search ? { search } : {}),
+                },
             });
-            if (search) {
-                params.append('search', search);
-            }
 
-            const response = await fetch(`/api/domain-policies/${domainPolicyId}/visits?${params}`);
+            const response = await fetch(url);
             if (response.ok) {
                 const data = await response.json();
                 setDomainVisits(data.visits);
@@ -545,11 +562,13 @@ export default function PolicyAlgorithm() {
                                 <input
                                     type="text"
                                     required
+                                    readOnly={!!editingId}
                                     value={form.domain}
                                     onChange={(e) => setForm({ ...form, domain: e.target.value })}
                                     placeholder="e.g., example.com"
-                                    className="w-full px-3 py-2 rounded-lg border border-black/10 dark:border-white/10 bg-transparent text-foreground outline-none focus:border-able-green transition-colors"
+                                    className={`w-full px-3 py-2 rounded-lg border bg-transparent text-foreground outline-none focus:border-able-green transition-colors ${formErrors.domain ? 'border-[#f87171]' : 'border-black/10 dark:border-white/10'} ${editingId ? 'opacity-60 cursor-not-allowed' : ''}`}
                                 />
+                                {formErrors.domain && <p className="text-[#f87171] text-xs mt-1">{formErrors.domain}</p>}
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
@@ -568,7 +587,20 @@ export default function PolicyAlgorithm() {
                                     <label className="block text-sm font-medium text-muted-foreground mb-1">Policy</label>
                                     <select
                                         value={form.policy}
-                                        onChange={(e) => setForm({ ...form, policy: e.target.value as FormData['policy'] })}
+                                        onChange={(e) => {
+                                            const policy = e.target.value as FormData['policy'];
+                                            const statusMap: Record<FormData['policy'], FormData['domain_status']> = {
+                                                whitelisted: 'safe',
+                                                blacklisted: 'unsafe',
+                                                under_review: 'unlisted',
+                                            };
+                                            setForm({
+                                                ...form,
+                                                policy,
+                                                domain_status: statusMap[policy],
+                                                risk_score: policy === 'under_review' ? 70 : form.risk_score,
+                                            });
+                                        }}
                                         className="w-full px-3 py-2 rounded-lg border border-black/10 dark:border-white/10 bg-transparent text-foreground outline-none focus:border-able-green transition-colors"
                                     >
                                         <option value="whitelisted">Whitelisted</option>
@@ -609,9 +641,10 @@ export default function PolicyAlgorithm() {
                                 </button>
                                 <button
                                     type="submit"
-                                    className="px-4 py-2 rounded-lg bg-able-green text-white font-semibold hover:bg-[#1a9e4b] transition-colors"
+                                    disabled={isSubmitting}
+                                    className="px-4 py-2 rounded-lg bg-able-green text-white font-semibold hover:bg-[#1a9e4b] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    {editingId ? 'Update' : 'Create'}
+                                    {isSubmitting ? 'Saving...' : editingId ? 'Update' : 'Create'}
                                 </button>
                             </div>
                         </form>

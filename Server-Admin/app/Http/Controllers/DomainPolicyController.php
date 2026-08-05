@@ -39,7 +39,8 @@ class DomainPolicyController extends Controller
 
         DomainPolicy::create($validated);
 
-        return Redirect::back()->with('success', 'Domain policy created successfully.');
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Domain policy created successfully.']);
+        return Redirect::back();
     }
 
     /**
@@ -57,7 +58,8 @@ class DomainPolicyController extends Controller
 
         $domainPolicy->update($validated);
 
-        return Redirect::back()->with('success', 'Domain policy updated successfully.');
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Domain policy updated successfully.']);
+        return Redirect::back();
     }
 
     /**
@@ -67,7 +69,8 @@ class DomainPolicyController extends Controller
     {
         $domainPolicy->delete();
 
-        return Redirect::back()->with('success', 'Domain policy deleted successfully.');
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Domain policy deleted successfully.']);
+        return Redirect::back();
     }
 
     /**
@@ -75,9 +78,10 @@ class DomainPolicyController extends Controller
      */
     public function destroyAll()
     {
-        DomainPolicy::truncate();
+        DomainPolicy::query()->delete();
 
-        return Redirect::back()->with('success', 'All domain policies deleted successfully.');
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'All domain policies deleted successfully.']);
+        return Redirect::back();
     }
 
     /**
@@ -106,7 +110,7 @@ class DomainPolicyController extends Controller
                 'domain' => $domain,
                 'domain_status' => $status,
                 'policy' => 'under_review',
-                'risk_score' => 0,
+                'risk_score' => $status === 'unlisted' ? 70 : 0,
                 'visit_count' => 0,
                 'last_visited_at' => now(),
                 'last_source' => $source,
@@ -160,12 +164,9 @@ class DomainPolicyController extends Controller
             // Query the database - exact match first
             $policy = DomainPolicy::where('domain', $domain)->first();
 
-            // If no exact match, check for subdomain match
+            // If no exact match, check for subdomain match (e.g. mail.google.com → google.com)
             if (!$policy) {
-                $allPolicies = DomainPolicy::all();
-                $policy = $allPolicies->first(function ($p) use ($domain) {
-                    return $domain !== $p->domain && str_ends_with($domain, '.' . $p->domain);
-                });
+                $policy = DomainPolicy::whereRaw('? LIKE CONCAT("%.", domain)', [$domain])->first();
             }
 
             if ($policy) {
@@ -204,7 +205,7 @@ class DomainPolicyController extends Controller
                 'domain' => $domain,
                 'category' => null,
                 'policy' => 'under_review',
-                'risk_score' => 0,
+                'risk_score' => 70,
                 'source' => 'default',
             ]);
 
@@ -214,7 +215,7 @@ class DomainPolicyController extends Controller
                 'domain' => 'unknown',
                 'category' => null,
                 'policy' => 'under_review',
-                'risk_score' => 0,
+                'risk_score' => 70,
                 'source' => 'error',
                 'error' => $e->getMessage(),
             ], 500);

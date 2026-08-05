@@ -1,11 +1,13 @@
 <?php
 
 use App\Http\Controllers\DomainPolicyController;
+use App\Http\Controllers\EgressEventController;
 use App\Http\Controllers\RiskPatternController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/classify-domain', [DomainPolicyController::class, 'classify']);
-Route::get('/domain-policies', [DomainPolicyController::class, 'all']);
-Route::post('/log-visit', [DomainPolicyController::class, 'logVisit']);
-Route::get('/domain-policies/{domainPolicy}/visits', [DomainPolicyController::class, 'getDomainVisits']);
-Route::get('/risk-patterns', [RiskPatternController::class, 'all']);
+Route::get('/classify-domain', [DomainPolicyController::class, 'classify'])->middleware('throttle:120,1');
+Route::get('/domain-policies', [DomainPolicyController::class, 'all'])->middleware('throttle:30,1');
+Route::post('/log-visit', [DomainPolicyController::class, 'logVisit'])->middleware('throttle:60,1');
+Route::post('/log-egress', [EgressEventController::class, 'logEgress'])->middleware('throttle:60,1');
+Route::get('/domain-policies/{domainPolicy}/visits', [DomainPolicyController::class, 'getDomainVisits'])->middleware('throttle:60,1');
+Route::get('/risk-patterns', [RiskPatternController::class, 'all'])->middleware('throttle:30,1');

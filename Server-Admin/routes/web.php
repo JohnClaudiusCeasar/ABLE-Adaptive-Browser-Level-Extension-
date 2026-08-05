@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\DomainPolicyController;
+use App\Http\Controllers\EgressEventController;
 use App\Http\Controllers\RiskPatternController;
 use App\Http\Controllers\SecurityAnalyticsController;
 use Illuminate\Support\Facades\Auth;
@@ -15,7 +16,7 @@ Route::get('/', function () {
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'dashboard')->name('dashboard');
-    Route::inertia('egress-logs', 'egress-logs')->name('egress-logs');
+    Route::get('egress-logs', [EgressEventController::class, 'index'])->name('egress-logs');
     Route::get('security-analytics', [SecurityAnalyticsController::class, 'index'])->name('security-analytics');
     Route::get('security-analytics/nudge-effectiveness', [SecurityAnalyticsController::class, 'nudgeEffectiveness'])
         ->name('security-analytics.nudge-effectiveness');

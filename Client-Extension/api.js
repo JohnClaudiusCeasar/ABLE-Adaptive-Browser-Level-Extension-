@@ -222,6 +222,36 @@ async function logDomainVisit(domain, status, source) {
 }
 
 /**
+ * Log an egress event to the server.
+ * Called when user interacts with the file upload intercept modal.
+ */
+async function logEgressEvent({ domain, fileName, fileSize, riskScore, action, userAction }) {
+  const userId = await getOrCreateUserId();
+
+  try {
+    const response = await fetch(`${SERVER_URL}/api/log-egress`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify({
+        domain,
+        user_id: userId,
+        file_name: fileName,
+        file_size: fileSize,
+        risk_score: riskScore,
+        action,
+        user_action: userAction,
+      }),
+    });
+
+    if (!response.ok) {
+      console.warn("ABLE: Failed to log egress event:", response.status);
+    }
+  } catch (error) {
+    // Silently fail — logging egress is non-critical
+  }
+}
+
+/**
  * Fetch risk patterns from the server and store them in chrome.storage.local
  * for offline/fallback use. This is called when the server is online.
  */

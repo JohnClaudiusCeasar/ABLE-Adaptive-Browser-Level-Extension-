@@ -41,6 +41,9 @@
         }
     },
     "scripts": {
+        "db:fresh": [
+            "@php artisan migrate:fresh --ansi"
+        ],
         "setup": [
             "composer install",
             "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
