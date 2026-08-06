@@ -1,5 +1,5 @@
 import { Head, router, usePage } from '@inertiajs/react';
-import { ChevronDown, Pencil, Search, Trash2, Plus, X, Layers, Trash, Copy } from 'lucide-react';
+import { ChevronDown, Pencil, Search, Trash2, Plus, X, Trash, Copy } from 'lucide-react';
 import { useState, FormEvent, useMemo } from 'react';
 
 const glassCard = 'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';

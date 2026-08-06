@@ -3,6 +3,37 @@ const PIE_COLORS = {};
 
 let domainStatus = null;
 
+// ─── Background bridge (api.js runs in the service worker) ──────────
+
+/**
+ * Fetch risk patterns via the background service worker.
+ * The background worker has host_permissions and is exempt from CORS.
+ */
+async function getRiskPatterns() {
+  try {
+    const response = await chrome.runtime.sendMessage({ type: "getRiskPatterns" });
+    if (response && response.success) {
+      return response.patterns;
+    }
+    return [];
+  } catch (error) {
+    console.warn("ABLE: Failed to get risk patterns via background:", error);
+    return [];
+  }
+}
+
+/**
+ * Log an egress event via the background service worker.
+ * Fire-and-forget — failures are silently ignored.
+ */
+async function logEgressEvent(payload) {
+  try {
+    await chrome.runtime.sendMessage({ type: "logEgress", payload });
+  } catch {
+    // Silently fail — logging egress is non-critical
+  }
+}
+
 // ─── Domain helpers ────────────────────────────────────────────────
 
 function getWebsiteName() {
@@ -230,18 +261,7 @@ function sendDecision(requestId, action) {
   }, "*");
 }
 
-async function handleInterceptedFile(file, requestId) {
-  if (!shouldActivate()) {
-    sendDecision(requestId, "proceed");
-    return;
-  }
-
-  const consent = await hasSessionConsent();
-  if (consent) {
-    sendDecision(requestId, "proceed");
-    return;
-  }
-
+async function scanFile(file) {
   const MAX_TEXT_FILE_SIZE = 100 * 1024 * 1024; // 100MB
   let text;
   let fileFormat = "plain";
@@ -254,30 +274,24 @@ async function handleInterceptedFile(file, requestId) {
       fileFormat = result.format;
     } catch (err) {
       console.warn("ABLE: Office parsing skipped:", err.message || err);
-      sendDecision(requestId, "proceed");
-      return;
+      return null;
     }
   } else {
     if (file.size > MAX_TEXT_FILE_SIZE) {
-      console.warn("ABLE: File too large for scanning, auto-proceeding:", file.name);
-      sendDecision(requestId, "proceed");
-      return;
+      console.warn("ABLE: File too large for scanning, skipping:", file.name);
+      return null;
     }
     try {
       text = await readFileContent(file);
     } catch {
-      sendDecision(requestId, "proceed");
-      return;
+      return null;
     }
   }
 
   const result = await calculateRiskScore(text);
-
-  // Combine domain base risk score with pattern match score
   const domainRiskScore = domainStatus?.risk_score || 0;
   const totalScore = Math.min(100, domainRiskScore + result.score);
 
-  // Build flagged items list, including domain risk as a line item
   const flaggedItems = [];
   if (domainRiskScore > 0) {
     flaggedItems.push({
@@ -289,6 +303,7 @@ async function handleInterceptedFile(file, requestId) {
   flaggedItems.push(...result.flaggedItems);
 
   console.log("ABLE Scan:", {
+    file: file.name,
     domain: domainStatus.domain,
     domain_status: domainStatus.status,
     domain_risk_score: domainRiskScore,
@@ -299,16 +314,50 @@ async function handleInterceptedFile(file, requestId) {
     flagged_items: flaggedItems,
   });
 
-  if (totalScore > 85) {
+  return {
+    score: totalScore,
+    flaggedItems,
+    fileName: file.name,
+    fileSize: file.size,
+    fileType: fileFormat,
+  };
+}
+
+async function handleInterceptedFiles(files, requestId) {
+  // Wait for domain classification to complete before making scanning decisions
+  if (classifyReady) await classifyReady;
+
+  if (!shouldActivate()) {
+    sendDecision(requestId, "proceed");
+    return;
+  }
+
+  const consent = await hasSessionConsent();
+  if (consent) {
+    sendDecision(requestId, "proceed");
+    return;
+  }
+
+  // Scan all files and find the highest-risk one
+  let highestRisk = null;
+
+  for (const file of files) {
+    const result = await scanFile(file);
+    if (result && (!highestRisk || result.score > highestRisk.score)) {
+      highestRisk = result;
+    }
+  }
+
+  if (highestRisk && highestRisk.score > 85) {
     showInterceptModal({
-      score: totalScore,
-      flaggedItems: flaggedItems,
+      score: highestRisk.score,
+      flaggedItems: highestRisk.flaggedItems,
       domain: domainStatus.domain,
       status: domainStatus.status,
       websiteName: getWebsiteName(),
-      fileName: file.name,
-      fileSize: file.size,
-      fileType: fileFormat,
+      fileName: highestRisk.fileName,
+      fileSize: highestRisk.fileSize,
+      fileType: highestRisk.fileType,
       requestId: requestId,
     });
   } else {
@@ -321,9 +370,9 @@ function setupInterceptionListener() {
     if (event.data?.source !== "ABLE_INJECT") return;
     if (event.data.type === "ABLE_READY") return;
     if (event.data.type === "ABLE_INTERCEPT") {
-      const { requestId, file } = event.data.payload;
-      if (!requestId || !file) return;
-      await handleInterceptedFile(file, requestId);
+      const { requestId, files } = event.data.payload;
+      if (!requestId || !files || files.length === 0) return;
+      await handleInterceptedFiles(files, requestId);
     }
   });
 }
@@ -645,9 +694,15 @@ function injectFonts() {
 
 // ─── Initialization ─────────────────────────────────────────────────
 
+let classifyReady;
+
 async function initialize() {
   injectFonts();
-  await classifyCurrentDomain();
+
+  // Store the classification promise so handleInterceptedFile can await it
+  classifyReady = classifyCurrentDomain();
+
+  await classifyReady;
 
   // Log the visit and get the authoritative count from the server
   const serverVisitCount = await logDomainVisit();

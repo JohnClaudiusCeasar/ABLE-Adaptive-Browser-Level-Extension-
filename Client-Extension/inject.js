@@ -22,6 +22,33 @@
     return [];
   }
 
+  /**
+   * Clear the given files from any file input elements that currently hold them.
+   * Matches by object reference so we only clear the inputs that actually
+   * contain the intercepted files. Setting input.value = '' removes the
+   * user's selection from the DOM element.
+   */
+  function clearFileInputs(files) {
+    if (!files || files.length === 0) return;
+    var inputs = document.querySelectorAll('input[type="file"]');
+    for (var i = 0; i < inputs.length; i++) {
+      var input = inputs[i];
+      if (!input.files || input.files.length === 0) continue;
+      var shouldClear = false;
+      for (var j = 0; j < files.length && !shouldClear; j++) {
+        for (var k = 0; k < input.files.length; k++) {
+          if (input.files[k] === files[j]) {
+            shouldClear = true;
+            break;
+          }
+        }
+      }
+      if (shouldClear) {
+        input.value = '';
+      }
+    }
+  }
+
   function requestCheck(files) {
     return new Promise(function (resolve, reject) {
       var id = generateId();
@@ -37,10 +64,7 @@
         type: 'ABLE_INTERCEPT',
         payload: {
           requestId: id,
-          fileName: files[0].name || 'unknown',
-          fileSize: files[0].size,
-          fileType: files[0].type || 'application/octet-stream',
-          file: files[0]
+          files: files
         }
       }, '*');
     });
@@ -73,6 +97,7 @@
       if (files.length > 0) {
         return requestCheck(files).then(function (decision) {
           if (decision === 'cancel') {
+            clearFileInputs(files);
             throw new DOMException('Upload cancelled by ABLE security extension', 'AbortError');
           }
           return originalFetch.call(window, input, init);
@@ -92,6 +117,20 @@
         requestCheck(files).then(function (decision) {
           if (decision === 'proceed') {
             originalSend.call(xhr, body);
+          } else {
+            // Remove the selected files from the page's file inputs
+            clearFileInputs(files);
+            // Properly abort the XHR so callers get cleanup callbacks
+            try {
+              Object.defineProperty(xhr, 'readyState', { value: 4, writable: true });
+              Object.defineProperty(xhr, 'status', { value: 0, writable: true });
+              xhr.dispatchEvent(new ProgressEvent('abort'));
+              if (typeof xhr.onerror === 'function') {
+                xhr.onerror(new ProgressEvent('error'));
+              }
+            } catch (e) {
+              // Fallback: silently fail if properties are non-configurable
+            }
           }
         });
         return;
@@ -101,4 +140,41 @@
   };
 
   window.postMessage({ source: 'ABLE_INJECT', type: 'ABLE_READY' }, '*');
+
+  // --- Intercept form submissions with file uploads ---
+  var formSubmitting = false;
+
+  document.addEventListener('submit', function (event) {
+    if (formSubmitting) return; // already approved, let it through
+
+    var form = event.target;
+    if (!(form instanceof HTMLFormElement)) return;
+
+    // Only intercept multipart forms (file uploads)
+    var enctype = (form.enctype || '').toLowerCase();
+    if (enctype !== 'multipart/form-data') return;
+
+    var files = [];
+    var fileInputs = form.querySelectorAll('input[type="file"]');
+    for (var i = 0; i < fileInputs.length; i++) {
+      for (var j = 0; j < fileInputs[i].files.length; j++) {
+        files.push(fileInputs[i].files[j]);
+      }
+    }
+
+    if (files.length === 0) return;
+
+    event.preventDefault();
+
+    requestCheck(files).then(function (decision) {
+      if (decision === 'proceed') {
+        formSubmitting = true;
+        form.submit();
+        formSubmitting = false;
+      } else {
+        // Remove the selected files from the form's file inputs
+        clearFileInputs(files);
+      }
+    });
+  }, true); // capture phase to intercept before other handlers
 })();

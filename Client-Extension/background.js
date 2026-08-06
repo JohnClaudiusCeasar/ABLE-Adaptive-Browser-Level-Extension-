@@ -27,6 +27,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       .catch(() => sendResponse({ success: false, visit_count: null }));
     return true;
   }
+  if (message.type === "getRiskPatterns") {
+    getRiskPatterns()
+      .then((patterns) => sendResponse({ success: true, patterns }))
+      .catch(() => sendResponse({ success: false, patterns: [] }));
+    return true;
+  }
+  if (message.type === "logEgress") {
+    logEgressEvent(message.payload)
+      .then(() => sendResponse({ success: true }))
+      .catch(() => sendResponse({ success: false }));
+    return true;
+  }
   return true;
 });
 
