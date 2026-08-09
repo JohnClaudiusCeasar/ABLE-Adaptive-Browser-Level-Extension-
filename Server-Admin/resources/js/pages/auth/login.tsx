@@ -1,4 +1,5 @@
 import { Form, Head } from '@inertiajs/react';
+import GoogleAuthButton from '@/components/google-auth-button';
 import InputError from '@/components/input-error';
 import PasswordInput from '@/components/password-input';
 import TextLink from '@/components/text-link';
@@ -33,7 +34,7 @@ export default function Login({ status, canResetPassword }: Props) {
             <Form
                 {...store.form()}
                 resetOnSuccess={['password']}
-                className="flex flex-col gap-6"
+                className="flex flex-col gap-6 -mt-3"
             >
                 {({ processing, errors }) => (
                     <>
@@ -99,14 +100,17 @@ export default function Login({ status, canResetPassword }: Props) {
                             </Button>
                         </div>
 
-                        {/* @chisel-registration */}
-                        <div className="text-center text-sm text-muted-foreground">
-                            Don't have an account?{' '}
-                            <TextLink href={register()} tabIndex={5} className="text-able-green">
-                                Request Access
-                            </TextLink>
+                        <div className="flex flex-col items-center gap-4 pt-2">
+                            <GoogleAuthButton />
+                            {/* @chisel-registration */}
+                            <div className="text-center text-sm text-muted-foreground">
+                                Don't have an account?{' '}
+                                <TextLink href={register()} tabIndex={5} className="text-able-green">
+                                    Request Access
+                                </TextLink>
+                            </div>
+                            {/* @end-chisel-registration */}
                         </div>
-                        {/* @end-chisel-registration */}
                     </>
                 )}
             </Form>

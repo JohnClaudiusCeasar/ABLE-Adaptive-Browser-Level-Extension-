@@ -106,6 +106,12 @@ class FortifyServiceProvider extends ServiceProvider
             return Limit::perMinute(5)->by($throttleKey);
         });
 
+        RateLimiter::for('login-account', function (Request $request) {
+            return Limit::perMinutes(15, 10)->by(
+                Str::transliterate(Str::lower($request->input(Fortify::username()))),
+            );
+        });
+
         /* @chisel-passkeys */
         RateLimiter::for('passkeys', function (Request $request) {
             return Limit::perMinute(10)->by(

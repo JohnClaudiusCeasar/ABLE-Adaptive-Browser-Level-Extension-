@@ -116,6 +116,7 @@ return [
 
     'limiters' => [
         'login' => 'login',
+        'login-account' => 'login-account',
         /* @chisel-2fa */
         'two-factor' => 'two-factor',
         /* @end-chisel-2fa */

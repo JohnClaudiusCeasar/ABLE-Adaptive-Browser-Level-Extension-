@@ -18,6 +18,11 @@ const RISK_PATTERNS_TIMESTAMP_KEY = "able:risk_patterns_timestamp";
 // Risk patterns sync interval (24 hours)
 const RISK_PATTERNS_SYNC_INTERVAL = 24 * 60 * 60 * 1000;
 
+// In-memory cache for risk patterns to avoid repeated fetch failures on rapid scans
+let riskPatternsMemoryCache = null;
+let riskPatternsMemoryCacheTimestamp = 0;
+const RISK_PATTERNS_MEMORY_TTL = 5 * 60 * 1000; // 5 minutes
+
 /**
  * Fetch all domain policies from the server and store them in chrome.storage.local
  * for offline/fallback use. This is called when the server is online.
@@ -315,25 +320,35 @@ async function clearRiskPatternsCache() {
 
 /**
  * Get risk patterns, using:
- * 1. Server API (if online) — also refreshes offline cache
- * 2. Offline cache (chrome.storage.local, last saved data)
+ * 1. In-memory cache (fastest, avoids repeated fetch failures on rapid scans)
+ * 2. Server API (if online) — also refreshes offline cache
+ * 3. Offline cache (chrome.storage.local, last saved data)
  */
 async function getRiskPatterns() {
   try {
-    // Step 1: Try server first (refreshRiskPatternsCache already stores to chrome.storage.local)
+    // Step 1: Check in-memory cache first
+    if (riskPatternsMemoryCache && Date.now() - riskPatternsMemoryCacheTimestamp < RISK_PATTERNS_MEMORY_TTL) {
+      return riskPatternsMemoryCache;
+    }
+
+    // Step 2: Try server first (refreshRiskPatternsCache already stores to chrome.storage.local)
     const serverPatterns = await refreshRiskPatternsCache();
     if (serverPatterns) {
+      riskPatternsMemoryCache = serverPatterns;
+      riskPatternsMemoryCacheTimestamp = Date.now();
       return serverPatterns;
     }
 
-    // Step 2: Server unavailable — try offline cache
+    // Step 3: Server unavailable — try offline cache
     const { patterns } = await getRiskPatternsOfflineCache();
     if (patterns.length > 0) {
       console.log(`ABLE: Using offline risk patterns cache (${patterns.length} patterns).`);
+      riskPatternsMemoryCache = patterns;
+      riskPatternsMemoryCacheTimestamp = Date.now();
       return patterns;
     }
 
-    // Step 3: No patterns available
+    // Step 4: No patterns available
     console.warn("ABLE: No risk patterns available from server or cache.");
     return [];
   } catch (error) {

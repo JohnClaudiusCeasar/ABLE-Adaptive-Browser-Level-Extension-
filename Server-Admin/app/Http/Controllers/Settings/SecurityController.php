@@ -18,6 +18,8 @@ class SecurityController extends Controller
      */
     public function edit(TwoFactorAuthenticationRequest $request): Response
     {
+        $user = $request->user();
+
         $props = [
             /* @chisel-2fa */
             'canManageTwoFactor' => Features::canManageTwoFactorAuthentication(),
@@ -25,7 +27,7 @@ class SecurityController extends Controller
             /* @chisel-passkeys */
             'canManagePasskeys' => Features::canManagePasskeys(),
             'passkeys' => Features::canManagePasskeys()
-                ? $request->user()
+                ? $user
                     ->passkeys()
                     ->select(['id', 'name', 'credential', 'created_at', 'last_used_at'])
                     ->latest()
@@ -42,6 +44,10 @@ class SecurityController extends Controller
                 : [],
             /* @end-chisel-passkeys */
             'passwordRules' => Password::defaults()->toPasswordRulesString(),
+            'hasGoogleAccount' => $user->hasGoogleAccount(),
+            'googleEmail' => $user->hasGoogleAccount() ? $user->email : null,
+            'googleAvatarUrl' => $user->avatar_url,
+            'hasPassword' => $user->hasPassword(),
         ];
 
         /* @chisel-2fa */

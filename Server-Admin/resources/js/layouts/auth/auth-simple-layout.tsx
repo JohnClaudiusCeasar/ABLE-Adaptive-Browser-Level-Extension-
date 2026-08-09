@@ -17,13 +17,6 @@ export default function AuthSimpleLayout({
                 className="w-full max-w-md rounded-xl border border-[rgba(34,197,94,0.7)] bg-white/5 p-12 shadow-[0_8px_32px_rgba(0,0,0,0.3),0_0_60px_rgba(34,197,94,0.08)] backdrop-blur-xl"
                 style={{ animation: 'authCardIn 0.5s ease forwards' }}
             >
-                <style>{`
-                    @keyframes authCardIn {
-                        from { opacity: 0; transform: translateY(12px); }
-                        to { opacity: 1; transform: translateY(0); }
-                    }
-                `}</style>
-
                 {/* Brand */}
                 <div className="flex flex-col items-center mb-9">
                     <Link href={home()} className="flex flex-col items-center gap-1.5 mb-2.5">

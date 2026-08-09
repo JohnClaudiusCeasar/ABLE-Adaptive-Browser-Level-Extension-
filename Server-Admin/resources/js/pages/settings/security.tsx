@@ -15,11 +15,13 @@ import ManagePasskeys from '@/components/manage-passkeys';
 import type { Props as ManageTwoFactorProps } from '@/components/manage-two-factor';
 import ManageTwoFactor from '@/components/manage-two-factor';
 /* @end-chisel-2fa */
+import type { Props as ManageGoogleAccountProps } from '@/components/manage-google-account';
+import ManageGoogleAccount from '@/components/manage-google-account';
 
 type Props = {
     passwordRules: string;
 } /* @chisel-passkeys */ & ManagePasskeysProps /* @end-chisel-passkeys */ /* @chisel-2fa */ &
-    ManageTwoFactorProps /* @end-chisel-2fa */;
+    ManageTwoFactorProps /* @end-chisel-2fa */ & ManageGoogleAccountProps;
 
 export default function Security(props: Props) {
     const passwordInput = useRef<HTMLInputElement>(null);
@@ -141,6 +143,13 @@ export default function Security(props: Props) {
                 passkeys={props.passkeys}
             />
             {/* @end-chisel-passkeys */}
+
+            <ManageGoogleAccount
+                hasGoogleAccount={props.hasGoogleAccount}
+                googleEmail={props.googleEmail}
+                googleAvatarUrl={props.googleAvatarUrl}
+                hasPassword={props.hasPassword}
+            />
         </>
     );
 }

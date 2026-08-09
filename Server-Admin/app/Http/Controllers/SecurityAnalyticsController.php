@@ -20,11 +20,16 @@ class SecurityAnalyticsController extends Controller
         // 1. Detected Domains - count unique domains from domain_visits
         $uniqueDomains = DomainVisit::distinct('domain')->count();
 
-        // 2. Domain Usage - count domains grouped by status
+        // 2. Domain Usage - single conditional aggregation instead of 3 separate counts
+        $statusCounts = DomainPolicy::selectRaw("
+            SUM(CASE WHEN domain_status = 'safe' THEN 1 ELSE 0 END) as safe,
+            SUM(CASE WHEN domain_status = 'unsafe' THEN 1 ELSE 0 END) as unsafe,
+            SUM(CASE WHEN domain_status = 'unlisted' THEN 1 ELSE 0 END) as unlisted
+        ")->first();
         $domainUsage = [
-            'safe' => DomainPolicy::where('domain_status', 'safe')->count(),
-            'unsafe' => DomainPolicy::where('domain_status', 'unsafe')->count(),
-            'unlisted' => DomainPolicy::where('domain_status', 'unlisted')->count(),
+            'safe' => (int) $statusCounts->safe,
+            'unsafe' => (int) $statusCounts->unsafe,
+            'unlisted' => (int) $statusCounts->unlisted,
         ];
 
         // 3. Total Nudges Deployed - count egress events
@@ -56,19 +61,21 @@ class SecurityAnalyticsController extends Controller
             ? round(($totalProceeded / $totalInteractions) * 100, 1)
             : 0;
 
-        // 6. Data Saved - sum file_size where action = 'denied' (user cancelled)
-        $dataSaved = EgressEvent::where('action', 'denied')->sum('file_size');
+        // 6 & 7. Data Saved/Lost - single conditional aggregation instead of 2 separate sums
+        $dataStats = EgressEvent::selectRaw("
+            COALESCE(SUM(CASE WHEN action = 'denied' THEN file_size ELSE 0 END), 0) as data_saved,
+            COALESCE(SUM(CASE WHEN action = 'proceeded' THEN file_size ELSE 0 END), 0) as data_lost
+        ")->first();
 
-        // 7. Data Lost - sum file_size where action = 'proceeded' (user proceeded)
-        $dataLost = EgressEvent::where('action', 'proceeded')->sum('file_size');
-
-        // 8. Top Domains - top 5 domains by average of visit_count and active users
+        // 8. Top Domains - LEFT JOIN instead of correlated subqueries
         $topDomains = DomainPolicy::select(
-            'domain',
-            'visit_count as totalVisits',
-            DB::raw('(SELECT COUNT(DISTINCT user_id) FROM domain_visits WHERE domain_visits.domain = domain_policies.domain) as activeUsers')
+            'domain_policies.domain',
+            'domain_policies.visit_count as totalVisits',
+            DB::raw('COUNT(DISTINCT domain_visits.user_id) as activeUsers')
         )
-            ->orderByRaw('(visit_count + (SELECT COUNT(DISTINCT user_id) FROM domain_visits WHERE domain_visits.domain = domain_policies.domain)) / 2 DESC')
+            ->leftJoin('domain_visits', 'domain_visits.domain', '=', 'domain_policies.domain')
+            ->groupBy('domain_policies.id', 'domain_policies.domain', 'domain_policies.visit_count')
+            ->orderByRaw('(domain_policies.visit_count + COUNT(DISTINCT domain_visits.user_id)) / 2 DESC')
             ->limit(5)
             ->get()
             ->map(function ($row) {
@@ -85,8 +92,8 @@ class SecurityAnalyticsController extends Controller
             'totalNudgesDeployed' => $totalNudgesDeployed,
             'nudgeEffectiveness' => $nudgeEffectiveness,
             'avgSuccessRate' => $avgSuccessRate,
-            'dataSaved' => $this->formatBytes($dataSaved),
-            'dataLost' => $this->formatBytes($dataLost),
+            'dataSaved' => $this->formatBytes((int) $dataStats->data_saved),
+            'dataLost' => $this->formatBytes((int) $dataStats->data_lost),
             'topDomains' => $topDomains,
         ]);
     }
@@ -97,9 +104,11 @@ class SecurityAnalyticsController extends Controller
     public function shadowFootprints(): Response
     {
         $shadowFootprints = DomainPolicy::select(
-            'id', 'domain', 'category', 'risk_score', 'policy'
+            'domain_policies.id', 'domain', 'category', 'risk_score', 'policy',
+            DB::raw('COUNT(DISTINCT domain_visits.user_id) as active_users')
         )
-            ->addSelect(DB::raw('(SELECT COUNT(DISTINCT user_id) FROM domain_visits WHERE domain_visits.domain = domain_policies.domain) as active_users'))
+            ->leftJoin('domain_visits', 'domain_visits.domain', '=', 'domain_policies.domain')
+            ->groupBy('domain_policies.id', 'domain', 'category', 'risk_score', 'policy')
             ->orderByDesc('risk_score')
             ->get()
             ->map(function ($row) {

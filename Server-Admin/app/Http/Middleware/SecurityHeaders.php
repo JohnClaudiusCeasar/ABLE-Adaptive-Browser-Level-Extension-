@@ -1,0 +1,94 @@
+<?php
+
+namespace App\Http\Middleware;
+
+use Closure;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
+
+class SecurityHeaders
+{
+    private ?string $cachedCsp = null;
+
+    /**
+     * Handle an incoming request.
+     */
+    public function handle(Request $request, Closure $next): Response
+    {
+        /** @var Response $response */
+        $response = $next($request);
+
+        $response->headers->set('X-Content-Type-Options', 'nosniff');
+        $response->headers->set('X-Frame-Options', 'DENY');
+        $response->headers->set('X-XSS-Protection', '0');
+        $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
+        $response->headers->set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+
+        if (str_starts_with(config('app.url', ''), 'https://')) {
+            $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+        }
+
+        $response->headers->set('Content-Security-Policy', $this->buildContentSecurityPolicy());
+
+        return $response;
+    }
+
+    private function buildContentSecurityPolicy(): string
+    {
+        if ($this->cachedCsp !== null) {
+            return $this->cachedCsp;
+        }
+
+        $appUrl = config('app.url', 'http://localhost');
+        $isDev = config('app.debug', false);
+
+        $scriptSrc = ["'self'"];
+        $styleSrc = ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'];
+        $fontSrc = ["'self'", 'https://fonts.googleapis.com', 'https://fonts.gstatic.com'];
+        $connectSrc = ["'self'", 'https://accounts.google.com'];
+        $imgSrc = ["'self'", 'data:'];
+
+        if ($isDev) {
+            // Vite injects inline module scripts (react refresh preamble) in dev.
+            $scriptSrc[] = "'unsafe-inline'";
+
+            $hotFile = base_path('public/hot');
+            if (file_exists($hotFile)) {
+                $devUrl = trim((string) file_get_contents($hotFile));
+                $parsed = parse_url($devUrl);
+                // CSP source expressions do not accept bracketed IPv6 literals like [::1];
+                // use the hostname so the browser accepts the source.
+                $devHost = str_replace(['[', ']'], '', $parsed['host'] ?? 'localhost');
+                if ($devHost === '::1') {
+                    $devHost = 'localhost';
+                }
+                $devPort = $parsed['port'] ?? 5173;
+                $devScheme = $parsed['scheme'] ?? 'http';
+            } else {
+                $devHost = str_replace(['http://', 'https://'], '', $appUrl);
+                $devPort = env('VITE_DEV_SERVER_PORT', '5173');
+                $devScheme = 'http';
+            }
+            $devBase = "{$devScheme}://{$devHost}:{$devPort}";
+            $scriptSrc[] = $devBase;
+            $styleSrc[] = $devBase;
+            $connectSrc[] = $devBase;
+            $connectSrc[] = "ws://{$devHost}:{$devPort}";
+        }
+
+        $directives = [
+            "default-src 'self'",
+            'script-src '.implode(' ', $scriptSrc),
+            'style-src '.implode(' ', $styleSrc),
+            'font-src '.implode(' ', $fontSrc),
+            'connect-src '.implode(' ', $connectSrc),
+            'frame-src https://accounts.google.com',
+            'img-src '.implode(' ', $imgSrc),
+            "object-src 'none'",
+            "base-uri 'self'",
+            "form-action 'self' https://accounts.google.com",
+        ];
+
+        return $this->cachedCsp = implode('; ', $directives);
+    }
+}

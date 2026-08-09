@@ -6,6 +6,7 @@ use App\Models\DomainPolicy;
 use App\Models\DomainVisit;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -101,30 +102,24 @@ class DomainPolicyController extends Controller
         $source = $validated['source'] ?? null;
         $userId = $validated['user_id'] ?? null;
 
-        // Find or create the domain policy
-        $policy = DomainPolicy::where('domain', $domain)->first();
-
-        if (!$policy) {
-            // Create new record with visit tracking
-            $policy = DomainPolicy::create([
-                'domain' => $domain,
+        $policy = DomainPolicy::firstOrCreate(
+            ['domain' => $domain],
+            [
                 'domain_status' => $status,
                 'policy' => 'under_review',
                 'risk_score' => $status === 'unlisted' ? 70 : 0,
                 'visit_count' => 0,
                 'last_visited_at' => now(),
                 'last_source' => $source,
-            ]);
-        }
+            ]
+        );
 
-        // Update the policy's visit tracking
-        $policy->increment('visit_count');
         $policy->update([
+            'visit_count' => DB::raw('visit_count + 1'),
             'last_visited_at' => now(),
             'last_source' => $source,
         ]);
 
-        // Create an individual visit record
         DomainVisit::create([
             'domain_policy_id' => $policy->id,
             'domain' => $domain,

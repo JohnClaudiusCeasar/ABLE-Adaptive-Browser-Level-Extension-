@@ -22,4 +22,26 @@ export default defineConfig({
             formVariants: true,
         }),
     ],
+    server: {
+        host: 'localhost',
+        port: 5173,
+        strictPort: true,
+    },
+    build: {
+        rollupOptions: {
+            output: {
+                manualChunks(id: string) {
+                    if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) {
+                        return 'vendor-react';
+                    }
+                    if (id.includes('@inertiajs')) {
+                        return 'vendor-inertia';
+                    }
+                    if (id.includes('@radix-ui')) {
+                        return 'vendor-radix';
+                    }
+                },
+            },
+        },
+    },
 });

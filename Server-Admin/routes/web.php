@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\DomainPolicyController;
 use App\Http\Controllers\EgressEventController;
 use App\Http\Controllers\RiskPatternController;
@@ -13,6 +14,9 @@ Route::get('/', function () {
     }
     return redirect()->route('login');
 })->name('home');
+
+Route::get('/auth/google', [GoogleAuthController::class, 'redirect'])->name('google.redirect');
+Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])->name('google.callback');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'dashboard')->name('dashboard');

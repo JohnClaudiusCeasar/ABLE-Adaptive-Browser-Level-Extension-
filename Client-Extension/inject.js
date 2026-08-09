@@ -23,10 +23,24 @@
   }
 
   /**
+   * Compare two File objects by their identity metadata.
+   * Many frameworks clone File objects when building FormData, so the
+   * object references differ even though they represent the same file.
+   * Matching by name/size/lastModified/type reliably identifies the
+   * same file regardless of cloning.
+   */
+  function filesMatch(a, b) {
+    return a.name === b.name &&
+           a.size === b.size &&
+           a.lastModified === b.lastModified &&
+           a.type === b.type;
+  }
+
+  /**
    * Clear the given files from any file input elements that currently hold them.
-   * Matches by object reference so we only clear the inputs that actually
-   * contain the intercepted files. Setting input.value = '' removes the
-   * user's selection from the DOM element.
+   * Matches by object reference first, then falls back to metadata matching
+   * (name/size/lastModified/type) to handle cloned File objects. Setting
+   * input.value = '' removes the user's selection from the DOM element.
    */
   function clearFileInputs(files) {
     if (!files || files.length === 0) return;
@@ -37,7 +51,7 @@
       var shouldClear = false;
       for (var j = 0; j < files.length && !shouldClear; j++) {
         for (var k = 0; k < input.files.length; k++) {
-          if (input.files[k] === files[j]) {
+          if (input.files[k] === files[j] || filesMatch(input.files[k], files[j])) {
             shouldClear = true;
             break;
           }
