@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\Auth\GoogleAuthController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DomainPolicyController;
+use App\Http\Controllers\DomainVisitController;
 use App\Http\Controllers\EgressEventController;
 use App\Http\Controllers\RiskPatternController;
 use App\Http\Controllers\SecurityAnalyticsController;
@@ -12,6 +14,7 @@ Route::get('/', function () {
     if (Auth::check()) {
         return redirect()->route('dashboard');
     }
+
     return redirect()->route('login');
 })->name('home');
 
@@ -19,8 +22,9 @@ Route::get('/auth/google', [GoogleAuthController::class, 'redirect'])->name('goo
 Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])->name('google.callback');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::inertia('dashboard', 'dashboard')->name('dashboard');
+    Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('egress-logs', [EgressEventController::class, 'index'])->name('egress-logs');
+    Route::get('domain-visits', [DomainVisitController::class, 'index'])->name('domain-visits');
     Route::get('security-analytics', [SecurityAnalyticsController::class, 'index'])->name('security-analytics');
     Route::get('security-analytics/nudge-effectiveness', [SecurityAnalyticsController::class, 'nudgeEffectiveness'])
         ->name('security-analytics.nudge-effectiveness');

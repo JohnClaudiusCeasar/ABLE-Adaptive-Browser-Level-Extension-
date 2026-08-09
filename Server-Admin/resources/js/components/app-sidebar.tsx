@@ -1,4 +1,4 @@
-import { BarChart3, Bell, LayoutGrid, Search, Settings, Shield, ShieldCheck, TrendingUp, UserCircle } from 'lucide-react';
+import { BarChart3, Bell, LayoutGrid, MousePointerClick, Search, Settings, Shield, ShieldCheck, TrendingUp, UserCircle } from 'lucide-react';
 import { router } from '@inertiajs/react';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
@@ -20,6 +20,11 @@ const mainNavItems: NavItem[] = [
         title: 'Egress Logs',
         href: '/egress-logs',
         icon: BarChart3,
+    },
+    {
+        title: 'Domain Visits',
+        href: '/domain-visits',
+        icon: MousePointerClick,
     },
     {
         title: 'Security Analytics',

@@ -4,7 +4,78 @@ import { Badge } from '@/components/ui/badge';
 
 const glassCard = 'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
 
-export default function Dashboard() {
+interface RecentEgressEvent {
+    date: string;
+    time: string;
+    domain: string;
+    status: 'glass-safe' | 'glass-unsafe' | 'glass-unlisted';
+    user: string | null;
+    fileName: string | null;
+    action: string;
+}
+
+interface RecentDomainVisit {
+    date: string;
+    time: string;
+    url: string;
+    domain: string;
+    status: 'glass-safe' | 'glass-unsafe' | 'glass-unlisted';
+    user: string | null;
+    action: string;
+}
+
+interface DashboardProps {
+    activeUsers: number;
+    inactiveUsers: number;
+    totalDomainVisits: number;
+    totalEgressAttempts: number;
+    dataSaved: string;
+    dataLost: string;
+    nudgeSuccessRate: number;
+    domainUsage: {
+        safe: number;
+        unsafe: number;
+        unlisted: number;
+    };
+    recentEgressEvents: RecentEgressEvent[];
+    recentDomainVisits: RecentDomainVisit[];
+}
+
+export default function Dashboard({
+    activeUsers,
+    inactiveUsers,
+    totalDomainVisits,
+    totalEgressAttempts,
+    dataSaved,
+    dataLost,
+    nudgeSuccessRate,
+    domainUsage,
+    recentEgressEvents,
+    recentDomainVisits,
+}: DashboardProps) {
+    const totalDomains = domainUsage.safe + domainUsage.unsafe + domainUsage.unlisted;
+
+    const nudgeGradient = `conic-gradient(#ff3b3b 0% ${nudgeSuccessRate}%, #22c55e ${nudgeSuccessRate}% 100%)`;
+
+    const domainGradient = (() => {
+        if (totalDomains === 0) return 'conic-gradient(#3f4a44 0% 100%)';
+
+        const safe = (domainUsage.safe / totalDomains) * 100;
+        const unsafe = (domainUsage.unsafe / totalDomains) * 100;
+        const unlisted = (domainUsage.unlisted / totalDomains) * 100;
+
+        let cursor = 0;
+        const segments = [
+            { color: '#ff3b3b', pct: unsafe },
+            { color: '#ff007f', pct: unlisted },
+            { color: '#22c55e', pct: safe },
+        ];
+
+        return `conic-gradient(${segments
+            .map((s) => `${s.color} ${cursor}% ${(cursor += s.pct)}%`)
+            .join(', ')})`;
+    })();
+
     return (
         <>
             <Head title="Dashboard" />
@@ -35,11 +106,11 @@ export default function Dashboard() {
                             <div className="grid grid-cols-2 gap-4 text-center">
                                 <div>
                                     <p className="text-sm text-muted-foreground mb-2.5">Active Users</p>
-                                    <p className="text-2xl font-semibold text-able-green">45</p>
+                                    <p className="text-2xl font-semibold text-able-green">{activeUsers}</p>
                                 </div>
                                 <div>
                                     <p className="text-sm text-muted-foreground mb-2.5">Inactive Users</p>
-                                    <p className="text-2xl font-semibold">65</p>
+                                    <p className="text-2xl font-semibold">{inactiveUsers}</p>
                                 </div>
                             </div>
                         </div>
@@ -47,11 +118,11 @@ export default function Dashboard() {
                             <div className="grid grid-cols-2 gap-4 text-center w-full">
                                 <div>
                                     <p className="text-sm text-muted-foreground mb-2.5">Total Domain Visits</p>
-                                    <p className="text-2xl font-semibold">1,500</p>
+                                    <p className="text-2xl font-semibold">{totalDomainVisits.toLocaleString()}</p>
                                 </div>
                                 <div>
                                     <p className="text-sm text-muted-foreground mb-2.5">Total Egress Attempts</p>
-                                    <p className="text-2xl font-semibold">--</p>
+                                    <p className="text-2xl font-semibold">{totalEgressAttempts.toLocaleString()}</p>
                                 </div>
                             </div>
                         </div>
@@ -62,11 +133,11 @@ export default function Dashboard() {
                         <div className="grid grid-cols-2 gap-4 text-center">
                             <div>
                                 <p className="text-sm text-muted-foreground mb-2.5">Data Saved</p>
-                                <p className="text-2xl font-semibold text-able-green">--</p>
+                                <p className="text-2xl font-semibold text-able-green">{dataSaved}</p>
                             </div>
                             <div>
                                 <p className="text-sm text-muted-foreground mb-2.5">Data Lost</p>
-                                <p className="text-2xl font-semibold">--</p>
+                                <p className="text-2xl font-semibold">{dataLost}</p>
                             </div>
                         </div>
                     </div>
@@ -75,7 +146,7 @@ export default function Dashboard() {
                     <div className="grid grid-cols-2 gap-5 mb-6">
                         <div className={`${glassCard} p-8 flex justify-center items-center`}>
                             <div className="w-[200px] h-[200px] rounded-full flex justify-center items-center shadow-lg"
-                                style={{ background: 'conic-gradient(#ff3b3b 0% 25%, #22c55e 25% 100%)' }}>
+                                style={{ background: nudgeGradient }}>
                                 <div className="w-[130px] h-[130px] bg-[#1a4033] rounded-full flex justify-center items-center text-center">
                                     <span className="text-[0.85rem] font-medium leading-tight">Nudge<br />Success</span>
                                 </div>
@@ -83,7 +154,7 @@ export default function Dashboard() {
                         </div>
                         <div className={`${glassCard} p-8 flex justify-center items-center`}>
                             <div className="w-[200px] h-[200px] rounded-full flex justify-center items-center shadow-lg"
-                                style={{ background: 'conic-gradient(#ff3b3b 0% 15%, #ff007f 15% 45%, #22c55e 45% 100%)' }}>
+                                style={{ background: domainGradient }}>
                                 <div className="w-[130px] h-[130px] bg-[#1a4033] rounded-full flex justify-center items-center text-center">
                                     <span className="text-[0.85rem] font-medium leading-tight">Domain<br />Usage</span>
                                 </div>
@@ -113,21 +184,25 @@ export default function Dashboard() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {[
-                                        { date: '2026-06-22', time: '1:30 PM', domain: 'chatgpt.com', status: 'glass-unsafe' as const, user: 'USER78291', fileName: 'quarterly_report.pdf', action: 'Denied' },
-                                        { date: '2026-06-22', time: '1:25 PM', domain: 'deepseek.com', status: 'glass-unsafe' as const, user: 'USER81191', fileName: 'meeting_notes.docx', action: 'Denied' },
-                                        { date: '2026-06-12', time: '1:20 PM', domain: 'canva.pro', status: 'glass-unlisted' as const, user: 'USER90012', fileName: 'banner_design.png', action: 'Proceeded' },
-                                    ].map((row, i) => (
-                                        <tr key={i} className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0">
-                                            <td className="py-3 pr-2.5">{row.date}</td>
-                                            <td className="py-3 pr-2.5">{row.time}</td>
-                                            <td className="py-3 pr-2.5">{row.domain}</td>
-                                            <td className="py-3 pr-2.5"><Badge variant={row.status}>{row.status.replace('glass-', '').toUpperCase()}</Badge></td>
-                                            <td className="py-3 pr-2.5">{row.user}</td>
-                                            <td className="py-3 pr-2.5">{row.fileName}</td>
-                                            <td className="py-3">{row.action}</td>
+                                    {recentEgressEvents.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={7} className="py-10 text-center text-muted-foreground">
+                                                No egress events recorded yet.
+                                            </td>
                                         </tr>
-                                    ))}
+                                    ) : (
+                                        recentEgressEvents.map((row, i) => (
+                                            <tr key={i} className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0">
+                                                <td className="py-3 pr-2.5">{row.date}</td>
+                                                <td className="py-3 pr-2.5">{row.time}</td>
+                                                <td className="py-3 pr-2.5">{row.domain}</td>
+                                                <td className="py-3 pr-2.5"><Badge variant={row.status}>{row.status.replace('glass-', '').toUpperCase()}</Badge></td>
+                                                <td className="py-3 pr-2.5">{row.user ?? '—'}</td>
+                                                <td className="py-3 pr-2.5">{row.fileName ?? '—'}</td>
+                                                <td className="py-3">{row.action}</td>
+                                            </tr>
+                                        ))
+                                    )}
                                 </tbody>
                             </table>
                         </div>
@@ -155,21 +230,25 @@ export default function Dashboard() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {[
-                                        { time: '2:15 PM', date: '2026-06-22', url: 'https://chat.openai.com', domain: 'openai.com', status: 'glass-safe' as const, user: 'USER78291', action: 'Allowed' },
-                                        { time: '2:10 PM', date: '2026-06-22', url: 'https://deepseek.com/chat', domain: 'deepseek.com', status: 'glass-unsafe' as const, user: 'USER81191', action: 'Blocked' },
-                                        { time: '1:55 PM', date: '2026-06-22', url: 'https://canva.pro/design', domain: 'canva.pro', status: 'glass-unlisted' as const, user: 'USER90012', action: 'Warned' },
-                                    ].map((row, i) => (
-                                        <tr key={i} className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0">
-                                            <td className="py-3 pr-2.5">{row.time}</td>
-                                            <td className="py-3 pr-2.5">{row.date}</td>
-                                            <td className="py-3 pr-2.5">{row.url}</td>
-                                            <td className="py-3 pr-2.5">{row.domain}</td>
-                                            <td className="py-3 pr-2.5"><Badge variant={row.status}>{row.status.replace('glass-', '').toUpperCase()}</Badge></td>
-                                            <td className="py-3 pr-2.5">{row.user}</td>
-                                            <td className="py-3">{row.action}</td>
+                                    {recentDomainVisits.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={7} className="py-10 text-center text-muted-foreground">
+                                                No domain visits recorded yet.
+                                            </td>
                                         </tr>
-                                    ))}
+                                    ) : (
+                                        recentDomainVisits.map((row, i) => (
+                                            <tr key={i} className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0">
+                                                <td className="py-3 pr-2.5">{row.time}</td>
+                                                <td className="py-3 pr-2.5">{row.date}</td>
+                                                <td className="py-3 pr-2.5">{row.url}</td>
+                                                <td className="py-3 pr-2.5">{row.domain}</td>
+                                                <td className="py-3 pr-2.5"><Badge variant={row.status}>{row.status.replace('glass-', '').toUpperCase()}</Badge></td>
+                                                <td className="py-3 pr-2.5">{row.user ?? '—'}</td>
+                                                <td className="py-3">{row.action}</td>
+                                            </tr>
+                                        ))
+                                    )}
                                 </tbody>
                             </table>
                         </div>
