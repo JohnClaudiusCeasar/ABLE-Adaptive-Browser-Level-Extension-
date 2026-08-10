@@ -17,6 +17,9 @@ class DatabaseSeeder extends Seeder
             'email' => 'test@example.com',
         ]);
 
+        // Additional users so the chat inbox and user list are populated locally.
+        User::factory()->count(5)->create();
+
         $this->call([
             RiskPatternSeeder::class,
         ]);

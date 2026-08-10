@@ -1,4 +1,16 @@
-import { BarChart3, Bell, LayoutGrid, Menu, MousePointerClick, Settings, Shield, ShieldCheck, TrendingUp, UserCircle } from 'lucide-react';
+import {
+    BarChart3,
+    Bell,
+    LayoutGrid,
+    Menu,
+    MessageSquareText,
+    MousePointerClick,
+    Settings,
+    Shield,
+    ShieldCheck,
+    TrendingUp,
+    UserCircle,
+} from 'lucide-react';
 import { router } from '@inertiajs/react';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
@@ -48,13 +60,22 @@ const mainNavItems: NavItem[] = [
                 href: '/policy-algorithm',
                 icon: ShieldCheck,
             },
+            {
+                title: 'Chat',
+                href: '/chat',
+                icon: MessageSquareText,
+            },
         ],
     },
 ];
 
 export function AppSidebar() {
     return (
-        <Sidebar collapsible="none" variant="inset" className="border-r border-black/10 dark:border-white/5">
+        <Sidebar
+            collapsible="none"
+            variant="inset"
+            className="border-r border-black/10 dark:border-white/5"
+        >
             <SidebarHeader className="pt-6 pb-4">
                 {/* ABLE Brand - Read Only */}
                 <div className="px-2 py-2">
@@ -63,13 +84,25 @@ export function AppSidebar() {
 
                 {/* Action Buttons */}
                 <div className="flex items-center justify-center gap-4 py-2 text-able-green">
-                    <button className="transition-colors hover:text-able-green-muted dark:hover:text-white" aria-label="Profile" onClick={() => router.visit('/settings/profile')}>
+                    <button
+                        className="transition-colors hover:text-able-green-muted dark:hover:text-white"
+                        aria-label="Profile"
+                        onClick={() => router.visit('/settings/profile')}
+                    >
                         <UserCircle size={20} />
                     </button>
-                    <button className="transition-colors hover:text-able-green-muted dark:hover:text-white" aria-label="Settings" onClick={() => router.visit('/settings')}>
+                    <button
+                        className="transition-colors hover:text-able-green-muted dark:hover:text-white"
+                        aria-label="Settings"
+                        onClick={() => router.visit('/settings')}
+                    >
                         <Settings size={20} />
                     </button>
-                    <button className="transition-colors hover:text-able-green-muted dark:hover:text-white" aria-label="Notifications" onClick={() => router.visit(notifications())}>
+                    <button
+                        className="transition-colors hover:text-able-green-muted dark:hover:text-white"
+                        aria-label="Notifications"
+                        onClick={() => router.visit(notifications())}
+                    >
                         <Bell size={20} />
                     </button>
                 </div>
@@ -78,7 +111,7 @@ export function AppSidebar() {
                 <SidebarSearch items={mainNavItems} />
 
                 {/* Divider */}
-                <div className="mx-auto w-4/5 border-t border-black/10 my-2 dark:border-white/10" />
+                <div className="mx-auto my-2 w-4/5 border-t border-black/10 dark:border-white/10" />
             </SidebarHeader>
 
             <SidebarContent>

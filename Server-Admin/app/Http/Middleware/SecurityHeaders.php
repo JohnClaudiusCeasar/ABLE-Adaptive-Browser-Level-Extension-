@@ -48,6 +48,14 @@ class SecurityHeaders
         $connectSrc = ["'self'", 'https://accounts.google.com'];
         $imgSrc = ["'self'", 'data:'];
 
+        // Allow the Reverb websocket connection for real-time chat.
+        if (config('broadcasting.default') === 'reverb') {
+            $reverbHost = str_replace(['[', ']'], '', (string) config('reverb.servers.reverb.hostname', '127.0.0.1'));
+            $reverbPort = (int) config('reverb.servers.reverb.port', 8080);
+            $connectSrc[] = "ws://{$reverbHost}:{$reverbPort}";
+            $connectSrc[] = "wss://{$reverbHost}:{$reverbPort}";
+        }
+
         if ($isDev) {
             // Vite injects inline module scripts (react refresh preamble) in dev.
             $scriptSrc[] = "'unsafe-inline'";

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\GoogleAuthController;
+use App\Http\Controllers\ChatController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DomainPolicyController;
 use App\Http\Controllers\DomainVisitController;
@@ -46,6 +47,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('notifications/{notification}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
     Route::delete('notifications-all', [NotificationController::class, 'destroyAll'])->name('notifications.destroyAll');
     Route::delete('notifications/{notification}', [NotificationController::class, 'destroy'])->name('notifications.destroy');
+
+    Route::get('chat', [ChatController::class, 'index'])->name('chat.index');
+    Route::get('chat/unread-count', [ChatController::class, 'unreadCount'])->name('chat.unread-count');
+    Route::get('chat/{conversation}', [ChatController::class, 'show'])->name('chat.show');
+    Route::get('chat/{conversation}/messages', [ChatController::class, 'indexMessages'])->name('chat.messages.index');
+    Route::post('chat/{conversation}/messages', [ChatController::class, 'store'])->name('chat.messages.store');
+    Route::post('chat/with/{user}', [ChatController::class, 'startConversation'])->name('chat.start');
 });
 
 require __DIR__.'/settings.php';
