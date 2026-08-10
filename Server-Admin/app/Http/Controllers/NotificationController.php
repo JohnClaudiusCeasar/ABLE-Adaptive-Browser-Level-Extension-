@@ -1,0 +1,92 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Notification;
+use App\Services\SyncNotifications;
+use Illuminate\Support\Facades\Redirect;
+use Inertia\Inertia;
+use Inertia\Response;
+
+class NotificationController extends Controller
+{
+    /**
+     * Display the Notifications page with live data.
+     */
+    public function index(): Response
+    {
+        (new SyncNotifications)->sync();
+
+        $notifications = Notification::orderByDesc('occurred_at')
+            ->get()
+            ->map(function (Notification $notification) {
+                $unread = $notification->read_at === null;
+
+                return [
+                    'id' => $notification->id,
+                    'source' => $notification->source,
+                    'type' => $notification->type,
+                    'domain' => $notification->domain,
+                    'user' => $notification->user_id,
+                    'email' => $notification->email,
+                    'ip' => $notification->ip_address,
+                    'riskScore' => $notification->risk_score !== null
+                        ? $notification->risk_score.'%'
+                        : null,
+                    'status' => $notification->status,
+                    'message' => $notification->message,
+                    'timestamp' => $notification->occurred_at->diffForHumans(),
+                    'date' => $notification->occurred_at->format('Y-m-d'),
+                    'time' => $notification->occurred_at->format('g:i A'),
+                    'unread' => $unread,
+                ];
+            });
+
+        return Inertia::render('notifications', [
+            'notifications' => $notifications,
+            'unreadCount' => $notifications->where('unread', true)->count(),
+        ]);
+    }
+
+    /**
+     * Mark a single notification as read.
+     */
+    public function markAsRead(Notification $notification)
+    {
+        if ($notification->read_at === null) {
+            $notification->update(['read_at' => now()]);
+        }
+
+        return Redirect::back();
+    }
+
+    /**
+     * Mark all notifications as read.
+     */
+    public function markAllAsRead()
+    {
+        Notification::query()->whereNull('read_at')->update(['read_at' => now()]);
+
+        return Redirect::back();
+    }
+
+    /**
+     * Remove a single notification.
+     */
+    public function destroy(Notification $notification)
+    {
+        $notification->delete();
+
+        return Redirect::back();
+    }
+
+    /**
+     * Remove all notifications.
+     */
+    public function destroyAll()
+    {
+        Notification::query()->delete();
+
+        return Redirect::back();
+    }
+}

@@ -1,7 +1,8 @@
-import { BarChart3, Bell, LayoutGrid, MousePointerClick, Search, Settings, Shield, ShieldCheck, TrendingUp, UserCircle } from 'lucide-react';
+import { BarChart3, Bell, LayoutGrid, Menu, MousePointerClick, Settings, Shield, ShieldCheck, TrendingUp, UserCircle } from 'lucide-react';
 import { router } from '@inertiajs/react';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
+import { SidebarSearch } from '@/components/sidebar-search';
 import {
     Sidebar,
     SidebarContent,
@@ -12,34 +13,42 @@ import type { NavItem } from '@/types';
 
 const mainNavItems: NavItem[] = [
     {
-        title: 'Dashboard',
-        href: dashboard(),
-        icon: LayoutGrid,
-    },
-    {
-        title: 'Egress Logs',
-        href: '/egress-logs',
-        icon: BarChart3,
-    },
-    {
-        title: 'Domain Visits',
-        href: '/domain-visits',
-        icon: MousePointerClick,
-    },
-    {
-        title: 'Security Analytics',
-        href: '/security-analytics',
-        icon: TrendingUp,
-    },
-    {
-        title: 'Risk Algorithm',
-        href: '/risk-algorithm',
-        icon: Shield,
-    },
-    {
-        title: 'Policy Algorithm',
-        href: '/policy-algorithm',
-        icon: ShieldCheck,
+        title: 'Menu',
+        href: '/',
+        icon: Menu,
+        isSection: true,
+        items: [
+            {
+                title: 'Dashboard',
+                href: dashboard(),
+                icon: LayoutGrid,
+            },
+            {
+                title: 'Egress Logs',
+                href: '/egress-logs',
+                icon: BarChart3,
+            },
+            {
+                title: 'Domain Visits',
+                href: '/domain-visits',
+                icon: MousePointerClick,
+            },
+            {
+                title: 'Security Analytics',
+                href: '/security-analytics',
+                icon: TrendingUp,
+            },
+            {
+                title: 'Risk Algorithm',
+                href: '/risk-algorithm',
+                icon: Shield,
+            },
+            {
+                title: 'Policy Algorithm',
+                href: '/policy-algorithm',
+                icon: ShieldCheck,
+            },
+        ],
     },
 ];
 
@@ -66,16 +75,7 @@ export function AppSidebar() {
                 </div>
 
                 {/* Search Bar */}
-                <div className="mx-auto w-4/5">
-                    <div className="flex items-center rounded-full bg-black/5 border border-black/10 px-3.5 py-2 dark:bg-black/20 dark:border-white/10">
-                        <Search size={14} className="text-muted-foreground" />
-                        <input
-                            type="text"
-                            placeholder=""
-                            className="ml-2.5 w-full bg-transparent border-none outline-none text-sm text-foreground placeholder:text-muted-foreground"
-                        />
-                    </div>
-                </div>
+                <SidebarSearch items={mainNavItems} />
 
                 {/* Divider */}
                 <div className="mx-auto w-4/5 border-t border-black/10 my-2 dark:border-white/10" />
