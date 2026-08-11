@@ -1,5 +1,11 @@
 import { useCallback, useRef, useState } from 'react';
 import { getCsrfToken } from '@/lib/echo';
+import {
+    mergeOlderMessages,
+    setCursor,
+    upsertMessage,
+    useChatStore,
+} from '@/lib/chat-store';
 import type { ChatMessageData, ChatMessagesResponse } from '@/types/chat';
 
 function dedupe(messages: ChatMessageData[]): ChatMessageData[] {
@@ -19,11 +25,10 @@ function dedupe(messages: ChatMessageData[]): ChatMessageData[] {
 /**
  * Manages a conversation's message list with cursor-based pagination.
  *
- * Internally the list is kept newest-first (matching the API); `messages`
- * returns it reversed so the UI renders oldest-to-newest.
- *
- * The host component must remount this hook when the conversation changes
- * (e.g. by keying the ChatWindow on the conversation id).
+ * Messages and cursor state live in the module-level chat store (persisted to
+ * sessionStorage), so the conversation window survives page navigation and
+ * full reloads. Internally the list is kept newest-first (matching the API);
+ * `messages` returns it reversed so the UI renders oldest-to-newest.
  */
 export function useChatMessages({
     conversationId,
@@ -34,20 +39,25 @@ export function useChatMessages({
     initialMessages?: ChatMessageData[];
     nextCursor?: string | null;
 }) {
-    const [messages, setMessages] = useState<ChatMessageData[]>(() =>
-        dedupe(initialMessages),
-    );
-    const [cursor, setCursor] = useState<string | null>(nextCursor);
-    const [hasMore, setHasMore] = useState(nextCursor !== null);
+    const store = useChatStore();
+    const matchesConversation = store.activeConversation?.id === conversationId;
     const [loadingMore, setLoadingMore] = useState(false);
     const [sending, setSending] = useState(false);
     const loadingMoreRef = useRef(false);
+
+    // If the persisted window belongs to a different conversation, fall back
+    // to the freshly supplied props for this window.
+    const messages = matchesConversation
+        ? store.activeMessages
+        : initialMessages;
+    const cursor = matchesConversation ? store.nextCursor : nextCursor;
+    const hasMore = cursor !== null;
 
     /**
      * Load the next older page of history and prepend it.
      */
     const loadMore = useCallback(async () => {
-        if (loadingMoreRef.current || cursor === null) {
+        if (loadingMoreRef.current || cursor === null || !matchesConversation) {
             return;
         }
 
@@ -67,34 +77,21 @@ export function useChatMessages({
             }
 
             const data = (await res.json()) as ChatMessagesResponse;
-
-            setMessages((prev) => {
-                // API is newest-first; reverse the older page, then merge.
-                const older = [...data.messages].reverse();
-
-                return dedupe([...older, ...prev]);
-            });
+            mergeOlderMessages(data.messages);
             setCursor(data.next_cursor);
-            setHasMore(data.next_cursor !== null);
         } catch {
             // Keep the current cursor so the user can retry.
         } finally {
             loadingMoreRef.current = false;
             setLoadingMore(false);
         }
-    }, [conversationId, cursor]);
+    }, [conversationId, cursor, matchesConversation]);
 
     /**
      * Append a single message (live broadcast or local echo).
      */
     const appendMessage = useCallback((message: ChatMessageData) => {
-        setMessages((prev) => {
-            if (prev.some((m) => m.id === message.id)) {
-                return prev;
-            }
-
-            return dedupe([message, ...prev]);
-        });
+        upsertMessage(message);
     }, []);
 
     /**
@@ -120,50 +117,25 @@ export function useChatMessages({
                 }
 
                 const data = (await res.json()) as { message: ChatMessageData };
-                appendMessage(data.message);
+                upsertMessage(data.message);
             } finally {
                 setSending(false);
             }
         },
-        [conversationId, appendMessage],
+        [conversationId],
     );
 
-    /**
-     * Re-fetch the most recent window of history (e.g. after a reconnect or
-     * conversation switch).
-     */
-    const refresh = useCallback(async () => {
-        try {
-            const res = await fetch(`/chat/${conversationId}/messages`, {
-                headers: { Accept: 'application/json' },
-            });
-
-            if (!res.ok) {
-                throw new Error(`Refresh failed: ${res.status}`);
-            }
-
-            const data = (await res.json()) as ChatMessagesResponse;
-
-            setMessages(dedupe(data.messages));
-            setCursor(data.next_cursor);
-            setHasMore(data.next_cursor !== null);
-        } catch {
-            // Keep whatever is loaded.
-        }
-    }, [conversationId]);
-
     // Oldest-first for rendering.
-    const visibleMessages = [...messages].reverse();
+    const visibleMessages = dedupe([...messages].reverse());
 
     return {
         messages: visibleMessages,
-        total: messages.length,
+        total: visibleMessages.length,
         hasMore,
         loadingMore,
         sending,
         loadMore,
         appendMessage,
         send,
-        refresh,
     };
 }

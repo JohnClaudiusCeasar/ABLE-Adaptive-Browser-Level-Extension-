@@ -32,6 +32,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('security-analytics.nudge-effectiveness');
     Route::get('security-analytics/shadow-footprints', [SecurityAnalyticsController::class, 'shadowFootprints'])
         ->name('security-analytics.shadow-footprints');
+    Route::get('risk-algorithm/{view}', [RiskPatternController::class, 'index'])
+        ->whereIn('view', ['single', 'criteria'])
+        ->name('risk-algorithm.view');
     Route::get('risk-algorithm', [RiskPatternController::class, 'index'])->name('risk-algorithm');
     Route::post('risk-algorithm', [RiskPatternController::class, 'store'])->name('risk-algorithm.store');
     Route::patch('risk-algorithm/{riskPattern}', [RiskPatternController::class, 'update'])->name('risk-algorithm.update');

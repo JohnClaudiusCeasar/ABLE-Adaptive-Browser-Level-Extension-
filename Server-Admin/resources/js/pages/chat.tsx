@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ChatWindow } from '@/components/chat/chat-window';
 import { ConversationList } from '@/components/chat/conversation-list';
 import { UserList } from '@/components/chat/user-list';
+import { setActiveConversation, useChatStore } from '@/lib/chat-store';
 import type {
     ChatConversationData,
     ChatMessageData,
@@ -24,18 +25,32 @@ export default function Chat() {
         usePage<ChatPageProps>().props;
     const currentUserId = auth.user.id;
 
-    const [activeConversation, setActiveConversation] =
-        useState<ChatConversationData | null>(conversation ?? null);
-    const [activeMessages, setActiveMessages] = useState<ChatMessageData[]>(
-        messages ?? [],
-    );
-    const [activeNextCursor, setActiveNextCursor] = useState<string | null>(
-        next_cursor ?? null,
-    );
+    // The active conversation window is persisted in the chat store so it
+    // survives navigating away and back. If the page deep-linked to a
+    // conversation, seed the store with the server-rendered page.
+    const store = useChatStore();
+
+    const [seeded] = useState(() => {
+        if (conversation && store.activeConversation?.id !== conversation.id) {
+            setActiveConversation(
+                conversation,
+                messages ?? [],
+                next_cursor ?? null,
+            );
+        }
+
+        return true;
+    });
+    void seeded;
+
+    const activeConversation =
+        store.activeConversation ??
+        conversations.find((c) => c.id === conversation?.id) ??
+        null;
+
     const [showNewChat, setShowNewChat] = useState(false);
 
     function openConversation(next: ChatConversationData) {
-        setActiveConversation(next);
         setShowNewChat(false);
 
         fetch(`/chat/${next.id}/messages`, {
@@ -43,12 +58,14 @@ export default function Chat() {
         })
             .then((res) => (res.ok ? res.json() : Promise.reject()))
             .then((data) => {
-                setActiveMessages(data.messages ?? []);
-                setActiveNextCursor(data.next_cursor ?? null);
+                setActiveConversation(
+                    next,
+                    data.messages ?? [],
+                    data.next_cursor ?? null,
+                );
             })
             .catch(() => {
-                setActiveMessages([]);
-                setActiveNextCursor(null);
+                setActiveConversation(next, [], null);
             });
     }
 
@@ -125,8 +142,13 @@ export default function Chat() {
                             <ChatWindow
                                 key={activeConversation.id}
                                 conversation={activeConversation}
-                                initialMessages={activeMessages}
-                                nextCursor={activeNextCursor}
+                                initialMessages={
+                                    store.activeConversation?.id ===
+                                    activeConversation.id
+                                        ? store.activeMessages
+                                        : []
+                                }
+                                nextCursor={store.nextCursor}
                                 currentUserId={currentUserId}
                             />
                         ) : (

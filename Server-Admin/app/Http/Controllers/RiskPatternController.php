@@ -15,14 +15,25 @@ class RiskPatternController extends Controller
     /**
      * Display a listing of the risk patterns.
      */
-    public function index(): Response
+    public function index(Request $request): Response
     {
         $riskPatterns = RiskPattern::with('criteriaPatternItems')
             ->orderBy('created_at', 'desc')
             ->get();
 
-        return Inertia::render('risk-algorithm', [
-            'riskPatterns' => $riskPatterns,
+        $singlePatterns = $riskPatterns->filter(fn (RiskPattern $p) => $p->type === 'single')->values();
+        $criteriaPatterns = $riskPatterns->filter(fn (RiskPattern $p) => $p->type === 'criteria')->values();
+
+        if ($request->path() === 'risk-algorithm/criteria') {
+            return Inertia::render('risk-algorithm/criteria', [
+                'riskPatterns' => $criteriaPatterns,
+                'singlePatterns' => $singlePatterns,
+            ]);
+        }
+
+        return Inertia::render('risk-algorithm/single', [
+            'riskPatterns' => $singlePatterns,
+            'criteriaPatterns' => $criteriaPatterns,
         ]);
     }
 

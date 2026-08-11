@@ -1,6 +1,7 @@
 import {
     BarChart3,
     Bell,
+    FileCode2,
     LayoutGrid,
     Menu,
     MessageSquareText,
@@ -52,8 +53,20 @@ const mainNavItems: NavItem[] = [
             },
             {
                 title: 'Risk Algorithm',
-                href: '/risk-algorithm',
+                href: '/risk-algorithm/single',
                 icon: Shield,
+                items: [
+                    {
+                        title: 'Single Pattern Configuration',
+                        href: '/risk-algorithm/single',
+                        icon: FileCode2,
+                    },
+                    {
+                        title: 'Criteria Pattern Configuration',
+                        href: '/risk-algorithm/criteria',
+                        icon: LayoutGrid,
+                    },
+                ],
             },
             {
                 title: 'Policy Algorithm',

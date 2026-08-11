@@ -1,4 +1,6 @@
 import { Link } from '@inertiajs/react';
+import { ChevronDown } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import {
     SidebarGroup,
     SidebarMenu,
@@ -8,6 +10,7 @@ import {
     SidebarMenuSubButton,
     SidebarMenuSubItem,
 } from '@/components/ui/sidebar';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useCurrentUrl, type IsCurrentUrlFn } from '@/hooks/use-current-url';
 import type { NavItem } from '@/types';
 import { cn } from '@/lib/utils';
@@ -29,6 +32,77 @@ function NavItemContent({ item }: { item: NavItem }) {
                 )}
             />
         </>
+    );
+}
+
+function CollapsibleNavItem({
+    item,
+    isCurrentUrl,
+}: {
+    item: NavItem;
+    isCurrentUrl: IsCurrentUrlFn;
+}) {
+    // Group root path (e.g. "/risk-algorithm/single" -> "/risk-algorithm")
+    // keeps the group highlighted while any of its sub-pages is active.
+    const groupRoot = item.href.split('/').slice(0, 2).join('/');
+    const groupActive = isCurrentUrl(groupRoot, undefined, true);
+    const [open, setOpen] = useState(() => groupActive);
+
+    // Keep the group expanded while one of its children is active.
+    useEffect(() => {
+        if (groupActive) setOpen(true);
+    }, [groupActive]);
+
+    return (
+        <SidebarMenuItem className="w-full">
+            <Collapsible open={open} onOpenChange={setOpen}>
+                <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                        className={cn(
+                            'h-auto py-2.5 px-3 gap-2.5 rounded-xl transition-all',
+                            groupActive ? activeCardStyle : inactiveCardStyle,
+                        )}
+                    >
+                        {item.icon && <item.icon size={18} className="shrink-0" />}
+                        <span className="flex-1 truncate text-sm font-medium text-left">{item.title}</span>
+                        <ChevronDown
+                            size={16}
+                            className={cn(
+                                'shrink-0 transition-transform',
+                                open ? 'rotate-0' : '-rotate-90',
+                            )}
+                        />
+                    </SidebarMenuButton>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                    <SidebarMenuSub className="gap-1.5 mx-0 border-l-0 pl-3">
+                        {item.items!.map((child) => {
+                            const childActive = isCurrentUrl(child.href);
+
+                            return (
+                                <SidebarMenuSubItem key={child.title}>
+                                    <SidebarMenuSubButton
+                                        asChild
+                                        isActive={childActive}
+                                        size="md"
+                                        className={cn(
+                                            'h-auto py-2 px-3 gap-2.5 rounded-xl transition-all',
+                                            childActive
+                                                ? activeCardStyle
+                                                : inactiveCardStyle,
+                                        )}
+                                    >
+                                        <Link href={child.href} prefetch>
+                                            <NavItemContent item={{ ...child, isActive: childActive }} />
+                                        </Link>
+                                    </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                            );
+                        })}
+                    </SidebarMenuSub>
+                </CollapsibleContent>
+            </Collapsible>
+        </SidebarMenuItem>
     );
 }
 
@@ -81,6 +155,12 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
                         );
                     }
 
+                    if (item.items) {
+                        return (
+                            <CollapsibleNavItem key={item.title} item={item} isCurrentUrl={isCurrentUrl} />
+                        );
+                    }
+
                     return null;
                 })}
             </SidebarMenu>
@@ -93,6 +173,12 @@ function renderChildren(item: NavItem, isCurrentUrl: IsCurrentUrlFn) {
         <SidebarMenuSub className="gap-1.5 mx-0 border-l-0 pl-0">
             {item.items!.map((child) => {
                 const childActive = isCurrentUrl(child.href);
+
+                // A child with its own children (e.g. Risk Algorithm) renders as
+                // a nested collapsible instead of a flat link.
+                if (child.items?.length) {
+                    return <CollapsibleNavItem key={child.title} item={child} isCurrentUrl={isCurrentUrl} />;
+                }
 
                 return (
                     <SidebarMenuSubItem key={child.title}>
