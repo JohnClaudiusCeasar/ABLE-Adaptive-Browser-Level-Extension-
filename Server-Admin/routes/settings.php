@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
 /* @chisel-password-confirmation */
@@ -23,12 +22,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware(RequirePassword::class)
         /* @end-chisel-password-confirmation */
         ->name('security.edit');
-
-    Route::get('settings/security/google/link', [GoogleAuthController::class, 'link'])
-        ->name('security.google.link');
-
-    Route::delete('settings/security/google/unlink', [GoogleAuthController::class, 'unlink'])
-        ->name('security.google.unlink');
 
     Route::put('settings/password', [SecurityController::class, 'update'])
         ->middleware('throttle:6,1')

@@ -45,7 +45,7 @@ class SecurityHeaders
         $scriptSrc = ["'self'"];
         $styleSrc = ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'];
         $fontSrc = ["'self'", 'https://fonts.googleapis.com', 'https://fonts.gstatic.com'];
-        $connectSrc = ["'self'", 'https://accounts.google.com'];
+        $connectSrc = ["'self'"];
         $imgSrc = ["'self'", 'data:'];
 
         // Allow the Reverb websocket connection for real-time chat.
@@ -90,11 +90,10 @@ class SecurityHeaders
             'style-src '.implode(' ', $styleSrc),
             'font-src '.implode(' ', $fontSrc),
             'connect-src '.implode(' ', $connectSrc),
-            'frame-src https://accounts.google.com',
             'img-src '.implode(' ', $imgSrc),
             "object-src 'none'",
             "base-uri 'self'",
-            "form-action 'self' https://accounts.google.com",
+            "form-action 'self'",
         ];
 
         return $this->cachedCsp = implode('; ', $directives);

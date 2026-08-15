@@ -1,5 +1,4 @@
 import { Form, Head } from '@inertiajs/react';
-import GoogleAuthButton from '@/components/google-auth-button';
 import InputError from '@/components/input-error';
 import PasswordInput from '@/components/password-input';
 import TextLink from '@/components/text-link';
@@ -103,7 +102,6 @@ export default function Register({ passwordRules }: Props) {
                         </div>
 
                         <div className="flex flex-col items-center gap-4 pt-2">
-                            <GoogleAuthButton />
                             <div className="text-center text-sm text-muted-foreground">
                                 Already have an account?{' '}
                                 <TextLink href={login()} tabIndex={6}>

@@ -44,10 +44,6 @@ class SecurityController extends Controller
                 : [],
             /* @end-chisel-passkeys */
             'passwordRules' => Password::defaults()->toPasswordRulesString(),
-            'hasGoogleAccount' => $user->hasGoogleAccount(),
-            'googleEmail' => $user->hasGoogleAccount() ? $user->email : null,
-            'googleAvatarUrl' => $user->avatar_url,
-            'hasPassword' => $user->hasPassword(),
         ];
 
         /* @chisel-2fa */
