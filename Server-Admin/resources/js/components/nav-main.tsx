@@ -1,6 +1,6 @@
 import { Link } from '@inertiajs/react';
 import { ChevronDown } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
     SidebarGroup,
     SidebarMenu,
@@ -10,9 +10,13 @@ import {
     SidebarMenuSubButton,
     SidebarMenuSubItem,
 } from '@/components/ui/sidebar';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { useCurrentUrl  } from '@/hooks/use-current-url';
-import type {IsCurrentUrlFn} from '@/hooks/use-current-url';
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import { useCurrentUrl } from '@/hooks/use-current-url';
+import type { IsCurrentUrlFn } from '@/hooks/use-current-url';
 import type { NavItem } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -25,10 +29,12 @@ function NavItemContent({ item }: { item: NavItem }) {
     return (
         <>
             {item.icon && <item.icon size={18} className="shrink-0" />}
-            <span className="flex-1 truncate text-sm font-medium text-left">{item.title}</span>
+            <span className="flex-1 truncate text-left text-sm font-medium">
+                {item.title}
+            </span>
             <span
                 className={cn(
-                    'w-1.5 h-1.5 rounded-full shrink-0',
+                    'h-1.5 w-1.5 shrink-0 rounded-full',
                     item.isActive ? 'bg-able-green' : 'bg-[#1e3a5f]',
                 )}
             />
@@ -45,29 +51,44 @@ function CollapsibleNavItem({
 }) {
     // Group root path (e.g. "/risk-algorithm/single" -> "/risk-algorithm")
     // keeps the group highlighted while any of its sub-pages is active.
-    const groupRoot = item.href.split('/').slice(0, 2).join('/');
+    // href may be a wayfinder UrlMethodPair, so normalize to the URL string.
+    const href = typeof item.href === 'string' ? item.href : item.href.url;
+    const groupRoot = href.split('/').slice(0, 2).join('/');
     const groupActive = isCurrentUrl(groupRoot, undefined, true);
+
+    // The group is expanded while its child page is active, unless the user
+    // explicitly collapsed it. Track the user override separately so the
+    // active-child behavior is derived, not synced via an effect.
+    const [userCollapsed, setUserCollapsed] = useState(false);
     const [open, setOpen] = useState(() => groupActive);
 
-    // Keep the group expanded while one of its children is active.
-    useEffect(() => {
-        if (groupActive) {
-setOpen(true);
-}
-    }, [groupActive]);
+    // When the active group changes (navigation), drop the user override so
+    // the derived state re-applies.
+    if (groupActive !== open && !userCollapsed) {
+        setOpen(groupActive);
+    }
+
+    function handleOpenChange(next: boolean) {
+        setUserCollapsed(!next);
+        setOpen(next);
+    }
 
     return (
         <SidebarMenuItem className="w-full">
-            <Collapsible open={open} onOpenChange={setOpen}>
+            <Collapsible open={open} onOpenChange={handleOpenChange}>
                 <CollapsibleTrigger asChild>
                     <SidebarMenuButton
                         className={cn(
-                            'h-auto py-2.5 px-3 gap-2.5 rounded-xl transition-all',
+                            'h-auto gap-2.5 rounded-xl px-3 py-2.5 transition-all',
                             groupActive ? activeCardStyle : inactiveCardStyle,
                         )}
                     >
-                        {item.icon && <item.icon size={18} className="shrink-0" />}
-                        <span className="flex-1 truncate text-sm font-medium text-left">{item.title}</span>
+                        {item.icon && (
+                            <item.icon size={18} className="shrink-0" />
+                        )}
+                        <span className="flex-1 truncate text-left text-sm font-medium">
+                            {item.title}
+                        </span>
                         <ChevronDown
                             size={16}
                             className={cn(
@@ -78,7 +99,7 @@ setOpen(true);
                     </SidebarMenuButton>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                    <SidebarMenuSub className="gap-1.5 mx-0 border-l-0 pl-3">
+                    <SidebarMenuSub className="mx-0 gap-1.5 border-l-0 pl-3">
                         {item.items!.map((child) => {
                             const childActive = isCurrentUrl(child.href);
 
@@ -89,14 +110,19 @@ setOpen(true);
                                         isActive={childActive}
                                         size="md"
                                         className={cn(
-                                            'h-auto py-2 px-3 gap-2.5 rounded-xl transition-all',
+                                            'h-auto gap-2.5 rounded-xl px-3 py-2 transition-all',
                                             childActive
                                                 ? activeCardStyle
                                                 : inactiveCardStyle,
                                         )}
                                     >
                                         <Link href={child.href} prefetch>
-                                            <NavItemContent item={{ ...child, isActive: childActive }} />
+                                            <NavItemContent
+                                                item={{
+                                                    ...child,
+                                                    isActive: childActive,
+                                                }}
+                                            />
                                         </Link>
                                     </SidebarMenuSubButton>
                                 </SidebarMenuSubItem>
@@ -123,15 +149,18 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
                     // static "MENU —————" header instead of a collapsible button.
                     if (item.isSection && hasChildren) {
                         return (
-                            <li key={item.title} className="list-none w-full">
+                            <li key={item.title} className="w-full list-none">
                                 <div className="flex items-center gap-3 pt-4 pb-2">
                                     <span
-                                        className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground/80"
-                                        style={{ fontFamily: "'Unbounded', sans-serif" }}
+                                        className="text-[0.7rem] font-semibold tracking-[0.18em] text-muted-foreground/80 uppercase"
+                                        style={{
+                                            fontFamily:
+                                                "'Unbounded', sans-serif",
+                                        }}
                                     >
                                         {item.title}
                                     </span>
-                                    <span className="flex-1 h-px bg-[rgba(34,197,94,0.35)]" />
+                                    <span className="h-px flex-1 bg-[rgba(34,197,94,0.35)]" />
                                 </div>
                                 {renderChildren(item, isCurrentUrl)}
                             </li>
@@ -140,14 +169,19 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
 
                     if (!hasChildren) {
                         return (
-                            <SidebarMenuItem key={item.title} className="w-full">
+                            <SidebarMenuItem
+                                key={item.title}
+                                className="w-full"
+                            >
                                 <SidebarMenuButton
                                     asChild
                                     isActive={active}
                                     tooltip={{ children: item.title }}
                                     className={cn(
-                                        'h-auto py-2.5 px-3 gap-2.5 rounded-xl transition-all',
-                                        active ? activeCardStyle : inactiveCardStyle,
+                                        'h-auto gap-2.5 rounded-xl px-3 py-2.5 transition-all',
+                                        active
+                                            ? activeCardStyle
+                                            : inactiveCardStyle,
                                     )}
                                 >
                                     <Link href={item.href} prefetch>
@@ -160,7 +194,11 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
 
                     if (item.items) {
                         return (
-                            <CollapsibleNavItem key={item.title} item={item} isCurrentUrl={isCurrentUrl} />
+                            <CollapsibleNavItem
+                                key={item.title}
+                                item={item}
+                                isCurrentUrl={isCurrentUrl}
+                            />
                         );
                     }
 
@@ -173,14 +211,20 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
 
 function renderChildren(item: NavItem, isCurrentUrl: IsCurrentUrlFn) {
     return (
-        <SidebarMenuSub className="gap-1.5 mx-0 border-l-0 pl-0">
+        <SidebarMenuSub className="mx-0 gap-1.5 border-l-0 pl-0">
             {item.items!.map((child) => {
                 const childActive = isCurrentUrl(child.href);
 
                 // A child with its own children (e.g. Risk Algorithm) renders as
                 // a nested collapsible instead of a flat link.
                 if (child.items?.length) {
-                    return <CollapsibleNavItem key={child.title} item={child} isCurrentUrl={isCurrentUrl} />;
+                    return (
+                        <CollapsibleNavItem
+                            key={child.title}
+                            item={child}
+                            isCurrentUrl={isCurrentUrl}
+                        />
+                    );
                 }
 
                 return (
@@ -190,14 +234,16 @@ function renderChildren(item: NavItem, isCurrentUrl: IsCurrentUrlFn) {
                             isActive={childActive}
                             size="md"
                             className={cn(
-                                'h-auto py-2 px-3 gap-2.5 rounded-xl transition-all',
+                                'h-auto gap-2.5 rounded-xl px-3 py-2 transition-all',
                                 childActive
                                     ? activeCardStyle
                                     : inactiveCardStyle,
                             )}
                         >
                             <Link href={child.href} prefetch>
-                                <NavItemContent item={{ ...child, isActive: childActive }} />
+                                <NavItemContent
+                                    item={{ ...child, isActive: childActive }}
+                                />
                             </Link>
                         </SidebarMenuSubButton>
                     </SidebarMenuSubItem>

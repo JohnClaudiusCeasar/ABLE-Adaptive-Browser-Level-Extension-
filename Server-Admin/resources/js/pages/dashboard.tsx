@@ -45,15 +45,8 @@ interface DashboardProps {
     recentDomainVisits: RecentDomainVisit[];
 }
 
-const statusColors = {
-    'glass-safe': '#00ff66',
-    'glass-unsafe': '#ff4d4d',
-    'glass-unlisted': '#cc66ff',
-} as const;
-
 export default function Dashboard({
     activeUsers,
-    inactiveUsers,
     totalDomainVisits,
     totalEgressAttempts,
     dataSaved,
@@ -63,7 +56,8 @@ export default function Dashboard({
     recentEgressEvents,
     recentDomainVisits,
 }: DashboardProps) {
-    const totalDomains = domainUsage.safe + domainUsage.unsafe + domainUsage.unlisted;
+    const totalDomains =
+        domainUsage.safe + domainUsage.unsafe + domainUsage.unlisted;
 
     // System status pill: derived from nudge success rate.
     const systemStatus =
@@ -82,7 +76,11 @@ export default function Dashboard({
 
     const nudgeSegments = [
         { color: '#22c55e', value: nudgeSuccessRate, label: 'Success' },
-        { color: '#ff3b3b', value: Math.max(0, 100 - nudgeSuccessRate), label: 'Failure' },
+        {
+            color: '#ff3b3b',
+            value: Math.max(0, 100 - nudgeSuccessRate),
+            label: 'Failure',
+        },
     ];
 
     const domainSegments = [
@@ -94,32 +92,35 @@ export default function Dashboard({
     return (
         <>
             <Head title="Dashboard" />
-            <div className="mx-auto w-full max-w-[1100px] px-8 pt-12 pb-[22px] flex flex-col gap-6">
+            <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-6 px-8 pt-12 pb-[22px]">
                 {/* Page Header */}
-                <header className="flex flex-wrap items-end justify-between gap-4 mb-2">
+                <header className="mb-2 flex flex-wrap items-end justify-between gap-4">
                     <div>
                         <h1
-                            className="text-[2.6rem] font-bold uppercase tracking-wide leading-none mb-3"
+                            className="mb-3 text-[2.6rem] leading-none font-bold tracking-wide uppercase"
                             style={{ fontFamily: "'Unbounded', sans-serif" }}
                         >
                             Security Overview
                         </h1>
-                        <p className="text-base text-muted-foreground max-w-[720px] leading-relaxed">
-                            Real-time monitoring of domain activity, data egress attempts, and nudge
-                            effectiveness across the ABLE extension network.
+                        <p className="max-w-[720px] text-base leading-relaxed text-muted-foreground">
+                            Real-time monitoring of domain activity, data egress
+                            attempts, and nudge effectiveness across the ABLE
+                            extension network.
                         </p>
                     </div>
-                    <div className="flex items-center gap-2.5 rounded-full border border-[rgba(34,197,94,0.4)] bg-[rgba(34,197,94,0.08)] backdrop-blur-[10px] px-4 py-2 dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)]">
+                    <div className="flex items-center gap-2.5 rounded-full border border-[rgba(34,197,94,0.4)] bg-[rgba(34,197,94,0.08)] px-4 py-2 backdrop-blur-[10px] dark:border-[rgba(34,197,94,0.7)] dark:bg-white/5">
                         <span
-                            className="w-2.5 h-2.5 rounded-full animate-status-pulse"
+                            className="animate-status-pulse h-2.5 w-2.5 rounded-full"
                             style={{ backgroundColor: systemStatus.color }}
                         />
-                        <span className="text-sm font-medium">System {systemStatus.label}</span>
+                        <span className="text-sm font-medium">
+                            System {systemStatus.label}
+                        </span>
                     </div>
                 </header>
 
                 {/* KPI Row */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <StatCard
                         label="Active Users"
                         value={activeUsers}
@@ -152,15 +153,21 @@ export default function Dashboard({
                 </div>
 
                 {/* Charts Row */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                    <PanelCard title="Nudge Success" subtitle="Share of nudges that prevented data loss">
+                <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+                    <PanelCard
+                        title="Nudge Success"
+                        subtitle="Share of nudges that prevented data loss"
+                    >
                         <DonutGauge
                             segments={nudgeSegments}
                             centerLabel="Success Rate"
                             centerValue={`${nudgeSuccessRate}%`}
                         />
                     </PanelCard>
-                    <PanelCard title="Domain Usage" subtitle="Classification of monitored domains">
+                    <PanelCard
+                        title="Domain Usage"
+                        subtitle="Classification of monitored domains"
+                    >
                         <DonutGauge
                             segments={domainSegments}
                             centerLabel="Total Domains"
@@ -174,14 +181,28 @@ export default function Dashboard({
                     title="Data Protection"
                     subtitle="Bytes blocked vs. bytes that left the network"
                 >
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
                         <SegmentedBar
                             title="Blocked data"
-                            segments={[{ color: '#22c55e', label: 'Data Saved', value: dataSaved, pct: savedPct }]}
+                            segments={[
+                                {
+                                    color: '#22c55e',
+                                    label: 'Data Saved',
+                                    value: dataSaved,
+                                    pct: savedPct,
+                                },
+                            ]}
                         />
                         <SegmentedBar
                             title="Exfiltrated data"
-                            segments={[{ color: '#ff4d4d', label: 'Data Lost', value: dataLost, pct: lostPct }]}
+                            segments={[
+                                {
+                                    color: '#ff4d4d',
+                                    label: 'Data Lost',
+                                    value: dataLost,
+                                    pct: lostPct,
+                                },
+                            ]}
                         />
                     </div>
                 </PanelCard>
@@ -204,34 +225,70 @@ export default function Dashboard({
                         <table className="w-full border-collapse text-[0.85rem]">
                             <thead>
                                 <tr className="text-muted-foreground">
-                                    <th className="text-left pb-4 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">Date</th>
-                                    <th className="text-left pb-4 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">Time</th>
-                                    <th className="text-left pb-4 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">Domain Name</th>
-                                    <th className="text-left pb-4 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">Status</th>
-                                    <th className="text-left pb-4 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">User ID</th>
-                                    <th className="text-left pb-4 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">File Name</th>
-                                    <th className="text-left pb-4 font-medium border-b border-[rgba(34,197,94,0.7)]">Action Taken</th>
+                                    <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
+                                        Date
+                                    </th>
+                                    <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
+                                        Time
+                                    </th>
+                                    <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
+                                        Domain Name
+                                    </th>
+                                    <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
+                                        Status
+                                    </th>
+                                    <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
+                                        User ID
+                                    </th>
+                                    <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
+                                        File Name
+                                    </th>
+                                    <th className="border-b border-[rgba(34,197,94,0.7)] pb-4 text-left font-medium">
+                                        Action Taken
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {recentEgressEvents.length === 0 ? (
                                     <tr>
-                                        <td colSpan={7} className="py-10 text-center text-muted-foreground">
+                                        <td
+                                            colSpan={7}
+                                            className="py-10 text-center text-muted-foreground"
+                                        >
                                             No egress events recorded yet.
                                         </td>
                                     </tr>
                                 ) : (
                                     recentEgressEvents.map((row, i) => (
-                                        <tr key={i} className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0">
-                                            <td className="py-3 pr-2.5">{row.date}</td>
-                                            <td className="py-3 pr-2.5">{row.time}</td>
-                                            <td className="py-3 pr-2.5">{row.domain}</td>
+                                        <tr
+                                            key={i}
+                                            className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0"
+                                        >
                                             <td className="py-3 pr-2.5">
-                                                <Badge variant={row.status}>{row.status.replace('glass-', '').toUpperCase()}</Badge>
+                                                {row.date}
                                             </td>
-                                            <td className="py-3 pr-2.5">{row.user ?? '—'}</td>
-                                            <td className="py-3 pr-2.5">{row.fileName ?? '—'}</td>
-                                            <td className="py-3">{row.action}</td>
+                                            <td className="py-3 pr-2.5">
+                                                {row.time}
+                                            </td>
+                                            <td className="py-3 pr-2.5">
+                                                {row.domain}
+                                            </td>
+                                            <td className="py-3 pr-2.5">
+                                                <Badge variant={row.status}>
+                                                    {row.status
+                                                        .replace('glass-', '')
+                                                        .toUpperCase()}
+                                                </Badge>
+                                            </td>
+                                            <td className="py-3 pr-2.5">
+                                                {row.user ?? '—'}
+                                            </td>
+                                            <td className="py-3 pr-2.5">
+                                                {row.fileName ?? '—'}
+                                            </td>
+                                            <td className="py-3">
+                                                {row.action}
+                                            </td>
                                         </tr>
                                     ))
                                 )}
@@ -258,34 +315,70 @@ export default function Dashboard({
                         <table className="w-full border-collapse text-[0.85rem]">
                             <thead>
                                 <tr className="text-muted-foreground">
-                                    <th className="text-left pb-4 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">Date</th>
-                                    <th className="text-left pb-4 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">Time</th>
-                                    <th className="text-left pb-4 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">URL</th>
-                                    <th className="text-left pb-4 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">Domain Name</th>
-                                    <th className="text-left pb-4 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">Status</th>
-                                    <th className="text-left pb-4 pr-2.5 font-medium border-b border-[rgba(34,197,94,0.7)]">User ID</th>
-                                    <th className="text-left pb-4 font-medium border-b border-[rgba(34,197,94,0.7)]">Action</th>
+                                    <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
+                                        Date
+                                    </th>
+                                    <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
+                                        Time
+                                    </th>
+                                    <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
+                                        URL
+                                    </th>
+                                    <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
+                                        Domain Name
+                                    </th>
+                                    <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
+                                        Status
+                                    </th>
+                                    <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
+                                        User ID
+                                    </th>
+                                    <th className="border-b border-[rgba(34,197,94,0.7)] pb-4 text-left font-medium">
+                                        Action
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {recentDomainVisits.length === 0 ? (
                                     <tr>
-                                        <td colSpan={7} className="py-10 text-center text-muted-foreground">
+                                        <td
+                                            colSpan={7}
+                                            className="py-10 text-center text-muted-foreground"
+                                        >
                                             No domain visits recorded yet.
                                         </td>
                                     </tr>
                                 ) : (
                                     recentDomainVisits.map((row, i) => (
-                                        <tr key={i} className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0">
-                                            <td className="py-3 pr-2.5">{row.date}</td>
-                                            <td className="py-3 pr-2.5">{row.time}</td>
-                                            <td className="py-3 pr-2.5">{row.url}</td>
-                                            <td className="py-3 pr-2.5">{row.domain}</td>
+                                        <tr
+                                            key={i}
+                                            className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0"
+                                        >
                                             <td className="py-3 pr-2.5">
-                                                <Badge variant={row.status}>{row.status.replace('glass-', '').toUpperCase()}</Badge>
+                                                {row.date}
                                             </td>
-                                            <td className="py-3 pr-2.5">{row.user ?? '—'}</td>
-                                            <td className="py-3">{row.action}</td>
+                                            <td className="py-3 pr-2.5">
+                                                {row.time}
+                                            </td>
+                                            <td className="py-3 pr-2.5">
+                                                {row.url}
+                                            </td>
+                                            <td className="py-3 pr-2.5">
+                                                {row.domain}
+                                            </td>
+                                            <td className="py-3 pr-2.5">
+                                                <Badge variant={row.status}>
+                                                    {row.status
+                                                        .replace('glass-', '')
+                                                        .toUpperCase()}
+                                                </Badge>
+                                            </td>
+                                            <td className="py-3 pr-2.5">
+                                                {row.user ?? '—'}
+                                            </td>
+                                            <td className="py-3">
+                                                {row.action}
+                                            </td>
                                         </tr>
                                     ))
                                 )}

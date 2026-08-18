@@ -1,11 +1,23 @@
 import { Head, router, usePage } from '@inertiajs/react';
-import { Search, ExternalLink, Pencil, Trash2, Plus, X, ArrowUpDown, Layers, Trash, Eye } from 'lucide-react';
-import type { FormEvent} from 'react';
-import { useState, useMemo, useEffect } from 'react';
+import {
+    Search,
+    ExternalLink,
+    Pencil,
+    Trash2,
+    Plus,
+    X,
+    ArrowUpDown,
+    Layers,
+    Trash,
+    Eye,
+} from 'lucide-react';
+import type { FormEvent } from 'react';
+import { useState, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import DomainPolicyController from '@/actions/App/Http/Controllers/DomainPolicyController';
 
-const glassCard = 'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
+const glassCard =
+    'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
 
 interface DomainPolicy {
     id: number;
@@ -48,13 +60,19 @@ type SortField = 'domain' | 'domain_status' | 'policy' | 'risk_score';
 type SortDir = 'asc' | 'desc';
 type GroupField = 'none' | 'domain_status' | 'policy';
 
-const statusBadgeVariant: Record<string, 'glass-safe' | 'glass-unsafe' | 'glass-unlisted'> = {
+const statusBadgeVariant: Record<
+    string,
+    'glass-safe' | 'glass-unsafe' | 'glass-unlisted'
+> = {
     safe: 'glass-safe',
     unsafe: 'glass-unsafe',
     unlisted: 'glass-unlisted',
 };
 
-const policyBadgeVariant: Record<string, 'glass-safe' | 'glass-unsafe' | 'glass-unlisted'> = {
+const policyBadgeVariant: Record<
+    string,
+    'glass-safe' | 'glass-unsafe' | 'glass-unlisted'
+> = {
     whitelisted: 'glass-safe',
     blacklisted: 'glass-unsafe',
     under_review: 'glass-unlisted',
@@ -91,9 +109,19 @@ export default function PolicyAlgorithm() {
     const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
     // Domain detail modal state
-    const [selectedDomain, setSelectedDomain] = useState<DomainPolicy | null>(null);
+    const [selectedDomain, setSelectedDomain] = useState<DomainPolicy | null>(
+        null,
+    );
     const [showDetailModal, setShowDetailModal] = useState(false);
-    const [domainVisits, setDomainVisits] = useState<{ id: number; domain_policy_id: number; domain: string; user_id: string | null; visited_at: string }[]>([]);
+    const [domainVisits, setDomainVisits] = useState<
+        {
+            id: number;
+            domain_policy_id: number;
+            domain: string;
+            user_id: string | null;
+            visited_at: string;
+        }[]
+    >([]);
     const [visitsLoading, setVisitsLoading] = useState(false);
     const [visitsPagination, setVisitsPagination] = useState({
         current_page: 1,
@@ -110,7 +138,7 @@ export default function PolicyAlgorithm() {
         // Filter by search
         if (searchQuery) {
             items = items.filter((p) =>
-                p.domain.toLowerCase().includes(searchQuery.toLowerCase())
+                p.domain.toLowerCase().includes(searchQuery.toLowerCase()),
             );
         }
 
@@ -148,13 +176,14 @@ export default function PolicyAlgorithm() {
         const groups: Record<string, DomainPolicy[]> = {};
 
         for (const item of processedPolicies) {
-            const key = groupField === 'domain_status'
-                ? statusLabels[item.domain_status]
-                : policyLabels[item.policy];
+            const key =
+                groupField === 'domain_status'
+                    ? statusLabels[item.domain_status]
+                    : policyLabels[item.policy];
 
             if (!groups[key]) {
-groups[key] = [];
-}
+                groups[key] = [];
+            }
 
             groups[key].push(item);
         }
@@ -163,21 +192,22 @@ groups[key] = [];
     }, [processedPolicies, groupField]);
 
     // Pagination
-    const totalPages = Math.max(1, Math.ceil(processedPolicies.length / ROWS_PER_PAGE));
+    const totalPages = Math.max(
+        1,
+        Math.ceil(processedPolicies.length / ROWS_PER_PAGE),
+    );
+    // Clamp to a valid page when filters change, so the current page
+    // naturally resets if it falls past the last page.
+    const safePage = Math.min(currentPage, totalPages);
     const paginatedItems = useMemo(() => {
         if (groupField !== 'none') {
-return processedPolicies;
-} // No pagination when grouped
+            return processedPolicies;
+        } // No pagination when grouped
 
-        const start = (currentPage - 1) * ROWS_PER_PAGE;
+        const start = (safePage - 1) * ROWS_PER_PAGE;
 
         return processedPolicies.slice(start, start + ROWS_PER_PAGE);
-    }, [processedPolicies, currentPage, groupField]);
-
-    // Reset page when search/sort changes
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [searchQuery, sortField, sortDir, groupField]);
+    }, [processedPolicies, safePage, groupField]);
 
     function openAddModal() {
         setEditingId(null);
@@ -219,9 +249,17 @@ return processedPolicies;
         };
 
         if (editingId) {
-            router.patch(DomainPolicyController.update.url(editingId), form as any, options);
+            router.patch(
+                DomainPolicyController.update.url(editingId),
+                form as any,
+                options,
+            );
         } else {
-            router.post(DomainPolicyController.store.url(), form as any, options);
+            router.post(
+                DomainPolicyController.store.url(),
+                form as any,
+                options,
+            );
         }
     }
 
@@ -251,17 +289,24 @@ return processedPolicies;
         return domain;
     }
 
-    async function fetchDomainVisits(domainPolicyId: number, page: number = 1, search: string = '') {
+    async function fetchDomainVisits(
+        domainPolicyId: number,
+        page: number = 1,
+        search: string = '',
+    ) {
         setVisitsLoading(true);
 
         try {
-            const url = DomainPolicyController.getDomainVisits.url(domainPolicyId, {
-                query: {
-                    page: page.toString(),
-                    per_page: visitsPagination.per_page.toString(),
-                    ...(search ? { search } : {}),
+            const url = DomainPolicyController.getDomainVisits.url(
+                domainPolicyId,
+                {
+                    query: {
+                        page: page.toString(),
+                        per_page: visitsPagination.per_page.toString(),
+                        ...(search ? { search } : {}),
+                    },
                 },
-            });
+            );
 
             const response = await fetch(url);
 
@@ -309,64 +354,63 @@ return processedPolicies;
         }
     }
 
-    function toggleSort(field: SortField) {
-        if (sortField === field) {
-            setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
-        } else {
-            setSortField(field);
-            setSortDir('asc');
-        }
-    }
-
     function renderTableRows(items: DomainPolicy[]) {
         return items.map((d) => (
-            <tr key={d.id} className="border-b border-black/10 last:border-b-0 dark:border-white/10">
-                <td className="py-5 px-4">
+            <tr
+                key={d.id}
+                className="border-b border-black/10 last:border-b-0 dark:border-white/10"
+            >
+                <td className="px-4 py-5">
                     <a
                         href={formatDomainUrl(d.domain)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="font-semibold text-foreground hover:text-able-green transition-colors inline-flex items-center gap-1.5"
+                        className="inline-flex items-center gap-1.5 font-semibold text-foreground transition-colors hover:text-able-green"
                     >
                         {d.domain}
-                        <ExternalLink size={14} className="text-muted-foreground" />
+                        <ExternalLink
+                            size={14}
+                            className="text-muted-foreground"
+                        />
                     </a>
                 </td>
-                <td className="py-5 px-4">
+                <td className="px-4 py-5">
                     <Badge variant={statusBadgeVariant[d.domain_status]}>
                         {statusLabels[d.domain_status]}
                     </Badge>
                 </td>
-                <td className="py-5 px-4">
+                <td className="px-4 py-5">
                     <Badge variant={policyBadgeVariant[d.policy]}>
                         {policyLabels[d.policy]}
                     </Badge>
                 </td>
-                <td className="py-5 px-4 text-muted-foreground">
+                <td className="px-4 py-5 text-muted-foreground">
                     {d.category || '—'}
                 </td>
-                <td className={`py-5 px-4 ${d.risk_score > 0 ? 'text-[#f87171] font-semibold' : 'text-muted-foreground'}`}>
+                <td
+                    className={`px-4 py-5 ${d.risk_score > 0 ? 'font-semibold text-[#f87171]' : 'text-muted-foreground'}`}
+                >
                     {d.risk_score}
                 </td>
-                <td className="py-5 px-4">
+                <td className="px-4 py-5">
                     <div className="flex items-center gap-2">
                         <button
                             onClick={() => openDetailModal(d)}
-                            className="p-1.5 rounded-md text-muted-foreground hover:text-able-green hover:bg-[rgba(34,197,94,0.1)] transition-colors"
+                            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-[rgba(34,197,94,0.1)] hover:text-able-green"
                             title="View Details"
                         >
                             <Eye size={16} />
                         </button>
                         <button
                             onClick={() => openEditModal(d)}
-                            className="p-1.5 rounded-md text-muted-foreground hover:text-able-green hover:bg-[rgba(34,197,94,0.1)] transition-colors"
+                            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-[rgba(34,197,94,0.1)] hover:text-able-green"
                             title="Edit"
                         >
                             <Pencil size={16} />
                         </button>
                         <button
                             onClick={() => setDeleteConfirmId(d.id)}
-                            className="p-1.5 rounded-md text-muted-foreground hover:text-[#f87171] hover:bg-[rgba(248,113,113,0.1)] transition-colors"
+                            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-[rgba(248,113,113,0.1)] hover:text-[#f87171]"
                             title="Delete"
                         >
                             <Trash2 size={16} />
@@ -379,16 +423,21 @@ return processedPolicies;
 
     function renderGroupedContent() {
         if (!groupedPolicies) {
-return null;
-}
+            return null;
+        }
 
         const groupKeys = Object.keys(groupedPolicies);
 
         if (groupKeys.length === 0) {
             return (
                 <tr>
-                    <td colSpan={6} className="py-10 text-center text-muted-foreground">
-                        {searchQuery ? 'No domains match your search.' : 'No domain policies yet. Click "Add Domain" to create one.'}
+                    <td
+                        colSpan={6}
+                        className="py-10 text-center text-muted-foreground"
+                    >
+                        {searchQuery
+                            ? 'No domains match your search.'
+                            : 'No domain policies yet. Click "Add Domain" to create one.'}
                     </td>
                 </tr>
             );
@@ -397,7 +446,10 @@ return null;
         return groupKeys.map((groupKey) => (
             <tbody key={groupKey}>
                 <tr className="bg-[rgba(34,197,94,0.05)]">
-                    <td colSpan={6} className="py-2 px-4 text-sm font-semibold text-able-green uppercase tracking-wider">
+                    <td
+                        colSpan={6}
+                        className="px-4 py-2 text-sm font-semibold tracking-wider text-able-green uppercase"
+                    >
                         {groupKey} ({groupedPolicies[groupKey].length})
                     </td>
                 </tr>
@@ -411,48 +463,51 @@ return null;
             return (
                 <tbody>
                     <tr>
-                        <td colSpan={6} className="py-10 text-center text-muted-foreground">
-                            {searchQuery ? 'No domains match your search.' : 'No domain policies yet. Click "Add Domain" to create one.'}
+                        <td
+                            colSpan={6}
+                            className="py-10 text-center text-muted-foreground"
+                        >
+                            {searchQuery
+                                ? 'No domains match your search.'
+                                : 'No domain policies yet. Click "Add Domain" to create one.'}
                         </td>
                     </tr>
                 </tbody>
             );
         }
 
-        return (
-            <tbody>
-                {renderTableRows(paginatedItems)}
-            </tbody>
-        );
+        return <tbody>{renderTableRows(paginatedItems)}</tbody>;
     }
 
     return (
         <>
             <Head title="Policy Algorithm" />
             <div className="mx-auto w-full max-w-[1100px] px-8 pt-12 pb-[22px]">
-
                 {/* Header */}
                 <header className="mb-8">
                     <h1
-                        className="text-[2.6rem] font-bold tracking-wide mb-2 text-foreground"
+                        className="mb-2 text-[2.6rem] font-bold tracking-wide text-foreground"
                         style={{ fontFamily: "'Unbounded', sans-serif" }}
                     >
                         POLICY ALGORITHM
                     </h1>
-                    <p className="text-base text-muted-foreground mb-6">
+                    <p className="mb-6 text-base text-muted-foreground">
                         Domain Management for website security checking.
                     </p>
 
                     {/* Search + Sort + Group row */}
-                    <div className="flex items-center gap-3 flex-wrap">
+                    <div className="flex flex-wrap items-center gap-3">
                         <div className="relative w-[260px]">
-                            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                            <Search
+                                size={16}
+                                className="absolute top-1/2 left-3.5 -translate-y-1/2 text-muted-foreground"
+                            />
                             <input
                                 type="text"
                                 placeholder="Search"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full py-2.5 pl-11 pr-3.5 bg-black/5 border border-black/10 rounded-full text-foreground text-[0.9rem] outline-none placeholder:text-muted-foreground dark:bg-[rgba(15,23,42,0.4)] dark:border-white/10"
+                                className="w-full rounded-full border border-black/10 bg-black/5 py-2.5 pr-3.5 pl-11 text-[0.9rem] text-foreground outline-none placeholder:text-muted-foreground dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]"
                             />
                         </div>
 
@@ -465,45 +520,76 @@ return null;
                                     setSortField(parts[0] as SortField);
                                     setSortDir(parts[1] as SortDir);
                                 }}
-                                className="appearance-none py-2.5 pl-9 pr-8 bg-black/5 border border-black/10 rounded-full text-foreground text-[0.85rem] outline-none cursor-pointer dark:bg-[rgba(15,23,42,0.4)] dark:border-white/10 hover:border-able-green/50 hover:bg-black/10 dark:hover:bg-white/5 focus:border-able-green focus:ring-1 focus:ring-able-green/30 transition-all duration-200"
+                                className="cursor-pointer appearance-none rounded-full border border-black/10 bg-black/5 py-2.5 pr-8 pl-9 text-[0.85rem] text-foreground transition-all duration-200 outline-none hover:border-able-green/50 hover:bg-black/10 focus:border-able-green focus:ring-1 focus:ring-able-green/30 dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)] dark:hover:bg-white/5"
                             >
-                                <option value="domain__asc">Sort: Domain (A-Z)</option>
-                                <option value="domain__desc">Sort: Domain (Z-A)</option>
-                                <option value="domain_status__asc">Sort: Status (A-Z)</option>
-                                <option value="domain_status__desc">Sort: Status (Z-A)</option>
-                                <option value="policy__asc">Sort: Policy (A-Z)</option>
-                                <option value="policy__desc">Sort: Policy (Z-A)</option>
-                                <option value="risk_score__asc">Sort: Risk (Low-High)</option>
-                                <option value="risk_score__desc">Sort: Risk (High-Low)</option>
+                                <option value="domain__asc">
+                                    Sort: Domain (A-Z)
+                                </option>
+                                <option value="domain__desc">
+                                    Sort: Domain (Z-A)
+                                </option>
+                                <option value="domain_status__asc">
+                                    Sort: Status (A-Z)
+                                </option>
+                                <option value="domain_status__desc">
+                                    Sort: Status (Z-A)
+                                </option>
+                                <option value="policy__asc">
+                                    Sort: Policy (A-Z)
+                                </option>
+                                <option value="policy__desc">
+                                    Sort: Policy (Z-A)
+                                </option>
+                                <option value="risk_score__asc">
+                                    Sort: Risk (Low-High)
+                                </option>
+                                <option value="risk_score__desc">
+                                    Sort: Risk (High-Low)
+                                </option>
                             </select>
-                            <ArrowUpDown size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                            <ArrowUpDown
+                                size={16}
+                                className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
+                            />
                         </div>
 
                         {/* Group Dropdown */}
                         <div className="relative">
                             <select
                                 value={groupField}
-                                onChange={(e) => setGroupField(e.target.value as GroupField)}
-                                className="appearance-none py-2.5 pl-9 pr-8 bg-black/5 border border-black/10 rounded-full text-foreground text-[0.85rem] outline-none cursor-pointer dark:bg-[rgba(15,23,42,0.4)] dark:border-white/10 hover:border-able-green/50 hover:bg-black/10 dark:hover:bg-white/5 focus:border-able-green focus:ring-1 focus:ring-able-green/30 transition-all duration-200"
+                                onChange={(e) =>
+                                    setGroupField(e.target.value as GroupField)
+                                }
+                                className="cursor-pointer appearance-none rounded-full border border-black/10 bg-black/5 py-2.5 pr-8 pl-9 text-[0.85rem] text-foreground transition-all duration-200 outline-none hover:border-able-green/50 hover:bg-black/10 focus:border-able-green focus:ring-1 focus:ring-able-green/30 dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)] dark:hover:bg-white/5"
                             >
                                 <option value="none">Group: None</option>
-                                <option value="domain_status">Group: Domain Status</option>
+                                <option value="domain_status">
+                                    Group: Domain Status
+                                </option>
                                 <option value="policy">Group: Policy</option>
                             </select>
-                            <Layers size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                            <Layers
+                                size={16}
+                                className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
+                            />
                         </div>
                     </div>
                 </header>
 
                 {/* Data Card */}
                 <div className={`${glassCard} px-8 py-7`}>
-                    <div className="flex justify-between items-center mb-8">
-                        <h2 className="text-[1.6rem] font-bold" style={{ fontFamily: "'Unbounded', sans-serif" }}>Domain Policy</h2>
+                    <div className="mb-8 flex items-center justify-between">
+                        <h2
+                            className="text-[1.6rem] font-bold"
+                            style={{ fontFamily: "'Unbounded', sans-serif" }}
+                        >
+                            Domain Policy
+                        </h2>
                         <div className="flex items-center gap-3">
                             {domainPolicies.length > 0 && (
                                 <button
                                     onClick={() => setDeleteAllConfirm(true)}
-                                    className="px-4 py-2 rounded-lg border border-[rgba(248,113,113,0.4)] text-[#f87171] font-semibold text-[0.9rem] hover:bg-[rgba(248,113,113,0.1)] transition-colors active:scale-[0.98] flex items-center gap-2"
+                                    className="flex items-center gap-2 rounded-lg border border-[rgba(248,113,113,0.4)] px-4 py-2 text-[0.9rem] font-semibold text-[#f87171] transition-colors hover:bg-[rgba(248,113,113,0.1)] active:scale-[0.98]"
                                 >
                                     <Trash size={16} />
                                     Delete All
@@ -511,7 +597,7 @@ return null;
                             )}
                             <button
                                 onClick={openAddModal}
-                                className="bg-able-green text-white px-5 py-2 rounded-lg font-semibold text-[0.9rem] border-none hover:bg-[#1a9e4b] transition-colors active:scale-[0.98] flex items-center gap-2"
+                                className="flex items-center gap-2 rounded-lg border-none bg-able-green px-5 py-2 text-[0.9rem] font-semibold text-white transition-colors hover:bg-[#1a9e4b] active:scale-[0.98]"
                             >
                                 <Plus size={18} />
                                 Add Domain
@@ -523,25 +609,42 @@ return null;
                         <table className="w-full border-collapse text-left text-[0.95rem]">
                             <thead>
                                 <tr>
-                                    {['Domain Name', 'Domain Status', 'Policy', 'Category', 'Risk Score', 'Actions'].map((h) => (
-                                        <th key={h} className="text-muted-foreground font-normal py-3 px-4 border-b border-[rgba(34,197,94,0.7)]">{h}</th>
+                                    {[
+                                        'Domain Name',
+                                        'Domain Status',
+                                        'Policy',
+                                        'Category',
+                                        'Risk Score',
+                                        'Actions',
+                                    ].map((h) => (
+                                        <th
+                                            key={h}
+                                            className="border-b border-[rgba(34,197,94,0.7)] px-4 py-3 font-normal text-muted-foreground"
+                                        >
+                                            {h}
+                                        </th>
                                     ))}
                                 </tr>
                             </thead>
-                            {groupField !== 'none' ? renderGroupedContent() : renderUngroupedContent()}
+                            {groupField !== 'none'
+                                ? renderGroupedContent()
+                                : renderUngroupedContent()}
                         </table>
                     </div>
 
                     {/* Pagination (only when not grouped) */}
                     {groupField === 'none' && totalPages > 1 && (
-                        <div className="flex justify-end mt-8 items-center gap-3 text-[0.95rem] text-muted-foreground">
-                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                        <div className="mt-8 flex items-center justify-end gap-3 text-[0.95rem] text-muted-foreground">
+                            {Array.from(
+                                { length: totalPages },
+                                (_, i) => i + 1,
+                            ).map((page) => (
                                 <span
                                     key={page}
                                     onClick={() => setCurrentPage(page)}
-                                    className={`w-[26px] h-[26px] flex items-center justify-center rounded-full cursor-pointer ${
-                                        page === currentPage
-                                            ? 'bg-able-green text-white font-semibold'
+                                    className={`flex h-[26px] w-[26px] cursor-pointer items-center justify-center rounded-full ${
+                                        page === safePage
+                                            ? 'bg-able-green font-semibold text-white'
                                             : 'hover:bg-black/5 dark:hover:text-white'
                                     }`}
                                 >
@@ -552,7 +655,9 @@ return null;
                                 <>
                                     <span className="cursor-default">...</span>
                                     <span
-                                        onClick={() => setCurrentPage(totalPages)}
+                                        onClick={() =>
+                                            setCurrentPage(totalPages)
+                                        }
                                         className="cursor-pointer font-bold hover:bg-black/5 dark:hover:text-white"
                                     >
                                         {totalPages}
@@ -562,55 +667,94 @@ return null;
                         </div>
                     )}
                 </div>
-
             </div>
 
             {/* Add/Edit Modal */}
             {showModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-[#0f172a] rounded-xl shadow-2xl w-full max-w-lg mx-4 border border-[rgba(34,197,94,0.3)]">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-black/10 dark:border-white/10">
-                            <h3 className="text-lg font-bold" style={{ fontFamily: "'Unbounded', sans-serif" }}>
-                                {editingId ? 'Edit Domain Policy' : 'Add Domain Policy'}
+                    <div className="mx-4 w-full max-w-lg rounded-xl border border-[rgba(34,197,94,0.3)] bg-white shadow-2xl dark:bg-[#0f172a]">
+                        <div className="flex items-center justify-between border-b border-black/10 px-6 py-4 dark:border-white/10">
+                            <h3
+                                className="text-lg font-bold"
+                                style={{
+                                    fontFamily: "'Unbounded', sans-serif",
+                                }}
+                            >
+                                {editingId
+                                    ? 'Edit Domain Policy'
+                                    : 'Add Domain Policy'}
                             </h3>
-                            <button onClick={closeModal} className="p-1 rounded-md text-muted-foreground hover:text-foreground transition-colors">
+                            <button
+                                onClick={closeModal}
+                                className="rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
+                            >
                                 <X size={20} />
                             </button>
                         </div>
-                        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+                        <form
+                            onSubmit={handleSubmit}
+                            className="space-y-4 px-6 py-5"
+                        >
                             <div>
-                                <label className="block text-sm font-medium text-muted-foreground mb-1">Domain Name</label>
+                                <label className="mb-1 block text-sm font-medium text-muted-foreground">
+                                    Domain Name
+                                </label>
                                 <input
                                     type="text"
                                     required
                                     readOnly={!!editingId}
                                     value={form.domain}
-                                    onChange={(e) => setForm({ ...form, domain: e.target.value })}
+                                    onChange={(e) =>
+                                        setForm({
+                                            ...form,
+                                            domain: e.target.value,
+                                        })
+                                    }
                                     placeholder="e.g., example.com"
-                                    className={`w-full px-3 py-2 rounded-lg border bg-transparent text-foreground outline-none focus:border-able-green transition-colors ${formErrors.domain ? 'border-[#f87171]' : 'border-black/10 dark:border-white/10'} ${editingId ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                    className={`w-full rounded-lg border bg-transparent px-3 py-2 text-foreground transition-colors outline-none focus:border-able-green ${formErrors.domain ? 'border-[#f87171]' : 'border-black/10 dark:border-white/10'} ${editingId ? 'cursor-not-allowed opacity-60' : ''}`}
                                 />
-                                {formErrors.domain && <p className="text-[#f87171] text-xs mt-1">{formErrors.domain}</p>}
+                                {formErrors.domain && (
+                                    <p className="mt-1 text-xs text-[#f87171]">
+                                        {formErrors.domain}
+                                    </p>
+                                )}
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-muted-foreground mb-1">Domain Status</label>
+                                    <label className="mb-1 block text-sm font-medium text-muted-foreground">
+                                        Domain Status
+                                    </label>
                                     <select
                                         value={form.domain_status}
-                                        onChange={(e) => setForm({ ...form, domain_status: e.target.value as FormData['domain_status'] })}
-                                        className="w-full px-3 py-2 rounded-lg border border-black/10 dark:border-white/10 bg-transparent text-foreground outline-none focus:border-able-green transition-colors"
+                                        onChange={(e) =>
+                                            setForm({
+                                                ...form,
+                                                domain_status: e.target
+                                                    .value as FormData['domain_status'],
+                                            })
+                                        }
+                                        className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-foreground transition-colors outline-none focus:border-able-green dark:border-white/10"
                                     >
                                         <option value="safe">Safe</option>
                                         <option value="unsafe">Unsafe</option>
-                                        <option value="unlisted">Unlisted</option>
+                                        <option value="unlisted">
+                                            Unlisted
+                                        </option>
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-muted-foreground mb-1">Policy</label>
+                                    <label className="mb-1 block text-sm font-medium text-muted-foreground">
+                                        Policy
+                                    </label>
                                     <select
                                         value={form.policy}
                                         onChange={(e) => {
-                                            const policy = e.target.value as FormData['policy'];
-                                            const statusMap: Record<FormData['policy'], FormData['domain_status']> = {
+                                            const policy = e.target
+                                                .value as FormData['policy'];
+                                            const statusMap: Record<
+                                                FormData['policy'],
+                                                FormData['domain_status']
+                                            > = {
                                                 whitelisted: 'safe',
                                                 blacklisted: 'unsafe',
                                                 under_review: 'unlisted',
@@ -618,54 +762,83 @@ return null;
                                             setForm({
                                                 ...form,
                                                 policy,
-                                                domain_status: statusMap[policy],
-                                                risk_score: policy === 'under_review' ? 70 : form.risk_score,
+                                                domain_status:
+                                                    statusMap[policy],
+                                                risk_score:
+                                                    policy === 'under_review'
+                                                        ? 70
+                                                        : form.risk_score,
                                             });
                                         }}
-                                        className="w-full px-3 py-2 rounded-lg border border-black/10 dark:border-white/10 bg-transparent text-foreground outline-none focus:border-able-green transition-colors"
+                                        className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-foreground transition-colors outline-none focus:border-able-green dark:border-white/10"
                                     >
-                                        <option value="whitelisted">Whitelisted</option>
-                                        <option value="blacklisted">Blacklisted</option>
-                                        <option value="under_review">Under Review</option>
+                                        <option value="whitelisted">
+                                            Whitelisted
+                                        </option>
+                                        <option value="blacklisted">
+                                            Blacklisted
+                                        </option>
+                                        <option value="under_review">
+                                            Under Review
+                                        </option>
                                     </select>
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-muted-foreground mb-1">Category</label>
+                                <label className="mb-1 block text-sm font-medium text-muted-foreground">
+                                    Category
+                                </label>
                                 <input
                                     type="text"
                                     value={form.category}
-                                    onChange={(e) => setForm({ ...form, category: e.target.value })}
+                                    onChange={(e) =>
+                                        setForm({
+                                            ...form,
+                                            category: e.target.value,
+                                        })
+                                    }
                                     placeholder="e.g., Major Tech Companies"
-                                    className="w-full px-3 py-2 rounded-lg border border-black/10 dark:border-white/10 bg-transparent text-foreground outline-none focus:border-able-green transition-colors"
+                                    className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-foreground transition-colors outline-none focus:border-able-green dark:border-white/10"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-muted-foreground mb-1">Risk Score (0-100)</label>
+                                <label className="mb-1 block text-sm font-medium text-muted-foreground">
+                                    Risk Score (0-100)
+                                </label>
                                 <input
                                     type="number"
                                     required
                                     min={0}
                                     max={100}
                                     value={form.risk_score}
-                                    onChange={(e) => setForm({ ...form, risk_score: parseInt(e.target.value) || 0 })}
-                                    className="w-full px-3 py-2 rounded-lg border border-black/10 dark:border-white/10 bg-transparent text-foreground outline-none focus:border-able-green transition-colors"
+                                    onChange={(e) =>
+                                        setForm({
+                                            ...form,
+                                            risk_score:
+                                                parseInt(e.target.value) || 0,
+                                        })
+                                    }
+                                    className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-foreground transition-colors outline-none focus:border-able-green dark:border-white/10"
                                 />
                             </div>
                             <div className="flex justify-end gap-3 pt-2">
                                 <button
                                     type="button"
                                     onClick={closeModal}
-                                    className="px-4 py-2 rounded-lg border border-black/10 dark:border-white/10 text-muted-foreground hover:text-foreground transition-colors"
+                                    className="rounded-lg border border-black/10 px-4 py-2 text-muted-foreground transition-colors hover:text-foreground dark:border-white/10"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={isSubmitting}
-                                    className="px-4 py-2 rounded-lg bg-able-green text-white font-semibold hover:bg-[#1a9e4b] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="rounded-lg bg-able-green px-4 py-2 font-semibold text-white transition-colors hover:bg-[#1a9e4b] disabled:cursor-not-allowed disabled:opacity-50"
                                 >
-                                    {isSubmitting ? 'Saving...' : editingId ? 'Update' : 'Create'}
+                                    {isSubmitting
+                                        ? 'Saving...'
+                                        : editingId
+                                          ? 'Update'
+                                          : 'Create'}
                                 </button>
                             </div>
                         </form>
@@ -676,23 +849,27 @@ return null;
             {/* Delete Single Confirmation Modal */}
             {deleteConfirmId !== null && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-[#0f172a] rounded-xl shadow-2xl w-full max-w-sm mx-4 border border-[rgba(248,113,113,0.3)] p-6">
-                        <h3 className="text-lg font-semibold mb-2" style={{ fontFamily: "'Unbounded', sans-serif" }}>
+                    <div className="mx-4 w-full max-w-sm rounded-xl border border-[rgba(248,113,113,0.3)] bg-white p-6 shadow-2xl dark:bg-[#0f172a]">
+                        <h3
+                            className="mb-2 text-lg font-semibold"
+                            style={{ fontFamily: "'Unbounded', sans-serif" }}
+                        >
                             Delete Domain Policy
                         </h3>
-                        <p className="text-muted-foreground mb-6">
-                            Are you sure you want to delete this domain policy? This action cannot be undone.
+                        <p className="mb-6 text-muted-foreground">
+                            Are you sure you want to delete this domain policy?
+                            This action cannot be undone.
                         </p>
                         <div className="flex justify-end gap-3">
                             <button
                                 onClick={() => setDeleteConfirmId(null)}
-                                className="px-4 py-2 rounded-lg border border-black/10 dark:border-white/10 text-muted-foreground hover:text-foreground transition-colors"
+                                className="rounded-lg border border-black/10 px-4 py-2 text-muted-foreground transition-colors hover:text-foreground dark:border-white/10"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={() => handleDelete(deleteConfirmId)}
-                                className="px-4 py-2 rounded-lg bg-[#f87171] text-white font-semibold hover:bg-[#ef4444] transition-colors"
+                                className="rounded-lg bg-[#f87171] px-4 py-2 font-semibold text-white transition-colors hover:bg-[#ef4444]"
                             >
                                 Delete
                             </button>
@@ -704,23 +881,27 @@ return null;
             {/* Delete All Confirmation Modal */}
             {deleteAllConfirm && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-[#0f172a] rounded-xl shadow-2xl w-full max-w-sm mx-4 border border-[rgba(248,113,113,0.3)] p-6">
-                        <h3 className="text-lg font-semibold mb-2" style={{ fontFamily: "'Unbounded', sans-serif" }}>
+                    <div className="mx-4 w-full max-w-sm rounded-xl border border-[rgba(248,113,113,0.3)] bg-white p-6 shadow-2xl dark:bg-[#0f172a]">
+                        <h3
+                            className="mb-2 text-lg font-semibold"
+                            style={{ fontFamily: "'Unbounded', sans-serif" }}
+                        >
                             Delete All Domain Policies
                         </h3>
-                        <p className="text-muted-foreground mb-6">
-                            Are you sure you want to delete <strong>all</strong> domain policies? This action cannot be undone.
+                        <p className="mb-6 text-muted-foreground">
+                            Are you sure you want to delete <strong>all</strong>{' '}
+                            domain policies? This action cannot be undone.
                         </p>
                         <div className="flex justify-end gap-3">
                             <button
                                 onClick={() => setDeleteAllConfirm(false)}
-                                className="px-4 py-2 rounded-lg border border-black/10 dark:border-white/10 text-muted-foreground hover:text-foreground transition-colors"
+                                className="rounded-lg border border-black/10 px-4 py-2 text-muted-foreground transition-colors hover:text-foreground dark:border-white/10"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleDeleteAll}
-                                className="px-4 py-2 rounded-lg bg-[#f87171] text-white font-semibold hover:bg-[#ef4444] transition-colors"
+                                className="rounded-lg bg-[#f87171] px-4 py-2 font-semibold text-white transition-colors hover:bg-[#ef4444]"
                             >
                                 Delete All
                             </button>
@@ -731,68 +912,94 @@ return null;
 
             {/* Domain Detail Modal */}
             {showDetailModal && selectedDomain && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={(e) => {
- if (e.target === e.currentTarget) {
-closeDetailModal();
-} 
-}}>
-                    <div className="bg-white dark:bg-[#0f172a] rounded-xl shadow-2xl w-full max-w-2xl mx-4 border border-[rgba(34,197,94,0.3)] max-h-[90vh] overflow-hidden flex flex-col">
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+                    onClick={(e) => {
+                        if (e.target === e.currentTarget) {
+                            closeDetailModal();
+                        }
+                    }}
+                >
+                    <div className="mx-4 flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-[rgba(34,197,94,0.3)] bg-white shadow-2xl dark:bg-[#0f172a]">
                         {/* Header */}
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-black/10 dark:border-white/10">
+                        <div className="flex items-center justify-between border-b border-black/10 px-6 py-4 dark:border-white/10">
                             <div className="flex items-center gap-3">
                                 <img
                                     src={`https://www.google.com/s2/favicons?domain=${selectedDomain.domain}&sz=32`}
                                     alt={selectedDomain.domain}
-                                    className="w-8 h-8 rounded-md"
+                                    className="h-8 w-8 rounded-md"
                                     onError={(e) => {
                                         e.currentTarget.style.display = 'none';
                                     }}
                                 />
                                 <div>
-                                    <h3 className="text-xl font-bold" style={{ fontFamily: "'Unbounded', sans-serif" }}>
-                                        {getDomainNameWithoutTLD(selectedDomain.domain)}
+                                    <h3
+                                        className="text-xl font-bold"
+                                        style={{
+                                            fontFamily:
+                                                "'Unbounded', sans-serif",
+                                        }}
+                                    >
+                                        {getDomainNameWithoutTLD(
+                                            selectedDomain.domain,
+                                        )}
                                     </h3>
-                                    <p className="text-sm text-muted-foreground mt-1">
+                                    <p className="mt-1 text-sm text-muted-foreground">
                                         {selectedDomain.domain}
                                     </p>
                                 </div>
                             </div>
-                            <button onClick={closeDetailModal} className="p-1 rounded-md text-muted-foreground hover:text-foreground transition-colors">
+                            <button
+                                onClick={closeDetailModal}
+                                className="rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
+                            >
                                 <X size={20} />
                             </button>
                         </div>
 
                         {/* Stats */}
-                        <div className="px-6 py-4 border-b border-black/10 dark:border-white/10">
+                        <div className="border-b border-black/10 px-6 py-4 dark:border-white/10">
                             <div className="flex gap-8">
                                 <div>
-                                    <span className="text-sm text-muted-foreground">User Opened</span>
+                                    <span className="text-sm text-muted-foreground">
+                                        User Opened
+                                    </span>
                                     <p className="text-lg font-semibold">
-                                        {domainVisits.length > 0 && domainVisits[0].user_id 
-                                            ? domainVisits[0].user_id 
+                                        {domainVisits.length > 0 &&
+                                        domainVisits[0].user_id
+                                            ? domainVisits[0].user_id
                                             : '—'}
                                     </p>
                                 </div>
                                 <div>
-                                    <span className="text-sm text-muted-foreground">Date Detected</span>
+                                    <span className="text-sm text-muted-foreground">
+                                        Date Detected
+                                    </span>
                                     <p className="text-lg font-semibold">
-                                        {new Date(selectedDomain.created_at).toLocaleDateString()}
+                                        {new Date(
+                                            selectedDomain.created_at,
+                                        ).toLocaleDateString()}
                                     </p>
                                 </div>
                             </div>
                         </div>
 
                         {/* Search and Filters */}
-                        <div className="px-6 py-4 border-b border-black/10 dark:border-white/10">
+                        <div className="border-b border-black/10 px-6 py-4 dark:border-white/10">
                             <div className="flex items-center gap-3">
                                 <div className="relative flex-1">
-                                    <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                    <Search
+                                        size={16}
+                                        className="absolute top-1/2 left-3.5 -translate-y-1/2 text-muted-foreground"
+                                    />
                                     <input
                                         type="text"
                                         placeholder="Search by User ID..."
                                         value={visitsSearch}
-                                        onChange={(e) => handleVisitsSearch(e.target.value)}
-                                        className="w-full py-2 pl-10 pr-3 bg-black/5 border border-black/10 rounded-lg text-foreground text-sm outline-none placeholder:text-muted-foreground dark:bg-[rgba(15,23,42,0.4)] dark:border-white/10 focus:border-able-green transition-colors"
+                                        onChange={(e) =>
+                                            handleVisitsSearch(e.target.value)
+                                        }
+                                        className="w-full rounded-lg border border-black/10 bg-black/5 py-2 pr-3 pl-10 text-sm text-foreground transition-colors outline-none placeholder:text-muted-foreground focus:border-able-green dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]"
                                     />
                                 </div>
                             </div>
@@ -802,27 +1009,46 @@ closeDetailModal();
                         <div className="flex-1 overflow-auto px-6 py-4">
                             {visitsLoading ? (
                                 <div className="flex items-center justify-center py-8">
-                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-able-green"></div>
+                                    <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-able-green"></div>
                                 </div>
                             ) : domainVisits.length === 0 ? (
-                                <div className="text-center py-8 text-muted-foreground">
+                                <div className="py-8 text-center text-muted-foreground">
                                     No visit records found.
                                 </div>
                             ) : (
                                 <table className="w-full border-collapse text-sm">
                                     <thead>
                                         <tr>
-                                            <th className="text-left py-2 px-3 text-muted-foreground font-normal border-b border-[rgba(34,197,94,0.7)]">Date</th>
-                                            <th className="text-left py-2 px-3 text-muted-foreground font-normal border-b border-[rgba(34,197,94,0.7)]">Time</th>
-                                            <th className="text-left py-2 px-3 text-muted-foreground font-normal border-b border-[rgba(34,197,94,0.7)]">User ID</th>
+                                            <th className="border-b border-[rgba(34,197,94,0.7)] px-3 py-2 text-left font-normal text-muted-foreground">
+                                                Date
+                                            </th>
+                                            <th className="border-b border-[rgba(34,197,94,0.7)] px-3 py-2 text-left font-normal text-muted-foreground">
+                                                Time
+                                            </th>
+                                            <th className="border-b border-[rgba(34,197,94,0.7)] px-3 py-2 text-left font-normal text-muted-foreground">
+                                                User ID
+                                            </th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {domainVisits.map((visit: any) => (
-                                            <tr key={visit.id} className="border-b border-black/5 dark:border-white/5">
-                                                <td className="py-3 px-3">{new Date(visit.visited_at).toLocaleDateString()}</td>
-                                                <td className="py-3 px-3">{new Date(visit.visited_at).toLocaleTimeString()}</td>
-                                                <td className="py-3 px-3">{visit.user_id || '—'}</td>
+                                            <tr
+                                                key={visit.id}
+                                                className="border-b border-black/5 dark:border-white/5"
+                                            >
+                                                <td className="px-3 py-3">
+                                                    {new Date(
+                                                        visit.visited_at,
+                                                    ).toLocaleDateString()}
+                                                </td>
+                                                <td className="px-3 py-3">
+                                                    {new Date(
+                                                        visit.visited_at,
+                                                    ).toLocaleTimeString()}
+                                                </td>
+                                                <td className="px-3 py-3">
+                                                    {visit.user_id || '—'}
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -832,16 +1058,22 @@ closeDetailModal();
 
                         {/* Pagination */}
                         {visitsPagination.last_page > 1 && (
-                            <div className="px-6 py-4 border-t border-black/10 dark:border-white/10">
-                                <div className="flex justify-center items-center gap-2">
-                                    {Array.from({ length: visitsPagination.last_page }, (_, i) => i + 1).map((page) => (
+                            <div className="border-t border-black/10 px-6 py-4 dark:border-white/10">
+                                <div className="flex items-center justify-center gap-2">
+                                    {Array.from(
+                                        { length: visitsPagination.last_page },
+                                        (_, i) => i + 1,
+                                    ).map((page) => (
                                         <button
                                             key={page}
-                                            onClick={() => handleVisitsPageChange(page)}
-                                            className={`w-8 h-8 flex items-center justify-center rounded-full text-sm ${
-                                                page === visitsPagination.current_page
-                                                    ? 'bg-able-green text-white font-semibold'
-                                                    : 'hover:bg-black/5 dark:hover:bg-white/5 text-muted-foreground'
+                                            onClick={() =>
+                                                handleVisitsPageChange(page)
+                                            }
+                                            className={`flex h-8 w-8 items-center justify-center rounded-full text-sm ${
+                                                page ===
+                                                visitsPagination.current_page
+                                                    ? 'bg-able-green font-semibold text-white'
+                                                    : 'text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5'
                                             }`}
                                         >
                                             {page}

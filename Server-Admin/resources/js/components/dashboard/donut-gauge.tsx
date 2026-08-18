@@ -1,5 +1,3 @@
-import { cn } from '@/lib/utils';
-
 interface DonutSegment {
     color: string;
     value: number;
@@ -13,7 +11,12 @@ interface DonutGaugeProps {
     size?: number;
 }
 
-export function DonutGauge({ segments, centerLabel, centerValue, size = 200 }: DonutGaugeProps) {
+export function DonutGauge({
+    segments,
+    centerLabel,
+    centerValue,
+    size = 200,
+}: DonutGaugeProps) {
     const total = segments.reduce((sum, s) => sum + s.value, 0);
 
     const gradient =
@@ -37,29 +40,38 @@ export function DonutGauge({ segments, centerLabel, centerValue, size = 200 }: D
     return (
         <div className="flex flex-col items-center gap-6 sm:flex-row sm:justify-center sm:gap-10">
             <div
-                className="rounded-full flex items-center justify-center shadow-lg shrink-0"
+                className="flex shrink-0 items-center justify-center rounded-full shadow-lg"
                 style={{ width: size, height: size, background: gradient }}
             >
                 <div
-                    className="bg-[#1a4033] rounded-full flex items-center justify-center text-center"
+                    className="flex items-center justify-center rounded-full bg-[#1a4033] text-center"
                     style={{ width: holeSize, height: holeSize }}
                 >
                     <div>
-                        <p className="text-2xl font-bold tabular-nums leading-none">{centerValue}</p>
-                        <p className="text-[0.8rem] text-muted-foreground mt-1">{centerLabel}</p>
+                        <p className="text-2xl leading-none font-bold tabular-nums">
+                            {centerValue}
+                        </p>
+                        <p className="mt-1 text-[0.8rem] text-muted-foreground">
+                            {centerLabel}
+                        </p>
                     </div>
                 </div>
             </div>
 
-            <ul className="flex flex-col gap-2.5 min-w-[140px]">
+            <ul className="flex min-w-[140px] flex-col gap-2.5">
                 {segments.map((s) => (
-                    <li key={s.label} className="flex items-center gap-2.5 text-sm">
+                    <li
+                        key={s.label}
+                        className="flex items-center gap-2.5 text-sm"
+                    >
                         <span
-                            className="w-2.5 h-2.5 rounded-full shrink-0"
+                            className="h-2.5 w-2.5 shrink-0 rounded-full"
                             style={{ backgroundColor: s.color }}
                         />
                         <span className="text-muted-foreground">{s.label}</span>
-                        <span className="ml-auto font-medium tabular-nums">{s.value}</span>
+                        <span className="ml-auto font-medium tabular-nums">
+                            {s.value}
+                        </span>
                     </li>
                 ))}
             </ul>
