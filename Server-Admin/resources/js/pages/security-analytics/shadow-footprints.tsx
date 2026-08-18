@@ -1,7 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
 import { ArrowLeft, Eye, Search, ArrowUpDown, Layers } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { useState, useMemo } from 'react';
+import { Button } from '@/components/ui/button';
 
 const glassCard = 'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
 
@@ -59,6 +59,7 @@ export default function ShadowFootprints({ shadowFootprints }: ShadowFootprintsP
         // Sort
         items.sort((a, b) => {
             let cmp = 0;
+
             switch (sortField) {
                 case 'app':
                     cmp = a.app.localeCompare(b.app);
@@ -79,6 +80,7 @@ export default function ShadowFootprints({ shadowFootprints }: ShadowFootprintsP
                     cmp = a.status.localeCompare(b.status);
                     break;
             }
+
             return sortDir === 'asc' ? cmp : -cmp;
         });
 
@@ -87,11 +89,15 @@ export default function ShadowFootprints({ shadowFootprints }: ShadowFootprintsP
 
     // Group the processed items
     const groupedData = useMemo(() => {
-        if (groupField === 'none') return null;
+        if (groupField === 'none') {
+return null;
+}
 
         const groups: Record<string, ShadowFootprint[]> = {};
+
         for (const item of processedData) {
             let key: string;
+
             switch (groupField) {
                 case 'risk':
                     key = item.risk === 'high' ? 'HIGH RISK' : 'LOW RISK';
@@ -105,17 +111,26 @@ export default function ShadowFootprints({ shadowFootprints }: ShadowFootprintsP
                 default:
                     key = 'Other';
             }
-            if (!groups[key]) groups[key] = [];
+
+            if (!groups[key]) {
+groups[key] = [];
+}
+
             groups[key].push(item);
         }
+
         return groups;
     }, [processedData, groupField]);
 
     // Pagination
     const totalPages = groupField === 'none' ? Math.ceil(processedData.length / ITEMS_PER_PAGE) : 1;
     const currentData = useMemo(() => {
-        if (groupField !== 'none') return processedData;
+        if (groupField !== 'none') {
+return processedData;
+}
+
         const start = (currentPage - 1) * ITEMS_PER_PAGE;
+
         return processedData.slice(start, start + ITEMS_PER_PAGE);
     }, [processedData, currentPage, groupField]);
 
@@ -155,9 +170,12 @@ export default function ShadowFootprints({ shadowFootprints }: ShadowFootprintsP
     }
 
     function renderGroupedContent() {
-        if (!groupedData) return null;
+        if (!groupedData) {
+return null;
+}
 
         const groupKeys = Object.keys(groupedData);
+
         if (groupKeys.length === 0) {
             return (
                 <tbody>

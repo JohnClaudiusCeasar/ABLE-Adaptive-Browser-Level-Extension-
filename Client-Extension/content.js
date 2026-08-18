@@ -148,6 +148,41 @@ async function shouldShowRepeatVisitModal() {
 
 // ─── File scanning ─────────────────────────────────────────────────
 
+// Heuristic guard against catastrophic backtracking (ReDoS): rejects
+// patterns with nested quantifiers that can cause exponential runtime.
+const RE_DANGEROUS_PATTERN = /(\(\s*[^)]*[+*][^)]*\)\s*[+*{])|(\[\s*[^]]*\]\s*[+*]\s*[+*])/;
+
+/**
+ * Safely test a pattern against text, returning the match count.
+ * Returns 0 for invalid or potentially unsafe patterns instead of throwing.
+ */
+function safeTestPattern(pattern, text) {
+  if (typeof pattern !== 'string' || pattern.length === 0) return 0;
+  if (RE_DANGEROUS_PATTERN.test(pattern)) {
+    console.warn('ABLE: Potentially unsafe regex skipped:', pattern);
+    return 0;
+  }
+  try {
+    const re = new RegExp(pattern, 'g');
+    const matches = text.match(re);
+    return matches ? matches.length : 0;
+  } catch (error) {
+    console.warn('ABLE: Invalid regex pattern:', pattern, error);
+    return 0;
+  }
+}
+
+/**
+ * Evaluate a criteria's top-level items with AND/OR logic.
+ * Sub-items are scored independently (like single patterns) and do not
+ * gate the criteria match.
+ */
+function evaluateCriteriaItems(items, text) {
+  const results = items.map((item) => safeTestPattern(item.regex, text) > 0);
+  const hasOr = items.some((item) => item.operator === 'or');
+  return hasOr ? results.some(Boolean) : results.every(Boolean);
+}
+
 async function calculateRiskScore(text) {
   let totalScore = 0;
   const flaggedItems = [];
@@ -167,57 +202,56 @@ async function calculateRiskScore(text) {
   // Process single patterns
   const singlePatterns = patterns.filter(p => p.type === 'single');
   for (const pattern of singlePatterns) {
-    try {
-      const regex = new RegExp(pattern.regex, 'g');
-      const matches = [...text.matchAll(regex)];
-      if (matches.length > 0) {
-        totalScore += pattern.score;
-        flaggedItems.push({
-          label: pattern.title,
-          count: matches.length,
-          weight: pattern.score,
-        });
-      }
-    } catch (error) {
-      console.warn('ABLE: Invalid regex pattern:', pattern.regex, error);
+    const count = safeTestPattern(pattern.regex, text);
+    if (count > 0) {
+      totalScore += pattern.score;
+      flaggedItems.push({
+        label: pattern.title,
+        count: count,
+        weight: pattern.score,
+      });
     }
   }
 
   // Process criteria patterns
   const criteriaPatterns = patterns.filter(p => p.type === 'criteria');
   for (const criteria of criteriaPatterns) {
-    let allMatched = true;
+    const items = criteria.criteria_pattern_items || [];
+    if (items.length === 0) continue;
+
     let matchCount = 0;
 
-    function checkItem(item) {
-      try {
-        const regex = new RegExp(item.regex, 'g');
-        const matches = [...text.matchAll(regex)];
-        if (matches.length === 0) return false;
-        matchCount += matches.length;
-        return true;
-      } catch (error) {
-        console.warn('ABLE: Invalid regex pattern in criteria:', item.regex, error);
-        return false;
-      }
-    }
-
-    function checkItemsRecursive(items) {
-      for (const item of items) {
-        if (!checkItem(item)) {
-          allMatched = false;
-          return;
+    // Sub-items are independent single-pattern contributors: they always
+    // score on their own and do not gate the criteria's composite match.
+    function scoreSubItems(subItems, prefix) {
+      for (const sub of subItems) {
+        const count = safeTestPattern(sub.regex, text);
+        if (count > 0) {
+          matchCount += count;
+          totalScore += sub.score;
+          flaggedItems.push({
+            label: `${prefix} › ${sub.title}`,
+            count: count,
+            weight: sub.score,
+          });
         }
-        if (item.sub_items && item.sub_items.length > 0) {
-          checkItemsRecursive(item.sub_items);
-          if (!allMatched) return;
+        if (sub.sub_items && sub.sub_items.length > 0) {
+          scoreSubItems(sub.sub_items, `${prefix} › ${sub.title}`);
         }
       }
     }
 
-    checkItemsRecursive(criteria.criteria_pattern_items);
+    for (const item of items) {
+      const count = safeTestPattern(item.regex, text);
+      if (count > 0) matchCount += count;
+      if (item.sub_items && item.sub_items.length > 0) {
+        scoreSubItems(item.sub_items, criteria.title);
+      }
+    }
 
-    if (allMatched) {
+    const criteriaMatched = evaluateCriteriaItems(items, text);
+
+    if (criteriaMatched) {
       totalScore += criteria.score;
       flaggedItems.push({
         label: criteria.title,

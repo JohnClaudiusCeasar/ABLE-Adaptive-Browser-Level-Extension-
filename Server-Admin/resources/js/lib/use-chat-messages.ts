@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { getCsrfToken } from '@/lib/echo';
+import { getCsrfToken } from '@/lib/csrf';
 import {
     mergeOlderMessages,
     setCursor,

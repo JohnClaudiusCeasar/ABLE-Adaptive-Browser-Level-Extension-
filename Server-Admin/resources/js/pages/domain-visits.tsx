@@ -54,6 +54,7 @@ export default function DomainVisits() {
         // Sort
         items.sort((a, b) => {
             let cmp = 0;
+
             switch (sortField) {
                 case 'date':
                     cmp = a.date.localeCompare(b.date) || a.time.localeCompare(b.time);
@@ -68,6 +69,7 @@ export default function DomainVisits() {
                     cmp = a.action.localeCompare(b.action);
                     break;
             }
+
             return sortDir === 'asc' ? cmp : -cmp;
         });
 
@@ -81,21 +83,31 @@ export default function DomainVisits() {
         }
 
         const groups: Record<string, DomainVisit[]> = {};
+
         for (const item of processedVisits) {
             const key = groupField === 'status'
                 ? statusLabels[item.status]
                 : item.action;
-            if (!groups[key]) groups[key] = [];
+
+            if (!groups[key]) {
+groups[key] = [];
+}
+
             groups[key].push(item);
         }
+
         return groups;
     }, [processedVisits, groupField]);
 
     // Pagination
     const totalPages = Math.max(1, Math.ceil(processedVisits.length / ROWS_PER_PAGE));
     const paginatedItems = useMemo(() => {
-        if (groupField !== 'none') return processedVisits;
+        if (groupField !== 'none') {
+return processedVisits;
+}
+
         const start = (currentPage - 1) * ROWS_PER_PAGE;
+
         return processedVisits.slice(start, start + ROWS_PER_PAGE);
     }, [processedVisits, currentPage, groupField]);
 
@@ -127,9 +139,12 @@ export default function DomainVisits() {
     }
 
     function renderGroupedContent() {
-        if (!groupedVisits) return null;
+        if (!groupedVisits) {
+return null;
+}
 
         const groupKeys = Object.keys(groupedVisits);
+
         if (groupKeys.length === 0) {
             return (
                 <tr>

@@ -40,6 +40,18 @@ export default defineConfig({
                     if (id.includes('@radix-ui')) {
                         return 'vendor-radix';
                     }
+                    if (id.includes('node_modules/sonner')) {
+                        return 'vendor-sonner';
+                    }
+                    if (id.includes('@laravel/passkeys')) {
+                        return 'vendor-passkeys';
+                    }
+                    if (
+                        id.includes('node_modules/laravel-echo') ||
+                        id.includes('node_modules/pusher-js')
+                    ) {
+                        return 'vendor-realtime';
+                    }
                 },
             },
         },

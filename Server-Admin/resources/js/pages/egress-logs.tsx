@@ -54,6 +54,7 @@ export default function EgressLogs() {
         // Sort
         items.sort((a, b) => {
             let cmp = 0;
+
             switch (sortField) {
                 case 'date':
                     cmp = a.date.localeCompare(b.date) || a.time.localeCompare(b.time);
@@ -68,6 +69,7 @@ export default function EgressLogs() {
                     cmp = a.action.localeCompare(b.action);
                     break;
             }
+
             return sortDir === 'asc' ? cmp : -cmp;
         });
 
@@ -81,21 +83,31 @@ export default function EgressLogs() {
         }
 
         const groups: Record<string, EgressEvent[]> = {};
+
         for (const item of processedEvents) {
             const key = groupField === 'status'
                 ? statusLabels[item.status]
                 : item.action;
-            if (!groups[key]) groups[key] = [];
+
+            if (!groups[key]) {
+groups[key] = [];
+}
+
             groups[key].push(item);
         }
+
         return groups;
     }, [processedEvents, groupField]);
 
     // Pagination
     const totalPages = Math.max(1, Math.ceil(processedEvents.length / ROWS_PER_PAGE));
     const paginatedItems = useMemo(() => {
-        if (groupField !== 'none') return processedEvents;
+        if (groupField !== 'none') {
+return processedEvents;
+}
+
         const start = (currentPage - 1) * ROWS_PER_PAGE;
+
         return processedEvents.slice(start, start + ROWS_PER_PAGE);
     }, [processedEvents, currentPage, groupField]);
 
@@ -128,9 +140,12 @@ export default function EgressLogs() {
     }
 
     function renderGroupedContent() {
-        if (!groupedEvents) return null;
+        if (!groupedEvents) {
+return null;
+}
 
         const groupKeys = Object.keys(groupedEvents);
+
         if (groupKeys.length === 0) {
             return (
                 <tr>

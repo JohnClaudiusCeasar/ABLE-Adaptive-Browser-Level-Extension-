@@ -1,6 +1,7 @@
 import { Head, router, usePage } from '@inertiajs/react';
 import { Search, ExternalLink, Pencil, Trash2, Plus, X, ArrowUpDown, Layers, Trash, Eye } from 'lucide-react';
-import { useState, FormEvent, useMemo, useEffect } from 'react';
+import type { FormEvent} from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import DomainPolicyController from '@/actions/App/Http/Controllers/DomainPolicyController';
 
@@ -116,6 +117,7 @@ export default function PolicyAlgorithm() {
         // Sort
         items.sort((a, b) => {
             let cmp = 0;
+
             switch (sortField) {
                 case 'domain':
                     cmp = a.domain.localeCompare(b.domain);
@@ -130,6 +132,7 @@ export default function PolicyAlgorithm() {
                     cmp = a.risk_score - b.risk_score;
                     break;
             }
+
             return sortDir === 'asc' ? cmp : -cmp;
         });
 
@@ -143,21 +146,31 @@ export default function PolicyAlgorithm() {
         }
 
         const groups: Record<string, DomainPolicy[]> = {};
+
         for (const item of processedPolicies) {
             const key = groupField === 'domain_status'
                 ? statusLabels[item.domain_status]
                 : policyLabels[item.policy];
-            if (!groups[key]) groups[key] = [];
+
+            if (!groups[key]) {
+groups[key] = [];
+}
+
             groups[key].push(item);
         }
+
         return groups;
     }, [processedPolicies, groupField]);
 
     // Pagination
     const totalPages = Math.max(1, Math.ceil(processedPolicies.length / ROWS_PER_PAGE));
     const paginatedItems = useMemo(() => {
-        if (groupField !== 'none') return processedPolicies; // No pagination when grouped
+        if (groupField !== 'none') {
+return processedPolicies;
+} // No pagination when grouped
+
         const start = (currentPage - 1) * ROWS_PER_PAGE;
+
         return processedPolicies.slice(start, start + ROWS_PER_PAGE);
     }, [processedPolicies, currentPage, groupField]);
 
@@ -230,14 +243,17 @@ export default function PolicyAlgorithm() {
 
     function getDomainNameWithoutTLD(domain: string): string {
         const parts = domain.split('.');
+
         if (parts.length > 1) {
             return parts[0];
         }
+
         return domain;
     }
 
     async function fetchDomainVisits(domainPolicyId: number, page: number = 1, search: string = '') {
         setVisitsLoading(true);
+
         try {
             const url = DomainPolicyController.getDomainVisits.url(domainPolicyId, {
                 query: {
@@ -248,6 +264,7 @@ export default function PolicyAlgorithm() {
             });
 
             const response = await fetch(url);
+
             if (response.ok) {
                 const data = await response.json();
                 setDomainVisits(data.visits);
@@ -280,6 +297,7 @@ export default function PolicyAlgorithm() {
 
     function handleVisitsSearch(search: string) {
         setVisitsSearch(search);
+
         if (selectedDomain) {
             fetchDomainVisits(selectedDomain.id, 1, search);
         }
@@ -360,9 +378,12 @@ export default function PolicyAlgorithm() {
     }
 
     function renderGroupedContent() {
-        if (!groupedPolicies) return null;
+        if (!groupedPolicies) {
+return null;
+}
 
         const groupKeys = Object.keys(groupedPolicies);
+
         if (groupKeys.length === 0) {
             return (
                 <tr>
@@ -413,7 +434,7 @@ export default function PolicyAlgorithm() {
                 {/* Header */}
                 <header className="mb-8">
                     <h1
-                        className="text-[2.5rem] font-medium tracking-wide mb-2 text-foreground"
+                        className="text-[2.6rem] font-bold tracking-wide mb-2 text-foreground"
                         style={{ fontFamily: "'Unbounded', sans-serif" }}
                     >
                         POLICY ALGORITHM
@@ -477,7 +498,7 @@ export default function PolicyAlgorithm() {
                 {/* Data Card */}
                 <div className={`${glassCard} px-8 py-7`}>
                     <div className="flex justify-between items-center mb-8">
-                        <h2 className="text-[1.6rem] font-medium" style={{ fontFamily: "'Unbounded', sans-serif" }}>Domain Policy</h2>
+                        <h2 className="text-[1.6rem] font-bold" style={{ fontFamily: "'Unbounded', sans-serif" }}>Domain Policy</h2>
                         <div className="flex items-center gap-3">
                             {domainPolicies.length > 0 && (
                                 <button
@@ -549,7 +570,7 @@ export default function PolicyAlgorithm() {
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
                     <div className="bg-white dark:bg-[#0f172a] rounded-xl shadow-2xl w-full max-w-lg mx-4 border border-[rgba(34,197,94,0.3)]">
                         <div className="flex items-center justify-between px-6 py-4 border-b border-black/10 dark:border-white/10">
-                            <h3 className="text-lg font-semibold" style={{ fontFamily: "'Unbounded', sans-serif" }}>
+                            <h3 className="text-lg font-bold" style={{ fontFamily: "'Unbounded', sans-serif" }}>
                                 {editingId ? 'Edit Domain Policy' : 'Add Domain Policy'}
                             </h3>
                             <button onClick={closeModal} className="p-1 rounded-md text-muted-foreground hover:text-foreground transition-colors">
@@ -710,7 +731,11 @@ export default function PolicyAlgorithm() {
 
             {/* Domain Detail Modal */}
             {showDetailModal && selectedDomain && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) closeDetailModal(); }}>
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={(e) => {
+ if (e.target === e.currentTarget) {
+closeDetailModal();
+} 
+}}>
                     <div className="bg-white dark:bg-[#0f172a] rounded-xl shadow-2xl w-full max-w-2xl mx-4 border border-[rgba(34,197,94,0.3)] max-h-[90vh] overflow-hidden flex flex-col">
                         {/* Header */}
                         <div className="flex items-center justify-between px-6 py-4 border-b border-black/10 dark:border-white/10">
@@ -724,7 +749,7 @@ export default function PolicyAlgorithm() {
                                     }}
                                 />
                                 <div>
-                                    <h3 className="text-xl font-semibold" style={{ fontFamily: "'Unbounded', sans-serif" }}>
+                                    <h3 className="text-xl font-bold" style={{ fontFamily: "'Unbounded', sans-serif" }}>
                                         {getDomainNameWithoutTLD(selectedDomain.domain)}
                                     </h3>
                                     <p className="text-sm text-muted-foreground mt-1">

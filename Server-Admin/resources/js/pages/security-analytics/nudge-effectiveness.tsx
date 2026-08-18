@@ -1,7 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
 import { ArrowLeft } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { useState } from 'react';
+import { Button } from '@/components/ui/button';
 
 const glassCard = 'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
 
@@ -64,6 +64,7 @@ export default function NudgeEffectiveness({ nudgeEffectiveness }: NudgeEffectiv
                                 {currentData.map((row, i) => {
                                     const total = row.proceeded + row.cancelled;
                                     const success = total > 0 ? ((row.proceeded / total) * 100).toFixed(1) + '%' : '0%';
+
                                     return (
                                         <tr key={i} className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0">
                                             <td className="py-3.5">{row.date}</td>

@@ -11,7 +11,8 @@ import {
     SidebarMenuSubItem,
 } from '@/components/ui/sidebar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { useCurrentUrl, type IsCurrentUrlFn } from '@/hooks/use-current-url';
+import { useCurrentUrl  } from '@/hooks/use-current-url';
+import type {IsCurrentUrlFn} from '@/hooks/use-current-url';
 import type { NavItem } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -50,7 +51,9 @@ function CollapsibleNavItem({
 
     // Keep the group expanded while one of its children is active.
     useEffect(() => {
-        if (groupActive) setOpen(true);
+        if (groupActive) {
+setOpen(true);
+}
     }, [groupActive]);
 
     return (

@@ -157,6 +157,7 @@ class ChatController extends Controller
             ->where('user_one_id', $user->id)
             ->orWhere('user_two_id', $user->id)
             ->orderByDesc('last_message_at')
+            ->with(['messages' => fn ($query) => $query->orderByDesc('created_at')])
             ->get()
             ->map(fn (ChatConversation $conversation) => $this->conversationData($conversation, $user))
             ->values()
@@ -234,12 +235,26 @@ class ChatController extends Controller
     /**
      * Serializable conversation data from the perspective of the given user.
      *
+     * The messages relation must be loaded (see conversationsFor) so the
+     * last message and unread count can be derived without extra queries.
+     * When it isn't loaded yet (single-conversation endpoints), it is
+     * fetched here.
+     *
      * @return array<string, mixed>
      */
     private function conversationData(ChatConversation $conversation, User $user): array
     {
         $otherUser = $conversation->otherUser($user);
-        $lastMessage = $conversation->messages()->latest('created_at')->first();
+
+        $messages = $conversation->relationLoaded('messages')
+            ? $conversation->messages
+            : $conversation->messages()->orderByDesc('created_at')->get();
+
+        $lastMessage = $messages->first();
+        $unreadCount = $messages
+            ->where('sender_id', '!=', $user->id)
+            ->whereNull('read_at')
+            ->count();
 
         return [
             'id' => $conversation->id,
@@ -247,10 +262,7 @@ class ChatController extends Controller
             'other_user' => $otherUser !== null ? $this->userData($otherUser) : null,
             'last_message' => $lastMessage?->body,
             'last_message_at' => $conversation->last_message_at?->diffForHumans(),
-            'unread_count' => $conversation->messages()
-                ->where('sender_id', '!=', $user->id)
-                ->whereNull('read_at')
-                ->count(),
+            'unread_count' => $unreadCount,
         ];
     }
 

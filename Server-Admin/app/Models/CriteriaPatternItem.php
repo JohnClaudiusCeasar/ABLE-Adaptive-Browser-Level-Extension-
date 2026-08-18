@@ -21,6 +21,7 @@ class CriteriaPatternItem extends Model
         'parent_id',
         'title',
         'regex',
+        'operator',
         'score',
     ];
 

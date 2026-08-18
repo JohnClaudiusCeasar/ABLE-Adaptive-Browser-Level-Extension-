@@ -46,16 +46,6 @@ export type MessageSentPayload = {
 };
 
 /**
- * Read the CSRF token from the meta tag injected by the app blade layout.
- */
-export function getCsrfToken(): string {
-    return (
-        document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')
-            ?.content ?? ''
-    );
-}
-
-/**
  * Subscribe to a conversation channel and invoke the handler for each
  * incoming message. Returns an unsubscribe function.
  */

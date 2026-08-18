@@ -1,6 +1,8 @@
 import { Head, router, usePage } from '@inertiajs/react';
 import { ChevronDown, Pencil, Search, Trash2, Plus, X, Trash, Copy } from 'lucide-react';
-import { useState, FormEvent, Fragment, useMemo } from 'react';
+import type { FormEvent} from 'react';
+import { useState, Fragment, useMemo } from 'react';
+import AlertError from '@/components/alert-error';
 
 const glassCard = 'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
 
@@ -9,6 +11,7 @@ interface CriteriaPatternItem {
     title: string;
     regex: string;
     score: number;
+    operator?: 'and' | 'or';
     sub_items?: CriteriaPatternItem[];
 }
 
@@ -33,12 +36,14 @@ interface PageProps {
 interface CriteriaFormData {
     title: string;
     score: number;
+    status: 'active' | 'inactive';
     criteria_pattern_items: CriteriaPatternItem[];
 }
 
 const emptyCriteriaForm: CriteriaFormData = {
     title: '',
     score: 0,
+    status: 'active',
     criteria_pattern_items: [],
 };
 
@@ -48,6 +53,7 @@ export default function CriteriaPatternConfiguration() {
     const [showModal, setShowModal] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
     const [criteriaForm, setCriteriaForm] = useState<CriteriaFormData>(emptyCriteriaForm);
+    const [formErrors, setFormErrors] = useState<Record<string, string>>({});
     const [searchQuery, setSearchQuery] = useState('');
     const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
     const [deleteAllConfirm, setDeleteAllConfirm] = useState(false);
@@ -57,7 +63,10 @@ export default function CriteriaPatternConfiguration() {
 
     // Filter patterns
     const filteredPatterns = useMemo(() => {
-        if (!searchQuery) return riskPatterns;
+        if (!searchQuery) {
+return riskPatterns;
+}
+
         return riskPatterns.filter((p) =>
             p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
             (p.regex && p.regex.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -67,6 +76,7 @@ export default function CriteriaPatternConfiguration() {
     // Available patterns for existing picker
     const availablePatterns = useMemo(() => {
         const search = existingSearch.toLowerCase();
+
         return singlePatterns.filter((p) =>
             p.title.toLowerCase().includes(search) ||
             (p.regex && p.regex.toLowerCase().includes(search))
@@ -76,6 +86,7 @@ export default function CriteriaPatternConfiguration() {
     function openAddModal() {
         setEditingId(null);
         setCriteriaForm(emptyCriteriaForm);
+        setFormErrors({});
         setShowModal(true);
     }
 
@@ -84,8 +95,10 @@ export default function CriteriaPatternConfiguration() {
         setCriteriaForm({
             title: pattern.title,
             score: pattern.score,
+            status: pattern.status,
             criteria_pattern_items: pattern.criteria_pattern_items || [],
         });
+        setFormErrors({});
         setShowModal(true);
     }
 
@@ -93,6 +106,7 @@ export default function CriteriaPatternConfiguration() {
         setShowModal(false);
         setEditingId(null);
         setCriteriaForm(emptyCriteriaForm);
+        setFormErrors({});
         setShowExistingPicker(null);
         setExistingSearch('');
     }
@@ -105,10 +119,16 @@ export default function CriteriaPatternConfiguration() {
             type: 'criteria' as const,
         };
 
+        const options = {
+            onError: (errors: Record<string, string>) => {
+                setFormErrors(errors);
+            },
+        };
+
         if (editingId) {
-            router.patch(`/risk-algorithm/${editingId}`, data as any);
+            router.patch(`/risk-algorithm/${editingId}`, data as any, options);
         } else {
-            router.post('/risk-algorithm', data as any);
+            router.post('/risk-algorithm', data as any, options);
         }
 
         closeModal();
@@ -129,7 +149,7 @@ export default function CriteriaPatternConfiguration() {
             ...criteriaForm,
             criteria_pattern_items: [
                 ...criteriaForm.criteria_pattern_items,
-                { id: Date.now(), title: '', regex: '', score: 0, sub_items: [] },
+                { id: Date.now(), title: '', regex: '', score: 0, operator: 'and', sub_items: [] },
             ],
         });
     }
@@ -137,8 +157,12 @@ export default function CriteriaPatternConfiguration() {
     function addSubCriteriaItem(parentIndex: number) {
         const updatedItems = [...criteriaForm.criteria_pattern_items];
         const parentItem = { ...updatedItems[parentIndex] };
-        if (!parentItem.sub_items) parentItem.sub_items = [];
-        parentItem.sub_items = [...parentItem.sub_items, { id: Date.now(), title: '', regex: '', score: 0 }];
+
+        if (!parentItem.sub_items) {
+parentItem.sub_items = [];
+}
+
+        parentItem.sub_items = [...parentItem.sub_items, { id: Date.now(), title: '', regex: '', score: 0, operator: 'and' }];
         updatedItems[parentIndex] = parentItem;
         setCriteriaForm({
             ...criteriaForm,
@@ -158,6 +182,7 @@ export default function CriteriaPatternConfiguration() {
     function removeSubCriteriaItem(parentIndex: number, subIndex: number) {
         const updatedItems = [...criteriaForm.criteria_pattern_items];
         const parentItem = { ...updatedItems[parentIndex] };
+
         if (parentItem.sub_items) {
             parentItem.sub_items = [...parentItem.sub_items];
             parentItem.sub_items.splice(subIndex, 1);
@@ -184,6 +209,7 @@ export default function CriteriaPatternConfiguration() {
     function updateSubCriteriaItem(parentIndex: number, subIndex: number, field: keyof CriteriaPatternItem, value: string | number) {
         const updatedItems = [...criteriaForm.criteria_pattern_items];
         const parentItem = { ...updatedItems[parentIndex] };
+
         if (parentItem.sub_items) {
             const updatedSubItems = [...parentItem.sub_items];
             updatedSubItems[subIndex] = {
@@ -205,6 +231,7 @@ export default function CriteriaPatternConfiguration() {
             title: pattern.title,
             regex: pattern.regex || '',
             score: pattern.score,
+            operator: 'and',
             sub_items: pattern.criteria_pattern_items || [],
         };
 
@@ -258,7 +285,7 @@ export default function CriteriaPatternConfiguration() {
                 {/* Header */}
                 <header className="mb-8">
                     <h1
-                        className="text-[2.5rem] font-medium tracking-wide mb-3 text-foreground"
+                        className="text-[2.6rem] font-bold tracking-wide mb-3 text-foreground"
                         style={{ fontFamily: "'Unbounded', sans-serif" }}
                     >
                         CRITERIA PATTERN CONFIGURATION
@@ -280,7 +307,7 @@ export default function CriteriaPatternConfiguration() {
 
                 {/* Header Actions */}
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-[1.5rem] font-medium" style={{ fontFamily: "'Unbounded', sans-serif" }}>
+                    <h2 className="text-[1.6rem] font-bold" style={{ fontFamily: "'Unbounded', sans-serif" }}>
                         Criteria Classification
                     </h2>
                     <div className="flex items-center gap-3">
@@ -308,6 +335,7 @@ export default function CriteriaPatternConfiguration() {
                     <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
                         {filteredPatterns.map((pattern) => {
                             const isExpanded = !!expandedCards[pattern.id];
+
                             return (
                                 <div key={pattern.id} className={`${glassCard} p-5 flex flex-col`}>
                                     {/* Card header */}
@@ -403,7 +431,7 @@ export default function CriteriaPatternConfiguration() {
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
                     <div className="bg-white dark:bg-[#0f172a] rounded-xl shadow-2xl w-full max-w-lg mx-4 border border-[rgba(34,197,94,0.3)]">
                         <div className="flex items-center justify-between px-6 py-4 border-b border-black/10 dark:border-white/10">
-                            <h3 className="text-lg font-semibold" style={{ fontFamily: "'Unbounded', sans-serif" }}>
+                            <h3 className="text-lg font-bold" style={{ fontFamily: "'Unbounded', sans-serif" }}>
                                 {editingId ? 'Edit Criteria Pattern' : 'Add Criteria Pattern'}
                             </h3>
                             <button onClick={closeModal} className="p-1 rounded-md text-muted-foreground hover:text-foreground transition-colors">
@@ -412,6 +440,9 @@ export default function CriteriaPatternConfiguration() {
                         </div>
 
                         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+                            {Object.keys(formErrors).length > 0 && (
+                                <AlertError errors={Object.values(formErrors)} title="Unable to save criteria pattern" />
+                            )}
                             <div>
                                 <label className="block text-sm font-medium text-muted-foreground mb-1">Criteria Title</label>
                                 <input
@@ -434,6 +465,34 @@ export default function CriteriaPatternConfiguration() {
                                     onChange={(e) => setCriteriaForm({ ...criteriaForm, score: parseInt(e.target.value) || 0 })}
                                     className="w-full px-3 py-2 rounded-lg border border-black/10 dark:border-white/10 bg-transparent text-foreground outline-none focus:border-able-green transition-colors"
                                 />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-muted-foreground mb-1">Status</label>
+                                <div className="flex gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setCriteriaForm({ ...criteriaForm, status: 'active' })}
+                                        className={`px-4 py-2 rounded-lg border text-sm font-semibold transition-colors ${
+                                            criteriaForm.status === 'active'
+                                                ? 'border-able-green bg-able-green text-white'
+                                                : 'border-black/10 dark:border-white/10 text-muted-foreground hover:text-foreground'
+                                        }`}
+                                    >
+                                        Active
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setCriteriaForm({ ...criteriaForm, status: 'inactive' })}
+                                        className={`px-4 py-2 rounded-lg border text-sm font-semibold transition-colors ${
+                                            criteriaForm.status === 'inactive'
+                                                ? 'border-[#f87171] bg-[#f87171] text-white'
+                                                : 'border-black/10 dark:border-white/10 text-muted-foreground hover:text-foreground'
+                                        }`}
+                                    >
+                                        Inactive
+                                    </button>
+                                </div>
                             </div>
 
                             {/* Pattern Items Table */}
@@ -499,7 +558,9 @@ export default function CriteriaPatternConfiguration() {
                                         </div>
                                         <button
                                             type="button"
-                                            onClick={() => { setShowExistingPicker(null); setExistingSearch(''); }}
+                                            onClick={() => {
+ setShowExistingPicker(null); setExistingSearch(''); 
+}}
                                             className="mt-2 w-full py-1.5 rounded-md border border-black/10 dark:border-white/10 text-muted-foreground text-sm hover:text-foreground transition-colors"
                                         >
                                             Close
@@ -513,6 +574,7 @@ export default function CriteriaPatternConfiguration() {
                                             <thead>
                                                 <tr className="bg-black/5 dark:bg-white/5">
                                                     <th className="py-2 px-3 text-left text-muted-foreground font-normal">Title</th>
+                                                    <th className="py-2 px-3 text-left text-muted-foreground font-normal w-16">Logic</th>
                                                     <th className="py-2 px-3 text-left text-muted-foreground font-normal">Regex</th>
                                                     <th className="py-2 px-3 text-left text-muted-foreground font-normal w-20">Score</th>
                                                     <th className="py-2 px-3 w-20"></th>
@@ -531,6 +593,25 @@ export default function CriteriaPatternConfiguration() {
                                                                     placeholder="Title"
                                                                     className="w-full px-2 py-1 rounded border border-black/10 dark:border-white/10 bg-transparent text-foreground outline-none focus:border-able-green transition-colors text-sm"
                                                                 />
+                                                            </td>
+                                                            <td className="py-2 px-2">
+                                                                <div className="flex rounded-md border border-black/10 dark:border-white/10 overflow-hidden">
+                                                                    {(['and', 'or'] as const).map((op) => (
+                                                                        <button
+                                                                            key={op}
+                                                                            type="button"
+                                                                            onClick={() => updateCriteriaItem(idx, 'operator', op)}
+                                                                            title={`Require ${op === 'and' ? 'all' : 'any'} sibling item to match`}
+                                                                            className={`px-2 py-1 text-xs font-semibold uppercase transition-colors ${
+                                                                                (item.operator || 'and') === op
+                                                                                    ? 'bg-able-green text-white'
+                                                                                    : 'text-muted-foreground hover:text-foreground'
+                                                                            }`}
+                                                                        >
+                                                                            {op}
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
                                                             </td>
                                                             <td className="py-2 px-2">
                                                                 <input
@@ -585,6 +666,25 @@ export default function CriteriaPatternConfiguration() {
                                                                         placeholder="Sub-item title"
                                                                         className="w-full px-2 py-1 rounded border border-black/10 dark:border-white/10 bg-transparent text-foreground outline-none focus:border-able-green transition-colors text-sm"
                                                                     />
+                                                                </td>
+                                                                <td className="py-2 px-2">
+                                                                    <div className="flex rounded-md border border-black/10 dark:border-white/10 overflow-hidden">
+                                                                        {(['and', 'or'] as const).map((op) => (
+                                                                            <button
+                                                                                key={op}
+                                                                                type="button"
+                                                                                onClick={() => updateSubCriteriaItem(idx, subIdx, 'operator', op)}
+                                                                                title={`Require ${op === 'and' ? 'all' : 'any'} sibling sub-item to match`}
+                                                                                className={`px-2 py-1 text-xs font-semibold uppercase transition-colors ${
+                                                                                    (subItem.operator || 'and') === op
+                                                                                        ? 'bg-able-green text-white'
+                                                                                        : 'text-muted-foreground hover:text-foreground'
+                                                                                }`}
+                                                                            >
+                                                                                {op}
+                                                                            </button>
+                                                                        ))}
+                                                                    </div>
                                                                 </td>
                                                                 <td className="py-2 px-2">
                                                                     <input

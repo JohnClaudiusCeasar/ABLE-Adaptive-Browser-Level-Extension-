@@ -8,7 +8,14 @@ use Symfony\Component\HttpFoundation\Response;
 
 class SecurityHeaders
 {
-    private ?string $cachedCsp = null;
+    /**
+     * The computed CSP, keyed by environment, so it is built once per process
+     * instead of once per request. Config may differ between console and web
+     * contexts, hence the key.
+     *
+     * @var array<string, string>
+     */
+    private static array $cachedCsp = [];
 
     /**
      * Handle an incoming request.
@@ -28,15 +35,17 @@ class SecurityHeaders
             $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
         }
 
-        $response->headers->set('Content-Security-Policy', $this->buildContentSecurityPolicy());
+        $response->headers->set('Content-Security-Policy', self::buildContentSecurityPolicy());
 
         return $response;
     }
 
-    private function buildContentSecurityPolicy(): string
+    private static function buildContentSecurityPolicy(): string
     {
-        if ($this->cachedCsp !== null) {
-            return $this->cachedCsp;
+        $key = (string) config('app.env');
+
+        if (isset(self::$cachedCsp[$key])) {
+            return self::$cachedCsp[$key];
         }
 
         $appUrl = config('app.url', 'http://localhost');
@@ -96,6 +105,6 @@ class SecurityHeaders
             "form-action 'self'",
         ];
 
-        return $this->cachedCsp = implode('; ', $directives);
+        return self::$cachedCsp[$key] = implode('; ', $directives);
     }
 }

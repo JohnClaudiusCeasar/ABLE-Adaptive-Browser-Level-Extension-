@@ -6,9 +6,6 @@ import AppLayout from '@/layouts/app-layout';
 import AuthLayout from '@/layouts/auth-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 
-// Warm up the Echo websocket connection for real-time chat.
-import '@/lib/echo';
-
 const appName = import.meta.env.VITE_APP_NAME || 'ABLE';
 
 createInertiaApp({

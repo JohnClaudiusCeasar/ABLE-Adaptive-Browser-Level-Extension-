@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\RiskPattern;
 use App\Models\CriteriaPatternItem;
+use App\Rules\CompilableRegex;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Redirect;
@@ -45,15 +46,17 @@ class RiskPatternController extends Controller
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'type' => 'required|in:single,criteria',
-            'regex' => 'required_if:type,single|nullable|string|max:1000',
+            'regex' => ['required_if:type,single', 'nullable', 'string', 'max:1000', new CompilableRegex],
             'score' => 'required_if:type,single|nullable|integer|min:0|max:100',
             'criteria_pattern_items' => 'required_if:type,criteria|nullable|array|min:1',
             'criteria_pattern_items.*.title' => 'required|string|max:255',
-            'criteria_pattern_items.*.regex' => 'required|string|max:1000',
+            'criteria_pattern_items.*.regex' => ['required', 'string', 'max:1000', new CompilableRegex],
+            'criteria_pattern_items.*.operator' => 'nullable|in:and,or',
             'criteria_pattern_items.*.score' => 'required|integer|min:0|max:100',
             'criteria_pattern_items.*.sub_items' => 'nullable|array',
             'criteria_pattern_items.*.sub_items.*.title' => 'required|string|max:255',
-            'criteria_pattern_items.*.sub_items.*.regex' => 'required|string|max:1000',
+            'criteria_pattern_items.*.sub_items.*.regex' => ['required', 'string', 'max:1000', new CompilableRegex],
+            'criteria_pattern_items.*.sub_items.*.operator' => 'nullable|in:and,or',
             'criteria_pattern_items.*.sub_items.*.score' => 'required|integer|min:0|max:100',
         ]);
 
@@ -85,6 +88,7 @@ class RiskPatternController extends Controller
                 'parent_id' => $parentId,
                 'title' => $item['title'],
                 'regex' => $item['regex'],
+                'operator' => $item['operator'] ?? 'and',
                 'score' => $item['score'],
             ]);
 
@@ -103,16 +107,18 @@ class RiskPatternController extends Controller
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'type' => 'required|in:single,criteria',
-            'regex' => 'required_if:type,single|nullable|string|max:1000',
+            'regex' => ['required_if:type,single', 'nullable', 'string', 'max:1000', new CompilableRegex],
             'score' => 'required_if:type,single|nullable|integer|min:0|max:100',
             'status' => 'required|in:active,inactive',
             'criteria_pattern_items' => 'required_if:type,criteria|nullable|array|min:1',
             'criteria_pattern_items.*.title' => 'required|string|max:255',
-            'criteria_pattern_items.*.regex' => 'required|string|max:1000',
+            'criteria_pattern_items.*.regex' => ['required', 'string', 'max:1000', new CompilableRegex],
+            'criteria_pattern_items.*.operator' => 'nullable|in:and,or',
             'criteria_pattern_items.*.score' => 'required|integer|min:0|max:100',
             'criteria_pattern_items.*.sub_items' => 'nullable|array',
             'criteria_pattern_items.*.sub_items.*.title' => 'required|string|max:255',
-            'criteria_pattern_items.*.sub_items.*.regex' => 'required|string|max:1000',
+            'criteria_pattern_items.*.sub_items.*.regex' => ['required', 'string', 'max:1000', new CompilableRegex],
+            'criteria_pattern_items.*.sub_items.*.operator' => 'nullable|in:and,or',
             'criteria_pattern_items.*.sub_items.*.score' => 'required|integer|min:0|max:100',
         ]);
 
@@ -152,7 +158,7 @@ class RiskPatternController extends Controller
      */
     public function destroyAll()
     {
-        RiskPattern::truncate();
+        RiskPattern::query()->delete();
 
         return Redirect::back()->with('success', 'All risk patterns deleted successfully.');
     }

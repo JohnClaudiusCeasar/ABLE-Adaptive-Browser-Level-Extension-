@@ -6,6 +6,7 @@ use App\Models\ChatConversation;
 use App\Models\ChatMessage;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -45,7 +46,12 @@ class HandleInertiaRequests extends Middleware
                 'user' => $request->user(),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
-            'chat' => $this->chatProps($request),
+            // On the chat page the data is required immediately, so it is
+            // provided eagerly; every other page gets it deferred so the
+            // queries only run if the quick chat widget fetches them.
+            'chat' => $request->routeIs('chat.*')
+                ? $this->chatProps($request)
+                : Inertia::defer(fn () => $this->chatProps($request)),
         ];
     }
 
@@ -84,10 +90,17 @@ class HandleInertiaRequests extends Middleware
             ->where('user_one_id', $user->id)
             ->orWhere('user_two_id', $user->id)
             ->orderByDesc('last_message_at')
+            ->with(['messages' => fn ($query) => $query->orderByDesc('created_at')])
             ->get()
             ->map(function (ChatConversation $conversation) use ($user) {
                 $otherUser = $conversation->otherUser($user);
-                $lastMessage = $conversation->messages()->latest('created_at')->first();
+
+                $messages = $conversation->messages;
+                $lastMessage = $messages->first();
+                $unreadCount = $messages
+                    ->where('sender_id', '!=', $user->id)
+                    ->whereNull('read_at')
+                    ->count();
 
                 return [
                     'id' => $conversation->id,
@@ -95,10 +108,7 @@ class HandleInertiaRequests extends Middleware
                     'other_user' => $otherUser !== null ? $this->userData($otherUser) : null,
                     'last_message' => $lastMessage?->body,
                     'last_message_at' => $conversation->last_message_at?->diffForHumans(),
-                    'unread_count' => $conversation->messages()
-                        ->where('sender_id', '!=', $user->id)
-                        ->whereNull('read_at')
-                        ->count(),
+                    'unread_count' => $unreadCount,
                 ];
             })
             ->values()

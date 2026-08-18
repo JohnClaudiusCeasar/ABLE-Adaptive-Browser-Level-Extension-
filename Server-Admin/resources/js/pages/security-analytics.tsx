@@ -179,6 +179,7 @@ export default function SecurityAnalytics({
                                     {nudgeEffectiveness.slice(0, 5).map((row, i) => {
                                         const total = row.proceeded + row.cancelled;
                                         const success = total > 0 ? ((row.proceeded / total) * 100).toFixed(1) + '%' : '0%';
+
                                         return (
                                             <tr key={i} className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0">
                                                 <td className="py-3.5">{row.date}</td>

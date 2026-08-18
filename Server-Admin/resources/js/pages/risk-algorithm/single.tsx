@@ -1,6 +1,8 @@
 import { Head, router, usePage } from '@inertiajs/react';
 import { Pencil, Search, Trash2, Plus, X, Trash } from 'lucide-react';
-import { useState, FormEvent, useMemo } from 'react';
+import type { FormEvent} from 'react';
+import { useState, useMemo } from 'react';
+import AlertError from '@/components/alert-error';
 
 const glassCard = 'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
 
@@ -34,12 +36,14 @@ interface SingleFormData {
     title: string;
     regex: string;
     score: number;
+    status: 'active' | 'inactive';
 }
 
 const emptySingleForm: SingleFormData = {
     title: '',
     regex: '',
     score: 0,
+    status: 'active',
 };
 
 const ROWS_PER_PAGE = 5;
@@ -50,6 +54,7 @@ export default function SinglePatternConfiguration() {
     const [showModal, setShowModal] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
     const [singleForm, setSingleForm] = useState<SingleFormData>(emptySingleForm);
+    const [formErrors, setFormErrors] = useState<Record<string, string>>({});
     const [searchQuery, setSearchQuery] = useState('');
     const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
     const [deleteAllConfirm, setDeleteAllConfirm] = useState(false);
@@ -57,7 +62,10 @@ export default function SinglePatternConfiguration() {
 
     // Filter patterns
     const filteredPatterns = useMemo(() => {
-        if (!searchQuery) return riskPatterns;
+        if (!searchQuery) {
+return riskPatterns;
+}
+
         return riskPatterns.filter((p) =>
             p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
             (p.regex && p.regex.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -68,12 +76,14 @@ export default function SinglePatternConfiguration() {
     const totalPages = Math.max(1, Math.ceil(filteredPatterns.length / ROWS_PER_PAGE));
     const paginatedPatterns = useMemo(() => {
         const start = (currentPage - 1) * ROWS_PER_PAGE;
+
         return filteredPatterns.slice(start, start + ROWS_PER_PAGE);
     }, [filteredPatterns, currentPage]);
 
     function openAddModal() {
         setEditingId(null);
         setSingleForm(emptySingleForm);
+        setFormErrors({});
         setShowModal(true);
     }
 
@@ -83,7 +93,9 @@ export default function SinglePatternConfiguration() {
             title: pattern.title,
             regex: pattern.regex || '',
             score: pattern.score,
+            status: pattern.status,
         });
+        setFormErrors({});
         setShowModal(true);
     }
 
@@ -91,6 +103,7 @@ export default function SinglePatternConfiguration() {
         setShowModal(false);
         setEditingId(null);
         setSingleForm(emptySingleForm);
+        setFormErrors({});
     }
 
     function handleSubmit(e: FormEvent) {
@@ -101,10 +114,16 @@ export default function SinglePatternConfiguration() {
             type: 'single' as const,
         };
 
+        const options = {
+            onError: (errors: Record<string, string>) => {
+                setFormErrors(errors);
+            },
+        };
+
         if (editingId) {
-            router.patch(`/risk-algorithm/${editingId}`, data as any);
+            router.patch(`/risk-algorithm/${editingId}`, data as any, options);
         } else {
-            router.post('/risk-algorithm', data as any);
+            router.post('/risk-algorithm', data as any, options);
         }
 
         closeModal();
@@ -128,7 +147,7 @@ export default function SinglePatternConfiguration() {
                 {/* Header */}
                 <header className="mb-8">
                     <h1
-                        className="text-[2.5rem] font-medium tracking-wide mb-3 text-foreground"
+                        className="text-[2.6rem] font-bold tracking-wide mb-3 text-foreground"
                         style={{ fontFamily: "'Unbounded', sans-serif" }}
                     >
                         SINGLE PATTERN CONFIGURATION
@@ -151,7 +170,7 @@ export default function SinglePatternConfiguration() {
                 {/* Data Card */}
                 <div className={`${glassCard} p-6`}>
                     <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-[1.5rem] font-medium" style={{ fontFamily: "'Unbounded', sans-serif" }}>Data Classification</h2>
+                        <h2 className="text-[1.6rem] font-bold" style={{ fontFamily: "'Unbounded', sans-serif" }}>Data Classification</h2>
                         <div className="flex items-center gap-3">
                             {riskPatterns.length > 0 && (
                                 <button
@@ -265,7 +284,7 @@ export default function SinglePatternConfiguration() {
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
                     <div className="bg-white dark:bg-[#0f172a] rounded-xl shadow-2xl w-full max-w-lg mx-4 border border-[rgba(34,197,94,0.3)]">
                         <div className="flex items-center justify-between px-6 py-4 border-b border-black/10 dark:border-white/10">
-                            <h3 className="text-lg font-semibold" style={{ fontFamily: "'Unbounded', sans-serif" }}>
+                            <h3 className="text-lg font-bold" style={{ fontFamily: "'Unbounded', sans-serif" }}>
                                 {editingId ? 'Edit Pattern' : 'Add Pattern'}
                             </h3>
                             <button onClick={closeModal} className="p-1 rounded-md text-muted-foreground hover:text-foreground transition-colors">
@@ -274,6 +293,9 @@ export default function SinglePatternConfiguration() {
                         </div>
 
                         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+                            {Object.keys(formErrors).length > 0 && (
+                                <AlertError errors={Object.values(formErrors)} title="Unable to save pattern" />
+                            )}
                             <div>
                                 <label className="block text-sm font-medium text-muted-foreground mb-1">Pattern Title</label>
                                 <input
@@ -307,6 +329,34 @@ export default function SinglePatternConfiguration() {
                                     onChange={(e) => setSingleForm({ ...singleForm, score: parseInt(e.target.value) || 0 })}
                                     className="w-full px-3 py-2 rounded-lg border border-black/10 dark:border-white/10 bg-transparent text-foreground outline-none focus:border-able-green transition-colors"
                                 />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-muted-foreground mb-1">Status</label>
+                                <div className="flex gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setSingleForm({ ...singleForm, status: 'active' })}
+                                        className={`px-4 py-2 rounded-lg border text-sm font-semibold transition-colors ${
+                                            singleForm.status === 'active'
+                                                ? 'border-able-green bg-able-green text-white'
+                                                : 'border-black/10 dark:border-white/10 text-muted-foreground hover:text-foreground'
+                                        }`}
+                                    >
+                                        Active
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSingleForm({ ...singleForm, status: 'inactive' })}
+                                        className={`px-4 py-2 rounded-lg border text-sm font-semibold transition-colors ${
+                                            singleForm.status === 'inactive'
+                                                ? 'border-[#f87171] bg-[#f87171] text-white'
+                                                : 'border-black/10 dark:border-white/10 text-muted-foreground hover:text-foreground'
+                                        }`}
+                                    >
+                                        Inactive
+                                    </button>
+                                </div>
                             </div>
 
                             <div className="flex justify-end gap-3 pt-2">
