@@ -148,7 +148,7 @@ export default function SinglePatternConfiguration() {
 
     return (
         <>
-            <Head title="Single Pattern Configuration" />
+            <Head title="All Patterns" />
             <div className="mx-auto w-full max-w-[1100px] px-8 pt-12 pb-[22px]">
                 {/* Header */}
                 <header className="mb-8">
@@ -530,7 +530,7 @@ SinglePatternConfiguration.layout = {
     breadcrumbs: [
         { title: 'Risk Algorithm', href: '/risk-algorithm/single' },
         {
-            title: 'Single Pattern Configuration',
+            title: 'All Patterns',
             href: '/risk-algorithm/single',
         },
     ],

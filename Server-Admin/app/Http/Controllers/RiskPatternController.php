@@ -65,13 +65,14 @@ class RiskPatternController extends Controller
             'title' => $validated['title'],
             'type' => $validated['type'],
             'regex' => $validated['type'] === 'single' ? $validated['regex'] : null,
-            'score' => $validated['type'] === 'single' ? $validated['score'] : 0,
+            'score' => $validated['score'] ?? 0,
             'status' => 'active',
         ]);
 
         // Create criteria pattern items if type is criteria
         if ($validated['type'] === 'criteria' && isset($validated['criteria_pattern_items'])) {
             $this->createCriteriaItems($riskPattern->id, $validated['criteria_pattern_items']);
+            $this->syncAutoCreatedSingles($riskPattern->id, $validated['criteria_pattern_items']);
         }
 
         return Redirect::back()->with('success', 'Risk pattern created successfully.');
@@ -95,6 +96,28 @@ class RiskPatternController extends Controller
             // Create sub-items if they exist
             if (isset($item['sub_items']) && is_array($item['sub_items'])) {
                 $this->createCriteriaItems($patternId, $item['sub_items'], $criteriaItem->id);
+            }
+        }
+    }
+
+    /**
+     * Create single-pattern rows for each criteria item and sub-item,
+     * linked to the parent criteria via parent_criteria_id.
+     */
+    private function syncAutoCreatedSingles(int $criteriaId, array $items): void
+    {
+        foreach ($items as $item) {
+            RiskPattern::create([
+                'title' => $item['title'],
+                'type' => 'single',
+                'regex' => $item['regex'],
+                'score' => $item['score'],
+                'status' => 'active',
+                'parent_criteria_id' => $criteriaId,
+            ]);
+
+            if (isset($item['sub_items']) && is_array($item['sub_items'])) {
+                $this->syncAutoCreatedSingles($criteriaId, $item['sub_items']);
             }
         }
     }
@@ -127,7 +150,7 @@ class RiskPatternController extends Controller
             'title' => $validated['title'],
             'type' => $validated['type'],
             'regex' => $validated['type'] === 'single' ? $validated['regex'] : null,
-            'score' => $validated['type'] === 'single' ? $validated['score'] : 0,
+            'score' => $validated['score'] ?? 0,
             'status' => $validated['status'],
         ]);
 
@@ -138,6 +161,10 @@ class RiskPatternController extends Controller
 
             // Create new items
             $this->createCriteriaItems($riskPattern->id, $validated['criteria_pattern_items']);
+
+            // Delete old auto-created singles for this criteria, then recreate
+            RiskPattern::where('parent_criteria_id', $riskPattern->id)->delete();
+            $this->syncAutoCreatedSingles($riskPattern->id, $validated['criteria_pattern_items']);
         }
 
         return Redirect::back()->with('success', 'Risk pattern updated successfully.');
@@ -148,6 +175,9 @@ class RiskPatternController extends Controller
      */
     public function destroy(RiskPattern $riskPattern)
     {
+        // Delete auto-created single patterns linked to this criteria
+        RiskPattern::where('parent_criteria_id', $riskPattern->id)->delete();
+
         $riskPattern->delete();
 
         return Redirect::back()->with('success', 'Risk pattern deleted successfully.');

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class RiskPattern extends Model
@@ -21,6 +22,7 @@ class RiskPattern extends Model
         'regex',
         'status',
         'score',
+        'parent_criteria_id',
     ];
 
     /**
@@ -31,6 +33,22 @@ class RiskPattern extends Model
         return $this->hasMany(CriteriaPatternItem::class, 'criteria_pattern_id')
             ->whereNull('parent_id')
             ->with('subItems');
+    }
+
+    /**
+     * Get the parent criteria pattern (if this is an auto-created single).
+     */
+    public function parentCriteria(): BelongsTo
+    {
+        return $this->belongsTo(RiskPattern::class, 'parent_criteria_id');
+    }
+
+    /**
+     * Get the auto-created single patterns linked to this criteria.
+     */
+    public function autoCreatedSingles(): HasMany
+    {
+        return $this->hasMany(RiskPattern::class, 'parent_criteria_id');
     }
 
     /**

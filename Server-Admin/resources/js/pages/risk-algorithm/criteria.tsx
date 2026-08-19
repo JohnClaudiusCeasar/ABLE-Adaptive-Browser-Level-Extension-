@@ -368,7 +368,7 @@ export default function CriteriaPatternConfiguration() {
 
     return (
         <>
-            <Head title="Criteria Pattern Configuration" />
+            <Head title="Pattern Settings" />
             <div className="mx-auto w-full max-w-[1200px] px-8 pt-12 pb-[22px]">
                 {/* Header */}
                 <header className="mb-8">
@@ -1221,7 +1221,7 @@ CriteriaPatternConfiguration.layout = {
     breadcrumbs: [
         { title: 'Risk Algorithm', href: '/risk-algorithm' },
         {
-            title: 'Criteria Pattern Configuration',
+            title: 'Pattern Settings',
             href: '/risk-algorithm/criteria',
         },
     ],

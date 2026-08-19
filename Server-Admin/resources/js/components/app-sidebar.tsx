@@ -53,18 +53,18 @@ const mainNavItems: NavItem[] = [
             },
             {
                 title: 'Risk Algorithm',
-                href: '/risk-algorithm/single',
+                href: '/risk-algorithm/criteria',
                 icon: Shield,
                 items: [
                     {
-                        title: 'Single Pattern Configuration',
-                        href: '/risk-algorithm/single',
-                        icon: FileCode2,
-                    },
-                    {
-                        title: 'Criteria Pattern Configuration',
+                        title: 'Pattern Settings',
                         href: '/risk-algorithm/criteria',
                         icon: LayoutGrid,
+                    },
+                    {
+                        title: 'All Patterns',
+                        href: '/risk-algorithm/single',
+                        icon: FileCode2,
                     },
                 ],
             },

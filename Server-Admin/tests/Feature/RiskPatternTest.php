@@ -233,4 +233,129 @@ class RiskPatternTest extends TestCase
         $response->assertOk()->assertJson(['count' => 1]);
         $this->assertSame('Active Pattern', $response->json('patterns.0.title'));
     }
+
+    public function test_creating_criteria_pattern_auto_records_items_as_single_patterns()
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $this->post(route('risk-algorithm.store'), [
+            'title' => 'Test Criteria',
+            'type' => 'criteria',
+            'score' => 50,
+            'criteria_pattern_items' => [
+                [
+                    'title' => 'Item A',
+                    'regex' => 'patternA',
+                    'operator' => 'and',
+                    'score' => 30,
+                    'sub_items' => [
+                        [
+                            'title' => 'Sub A1',
+                            'regex' => 'subPatternA1',
+                            'operator' => 'and',
+                            'score' => 10,
+                        ],
+                    ],
+                ],
+                [
+                    'title' => 'Item B',
+                    'regex' => 'patternB',
+                    'operator' => 'or',
+                    'score' => 20,
+                ],
+            ],
+        ]);
+
+        $criteria = RiskPattern::where('type', 'criteria')->first();
+        $this->assertNotNull($criteria);
+
+        $linkedSingles = RiskPattern::where('parent_criteria_id', $criteria->id)
+            ->where('type', 'single')
+            ->get();
+
+        $this->assertCount(3, $linkedSingles);
+        $this->assertNotNull($linkedSingles->firstWhere('title', 'Item A'));
+        $this->assertNotNull($linkedSingles->firstWhere('title', 'Sub A1'));
+        $this->assertNotNull($linkedSingles->firstWhere('title', 'Item B'));
+        $this->assertSame(30, $linkedSingles->firstWhere('title', 'Item A')->score);
+    }
+
+    public function test_updating_criteria_pattern_refreshes_auto_created_singles()
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $this->post(route('risk-algorithm.store'), [
+            'title' => 'Original Criteria',
+            'type' => 'criteria',
+            'score' => 40,
+            'criteria_pattern_items' => [
+                ['title' => 'Old Item', 'regex' => 'old', 'operator' => 'and', 'score' => 10],
+            ],
+        ]);
+
+        $criteria = RiskPattern::where('type', 'criteria')->first();
+        $this->assertCount(1, RiskPattern::where('parent_criteria_id', $criteria->id)->get());
+
+        $this->patch(route('risk-algorithm.update', $criteria), [
+            'title' => 'Updated Criteria',
+            'type' => 'criteria',
+            'status' => 'active',
+            'score' => 60,
+            'criteria_pattern_items' => [
+                ['title' => 'New Item 1', 'regex' => 'new1', 'operator' => 'and', 'score' => 25],
+                ['title' => 'New Item 2', 'regex' => 'new2', 'operator' => 'and', 'score' => 35],
+            ],
+        ]);
+
+        $linkedSingles = RiskPattern::where('parent_criteria_id', $criteria->id)->get();
+        $this->assertCount(2, $linkedSingles);
+        $this->assertNull($linkedSingles->firstWhere('title', 'Old Item'));
+        $this->assertNotNull($linkedSingles->firstWhere('title', 'New Item 1'));
+        $this->assertNotNull($linkedSingles->firstWhere('title', 'New Item 2'));
+    }
+
+    public function test_deleting_criteria_pattern_removes_linked_singles()
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $this->post(route('risk-algorithm.store'), [
+            'title' => 'Deletable Criteria',
+            'type' => 'criteria',
+            'score' => 30,
+            'criteria_pattern_items' => [
+                ['title' => 'Linked Item', 'regex' => 'linked', 'operator' => 'and', 'score' => 30],
+            ],
+        ]);
+
+        $criteria = RiskPattern::where('type', 'criteria')->first();
+        $this->assertNotNull($criteria);
+        $this->assertCount(1, RiskPattern::where('parent_criteria_id', $criteria->id)->get());
+
+        $this->delete(route('risk-algorithm.destroy', $criteria));
+
+        $this->assertNull(RiskPattern::find($criteria->id));
+        $this->assertCount(0, RiskPattern::where('parent_criteria_id', $criteria->id)->get());
+    }
+
+    public function test_criteria_pattern_composite_score_is_persisted()
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $this->post(route('risk-algorithm.store'), [
+            'title' => 'Scored Criteria',
+            'type' => 'criteria',
+            'score' => 75,
+            'criteria_pattern_items' => [
+                ['title' => 'Item', 'regex' => 'item', 'operator' => 'and', 'score' => 25],
+            ],
+        ]);
+
+        $criteria = RiskPattern::where('type', 'criteria')->first();
+        $this->assertNotNull($criteria);
+        $this->assertSame(75, $criteria->score);
+    }
 }
