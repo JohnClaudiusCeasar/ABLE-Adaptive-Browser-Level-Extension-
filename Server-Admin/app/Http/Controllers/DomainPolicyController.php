@@ -6,7 +6,6 @@ use App\Models\DomainPolicy;
 use App\Models\DomainVisit;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -114,8 +113,7 @@ class DomainPolicyController extends Controller
             ]
         );
 
-        $policy->update([
-            'visit_count' => DB::raw('visit_count + 1'),
+        $policy->increment('visit_count', 1, [
             'last_visited_at' => now(),
             'last_source' => $source,
         ]);

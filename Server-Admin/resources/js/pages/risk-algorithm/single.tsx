@@ -3,6 +3,7 @@ import { Pencil, Search, Trash2, Plus, X, Trash } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useState, useMemo } from 'react';
 import AlertError from '@/components/alert-error';
+import { TablePagination } from '@/components/pagination';
 
 const glassCard =
     'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
@@ -301,37 +302,11 @@ export default function SinglePatternConfiguration() {
 
                     {/* Pagination */}
                     {filteredPatterns.length > ROWS_PER_PAGE && (
-                        <div className="mt-6 flex items-center justify-end gap-3 text-[0.9rem] text-muted-foreground">
-                            {Array.from(
-                                { length: totalPages },
-                                (_, i) => i + 1,
-                            ).map((page) => (
-                                <span
-                                    key={page}
-                                    onClick={() => setCurrentPage(page)}
-                                    className={`flex h-[26px] w-[26px] cursor-pointer items-center justify-center rounded-full ${
-                                        page === currentPage
-                                            ? 'bg-able-green font-semibold text-white'
-                                            : 'hover:bg-black/5 dark:hover:text-white'
-                                    }`}
-                                >
-                                    {page}
-                                </span>
-                            ))}
-                            {totalPages > 5 && (
-                                <>
-                                    <span className="cursor-default">...</span>
-                                    <span
-                                        onClick={() =>
-                                            setCurrentPage(totalPages)
-                                        }
-                                        className="cursor-pointer font-bold hover:bg-black/5 dark:hover:text-white"
-                                    >
-                                        {totalPages}
-                                    </span>
-                                </>
-                            )}
-                        </div>
+                        <TablePagination
+                            currentPage={currentPage}
+                            totalPages={totalPages}
+                            onPageChange={setCurrentPage}
+                        />
                     )}
                 </div>
             </div>

@@ -2,6 +2,7 @@ import { Head, usePage } from '@inertiajs/react';
 import { Search, ArrowUpDown, Layers } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { TablePagination } from '@/components/pagination';
 
 const glassCard =
     'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
@@ -200,22 +201,6 @@ export default function EgressLogs() {
         return <tbody>{renderTableRows(paginatedItems)}</tbody>;
     }
 
-    // Generate pagination pages (1-4 with "...")
-    function getPaginationPages() {
-        const pages: (number | string)[] = [];
-        const maxVisible = 4;
-
-        for (let i = 1; i <= Math.min(maxVisible, totalPages); i++) {
-            pages.push(i);
-        }
-
-        if (totalPages > maxVisible) {
-            pages.push('...');
-        }
-
-        return pages;
-    }
-
     return (
         <>
             <Head title="Egress Logs" />
@@ -349,50 +334,11 @@ export default function EgressLogs() {
 
                     {/* Pagination (only when not grouped) */}
                     {groupField === 'none' && totalPages > 1 && (
-                        <div className="flex items-center justify-end gap-3 text-[0.95rem]">
-                            <button
-                                onClick={() =>
-                                    setCurrentPage(Math.max(1, safePage - 1))
-                                }
-                                disabled={safePage === 1}
-                                className="px-1 font-bold text-muted-foreground disabled:opacity-50"
-                            >
-                                &lt;
-                            </button>
-                            {getPaginationPages().map((page, i) =>
-                                typeof page === 'number' ? (
-                                    <button
-                                        key={i}
-                                        onClick={() => setCurrentPage(page)}
-                                        className={`flex h-6 w-6 items-center justify-center rounded-full ${
-                                            page === safePage
-                                                ? 'bg-able-green text-[0.95rem] font-bold text-white'
-                                                : 'text-muted-foreground hover:bg-black/5 dark:hover:bg-white/10'
-                                        }`}
-                                    >
-                                        {page}
-                                    </button>
-                                ) : (
-                                    <span
-                                        key={i}
-                                        className="text-muted-foreground"
-                                    >
-                                        ...
-                                    </span>
-                                ),
-                            )}
-                            <button
-                                onClick={() =>
-                                    setCurrentPage(
-                                        Math.min(totalPages, safePage + 1),
-                                    )
-                                }
-                                disabled={safePage === totalPages}
-                                className="px-1 font-bold text-muted-foreground disabled:opacity-50"
-                            >
-                                &gt;
-                            </button>
-                        </div>
+                        <TablePagination
+                            currentPage={safePage}
+                            totalPages={totalPages}
+                            onPageChange={setCurrentPage}
+                        />
                     )}
                 </div>
             </div>

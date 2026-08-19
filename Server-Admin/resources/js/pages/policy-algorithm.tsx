@@ -15,6 +15,7 @@ import type { FormEvent } from 'react';
 import { useState, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import DomainPolicyController from '@/actions/App/Http/Controllers/DomainPolicyController';
+import { TablePagination } from '@/components/pagination';
 
 const glassCard =
     'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
@@ -634,37 +635,11 @@ export default function PolicyAlgorithm() {
 
                     {/* Pagination (only when not grouped) */}
                     {groupField === 'none' && totalPages > 1 && (
-                        <div className="mt-8 flex items-center justify-end gap-3 text-[0.95rem] text-muted-foreground">
-                            {Array.from(
-                                { length: totalPages },
-                                (_, i) => i + 1,
-                            ).map((page) => (
-                                <span
-                                    key={page}
-                                    onClick={() => setCurrentPage(page)}
-                                    className={`flex h-[26px] w-[26px] cursor-pointer items-center justify-center rounded-full ${
-                                        page === safePage
-                                            ? 'bg-able-green font-semibold text-white'
-                                            : 'hover:bg-black/5 dark:hover:text-white'
-                                    }`}
-                                >
-                                    {page}
-                                </span>
-                            ))}
-                            {totalPages > 5 && (
-                                <>
-                                    <span className="cursor-default">...</span>
-                                    <span
-                                        onClick={() =>
-                                            setCurrentPage(totalPages)
-                                        }
-                                        className="cursor-pointer font-bold hover:bg-black/5 dark:hover:text-white"
-                                    >
-                                        {totalPages}
-                                    </span>
-                                </>
-                            )}
-                        </div>
+                        <TablePagination
+                            currentPage={safePage}
+                            totalPages={totalPages}
+                            onPageChange={setCurrentPage}
+                        />
                     )}
                 </div>
             </div>
@@ -1059,27 +1034,11 @@ export default function PolicyAlgorithm() {
                         {/* Pagination */}
                         {visitsPagination.last_page > 1 && (
                             <div className="border-t border-black/10 px-6 py-4 dark:border-white/10">
-                                <div className="flex items-center justify-center gap-2">
-                                    {Array.from(
-                                        { length: visitsPagination.last_page },
-                                        (_, i) => i + 1,
-                                    ).map((page) => (
-                                        <button
-                                            key={page}
-                                            onClick={() =>
-                                                handleVisitsPageChange(page)
-                                            }
-                                            className={`flex h-8 w-8 items-center justify-center rounded-full text-sm ${
-                                                page ===
-                                                visitsPagination.current_page
-                                                    ? 'bg-able-green font-semibold text-white'
-                                                    : 'text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5'
-                                            }`}
-                                        >
-                                            {page}
-                                        </button>
-                                    ))}
-                                </div>
+                                <TablePagination
+                                    currentPage={visitsPagination.current_page}
+                                    totalPages={visitsPagination.last_page}
+                                    onPageChange={handleVisitsPageChange}
+                                />
                             </div>
                         )}
                     </div>

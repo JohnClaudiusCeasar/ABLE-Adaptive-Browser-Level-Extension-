@@ -2,6 +2,7 @@ import { Head, Link } from '@inertiajs/react';
 import { ArrowLeft, Eye, Search, ArrowUpDown, Layers } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
+import { TablePagination } from '@/components/pagination';
 
 const glassCard =
     'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
@@ -377,46 +378,11 @@ export default function ShadowFootprints({
 
                     {/* Pagination (only when not grouped) */}
                     {groupField === 'none' && totalPages > 1 && (
-                        <div className="mt-6 flex items-center justify-end gap-3 text-[0.95rem]">
-                            <button
-                                onClick={() =>
-                                    setCurrentPage((prev) =>
-                                        Math.max(1, prev - 1),
-                                    )
-                                }
-                                disabled={currentPage === 1}
-                                className="cursor-pointer px-2 font-bold text-muted-foreground disabled:opacity-50"
-                            >
-                                &lt;
-                            </button>
-                            {Array.from(
-                                { length: totalPages },
-                                (_, i) => i + 1,
-                            ).map((page) => (
-                                <button
-                                    key={page}
-                                    onClick={() => setCurrentPage(page)}
-                                    className={`flex h-7 w-7 cursor-pointer items-center justify-center rounded-full font-bold ${
-                                        currentPage === page
-                                            ? 'bg-able-green text-white'
-                                            : 'hover:bg-black/5 dark:hover:bg-white/10'
-                                    }`}
-                                >
-                                    {page}
-                                </button>
-                            ))}
-                            <button
-                                onClick={() =>
-                                    setCurrentPage((prev) =>
-                                        Math.min(totalPages, prev + 1),
-                                    )
-                                }
-                                disabled={currentPage === totalPages}
-                                className="cursor-pointer px-2 font-bold text-muted-foreground disabled:opacity-50"
-                            >
-                                &gt;
-                            </button>
-                        </div>
+                        <TablePagination
+                            currentPage={currentPage}
+                            totalPages={totalPages}
+                            onPageChange={setCurrentPage}
+                        />
                     )}
                 </div>
             </div>
