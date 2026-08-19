@@ -10,7 +10,7 @@ import {
     Copy,
 } from 'lucide-react';
 import type { FormEvent } from 'react';
-import { useState, Fragment, useMemo } from 'react';
+import { useState, Fragment, useMemo, useEffect } from 'react';
 import AlertError from '@/components/alert-error';
 
 const glassCard =
@@ -57,6 +57,14 @@ const emptyCriteriaForm: CriteriaFormData = {
     criteria_pattern_items: [],
 };
 
+// Recursive helper: sum all item scores (top-level + all nested sub-items).
+function sumAllItemScores(items: CriteriaPatternItem[]): number {
+    return items.reduce((total, item) => {
+        const subScore = item.sub_items ? sumAllItemScores(item.sub_items) : 0;
+        return total + (item.score || 0) + subScore;
+    }, 0);
+}
+
 // Temporary client-side ids for unsaved criteria items, used only as React
 // keys until the server assigns real ids on save.
 let tempIdCounter = 0;
@@ -74,6 +82,7 @@ export default function CriteriaPatternConfiguration() {
     const [criteriaForm, setCriteriaForm] =
         useState<CriteriaFormData>(emptyCriteriaForm);
     const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+    const [compositeScoreManual, setCompositeScoreManual] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
     const [deleteAllConfirm, setDeleteAllConfirm] = useState(false);
@@ -110,10 +119,25 @@ export default function CriteriaPatternConfiguration() {
         );
     }, [singlePatterns, existingSearch]);
 
+    // --- Composite score auto-sum ---
+    // When the user hasn't manually set the composite score, auto-compute
+    // it as the sum of all item scores (top-level + nested sub-items).
+    const autoCompositeScore = useMemo(
+        () => sumAllItemScores(criteriaForm.criteria_pattern_items),
+        [criteriaForm.criteria_pattern_items],
+    );
+
+    useEffect(() => {
+        if (!compositeScoreManual && criteriaForm.score !== autoCompositeScore) {
+            setCriteriaForm((prev) => ({ ...prev, score: autoCompositeScore }));
+        }
+    }, [autoCompositeScore, compositeScoreManual]);
+
     function openAddModal() {
         setEditingId(null);
         setCriteriaForm(emptyCriteriaForm);
         setFormErrors({});
+        setCompositeScoreManual(false);
         setShowModal(true);
     }
 
@@ -126,6 +150,9 @@ export default function CriteriaPatternConfiguration() {
             criteria_pattern_items: pattern.criteria_pattern_items || [],
         });
         setFormErrors({});
+        // Existing patterns carry their saved composite score — treat it as
+        // manually set unless it's zero (in which case fall through to auto).
+        setCompositeScoreManual(pattern.score !== 0);
         setShowModal(true);
     }
 
@@ -134,6 +161,7 @@ export default function CriteriaPatternConfiguration() {
         setEditingId(null);
         setCriteriaForm(emptyCriteriaForm);
         setFormErrors({});
+        setCompositeScoreManual(false);
         setShowExistingPicker(null);
         setExistingSearch('');
     }
@@ -147,6 +175,7 @@ export default function CriteriaPatternConfiguration() {
         };
 
         const options = {
+            onSuccess: () => closeModal(),
             onError: (errors: Record<string, string>) => {
                 setFormErrors(errors);
             },
@@ -157,8 +186,6 @@ export default function CriteriaPatternConfiguration() {
         } else {
             router.post('/risk-algorithm', data as any, options);
         }
-
-        closeModal();
     }
 
     function handleDelete(id: number) {
@@ -597,21 +624,28 @@ export default function CriteriaPatternConfiguration() {
                                 <label className="mb-1 block text-sm font-medium text-muted-foreground">
                                     Composite Score
                                 </label>
-                                <input
-                                    type="number"
-                                    required
-                                    min={0}
-                                    max={100}
-                                    value={criteriaForm.score}
-                                    onChange={(e) =>
-                                        setCriteriaForm({
-                                            ...criteriaForm,
-                                            score:
-                                                parseInt(e.target.value) || 0,
-                                        })
-                                    }
-                                    className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-foreground transition-colors outline-none focus:border-able-green dark:border-white/10"
-                                />
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="number"
+                                        required
+                                        min={0}
+                                        max={100}
+                                        value={criteriaForm.score}
+                                        onChange={(e) => {
+                                            setCompositeScoreManual(true);
+                                            setCriteriaForm({
+                                                ...criteriaForm,
+                                                score: parseInt(e.target.value) || 0,
+                                            });
+                                        }}
+                                        className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-foreground transition-colors outline-none focus:border-able-green dark:border-white/10"
+                                    />
+                                    {!compositeScoreManual && criteriaForm.score === autoCompositeScore && (
+                                        <span className="text-xs text-muted-foreground bg-[rgba(34,197,94,0.15)] px-2 py-0.5 rounded-full whitespace-nowrap">
+                                            Auto
+                                        </span>
+                                    )}
+                                </div>
                             </div>
 
                             <div>

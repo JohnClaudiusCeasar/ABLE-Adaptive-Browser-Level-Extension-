@@ -122,6 +122,7 @@ export default function SinglePatternConfiguration() {
         };
 
         const options = {
+            onSuccess: () => closeModal(),
             onError: (errors: Record<string, string>) => {
                 setFormErrors(errors);
             },
@@ -132,8 +133,6 @@ export default function SinglePatternConfiguration() {
         } else {
             router.post('/risk-algorithm', data as any, options);
         }
-
-        closeModal();
     }
 
     function handleDelete(id: number) {

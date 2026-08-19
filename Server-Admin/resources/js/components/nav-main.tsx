@@ -1,6 +1,6 @@
 import { Link } from '@inertiajs/react';
 import { ChevronDown } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     SidebarGroup,
     SidebarMenu,
@@ -56,20 +56,18 @@ function CollapsibleNavItem({
     const groupRoot = href.split('/').slice(0, 2).join('/');
     const groupActive = isCurrentUrl(groupRoot, undefined, true);
 
-    // The group is expanded while its child page is active, unless the user
-    // explicitly collapsed it. Track the user override separately so the
-    // active-child behavior is derived, not synced via an effect.
-    const [userCollapsed, setUserCollapsed] = useState(false);
-    const [open, setOpen] = useState(() => groupActive);
+    const [open, setOpen] = useState(groupActive);
 
-    // When the active group changes (navigation), drop the user override so
-    // the derived state re-applies.
-    if (groupActive !== open && !userCollapsed) {
+    // Sync the open state with group activity on navigation. Using an
+    // effect (instead of a render-phase setState) ensures the user's
+    // manual toggle is respected between navigations — a render-phase
+    // update would immediately override the user's click to expand the
+    // collapsible when the group is not currently active.
+    useEffect(() => {
         setOpen(groupActive);
-    }
+    }, [groupActive]);
 
     function handleOpenChange(next: boolean) {
-        setUserCollapsed(!next);
         setOpen(next);
     }
 
