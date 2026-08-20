@@ -26,6 +26,7 @@ class NotificationController extends Controller
                     'id' => $notification->id,
                     'source' => $notification->source,
                     'type' => $notification->type,
+                    'description' => $notification->description,
                     'domain' => $notification->domain,
                     'user' => $notification->user_id,
                     'email' => $notification->email,

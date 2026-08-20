@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\DomainPolicyController;
 use App\Http\Controllers\EgressEventController;
+use App\Http\Controllers\ExtensionLifecycleController;
 use App\Http\Controllers\RiskPatternController;
 use Illuminate\Support\Facades\Route;
 
@@ -11,3 +12,6 @@ Route::post('/log-visit', [DomainPolicyController::class, 'logVisit'])->middlewa
 Route::post('/log-egress', [EgressEventController::class, 'logEgress'])->middleware('throttle:60,1');
 Route::get('/domain-policies/{domainPolicy}/visits', [DomainPolicyController::class, 'getDomainVisits'])->middleware('throttle:60,1');
 Route::get('/risk-patterns', [RiskPatternController::class, 'all'])->middleware('throttle:30,1');
+
+Route::post('/extension/lifecycle', [ExtensionLifecycleController::class, 'logLifecycle'])->middleware('throttle:60,1');
+Route::get('/extension/uninstall', [ExtensionLifecycleController::class, 'logUninstall'])->middleware('throttle:60,1');

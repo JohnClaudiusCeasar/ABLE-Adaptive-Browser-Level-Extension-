@@ -205,6 +205,32 @@ async function getOrCreateUserId() {
 }
 
 /**
+ * Log an extension lifecycle event (install/update/uninstall) to the server.
+ * Called from background.js during onInstalled. Uninstall is handled via
+ * setUninstallURL which opens a GET endpoint.
+ */
+async function logExtensionLifecycle({ userId, extensionId, event, version }) {
+  try {
+    const response = await fetch(`${SERVER_URL}/api/extension/lifecycle`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify({
+        user_id: userId,
+        extension_id: extensionId,
+        event: event,
+        version: version,
+      }),
+    });
+
+    if (!response.ok) {
+      console.warn("ABLE: Failed to log extension lifecycle event:", response.status);
+    }
+  } catch (error) {
+    // Silently fail — logging lifecycle is non-critical
+  }
+}
+
+/**
  * Log a domain visit to the server.
  * This is a fire-and-forget POST — no response processing needed.
  */

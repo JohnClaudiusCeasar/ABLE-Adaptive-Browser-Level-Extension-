@@ -3,6 +3,10 @@
 namespace App\Providers;
 
 use App\Listeners\LoginActivityListener;
+use App\Models\CriteriaPatternItem;
+use App\Models\DomainPolicy;
+use App\Models\RiskPattern;
+use App\Observers\AuditLogObserver;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
@@ -32,6 +36,17 @@ class AppServiceProvider extends ServiceProvider
         Schema::defaultStringLength(191);
         $this->configureDefaults();
         $this->registerEventListeners();
+        $this->registerModelObservers();
+    }
+
+    /**
+     * Register model observers for audit logging of admin-editable entities.
+     */
+    protected function registerModelObservers(): void
+    {
+        DomainPolicy::observe(AuditLogObserver::class);
+        RiskPattern::observe(AuditLogObserver::class);
+        CriteriaPatternItem::observe(AuditLogObserver::class);
     }
 
     /**

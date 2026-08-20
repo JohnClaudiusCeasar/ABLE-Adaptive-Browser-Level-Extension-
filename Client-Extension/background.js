@@ -2,12 +2,33 @@ self.importScripts("config.js", "api.js");
 
 const RISK_PATTERNS_ALARM = "risk-patterns-sync";
 
-chrome.runtime.onInstalled.addListener(async () => {
+chrome.runtime.onInstalled.addListener(async (details) => {
   // Sync risk patterns when extension is installed or updated
   await refreshRiskPatternsCache();
 
   // Set up periodic sync every 24 hours
   chrome.alarms.create(RISK_PATTERNS_ALARM, { periodInMinutes: 24 * 60 });
+
+  // Set up uninstall URL for lifecycle tracking
+  try {
+    const userId = await getOrCreateUserId();
+    const extensionId = chrome.runtime.id;
+    chrome.runtime.setUninstallURL(
+      `${SERVER_URL}/api/extension/uninstall?user_id=${encodeURIComponent(userId)}&extension_id=${encodeURIComponent(extensionId)}`
+    );
+
+    // Log install/update events
+    const event = details.reason === 'install' ? 'installed' : 'updated';
+    const manifest = chrome.runtime.getManifest();
+    logExtensionLifecycle({
+      userId: userId,
+      extensionId: extensionId,
+      event: event,
+      version: manifest.version,
+    });
+  } catch (error) {
+    console.warn('ABLE: Failed to set up lifecycle tracking:', error);
+  }
 });
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
