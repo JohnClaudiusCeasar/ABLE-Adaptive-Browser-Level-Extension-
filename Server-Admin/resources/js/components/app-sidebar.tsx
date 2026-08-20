@@ -107,7 +107,7 @@ export function AppSidebar() {
                     <button
                         className="transition-colors hover:text-able-green-muted dark:hover:text-white"
                         aria-label="Settings"
-                        onClick={() => router.visit('/settings')}
+                        onClick={() => router.visit('/settings/security')}
                     >
                         <Settings size={20} />
                     </button>

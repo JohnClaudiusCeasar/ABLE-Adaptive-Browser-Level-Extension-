@@ -104,12 +104,12 @@ class SecurityAnalyticsController extends Controller
     public function shadowFootprints(): Response
     {
         $shadowFootprints = DomainPolicy::select(
-            'domain_policies.id', 'domain', 'category', 'risk_score', 'policy',
+            'domain_policies.id', 'domain_policies.domain', 'domain_policies.category', 'domain_policies.risk_score', 'domain_policies.policy',
             DB::raw('COUNT(DISTINCT domain_visits.user_id) as active_users')
         )
             ->leftJoin('domain_visits', 'domain_visits.domain', '=', 'domain_policies.domain')
-            ->groupBy('domain_policies.id', 'domain', 'category', 'risk_score', 'policy')
-            ->orderByDesc('risk_score')
+            ->groupBy('domain_policies.id', 'domain_policies.domain', 'domain_policies.category', 'domain_policies.risk_score', 'domain_policies.policy')
+            ->orderByDesc('domain_policies.risk_score')
             ->get()
             ->map(function ($row) {
                 $domainName = explode('.', $row->domain)[0];

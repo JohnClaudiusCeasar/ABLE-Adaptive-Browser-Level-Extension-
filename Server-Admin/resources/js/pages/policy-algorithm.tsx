@@ -12,7 +12,7 @@ import {
     Eye,
 } from 'lucide-react';
 import type { FormEvent } from 'react';
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import DomainPolicyController from '@/actions/App/Http/Controllers/DomainPolicyController';
 import { TablePagination } from '@/components/pagination';
@@ -94,16 +94,37 @@ const policyLabels: Record<string, string> = {
 export default function PolicyAlgorithm() {
     const { domainPolicies } = usePage<PageProps>().props;
 
+    const initialHighlight =
+        typeof window !== 'undefined'
+            ? new URLSearchParams(window.location.search).get('highlight')
+            : null;
+
     const [showModal, setShowModal] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
     const [form, setForm] = useState<FormData>(emptyForm);
     const [searchQuery, setSearchQuery] = useState('');
     const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
     const [deleteAllConfirm, setDeleteAllConfirm] = useState(false);
-    const [currentPage, setCurrentPage] = useState(1);
+    const [currentPage, setCurrentPage] = useState(() => {
+        if (!initialHighlight || !domainPolicies.length) {
+            return 1;
+        }
+
+        const sorted = [...domainPolicies].sort((a, b) =>
+            a.domain.localeCompare(b.domain),
+        );
+        const index = sorted.findIndex((p) => p.domain === initialHighlight);
+
+        if (index === -1) {
+            return 1;
+        }
+
+        return Math.floor(index / ROWS_PER_PAGE) + 1;
+    });
     const [sortField, setSortField] = useState<SortField>('domain');
     const [sortDir, setSortDir] = useState<SortDir>('asc');
     const [groupField, setGroupField] = useState<GroupField>('none');
+    const [highlightDomain, setHighlightDomain] = useState<string | null>(initialHighlight);
 
     // Form state
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -131,6 +152,30 @@ export default function PolicyAlgorithm() {
         total: 0,
     });
     const [visitsSearch, setVisitsSearch] = useState('');
+
+    // Scroll to the highlighted row and remove the glow after a few seconds.
+    useEffect(() => {
+        if (!highlightDomain) {
+            return;
+        }
+
+        const timer = setTimeout(() => {
+            const row = document.querySelector('tr[data-highlight="true"]');
+
+            if (row) {
+                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }, 50);
+
+        const cleanup = setTimeout(() => {
+            setHighlightDomain(null);
+        }, 8000);
+
+        return () => {
+            clearTimeout(timer);
+            clearTimeout(cleanup);
+        };
+    }, [highlightDomain]);
 
     // Filter, sort, group logic
     const processedPolicies = useMemo(() => {
@@ -359,7 +404,12 @@ export default function PolicyAlgorithm() {
         return items.map((d) => (
             <tr
                 key={d.id}
-                className="border-b border-black/10 last:border-b-0 dark:border-white/10"
+                data-highlight={d.domain === highlightDomain ? 'true' : 'false'}
+                className={`border-b border-black/10 last:border-b-0 dark:border-white/10 transition-all ${
+                    d.domain === highlightDomain
+                        ? 'highlight-glow ring-2 ring-[rgba(34,197,94,0.9)]'
+                        : ''
+                }`}
             >
                 <td className="px-4 py-5">
                     <a
@@ -483,6 +533,14 @@ export default function PolicyAlgorithm() {
     return (
         <>
             <Head title="Policy Algorithm" />
+            <style>{`
+@keyframes pulse-glow {
+    0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+    70% { box-shadow: 0 0 0 12px rgba(34, 197, 94, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+}
+.highlight-glow { animation: pulse-glow 2s ease-in-out infinite; }
+`}</style>
             <div className="mx-auto w-full max-w-[1100px] px-8 pt-12 pb-[22px]">
                 {/* Header */}
                 <header className="mb-8">
