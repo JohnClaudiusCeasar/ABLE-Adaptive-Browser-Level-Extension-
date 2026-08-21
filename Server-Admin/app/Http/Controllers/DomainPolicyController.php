@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\DomainPolicy;
 use App\Models\DomainVisit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Redirect;
 use Inertia\Inertia;
@@ -94,12 +95,14 @@ class DomainPolicyController extends Controller
             'status' => 'required|string|in:safe,unsafe,unlisted',
             'source' => 'nullable|string|max:50',
             'user_id' => 'nullable|string|max:255',
+            'visited_at' => 'nullable|numeric',
         ]);
 
         $domain = $validated['domain'];
         $status = $validated['status'];
         $source = $validated['source'] ?? null;
         $userId = $validated['user_id'] ?? null;
+        $visitedAt = $validated['visited_at'] ?? null;
 
         $policy = DomainPolicy::firstOrCreate(
             ['domain' => $domain],
@@ -122,7 +125,9 @@ class DomainPolicyController extends Controller
             'domain_policy_id' => $policy->id,
             'domain' => $domain,
             'user_id' => $userId,
-            'visited_at' => now(),
+            'visited_at' => $visitedAt
+                ? Carbon::createFromTimestampMs($visitedAt)
+                : now(),
         ]);
 
         return response()->json([

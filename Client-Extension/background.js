@@ -43,7 +43,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   if (message.type === "logVisit") {
-    logDomainVisit(message.domain, message.status, message.source)
+    logDomainVisit(message.domain, message.status, message.source, message.timestamp)
       .then((visitCount) => sendResponse({ success: true, visit_count: visitCount }))
       .catch(() => sendResponse({ success: false, visit_count: null }));
     return true;

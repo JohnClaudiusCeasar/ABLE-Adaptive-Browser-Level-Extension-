@@ -6,6 +6,7 @@ use App\Models\EgressEvent;
 use App\Models\NudgeInteraction;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -22,8 +23,7 @@ class EgressEventController extends Controller
                 $status = $event->risk_score >= 75 ? 'glass-unsafe' : 'glass-unlisted';
 
                 return [
-                    'date' => $event->occurred_at->format('Y-m-d'),
-                    'time' => $event->occurred_at->format('g:i A'),
+                    'occurred_at' => $event->occurred_at->toIso8601String(),
                     'domain' => $event->domain,
                     'status' => $status,
                     'user' => $event->user_id,
@@ -50,7 +50,10 @@ class EgressEventController extends Controller
             'risk_score' => 'required|integer|min:0|max:100',
             'action' => 'required|in:proceeded,denied',
             'user_action' => 'required|in:proceeded,cancelled',
+            'occurred_at' => 'nullable|numeric',
         ]);
+
+        $occurredAt = $validated['occurred_at'] ?? null;
 
         $egressEvent = EgressEvent::create([
             'domain' => $validated['domain'],
@@ -59,7 +62,9 @@ class EgressEventController extends Controller
             'file_size' => $validated['file_size'] ?? 0,
             'risk_score' => $validated['risk_score'],
             'action' => $validated['action'],
-            'occurred_at' => now(),
+            'occurred_at' => $occurredAt
+                ? Carbon::createFromTimestampMs($occurredAt)
+                : now(),
         ]);
 
         NudgeInteraction::create([

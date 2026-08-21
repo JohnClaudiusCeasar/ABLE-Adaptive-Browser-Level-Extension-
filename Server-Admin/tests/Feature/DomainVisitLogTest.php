@@ -47,4 +47,56 @@ class DomainVisitLogTest extends TestCase
         $this->assertSame(1, $this->logVisit('beta.com')['visit_count']);
         $this->assertSame(2, $this->logVisit('alpha.com')['visit_count']);
     }
+
+    public function test_client_provided_timestamp_is_stored(): void
+    {
+        // Send a fixed epoch timestamp (2024-01-15 10:30:00 UTC = 1705312200000 ms)
+        $clientTimestamp = 1705312200000;
+
+        $this->postJson('/api/log-visit', [
+            'domain' => 'example.com',
+            'status' => 'unlisted',
+            'source' => 'default',
+            'user_id' => 'ABLE-TEST',
+            'visited_at' => $clientTimestamp,
+        ])->assertOk();
+
+        $visit = DomainVisit::where('domain', 'example.com')->first();
+        $this->assertNotNull($visit);
+
+        // The stored timestamp should match the client's device time, not the server's now()
+        $expected = \Illuminate\Support\Carbon::createFromTimestampMs($clientTimestamp);
+        $this->assertSame(
+            $expected->format('Y-m-d H:i:s'),
+            $visit->visited_at->format('Y-m-d H:i:s'),
+            'visited_at should use the client-provided timestamp, not server now()',
+        );
+
+        // Server-generated timestamp would differ significantly from the fixed client value
+        $this->assertNotEquals(
+            now()->format('Y-m-d H:i:s'),
+            $visit->visited_at->format('Y-m-d H:i:s'),
+        );
+    }
+
+    public function test_missing_timestamp_falls_back_to_server_now(): void
+    {
+        $before = now();
+
+        $this->postJson('/api/log-visit', [
+            'domain' => 'example.com',
+            'status' => 'unlisted',
+            'source' => 'default',
+            'user_id' => 'ABLE-TEST',
+        ])->assertOk();
+
+        $visit = DomainVisit::where('domain', 'example.com')->first();
+        $this->assertNotNull($visit);
+
+        // Without a client timestamp, server now() is used as fallback
+        $this->assertGreaterThanOrEqual(
+            $before->timestamp,
+            $visit->visited_at->timestamp,
+        );
+    }
 }

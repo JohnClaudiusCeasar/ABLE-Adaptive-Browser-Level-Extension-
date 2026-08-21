@@ -8,8 +8,7 @@ const glassCard =
     'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
 
 interface DomainVisit {
-    date: string;
-    time: string;
+    visited_at: string;
     domain: string;
     status: 'glass-safe' | 'glass-unsafe' | 'glass-unlisted';
     user: string | null;
@@ -23,7 +22,7 @@ interface PageProps {
 
 const ROWS_PER_PAGE = 5;
 
-type SortField = 'date' | 'domain' | 'status' | 'action';
+type SortField = 'visited_at' | 'domain' | 'status' | 'action';
 type SortDir = 'asc' | 'desc';
 type GroupField = 'none' | 'status' | 'action';
 
@@ -33,12 +32,28 @@ const statusLabels: Record<string, string> = {
     'glass-unlisted': 'Unlisted',
 };
 
+function formatTimestamp(ts: string): { date: string; time: string } {
+    const d = new Date(ts);
+    return {
+        date: d.toLocaleDateString(undefined, {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+        }),
+        time: d.toLocaleTimeString(undefined, {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true,
+        }),
+    };
+}
+
 export default function DomainVisits() {
     const { domainVisits } = usePage<PageProps>().props;
 
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
-    const [sortField, setSortField] = useState<SortField>('date');
+    const [sortField, setSortField] = useState<SortField>('visited_at');
     const [sortDir, setSortDir] = useState<SortDir>('desc');
     const [groupField, setGroupField] = useState<GroupField>('none');
 
@@ -58,10 +73,8 @@ export default function DomainVisits() {
             let cmp = 0;
 
             switch (sortField) {
-                case 'date':
-                    cmp =
-                        a.date.localeCompare(b.date) ||
-                        a.time.localeCompare(b.time);
+                case 'visited_at':
+                    cmp = a.visited_at.localeCompare(b.visited_at);
                     break;
                 case 'domain':
                     cmp = a.domain.localeCompare(b.domain);
@@ -123,13 +136,15 @@ export default function DomainVisits() {
     }, [processedVisits, safePage, groupField]);
 
     function renderTableRows(items: DomainVisit[]) {
-        return items.map((row, i) => (
+        return items.map((row, i) => {
+            const { date, time } = formatTimestamp(row.visited_at);
+            return (
             <tr
                 key={i}
                 className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0"
             >
-                <td className="py-3 pr-2.5">{row.date}</td>
-                <td className="py-3 pr-2.5">{row.time}</td>
+                <td className="py-3 pr-2.5">{date}</td>
+                <td className="py-3 pr-2.5">{time}</td>
                 <td className="py-3 pr-2.5">{row.domain}</td>
                 <td className="py-3 pr-2.5">
                     <Badge variant={row.status}>
@@ -138,8 +153,9 @@ export default function DomainVisits() {
                 </td>
                 <td className="py-3 pr-2.5">{row.user ?? '—'}</td>
                 <td className="py-3">{row.action}</td>
-            </tr>
-        ));
+                </tr>
+            );
+        });
     }
 
     function renderGroupedContent() {
@@ -244,10 +260,10 @@ export default function DomainVisits() {
                                 }}
                                 className="cursor-pointer appearance-none rounded-full border border-black/10 bg-black/5 py-2.5 pr-8 pl-9 text-[0.85rem] text-foreground transition-all duration-200 outline-none hover:border-able-green/50 hover:bg-black/10 focus:border-able-green focus:ring-1 focus:ring-able-green/30 dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)] dark:hover:bg-white/5"
                             >
-                                <option value="date__desc">
+                                <option value="visited_at__desc">
                                     Sort: Date (Newest)
                                 </option>
-                                <option value="date__asc">
+                                <option value="visited_at__asc">
                                     Sort: Date (Oldest)
                                 </option>
                                 <option value="domain__asc">

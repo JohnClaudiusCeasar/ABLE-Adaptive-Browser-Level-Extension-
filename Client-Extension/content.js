@@ -28,7 +28,10 @@ async function getRiskPatterns() {
  */
 async function logEgressEvent(payload) {
   try {
-    await chrome.runtime.sendMessage({ type: "logEgress", payload });
+    await chrome.runtime.sendMessage({
+      type: "logEgress",
+      payload: { ...payload, timestamp: Date.now() },
+    });
   } catch {
     // Silently fail — logging egress is non-critical
   }
@@ -708,6 +711,7 @@ async function logDomainVisit() {
       domain: domainStatus.domain,
       status: domainStatus.status || "unlisted",
       source: domainStatus.source || "unknown",
+      timestamp: Date.now(),
     });
     return response?.visit_count ?? null;
   } catch {

@@ -30,8 +30,7 @@ class DomainVisitController extends Controller
                 ];
 
                 return [
-                    'date' => $visit->visited_at->format('Y-m-d'),
-                    'time' => $visit->visited_at->format('g:i A'),
+                    'visited_at' => $visit->visited_at->toIso8601String(),
                     'domain' => $visit->domain,
                     'status' => $status,
                     'user' => $visit->user_id,

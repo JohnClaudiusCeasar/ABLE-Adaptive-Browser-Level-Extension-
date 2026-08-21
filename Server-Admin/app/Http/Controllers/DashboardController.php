@@ -66,8 +66,7 @@ class DashboardController extends Controller
                 $status = $event->risk_score >= 75 ? 'glass-unsafe' : 'glass-unlisted';
 
                 return [
-                    'date' => $event->occurred_at->format('Y-m-d'),
-                    'time' => $event->occurred_at->format('g:i A'),
+                    'occurred_at' => $event->occurred_at->toIso8601String(),
                     'domain' => $event->domain,
                     'status' => $status,
                     'user' => $event->user_id,
@@ -95,8 +94,7 @@ class DashboardController extends Controller
                 ];
 
                 return [
-                    'date' => $visit->visited_at->format('Y-m-d'),
-                    'time' => $visit->visited_at->format('g:i A'),
+                    'visited_at' => $visit->visited_at->toIso8601String(),
                     'url' => $visit->domain,
                     'domain' => $visit->domain,
                     'status' => $status,

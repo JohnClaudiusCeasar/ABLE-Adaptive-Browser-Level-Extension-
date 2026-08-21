@@ -9,8 +9,7 @@ import { DonutGauge } from '@/components/dashboard/donut-gauge';
 import { SegmentedBar } from '@/components/dashboard/segmented-bar';
 
 interface RecentEgressEvent {
-    date: string;
-    time: string;
+    occurred_at: string;
     domain: string;
     status: 'glass-safe' | 'glass-unsafe' | 'glass-unlisted';
     user: string | null;
@@ -19,8 +18,7 @@ interface RecentEgressEvent {
 }
 
 interface RecentDomainVisit {
-    date: string;
-    time: string;
+    visited_at: string;
     url: string;
     domain: string;
     status: 'glass-safe' | 'glass-unsafe' | 'glass-unlisted';
@@ -43,6 +41,22 @@ interface DashboardProps {
     };
     recentEgressEvents: RecentEgressEvent[];
     recentDomainVisits: RecentDomainVisit[];
+}
+
+function formatTimestamp(ts: string): { date: string; time: string } {
+    const d = new Date(ts);
+    return {
+        date: d.toLocaleDateString(undefined, {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+        }),
+        time: d.toLocaleTimeString(undefined, {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true,
+        }),
+    };
 }
 
 export default function Dashboard({
@@ -259,16 +273,18 @@ export default function Dashboard({
                                         </td>
                                     </tr>
                                 ) : (
-                                    recentEgressEvents.map((row, i) => (
+                                recentEgressEvents.map((row, i) => {
+                                    const { date, time } = formatTimestamp(row.occurred_at);
+                                    return (
                                         <tr
                                             key={i}
                                             className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0"
                                         >
                                             <td className="py-3 pr-2.5">
-                                                {row.date}
+                                                {date}
                                             </td>
                                             <td className="py-3 pr-2.5">
-                                                {row.time}
+                                                {time}
                                             </td>
                                             <td className="py-3 pr-2.5">
                                                 {row.domain}
@@ -290,7 +306,8 @@ export default function Dashboard({
                                                 {row.action}
                                             </td>
                                         </tr>
-                                    ))
+                                    );
+                                })
                                 )}
                             </tbody>
                         </table>
@@ -349,16 +366,18 @@ export default function Dashboard({
                                         </td>
                                     </tr>
                                 ) : (
-                                    recentDomainVisits.map((row, i) => (
+                                recentDomainVisits.map((row, i) => {
+                                    const { date, time } = formatTimestamp(row.visited_at);
+                                    return (
                                         <tr
                                             key={i}
                                             className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0"
                                         >
                                             <td className="py-3 pr-2.5">
-                                                {row.date}
+                                                {date}
                                             </td>
                                             <td className="py-3 pr-2.5">
-                                                {row.time}
+                                                {time}
                                             </td>
                                             <td className="py-3 pr-2.5">
                                                 {row.url}
@@ -374,13 +393,14 @@ export default function Dashboard({
                                                 </Badge>
                                             </td>
                                             <td className="py-3 pr-2.5">
-                                                {row.user ?? '—'}
-                                            </td>
-                                            <td className="py-3">
-                                                {row.action}
-                                            </td>
-                                        </tr>
-                                    ))
+                                            {row.user ?? '—'}
+                                        </td>
+                                        <td className="py-3">
+                                            {row.action}
+                                        </td>
+                                    </tr>
+                                );
+                                })
                                 )}
                             </tbody>
                         </table>

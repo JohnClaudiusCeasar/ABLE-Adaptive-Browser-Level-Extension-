@@ -234,14 +234,14 @@ async function logExtensionLifecycle({ userId, extensionId, event, version }) {
  * Log a domain visit to the server.
  * This is a fire-and-forget POST — no response processing needed.
  */
-async function logDomainVisit(domain, status, source) {
+async function logDomainVisit(domain, status, source, timestamp) {
   const userId = await getOrCreateUserId();
 
   try {
     const response = await fetch(`${SERVER_URL}/api/log-visit`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify({ domain, status, source, user_id: userId }),
+      body: JSON.stringify({ domain, status, source, user_id: userId, visited_at: timestamp }),
     });
 
     if (!response.ok) {
@@ -261,7 +261,7 @@ async function logDomainVisit(domain, status, source) {
  * Log an egress event to the server.
  * Called when user interacts with the file upload intercept modal.
  */
-async function logEgressEvent({ domain, fileName, fileSize, riskScore, action, userAction }) {
+async function logEgressEvent({ domain, fileName, fileSize, riskScore, action, userAction, timestamp }) {
   const userId = await getOrCreateUserId();
 
   try {
@@ -276,6 +276,7 @@ async function logEgressEvent({ domain, fileName, fileSize, riskScore, action, u
         risk_score: riskScore,
         action,
         user_action: userAction,
+        occurred_at: timestamp,
       }),
     });
 
