@@ -36,9 +36,7 @@ class NotificationController extends Controller
                         : null,
                     'status' => $notification->status,
                     'message' => $notification->message,
-                    'timestamp' => $notification->occurred_at->diffForHumans(),
-                    'date' => $notification->occurred_at->format('Y-m-d'),
-                    'time' => $notification->occurred_at->format('g:i A'),
+                    'occurred_at' => $notification->occurred_at->toIso8601String(),
                     'unread' => $unread,
                 ];
             });

@@ -3,6 +3,8 @@ import { AlertTriangle, CheckCheck, Database, Globe, MessageSquare, Plug, Search
 import { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { formatRelativeTime, formatTime } from '@/lib/date';
 
 const glassCard = 'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
 
@@ -17,9 +19,7 @@ interface NotificationItem {
     ip: string | null;
     riskScore: string | null;
     status: 'glass-safe' | 'glass-unsafe' | 'glass-unlisted';
-    timestamp: string;
-    date: string;
-    time: string;
+    occurred_at: string;
     unread: boolean;
 }
 
@@ -76,6 +76,7 @@ export default function Notifications() {
 
     const [searchQuery, setSearchQuery] = useState('');
     const [activeSources, setActiveSources] = useState<Set<NotificationItem['source']>>(new Set(allSources));
+    const [clearAllConfirm, setClearAllConfirm] = useState(false);
 
     const filteredNotifications = useMemo(() => {
         let result = notifications;
@@ -113,9 +114,16 @@ export default function Notifications() {
     }
 
     function clearAll() {
-        if (window.confirm('Delete all notifications?')) {
-            router.delete('/notifications-all', { preserveScroll: true });
-        }
+        setClearAllConfirm(true);
+    }
+
+    function confirmClearAll() {
+        router.delete('/notifications-all', {
+            preserveScroll: true,
+            onSuccess: () => {
+                setClearAllConfirm(false);
+            },
+        });
     }
 
     function markRead(id: number) {
@@ -259,7 +267,7 @@ export default function Notifications() {
                                                 </span>
                                             </div>
                                             <span className="text-sm text-muted-foreground shrink-0">
-                                                {notification.timestamp}
+                                                {formatRelativeTime(notification.occurred_at)}
                                             </span>
                                         </div>
 
@@ -328,6 +336,15 @@ export default function Notifications() {
                     )}
                 </div>
             </div>
+
+            <ConfirmDialog
+                open={clearAllConfirm}
+                onOpenChange={setClearAllConfirm}
+                title="Clear all notifications"
+                description="Delete all notifications?"
+                confirmLabel="Delete all"
+                onConfirm={confirmClearAll}
+            />
         </>
     );
 }

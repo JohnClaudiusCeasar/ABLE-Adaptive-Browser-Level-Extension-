@@ -10,6 +10,7 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '@/components/ui/dialog';
+import { formatRelativeTime } from '@/lib/date';
 import type { Passkey } from '@/types/auth';
 
 type Props = {
@@ -43,13 +44,13 @@ export default function PasskeyItem({ passkey, onDelete }: Props) {
                         )}
                     </div>
                     <p className="text-sm text-muted-foreground">
-                        Added {passkey.created_at_diff}
-                        {passkey.last_used_at_diff && (
+                        Added {formatRelativeTime(passkey.created_at)}
+                        {passkey.last_used_at && (
                             <>
                                 <span className="mx-1 text-muted-foreground/50">
                                     /
                                 </span>
-                                Last used {passkey.last_used_at_diff}
+                                Last used {formatRelativeTime(passkey.last_used_at)}
                             </>
                         )}
                     </p>

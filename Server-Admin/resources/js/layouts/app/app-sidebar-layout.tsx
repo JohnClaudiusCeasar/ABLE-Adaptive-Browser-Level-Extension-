@@ -1,4 +1,5 @@
 import { lazy, Suspense } from 'react';
+import { usePage } from '@inertiajs/react';
 import { AppContent } from '@/components/app-content';
 import { AppShell } from '@/components/app-shell';
 import { AppSidebar } from '@/components/app-sidebar';
@@ -17,6 +18,9 @@ export default function AppSidebarLayout({
     children,
     breadcrumbs = [],
 }: AppLayoutProps) {
+    const { url } = usePage();
+    const isChatPage = url === '/chat' || url.startsWith('/chat/');
+
     return (
         <AppShell variant="sidebar">
             <AppSidebar />
@@ -25,11 +29,13 @@ export default function AppSidebarLayout({
                 <div className="flex-1 overflow-y-auto overscroll-contain">
                     {children}
                 </div>
-                <Suspense fallback={null}>
-                    {/* Quick chat state lives in the chat store, so it survives
-                        page navigation without being keyed by URL. */}
-                    <QuickChat />
-                </Suspense>
+                {!isChatPage && (
+                    <Suspense fallback={null}>
+                        {/* Quick chat state lives in the chat store, so it survives
+                            page navigation without being keyed by URL. */}
+                        <QuickChat />
+                    </Suspense>
+                )}
             </AppContent>
         </AppShell>
     );

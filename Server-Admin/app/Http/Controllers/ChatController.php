@@ -124,6 +124,43 @@ class ChatController extends Controller
     }
 
     /**
+     * Delete a conversation and its messages.
+     */
+    public function destroy(ChatConversation $conversation): RedirectResponse
+    {
+        $user = $this->authUser();
+
+        abort_unless($conversation->involves($user), 403);
+
+        $conversation->delete();
+
+        return redirect()->route('chat.index');
+    }
+
+    /**
+     * Delete multiple conversations and their messages.
+     */
+    public function destroyAll(Request $request): RedirectResponse
+    {
+        $user = $this->authUser();
+
+        $validated = $request->validate([
+            'ids' => ['required', 'array'],
+            'ids.*' => ['integer'],
+        ]);
+
+        ChatConversation::query()
+            ->whereIn('id', $validated['ids'])
+            ->where(function ($query) use ($user) {
+                $query->where('user_one_id', $user->id)
+                    ->orWhere('user_two_id', $user->id);
+            })
+            ->delete();
+
+        return redirect()->route('chat.index');
+    }
+
+    /**
      * Get the total unread message count for the current user.
      */
     public function unreadCount(): JsonResponse
@@ -261,7 +298,7 @@ class ChatController extends Controller
             'path' => route('chat.show', $conversation),
             'other_user' => $otherUser !== null ? $this->userData($otherUser) : null,
             'last_message' => $lastMessage?->body,
-            'last_message_at' => $conversation->last_message_at?->diffForHumans(),
+            'last_message_at' => $conversation->last_message_at?->toIso8601String(),
             'unread_count' => $unreadCount,
         ];
     }
@@ -292,7 +329,6 @@ class ChatController extends Controller
             'conversation_id' => $message->conversation_id,
             'sender_id' => $message->sender_id,
             'body' => $message->body,
-            'time' => $message->created_at?->format('g:i A'),
             'created_at' => $message->created_at?->toIso8601String(),
             'read_at' => $message->read_at?->toIso8601String(),
         ];

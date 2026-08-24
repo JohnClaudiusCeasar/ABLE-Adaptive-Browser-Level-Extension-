@@ -140,7 +140,7 @@ export function ChatWindow({
     }
 
     return (
-        <div className="flex h-full flex-col overflow-hidden rounded-xl border border-[rgba(34,197,94,0.35)] bg-white/50 backdrop-blur-[10px] dark:bg-[rgba(15,23,42,0.35)]">
+        <div className="flex h-full flex-col overflow-hidden bg-white/50 backdrop-blur-[10px] dark:bg-[rgba(15,23,42,0.35)]">
             {/* Header */}
             <div className="flex items-center gap-3 border-b border-[rgba(34,197,94,0.3)] px-4 py-3">
                 {onBack && (

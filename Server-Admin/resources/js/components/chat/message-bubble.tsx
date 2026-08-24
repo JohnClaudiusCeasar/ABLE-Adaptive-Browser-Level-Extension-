@@ -1,5 +1,6 @@
 import { CheckCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatTime } from '@/lib/date';
 import type { ChatMessageData } from '@/types/chat';
 
 export function MessageBubble({
@@ -31,7 +32,7 @@ export function MessageBubble({
                         isOwn ? 'justify-end' : 'justify-start',
                     )}
                 >
-                    <span>{message.time ?? ''}</span>
+                    <span>{formatTime(message.created_at)}</span>
                     {isOwn && (
                         <CheckCheck
                             size={13}

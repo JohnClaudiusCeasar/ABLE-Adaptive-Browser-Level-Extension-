@@ -642,7 +642,7 @@ export default function PolicyAlgorithm() {
                             className="text-[1.6rem] font-bold"
                             style={{ fontFamily: "'Unbounded', sans-serif" }}
                         >
-                            Domain Policy
+                            Domain Classification 
                         </h2>
                         <div className="flex items-center gap-3">
                             {domainPolicies.length > 0 && (

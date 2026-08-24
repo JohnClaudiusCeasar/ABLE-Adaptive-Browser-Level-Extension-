@@ -53,6 +53,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('chat/{conversation}/messages', [ChatController::class, 'indexMessages'])->name('chat.messages.index');
     Route::post('chat/{conversation}/messages', [ChatController::class, 'store'])->name('chat.messages.store');
     Route::post('chat/with/{user}', [ChatController::class, 'startConversation'])->name('chat.start');
+    Route::delete('chat/{conversation}', [ChatController::class, 'destroy'])->name('chat.destroy');
+    Route::delete('chat-all', [ChatController::class, 'destroyAll'])->name('chat.destroyAll');
 });
 
 require __DIR__.'/settings.php';

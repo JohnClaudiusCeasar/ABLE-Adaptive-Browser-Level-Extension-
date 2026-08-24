@@ -10,7 +10,6 @@ export type ChatMessageData = {
     conversation_id: number;
     sender_id: number;
     body: string;
-    time: string | null;
     created_at: string;
     read_at: string | null;
 };
