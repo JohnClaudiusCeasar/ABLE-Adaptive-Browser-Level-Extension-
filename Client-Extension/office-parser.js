@@ -585,6 +585,10 @@ async function extractOfficeText(file) {
     );
   }
 
+  if (file.size === 0) {
+    throw new Error(`File is empty: ${file.name}`);
+  }
+
   // Read as ArrayBuffer (binary)
   const buffer = await new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -592,6 +596,16 @@ async function extractOfficeText(file) {
     reader.onerror = () => reject(new Error('Failed to read file as ArrayBuffer'));
     reader.readAsArrayBuffer(file);
   });
+
+  // SECURITY: Validate ZIP magic bytes (PK\x03\x04) before parsing.
+  // This prevents non-Office files from triggering ZIP parser edge cases
+  // and ensures we only process genuine Office Open XML archives.
+  const view = new Uint8Array(buffer);
+  if (view.length < 4 ||
+      view[0] !== 0x50 || view[1] !== 0x4b ||
+      view[2] !== 0x03 || view[3] !== 0x04) {
+    throw new Error(`Invalid Office file signature: ${file.name}`);
+  }
 
   // Parse ZIP structure
   const zip = new ZipReader(buffer);

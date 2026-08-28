@@ -2,6 +2,17 @@
   'use strict';
 
   var pendingRequests = new Map();
+  var ableNonce = null;
+  var nonceReady = false;
+
+  // Wait for ABLE content script to provide a per-page-load nonce.
+  // Without a valid nonce, ABLE_INTERCEPT messages are ignored.
+  window.addEventListener('message', function (event) {
+    if (event.data && event.data.source === 'ABLE_CONTENT' && event.data.type === 'ABLE_NONCE') {
+      ableNonce = event.data.nonce;
+      nonceReady = true;
+    }
+  });
 
   function generateId() {
     return 'able-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
@@ -63,24 +74,52 @@
     }
   }
 
-  function requestCheck(files) {
-    return new Promise(function (resolve, reject) {
-      var id = generateId();
-      var timeout = setTimeout(function () {
-        pendingRequests.delete(id);
-        resolve('proceed');
-      }, 30000);
-
-      pendingRequests.set(id, { resolve: resolve, reject: reject, timeout: timeout });
-
-      window.postMessage({
-        source: 'ABLE_INJECT',
-        type: 'ABLE_INTERCEPT',
-        payload: {
-          requestId: id,
-          files: files
+  function waitForNonce() {
+    if (nonceReady) return Promise.resolve(ableNonce);
+    return new Promise(function (resolve) {
+      var waitStart = Date.now();
+      var interval = setInterval(function () {
+        if (nonceReady) {
+          clearInterval(interval);
+          resolve(ableNonce);
+        } else if (Date.now() - waitStart > 1000) {
+          // Nonce handshake failed — proceed without protection.
+          clearInterval(interval);
+          resolve(null);
         }
-      }, '*');
+      }, 25);
+    });
+  }
+
+  function requestCheck(files) {
+    return waitForNonce().then(function (nonce) {
+      return new Promise(function (resolve, reject) {
+        if (!nonce) {
+          // ABLE content script didn't establish a nonce handshake.
+          // Cannot verify identity — fail open (proceed) to avoid
+          // blocking legitimate uploads when ABLE is misconfigured.
+          resolve('proceed');
+          return;
+        }
+
+        var id = generateId();
+        var timeout = setTimeout(function () {
+          pendingRequests.delete(id);
+          resolve('proceed');
+        }, 30000);
+
+        pendingRequests.set(id, { resolve: resolve, reject: reject, timeout: timeout });
+
+        window.postMessage({
+          source: 'ABLE_INJECT',
+          type: 'ABLE_INTERCEPT',
+          nonce: nonce,
+          payload: {
+            requestId: id,
+            files: files
+          }
+        }, '*');
+      });
     });
   }
 

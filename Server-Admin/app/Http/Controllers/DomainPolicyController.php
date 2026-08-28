@@ -150,6 +150,46 @@ class DomainPolicyController extends Controller
     }
 
     /**
+     * API endpoint: Return all domain policies wrapped in an HMAC-signed envelope.
+     * The extension verifies this signature before trusting the offline cache.
+     */
+    public function signed(): JsonResponse
+    {
+        $payload = [
+            'policies' => DomainPolicy::all()->toArray(),
+            'issued_at' => now()->timestamp,
+        ];
+
+        return response()->json($this->signEnvelope($payload));
+    }
+
+    /**
+     * Sign a payload with the server's HMAC secret and return the envelope.
+     * Format: { payload, signature, key_version }
+     */
+    private function signEnvelope(array $payload): array
+    {
+        $key = $this->signingKey();
+        $payloadJson = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $signature = hash_hmac('sha256', $payloadJson, $key);
+
+        return [
+            'payload' => $payload,
+            'signature' => $signature,
+            'key_version' => (int) config('able.signing_key_version', 1),
+        ];
+    }
+
+    private function signingKey(): string
+    {
+        $key = config('able.signing_key');
+        if (!$key || strlen($key) < 32) {
+            abort(500, 'ABLE signing key not configured');
+        }
+        return $key;
+    }
+
+    /**
      * API endpoint: Classify a domain for the browser extension.
      */
     public function classify(Request $request): JsonResponse

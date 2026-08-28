@@ -205,4 +205,34 @@ class RiskPatternController extends Controller
             'count' => $patterns->count(),
         ]);
     }
+
+    /**
+     * API endpoint: Return all risk patterns wrapped in an HMAC-signed envelope.
+     */
+    public function signed(): JsonResponse
+    {
+        $patterns = RiskPattern::with('criteriaPatternItems')
+            ->where('status', 'active')
+            ->get()
+            ->toArray();
+
+        $payload = [
+            'patterns' => $patterns,
+            'issued_at' => now()->timestamp,
+        ];
+
+        $key = config('able.signing_key');
+        if (!$key || strlen($key) < 32) {
+            abort(500, 'ABLE signing key not configured');
+        }
+
+        $payloadJson = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $signature = hash_hmac('sha256', $payloadJson, $key);
+
+        return response()->json([
+            'payload' => $payload,
+            'signature' => $signature,
+            'key_version' => (int) config('able.signing_key_version', 1),
+        ]);
+    }
 }

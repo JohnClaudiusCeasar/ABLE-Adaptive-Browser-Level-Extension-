@@ -2,6 +2,7 @@
 const PIE_COLORS = {};
 
 let domainStatus = null;
+let pageNonceHex = null;
 
 // ─── Background bridge (api.js runs in the service worker) ──────────
 
@@ -281,8 +282,20 @@ function readFileContent(file) {
 
 // ─── Network interception (inject.js bridge) ───────────────────────
 
-function injectPageScript() {
+async function injectPageScript() {
   if (document.getElementById("able-inject-script")) return;
+
+  // Verify inject.js integrity before injecting into the page world.
+  // If the resource hash doesn't match, abort injection entirely.
+  if (typeof EXPECTED_INJECT_HASH === "string" && EXPECTED_INJECT_HASH.length > 0) {
+    const url = chrome.runtime.getURL("inject.js");
+    const ok = await ABLESecurity.verifyResourceIntegrity(url, EXPECTED_INJECT_HASH);
+    if (!ok) {
+      console.warn("ABLE: inject.js integrity check failed, aborting injection.");
+      return;
+    }
+  }
+
   const script = document.createElement("script");
   script.id = "able-inject-script";
   script.src = chrome.runtime.getURL("inject.js");
@@ -348,7 +361,7 @@ async function scanFile(file) {
     total_score: totalScore,
     threshold: 85,
     triggered: totalScore > 85,
-    flagged_items: flaggedItems,
+    flagged_item_count: flaggedItems.length,
   });
 
   return {
@@ -403,10 +416,31 @@ async function handleInterceptedFiles(files, requestId) {
 }
 
 function setupInterceptionListener() {
+  // Generate a per-page-load nonce. inject.js must echo this nonce back
+  // in every ABLE_INTERCEPT message. The nonce is random per page load
+  // and never crosses origins, so page scripts can't predict or replay it.
+  const pageNonce = crypto.getRandomValues(new Uint8Array(16));
+  pageNonceHex = Array.from(pageNonce).map((b) => b.toString(16).padStart(2, "0")).join("");
+
   window.addEventListener("message", async (event) => {
     if (event.data?.source !== "ABLE_INJECT") return;
-    if (event.data.type === "ABLE_READY") return;
+
+    if (event.data.type === "ABLE_READY") {
+      // inject.js just announced itself; reply with the nonce.
+      window.postMessage({
+        source: "ABLE_CONTENT",
+        type: "ABLE_NONCE",
+        nonce: pageNonceHex,
+      }, window.location.origin);
+      return;
+    }
+
     if (event.data.type === "ABLE_INTERCEPT") {
+      // Validate nonce and origin before trusting the intercepted request.
+      if (event.data.nonce !== pageNonceHex) {
+        console.warn("ABLE: Rejecting ABLE_INTERCEPT with invalid nonce.");
+        return;
+      }
       const { requestId, files } = event.data.payload;
       if (!requestId || !files || files.length === 0) return;
       await handleInterceptedFiles(files, requestId);
@@ -541,10 +575,10 @@ function showInterceptScoreDetails(data) {
     return `
       <div class="able-detail-item">
         <span class="able-detail-swatch" style="background: ${color};"></span>
-        <span class="able-detail-label">${item.label}</span>
-        <span class="able-detail-count">x${item.count}</span>
-        <span class="able-detail-weight">+${item.weight}</span>
-        <span class="able-detail-pct">${pct}%</span>
+        <span class="able-detail-label"><span class="able-highlight-text">${item.label}</span></span>
+        <span class="able-detail-count">x<span class="able-highlight-text">${item.count}</span></span>
+        <span class="able-detail-weight">+<span class="able-highlight-text">${item.weight}</span></span>
+        <span class="able-detail-pct"><span class="able-highlight-text">${pct}%</span></span>
       </div>`;
   }).join("");
 
@@ -555,7 +589,7 @@ function showInterceptScoreDetails(data) {
       <div class="able-detail-list">${itemsHtml}</div>
       <div class="able-detail-total">
         <span>Total Risk Score</span>
-        <span class="able-detail-total-score">${data.score}%</span>
+        <span class="able-detail-total-score"><span class="able-highlight-text">${data.score}%</span></span>
       </div>
       <div class="able-modal-actions">
         <button class="able-btn able-btn-proceed" id="ableDetailBackBtn">Back to Warning</button>
@@ -600,7 +634,7 @@ function showSiteWarningModal(data) {
     <div class="able-modal-card">
       <div class="able-banner-edge"></div>
       <div class="able-modal-content">
-        <h1 class="able-modal-title">${data.title}</h1>
+        <h1 class="able-modal-title"><span class="able-highlight-text">${data.title}</span></h1>
         <div class="able-modal-divider"><div class="able-modal-divider-circle"></div></div>
         <div class="able-modal-body">
           <p>${data.message}</p>

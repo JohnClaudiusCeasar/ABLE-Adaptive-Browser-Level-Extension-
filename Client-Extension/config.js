@@ -1,6 +1,47 @@
 const COMPANY_NAME = "ABLE";
 
 /**
+ * Public keys for verifying signed offline cache payloads.
+ * Each key is a raw HMAC secret in hex (32 bytes = 64 hex chars).
+ * The extension ships with the active key plus any previous key still
+ * valid during a rotation window.
+ *
+ * TODO: Replace placeholders at deploy time with the server's actual key.
+ */
+const PUBLIC_KEYS = {
+  1: {
+    key: "REPLACE_WITH_64_HEX_CHARS_AT_DEPLOY_TIME_REPLACE_WITH_64_HEX_CHARS_AT_DEPLOY",
+  },
+};
+
+/**
+ * TLS SPKI pins for the admin server, keyed by hostname.
+ * Each value is an array of base64 SPKI hashes; a request passes if any
+ * pin in the list matches the leaf cert's public key.
+ *
+ * TODO: Populate with the production admin server's SPKI pin.
+ */
+const TLS_PINS = {
+  "able-admin.internal": [],
+};
+
+/**
+ * SHA-256 hashes of web-accessible resources, computed at build time.
+ * Used to detect tampering with inject.js or content.css.
+ *
+ * TODO: Compute these at deploy time:
+ *   node -e "console.log(require('crypto').createHash('sha256').update(require('fs').readFileSync('inject.js')).digest('hex'))"
+ */
+const EXPECTED_INJECT_HASH = "";
+const EXPECTED_CONTENT_CSS_HASH = "";
+
+/**
+ * Origins the extension is allowed to make requests to.
+ * Anything not in this list will be refused by secureFetch().
+ */
+const ALLOWED_ORIGINS = ["https://able-admin.internal"];
+
+/**
  * Generate status messages for domain classification.
  * These are template messages, not data - they use the classification result from the server/cache.
  */

@@ -1,4 +1,4 @@
-self.importScripts("config.js", "api.js");
+self.importScripts("config.js", "security.js", "api.js");
 
 const RISK_PATTERNS_ALARM = "risk-patterns-sync";
 
@@ -38,6 +38,13 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // SECURITY: Reject messages from any sender that isn't this extension.
+  // Without this check, any page script could call chrome.runtime.sendMessage
+  // and trigger log-visit / log-egress events, poisoning server analytics.
+  if (sender.id !== chrome.runtime.id) {
+    return false;
+  }
+
   if (message.type === "classifyDomain") {
     handleClassifyDomain(message.url, sendResponse);
     return true;
@@ -60,7 +67,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       .catch(() => sendResponse({ success: false }));
     return true;
   }
-  return true;
+  return false;
 });
 
 async function handleClassifyDomain(url, sendResponse) {
