@@ -7,29 +7,13 @@
  *  - Resource integrity checks for web-accessible scripts
  *  - Crypto-safe random ID generation
  *
+ * Configuration constants (PUBLIC_KEYS, TLS_PINS, EXPECTED_*_HASH,
+ * ALLOWED_ORIGINS) live in config.js — the single source of truth.
+ * This file must be loaded after config.js via importScripts().
+ *
  * Public API is exposed via globals because the extension loads scripts
  * via <script> tags and importScripts() in the service worker.
  */
-
-const SECURITY_KEY_VERSION = 1;
-
-const SECURITY_KEYS = {
-  1: {
-    algorithm: "HMAC",
-    hash: "SHA-256",
-    key: null, // populated by loadKeys() from config.js (PUBLIC_KEYS)
-  },
-};
-
-const TLS_PINS = {
-  "able-admin.internal": [],
-};
-
-const EXPECTED_INJECT_HASH = "";
-
-const EXPECTED_CONTENT_CSS_HASH = "";
-
-const ALLOWED_ORIGINS = ["https://able-admin.internal"];
 
 function hexToBytes(hex) {
   const bytes = new Uint8Array(hex.length / 2);
@@ -37,6 +21,33 @@ function hexToBytes(hex) {
     bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
   }
   return bytes;
+}
+
+/**
+ * Canonicalize a value into the byte form used for signing.
+ *
+ * MUST stay byte-identical to App\Support\JsCanonical::encode() on the
+ * server. Rules:
+ *   - object keys sorted lexicographically at every depth
+ *   - no whitespace
+ *   - slashes and unicode emitted verbatim (JSON.stringify default for
+ *     strings — no `\/` escapes)
+ */
+function canonicalize(value) {
+  if (Array.isArray(value)) {
+    return "[" + value.map(canonicalize).join(",") + "]";
+  }
+  if (value !== null && typeof value === "object") {
+    const keys = Object.keys(value).sort();
+    return (
+      "{" +
+      keys
+        .map((k) => JSON.stringify(k) + ":" + canonicalize(value[k]))
+        .join(",") +
+      "}"
+    );
+  }
+  return JSON.stringify(value);
 }
 
 function bytesToHex(bytes) {
@@ -69,15 +80,12 @@ async function verifySignedCache(envelope) {
   if (!payload || !signature || key_version == null) return false;
   if (typeof signature !== "string") return false;
 
-  const keyEntry = SECURITY_KEYS[key_version];
-  if (!keyEntry) return false;
-
   const keyConfig = typeof PUBLIC_KEYS !== "undefined" ? PUBLIC_KEYS[key_version] : null;
   if (!keyConfig || !keyConfig.key) return false;
 
   try {
     const key = await importHmacKey(keyConfig.key);
-    const payloadBytes = new TextEncoder().encode(JSON.stringify(payload));
+    const payloadBytes = new TextEncoder().encode(canonicalize(payload));
     const signatureBytes = hexToBytes(signature);
     return crypto.subtle.verify("HMAC", key, signatureBytes, payloadBytes);
   } catch (error) {
@@ -126,7 +134,9 @@ async function readSignedOfflineCache(storageKey) {
 async function secureFetch(url, options = {}) {
   const parsed = new URL(url);
 
-  if (parsed.protocol !== "https:") {
+  // Allow HTTP only for localhost (development). All other hosts require HTTPS.
+  const isLocalhost = ["localhost", "127.0.0.1", "[::1]"].includes(parsed.hostname);
+  if (parsed.protocol !== "https:" && !isLocalhost) {
     throw new Error(`ABLE: Refusing non-HTTPS request to ${parsed.origin}`);
   }
 
@@ -134,17 +144,37 @@ async function secureFetch(url, options = {}) {
     throw new Error(`ABLE: Origin ${parsed.origin} not in allowlist`);
   }
 
-  const response = await fetch(url, {
-    ...options,
-    redirect: "manual",
-    credentials: "omit",
-  });
+  // Verify the TLS pin before issuing the real request, so a failed pin
+  // never causes us to receive the response body. No-op when pins[] is empty.
+  await verifyTlsPin(parsed.hostname);
+
+  // Abort the request if the server doesn't respond within 5 seconds.
+  // Without this, an unreachable host causes fetch() to hang for the OS
+  // TCP timeout (2+ minutes on Windows), blocking the entire extension.
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+  let response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      redirect: "manual",
+      credentials: "omit",
+      signal: controller.signal,
+    });
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === "AbortError") {
+      throw new Error(`ABLE: Request to ${parsed.origin} timed out after 5s`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (response.type === "opaqueredirect" || response.status === 301 || response.status === 302) {
     throw new Error(`ABLE: Refusing redirect from ${parsed.origin}`);
   }
-
-  await verifyTlsPin(parsed.hostname);
 
   return response;
 }
@@ -163,10 +193,18 @@ async function verifyTlsPin(hostname) {
   // secureFetch caller should pair this with chrome.runtime events.
   // If we cannot retrieve security info in this context, we fail closed.
   try {
-    const probe = await fetch(`https://${hostname}/__able_pin_probe__`, {
-      method: "HEAD",
-      redirect: "manual",
-    });
+    const probeController = new AbortController();
+    const probeTimeout = setTimeout(() => probeController.abort(), 3000);
+    let probe;
+    try {
+      probe = await fetch(`https://${hostname}/__able_pin_probe__`, {
+        method: "HEAD",
+        redirect: "manual",
+        signal: probeController.signal,
+      });
+    } finally {
+      clearTimeout(probeTimeout);
+    }
     if (probe.status >= 500) {
       throw new Error(`ABLE: TLS probe failed for ${hostname}`);
     }
@@ -237,6 +275,7 @@ if (typeof globalThis !== "undefined") {
     generateSecureUserId,
     isValidUserId,
     verifyResourceIntegrity,
+    canonicalize,
     hexToBytes,
     bytesToHex,
   };

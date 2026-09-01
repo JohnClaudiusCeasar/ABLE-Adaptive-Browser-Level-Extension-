@@ -1,7 +1,6 @@
-// API client for querying the ABLE server for domain classification
-// SECURITY: SERVER_URL must be HTTPS. Localhost HTTP is forbidden in production.
-// For development, override via storage or an environment-config script.
-const SERVER_URL = "https://able-admin.internal:8443";
+// API client for querying the ABLE server for domain classification.
+// SERVER_URL is defined in config.js (loaded before this file) as the
+// single source of truth shared with security.js's ALLOWED_ORIGINS.
 
 // Cache for domain classifications to minimize API calls
 const domainCache = new Map();

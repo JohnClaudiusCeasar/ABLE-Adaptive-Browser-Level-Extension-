@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\RiskPattern;
 use App\Models\CriteriaPatternItem;
 use App\Rules\CompilableRegex;
+use App\Support\JsCanonical;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Redirect;
@@ -226,8 +227,8 @@ class RiskPatternController extends Controller
             abort(500, 'ABLE signing key not configured');
         }
 
-        $payloadJson = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        $signature = hash_hmac('sha256', $payloadJson, $key);
+        $payloadJson = JsCanonical::encode($payload);
+        $signature = JsCanonical::sign($payload, $key);
 
         return response()->json([
             'payload' => $payload,

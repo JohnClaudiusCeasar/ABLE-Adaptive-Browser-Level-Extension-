@@ -1,6 +1,18 @@
 const COMPANY_NAME = "ABLE";
 
 /**
+ * Server URL the extension talks to. Single source of truth — api.js reads
+ * this constant and security.js derives its ALLOWED_ORIGINS from it so the
+ * origin and port can never disagree.
+ *
+ * DEVELOPMENT: http://localhost:8000
+ * PRODUCTION:  https://able-admin.internal:8443
+ *
+ * Change this value before building for distribution.
+ */
+const SERVER_URL = "http://localhost:8000";
+
+/**
  * Public keys for verifying signed offline cache payloads.
  * Each key is a raw HMAC secret in hex (32 bytes = 64 hex chars).
  * The extension ships with the active key plus any previous key still
@@ -10,7 +22,7 @@ const COMPANY_NAME = "ABLE";
  */
 const PUBLIC_KEYS = {
   1: {
-    key: "REPLACE_WITH_64_HEX_CHARS_AT_DEPLOY_TIME_REPLACE_WITH_64_HEX_CHARS_AT_DEPLOY",
+    key: "13b6056f7f072c80853526109de9268317e4a09842f3508b3df31c2fbdfaec4d",
   },
 };
 
@@ -37,9 +49,17 @@ const EXPECTED_CONTENT_CSS_HASH = "";
 
 /**
  * Origins the extension is allowed to make requests to.
+ * Derived from SERVER_URL so the URL and allowlist can never drift apart.
  * Anything not in this list will be refused by secureFetch().
  */
-const ALLOWED_ORIGINS = ["https://able-admin.internal"];
+const ALLOWED_ORIGINS = (() => {
+  try {
+    const u = new URL(SERVER_URL);
+    return [`${u.protocol}//${u.host}`];
+  } catch {
+    return [];
+  }
+})();
 
 /**
  * Generate status messages for domain classification.

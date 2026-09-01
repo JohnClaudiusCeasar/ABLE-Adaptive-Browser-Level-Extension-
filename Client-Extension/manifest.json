@@ -30,7 +30,7 @@
     }
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://able-admin.internal:8443"
+    "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:8000 https://able-admin.internal:8443"
   },
   "action": {
     "default_popup": "popup.html",

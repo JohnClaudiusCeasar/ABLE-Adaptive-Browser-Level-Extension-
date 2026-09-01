@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\DomainPolicy;
 use App\Models\DomainVisit;
+use App\Support\JsCanonical;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -170,8 +171,7 @@ class DomainPolicyController extends Controller
     private function signEnvelope(array $payload): array
     {
         $key = $this->signingKey();
-        $payloadJson = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        $signature = hash_hmac('sha256', $payloadJson, $key);
+        $signature = JsCanonical::sign($payload, $key);
 
         return [
             'payload' => $payload,
