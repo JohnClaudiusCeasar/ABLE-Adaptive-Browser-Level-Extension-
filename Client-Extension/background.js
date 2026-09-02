@@ -1,6 +1,7 @@
 self.importScripts("config.js", "security.js", "api.js");
 
 const RISK_PATTERNS_ALARM = "risk-patterns-sync";
+const VISIT_LOG_ALARM = "visit-log-flush";
 
 chrome.runtime.onInstalled.addListener(async (details) => {
   // Sync risk patterns when extension is installed or updated
@@ -8,6 +9,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 
   // Set up periodic sync every 24 hours
   chrome.alarms.create(RISK_PATTERNS_ALARM, { periodInMinutes: 24 * 60 });
+  chrome.alarms.create(VISIT_LOG_ALARM, { periodInMinutes: 5 });
 
   // Set up uninstall URL for lifecycle tracking
   try {
@@ -34,7 +36,13 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === RISK_PATTERNS_ALARM) {
     await refreshRiskPatternsCache();
+  } else if (alarm.name === VISIT_LOG_ALARM) {
+    await processVisitLogQueue();
   }
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  processVisitLogQueue();
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

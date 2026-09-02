@@ -124,6 +124,9 @@ async function migrateOldSessionConsent() {
 
 // ─── Modal cooldown tracking ──────────────────────────────────────
 
+const COOLDOWN_SHORT_MS = 10000; // 10 seconds
+const COOLDOWN_STAGGER_MS = 300000; // 5 minutes
+
 async function getLastModalShownTime() {
   try {
     const key = "able:last_modal:" + domainStatus.domain;
@@ -142,12 +145,38 @@ async function setLastModalShownTime() {
   }
 }
 
+async function getInteractionCount() {
+  try {
+    const key = "able:modal_interactions:" + domainStatus.domain;
+    const data = await chrome.storage.local.get(key);
+    return data[key] || 0;
+  } catch {
+    return 0;
+  }
+}
+
+async function incrementInteractionCount() {
+  try {
+    const key = "able:modal_interactions:" + domainStatus.domain;
+    const current = await getInteractionCount();
+    await chrome.storage.local.set({ [key]: current + 1 });
+  } catch {
+  }
+}
+
 async function shouldShowRepeatVisitModal() {
   const lastShown = await getLastModalShownTime();
   if (!lastShown) return false;
 
-  const COOLDOWN_MS = 10000; // 10 seconds
-  return Date.now() - lastShown >= COOLDOWN_MS;
+  const interactionCount = await getInteractionCount();
+  // Cooldown cycle: [10s, 10s, 5min] repeating.
+  // After every 2 short-cooldown interactions, the next cooldown
+  // staggers to 5 minutes.
+  const nextShowNumber = interactionCount + 1;
+  const cooldown = (nextShowNumber % 3 === 0)
+    ? COOLDOWN_STAGGER_MS
+    : COOLDOWN_SHORT_MS;
+  return Date.now() - lastShown >= cooldown;
 }
 
 // ─── File scanning ─────────────────────────────────────────────────
@@ -445,6 +474,10 @@ function setupInterceptionListener() {
       if (!requestId || !files || files.length === 0) return;
       await handleInterceptedFiles(files, requestId);
     }
+
+    if (event.data.type === "ABLE_SPA_NAVIGATION") {
+      handleSPANavigation();
+    }
   });
 }
 
@@ -703,6 +736,7 @@ function showRepeatVisitModal(data) {
 
   backdrop.querySelector("#ableRepeatDismiss").addEventListener("click", async () => {
     await setLastModalShownTime();
+    await incrementInteractionCount();
     removeModal();
   });
 
@@ -710,6 +744,7 @@ function showRepeatVisitModal(data) {
     if (e.key === "Escape") {
       e.preventDefault();
       setLastModalShownTime();
+      incrementInteractionCount();
       removeModal();
     }
   });
@@ -768,6 +803,48 @@ function injectFonts() {
 
 let classifyReady;
 
+async function evaluateAndShowModal(serverVisitCount) {
+  if (!shouldActivate()) return;
+
+  await migrateOldSessionConsent();
+  const consent = await hasSiteWarningConsent();
+
+  if (!consent) {
+    // First visit to this unsafe/unlisted domain - show initial warning
+    if (domainStatus.title && domainStatus.message) {
+      await setLastModalShownTime();
+
+      showSiteWarningModal({
+        title: domainStatus.title,
+        message: domainStatus.message,
+      });
+    }
+  } else {
+    // Repeat visit - check dynamic cooldown and show modal with server count
+    const shouldShow = await shouldShowRepeatVisitModal();
+
+    if (shouldShow) {
+      showRepeatVisitModal({
+        domain: domainStatus.domain,
+        status: domainStatus.status === "unsafe" ? "Unsafe" : "Unlisted",
+        visitCount: serverVisitCount || 1,
+      });
+    }
+  }
+}
+
+async function handleSPANavigation() {
+  // Skip if a modal is already showing to avoid disrupting an in-flight intercept
+  if (document.querySelector(".able-modal-backdrop")) return;
+
+  // Re-classify so the new route's domain gets evaluated
+  classifyReady = classifyCurrentDomain();
+  await classifyReady;
+
+  const serverVisitCount = await logDomainVisit();
+  await evaluateAndShowModal(serverVisitCount);
+}
+
 async function initialize() {
   injectFonts();
 
@@ -779,33 +856,7 @@ async function initialize() {
   // Log the visit and get the authoritative count from the server
   const serverVisitCount = await logDomainVisit();
 
-  if (shouldActivate()) {
-    await migrateOldSessionConsent();
-    const consent = await hasSiteWarningConsent();
-
-    if (!consent) {
-      // First visit to this unsafe/unlisted domain - show initial warning
-      if (domainStatus.title && domainStatus.message) {
-        await setLastModalShownTime();
-
-        showSiteWarningModal({
-          title: domainStatus.title,
-          message: domainStatus.message,
-        });
-      }
-    } else {
-      // Repeat visit - check cooldown and show modal with server count
-      const shouldShow = await shouldShowRepeatVisitModal();
-
-      if (shouldShow) {
-        showRepeatVisitModal({
-          domain: domainStatus.domain,
-          status: domainStatus.status === "unsafe" ? "Unsafe" : "Unlisted",
-          visitCount: serverVisitCount || 1,
-        });
-      }
-    }
-  }
+  await evaluateAndShowModal(serverVisitCount);
 }
 
 injectPageScript();
@@ -816,3 +867,11 @@ if (document.readyState === "loading") {
 } else {
   initialize();
 }
+
+// Re-initialize on bfcache restoration (back/forward navigation from cache)
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) {
+    injectPageScript();
+    initialize();
+  }
+});

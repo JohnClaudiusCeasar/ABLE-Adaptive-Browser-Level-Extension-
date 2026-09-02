@@ -267,11 +267,97 @@ async function logExtensionLifecycle({ userId, extensionId, event, version }) {
 }
 
 /**
+ * Pending visit log queue — stores visit events that couldn't be sent
+ * to the server (e.g., network unreachable) so they can be retried later.
+ */
+const PENDING_VISITS_KEY = "able:pending_visits";
+
+/**
+ * Queue a visit log entry for later retry when the server is unreachable.
+ */
+async function queueVisitLog(domain, status, source, userId, visitedAt) {
+  try {
+    const result = await chrome.storage.local.get(PENDING_VISITS_KEY);
+    const queue = result[PENDING_VISITS_KEY] || [];
+    queue.push({
+      domain,
+      status,
+      source,
+      user_id: userId,
+      visited_at: visitedAt,
+      enqueued_at: Date.now(),
+    });
+    await chrome.storage.local.set({ [PENDING_VISITS_KEY]: queue });
+  } catch {
+    // Silently fail — queueing is best-effort
+  }
+}
+
+/**
+ * Attempt to flush pending visit logs to the server.
+ * Respects rate-limit backoff. Successfully sent entries are removed;
+ * failures remain in the queue for the next attempt.
+ */
+async function processVisitLogQueue() {
+  try {
+    if (await isEndpointCoolingDown("log-visit")) return;
+
+    const result = await chrome.storage.local.get(PENDING_VISITS_KEY);
+    const queue = result[PENDING_VISITS_KEY] || [];
+    if (queue.length === 0) return;
+
+    const remaining = [];
+
+    for (const entry of queue) {
+      try {
+        const response = await ABLESecurity.secureFetch(
+          `${SERVER_URL}/api/log-visit`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Accept": "application/json" },
+            body: JSON.stringify({
+              domain: entry.domain,
+              status: entry.status,
+              source: entry.source,
+              user_id: entry.user_id,
+              visited_at: entry.visited_at,
+            }),
+          }
+        );
+
+        if (response.status === 429) {
+          await recordRateLimitBackoff("log-visit", response);
+          console.warn("ABLE: log-visit queue retry rate-limited by server, backing off.");
+          remaining.push(entry);
+          break; // stop — rate limited, retry next attempt
+        }
+
+        if (!response.ok) {
+          console.warn("ABLE: Failed to flush queued visit log:", response.status);
+          remaining.push(entry);
+        }
+        // Success — don't re-queue
+      } catch {
+        remaining.push(entry);
+      }
+    }
+
+    await chrome.storage.local.set({ [PENDING_VISITS_KEY]: remaining });
+  } catch {
+    // Silently fail — best-effort retry
+  }
+}
+
+/**
  * Log a domain visit to the server.
  * Honors Retry-After on 429 responses by suppressing further visit logs
  * to this endpoint for the indicated backoff window.
+ * If the server is unreachable, queues the visit for later retry.
  */
 async function logDomainVisit(domain, status, source, timestamp) {
+  // Best-effort: retry any previously queued visits
+  await processVisitLogQueue();
+
   if (await isEndpointCoolingDown("log-visit")) return null;
 
   const userId = await getOrCreateUserId();
@@ -291,13 +377,15 @@ async function logDomainVisit(domain, status, source, timestamp) {
 
     if (!response.ok) {
       console.warn("ABLE: Failed to log domain visit:", response.status);
+      await queueVisitLog(domain, status, source, userId, timestamp);
       return null;
     }
 
     const data = await response.json();
     return data.visit_count ?? null;
   } catch (error) {
-    // Silently fail — logging visits is non-critical
+    // Server unreachable — queue for later retry
+    await queueVisitLog(domain, status, source, userId, timestamp);
     return null;
   }
 }

@@ -194,6 +194,41 @@
 
   window.postMessage({ source: 'ABLE_INJECT', type: 'ABLE_READY' }, '*');
 
+  // --- SPA navigation detection ---
+  // pushState / replaceState don't fire DOM events, so we patch them
+  // and also listen for popstate / hashchange to cover all client-side
+  // routing patterns used by modern web apps.
+  (function () {
+    var lastUrl = location.href;
+
+    function notifyUrlChange() {
+      if (location.href !== lastUrl) {
+        lastUrl = location.href;
+        window.postMessage({
+          source: 'ABLE_INJECT',
+          type: 'ABLE_SPA_NAVIGATION',
+          url: location.href,
+        }, '*');
+      }
+    }
+
+    var originalPushState = history.pushState;
+    var originalReplaceState = history.replaceState;
+
+    history.pushState = function () {
+      originalPushState.apply(this, arguments);
+      notifyUrlChange();
+    };
+
+    history.replaceState = function () {
+      originalReplaceState.apply(this, arguments);
+      notifyUrlChange();
+    };
+
+    window.addEventListener('popstate', notifyUrlChange);
+    window.addEventListener('hashchange', notifyUrlChange);
+  })();
+
   // --- Intercept form submissions with file uploads ---
   var formSubmitting = false;
 

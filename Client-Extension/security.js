@@ -219,10 +219,10 @@ async function verifyTlsPin(hostname) {
 
 /**
  * Generate a cryptographically secure random user ID using crypto.getRandomValues.
- * Format: 'ABLE-' + 22 base32 chars (≈110 bits of entropy).
+ * Format: 'ABLE-' + 8 base32 chars (≈40 bits of entropy).
  */
 async function generateSecureUserId() {
-  const bytes = new Uint8Array(14);
+  const bytes = new Uint8Array(5);
   crypto.getRandomValues(bytes);
   const base32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
   let id = "";
@@ -244,7 +244,7 @@ async function generateSecureUserId() {
  * Returns true iff the ID is well-formed.
  */
 function isValidUserId(id) {
-  return typeof id === "string" && /^ABLE-[A-Z2-7]{22}$/.test(id);
+  return typeof id === "string" && /^ABLE-[A-Z2-7]{8}$/.test(id);
 }
 
 /**

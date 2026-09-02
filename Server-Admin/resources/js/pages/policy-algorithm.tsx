@@ -800,7 +800,9 @@ export default function PolicyAlgorithm() {
                                                 risk_score:
                                                     policy === 'under_review'
                                                         ? 70
-                                                        : form.risk_score,
+                                                        : policy === 'whitelisted'
+                                                            ? 0
+                                                            : form.risk_score,
                                             });
                                         }}
                                         className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-foreground transition-colors outline-none focus:border-able-green dark:border-white/10"
