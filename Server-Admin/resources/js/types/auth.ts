@@ -4,6 +4,7 @@ export type User = {
     email: string;
     avatar?: string;
     email_verified_at: string | null;
+    profile_last_updated_at: string | null;
     /* @chisel-2fa */
     two_factor_enabled?: boolean;
     /* @end-chisel-2fa */

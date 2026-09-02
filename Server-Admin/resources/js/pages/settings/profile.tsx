@@ -7,10 +7,12 @@ import DeleteUser from '@/components/delete-user';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { edit } from '@/routes/profile';
 import type { Auth } from '@/types';
+import { useState } from 'react';
 /* @chisel-email-verification */
 import { send } from '@/routes/verification';
 /* @end-chisel-email-verification */
@@ -24,13 +26,28 @@ export default function Profile(
     {
         mustVerifyEmail,
         status,
+        profileLastUpdatedAt,
     }: {
         mustVerifyEmail: boolean;
         status?: string;
+        profileLastUpdatedAt: string | null;
     },
     /* @end-chisel-email-verification */
 ) {
     const { auth } = usePage<PageProps>().props;
+    const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+    const [pendingSubmit, setPendingSubmit] = useState<(() => void) | null>(null);
+
+    const cooldownExpiresAt = profileLastUpdatedAt
+        ? new Date(new Date(profileLastUpdatedAt).getTime() + 7 * 24 * 60 * 60 * 1000)
+        : null;
+    const isOnCooldown = cooldownExpiresAt ? cooldownExpiresAt > new Date() : false;
+    const cooldownDaysRemaining = isOnCooldown
+        ? Math.ceil((cooldownExpiresAt!.getTime() - Date.now()) / (24 * 60 * 60 * 1000))
+        : 0;
+    const cooldownExpiresFormatted = cooldownExpiresAt
+        ? cooldownExpiresAt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+        : null;
 
     return (
         <>
@@ -45,6 +62,14 @@ export default function Profile(
                     description="Update your name and email address"
                 />
 
+                {isOnCooldown && (
+                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
+                        To prevent misuse, changes to your name and email are limited to once every 7 days.
+                        You can next update these fields on {cooldownExpiresFormatted} (in{' '}
+                        {cooldownDaysRemaining} {cooldownDaysRemaining === 1 ? 'day' : 'days'}).
+                    </div>
+                )}
+
                 <Form
                     {...ProfileController.update.form()}
                     options={{
@@ -52,7 +77,7 @@ export default function Profile(
                     }}
                     className="space-y-6"
                 >
-                    {({ processing, errors }) => (
+                    {({ processing, errors, submit }) => (
                         <>
                             <div className="grid gap-2">
                                 <Label htmlFor="name">Name</Label>
@@ -65,6 +90,7 @@ export default function Profile(
                                     required
                                     autoComplete="name"
                                     placeholder="Full name"
+                                    disabled={isOnCooldown}
                                 />
 
                                 <InputError
@@ -85,6 +111,7 @@ export default function Profile(
                                     required
                                     autoComplete="username"
                                     placeholder="Email address"
+                                    disabled={isOnCooldown}
                                 />
 
                                 <InputError
@@ -122,8 +149,13 @@ export default function Profile(
 
                             <div className="flex items-center gap-4">
                                 <Button
-                                    disabled={processing}
+                                    type="button"
+                                    disabled={processing || isOnCooldown}
                                     data-test="update-profile-button"
+                                    onClick={() => {
+                                        setPendingSubmit(() => submit);
+                                        setShowConfirmDialog(true);
+                                    }}
                                 >
                                     Save
                                 </Button>
@@ -134,6 +166,20 @@ export default function Profile(
             </div>
 
             <DeleteUser />
+
+            <ConfirmDialog
+                open={showConfirmDialog}
+                onOpenChange={setShowConfirmDialog}
+                title="Confirm profile changes"
+                description="Updating your profile will apply the following: your name and email will be changed to the new values provided. If your email address is changed, you will be required to re-verify it. A 7-day cooldown will be enforced before you can edit your name or email again."
+                confirmLabel="Save changes"
+                cancelLabel="Cancel"
+                variant="default"
+                onConfirm={() => {
+                    pendingSubmit?.();
+                    setPendingSubmit(null);
+                }}
+            />
         </>
     );
 }

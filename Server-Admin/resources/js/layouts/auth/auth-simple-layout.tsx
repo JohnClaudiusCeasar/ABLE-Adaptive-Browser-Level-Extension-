@@ -1,6 +1,3 @@
-import { Link } from '@inertiajs/react';
-import AppLogoIcon from '@/components/app-logo-icon';
-import { home } from '@/routes';
 import type { AuthLayoutProps } from '@/types';
 
 export default function AuthSimpleLayout({
@@ -19,18 +16,13 @@ export default function AuthSimpleLayout({
             >
                 {/* Brand */}
                 <div className="flex flex-col items-center mb-9">
-                    <Link href={home()} className="flex flex-col items-center gap-1.5 mb-2.5">
-                        <div className="mb-1 flex items-center justify-center">
-                            <AppLogoIcon className="size-10 fill-current text-white" />
-                        </div>
-                    </Link>
                     <h1
                         className="text-[2.4rem] font-bold tracking-widest text-foreground"
                         style={{ fontFamily: "'Unbounded', sans-serif" }}
                     >
                         ABL<span className="text-able-green">E</span>
                     </h1>
-                    <p className="text-[0.9rem] text-muted-foreground mt-2">
+                    <p className="text-[0.9rem] text-muted-foreground">
                         Adaptive Browser-Level Extension
                     </p>
                 </div>

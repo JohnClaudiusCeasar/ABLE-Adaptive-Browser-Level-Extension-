@@ -6,7 +6,6 @@ import {
     Menu,
     MessageSquareText,
     MousePointerClick,
-    Settings,
     Shield,
     ShieldCheck,
     TrendingUp,
@@ -106,10 +105,10 @@ export function AppSidebar() {
                     </button>
                     <button
                         className="transition-colors hover:text-able-green-muted dark:hover:text-white"
-                        aria-label="Settings"
-                        onClick={() => router.visit('/settings/security')}
+                        aria-label="Security"
+                        onClick={() => router.visit('/security')}
                     >
-                        <Settings size={20} />
+                        <Shield size={20} />
                     </button>
                     <button
                         className="transition-colors hover:text-able-green-muted dark:hover:text-white"

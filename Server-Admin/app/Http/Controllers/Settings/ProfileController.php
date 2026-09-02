@@ -22,6 +22,7 @@ class ProfileController extends Controller
         return Inertia::render('settings/profile', [
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => $request->session()->get('status'),
+            'profileLastUpdatedAt' => $request->user()->profile_last_updated_at?->toIso8601String(),
         ]);
     }
 
@@ -34,6 +35,10 @@ class ProfileController extends Controller
 
         if ($request->user()->isDirty('email')) {
             $request->user()->email_verified_at = null;
+        }
+
+        if ($request->user()->isDirty('name') || $request->user()->isDirty('email')) {
+            $request->user()->profile_last_updated_at = now();
         }
 
         $request->user()->save();

@@ -1,8 +1,7 @@
 <?php
 
-namespace App\Http\Controllers\Settings;
+namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\PasswordUpdateRequest;
 use App\Http\Requests\Settings\TwoFactorAuthenticationRequest;
 use Illuminate\Http\RedirectResponse;
@@ -55,7 +54,7 @@ class SecurityController extends Controller
         }
         /* @end-chisel-2fa */
 
-        return Inertia::render('settings/security', $props);
+        return Inertia::render('security', $props);
     }
 
     /**
