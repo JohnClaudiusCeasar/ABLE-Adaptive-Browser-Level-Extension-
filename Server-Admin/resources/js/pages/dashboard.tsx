@@ -1,5 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { Users, UserMinus, Globe, ShieldAlert, Activity, Printer, FileSpreadsheet, FileText, ChevronDown, Ghost, ArrowUpFromLine } from 'lucide-react';
+import { Users, UserMinus, Globe, ShieldAlert, Activity, Printer, FileSpreadsheet, FileText, ChevronDown, Ghost, Ghost, ArrowUpFromLine } from 'lucide-react';
 import { DonutGauge } from '@/components/dashboard/donut-gauge';
 import { PanelCard } from '@/components/dashboard/panel-card';
 import { SegmentedBar } from '@/components/dashboard/segmented-bar';
@@ -32,6 +32,9 @@ interface DashboardProps {
     activeUsers: number;
     inactiveUsers: number;
     totalDomainVisits: number;
+    activeShadowApps: number;
+    totalEgressCount: number;
+    criticalEgressCount: number;
     activeShadowApps: number;
     totalEgressCount: number;
     criticalEgressCount: number;
@@ -68,6 +71,9 @@ export default function Dashboard({
     activeUsers,
     inactiveUsers,
     totalDomainVisits,
+    activeShadowApps,
+    totalEgressCount,
+    criticalEgressCount,
     activeShadowApps,
     totalEgressCount,
     criticalEgressCount,
@@ -202,6 +208,82 @@ export default function Dashboard({
                         />
                     </div>
                 </PanelCard>
+
+                {/* Divider */}
+                <div className="flex items-center gap-3 py-2">
+                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[rgba(34,197,94,0.4)] to-transparent" />
+                    <div className="relative">
+                        <div className="w-2 h-2 rounded-full bg-able-green" />
+                        <div className="absolute inset-0 w-2 h-2 rounded-full bg-able-green animate-ping opacity-40" />
+                    </div>
+                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[rgba(34,197,94,0.4)] to-transparent" />
+                </div>
+
+                {/* KPI Row */}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <StatCard
+                        label="Total Egress Count"
+                        value={totalEgressCount.toLocaleString()}
+                        icon={ShieldAlert}
+                        accent="text-[#ff4d4d]"
+                        underline="bg-[#ff4d4d]"
+                    />
+                    <StatCard
+                        label="Critical Egress Count"
+                        value={criticalEgressCount.toLocaleString()}
+                        icon={Activity}
+                        accent="text-[#f1c40f]"
+                        underline="bg-[#f1c40f]"
+                    />
+                    <StatCard
+                        label="Domain Visits"
+                        value={totalDomainVisits.toLocaleString()}
+                        icon={Globe}
+                        accent="text-blue-400"
+                        underline="bg-blue-400"
+                    />
+                    <StatCard
+                        label="Active Shadow Apps"
+                        value={activeShadowApps.toLocaleString()}
+                        icon={Ghost}
+                        accent="text-[#a855f7]"
+                        underline="bg-[#a855f7]"
+                    />
+                </div>
+
+                {/* Charts Row */}
+                <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+                    <PanelCard
+                        title="Nudge Success"
+                        subtitle="Share of nudges that prevented data loss"
+                    >
+                        <DonutGauge
+                            segments={nudgeSegments}
+                            centerLabel="Success Rate"
+                            centerValue={`${nudgeSuccessRate}%`}
+                        />
+                    </PanelCard>
+                    <PanelCard
+                        title="Domain Usage"
+                        subtitle="Classification of monitored domains"
+                    >
+                        <DonutGauge
+                            segments={domainSegments}
+                            centerLabel="Total Domains"
+                            centerValue={totalDomains.toLocaleString()}
+                        />
+                    </PanelCard>
+                </div>
+
+                {/* Divider */}
+                <div className="flex items-center gap-3 py-2">
+                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[rgba(34,197,94,0.4)] to-transparent" />
+                    <div className="relative">
+                        <div className="w-2 h-2 rounded-full bg-able-green" />
+                        <div className="absolute inset-0 w-2 h-2 rounded-full bg-able-green animate-ping opacity-40" />
+                    </div>
+                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[rgba(34,197,94,0.4)] to-transparent" />
+                </div>
 
                 {/* Divider */}
                 <div className="flex items-center gap-3 py-2">
