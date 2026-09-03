@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\RiskPattern;
 use App\Models\CriteriaPatternItem;
+use App\Models\RiskPattern;
 use App\Rules\CompilableRegex;
 use App\Support\JsCanonical;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redirect;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -223,7 +223,7 @@ class RiskPatternController extends Controller
         ];
 
         $key = config('able.signing_key');
-        if (!$key || strlen($key) < 32) {
+        if (! $key || strlen($key) < 32) {
             abort(500, 'ABLE signing key not configured');
         }
 

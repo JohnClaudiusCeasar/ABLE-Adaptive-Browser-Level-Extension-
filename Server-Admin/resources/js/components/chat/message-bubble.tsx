@@ -1,6 +1,6 @@
 import { CheckCheck } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { formatTime } from '@/lib/date';
+import { cn } from '@/lib/utils';
 import type { ChatMessageData } from '@/types/chat';
 
 export function MessageBubble({

@@ -4,6 +4,7 @@ namespace App\Rules;
 
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Translation\PotentiallyTranslatedString;
 
 /**
  * Validates that a string is a compilable regular expression.
@@ -17,22 +18,22 @@ class CompilableRegex implements ValidationRule
     /**
      * Run the validation rule.
      *
-     * @param  \Closure(string): \Illuminate\Translation\PotentiallyTranslatedString  $fail
+     * @param  Closure(string): PotentiallyTranslatedString  $fail
      */
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        if (!is_string($value) || $value === '') {
+        if (! is_string($value) || $value === '') {
             return;
         }
 
         set_error_handler(static fn (): bool => true); // swallow PCRE warnings
         try {
-            $compiled = @preg_match('~' . $value . '~', '') !== false;
+            $compiled = @preg_match('~'.$value.'~', '') !== false;
         } finally {
             restore_error_handler();
         }
 
-        if (!$compiled) {
+        if (! $compiled) {
             $fail('The :attribute must be a valid regular expression.');
         }
     }

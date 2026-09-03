@@ -22,8 +22,6 @@ class JsCanonical
 {
     /**
      * Encode a value into the canonical byte form used for signing.
-     *
-     * @param  mixed  $value
      */
     public static function encode(mixed $value): string
     {
@@ -43,6 +41,7 @@ class JsCanonical
     public static function sign(mixed $payload, string $keyHex): string
     {
         $rawKey = self::hexToRawKey($keyHex);
+
         return hash_hmac('sha256', self::encode($payload), $rawKey);
     }
 
@@ -51,17 +50,15 @@ class JsCanonical
      */
     private static function hexToRawKey(string $hex): string
     {
-        if (!preg_match('/^[0-9a-fA-F]{64}$/', $hex)) {
+        if (! preg_match('/^[0-9a-fA-F]{64}$/', $hex)) {
             throw new \InvalidArgumentException('Signing key must be 64 hex chars (32 raw bytes).');
         }
+
         return hex2bin($hex);
     }
 
     /**
      * Recursively sort array keys. Scalar values pass through untouched.
-     *
-     * @param  mixed  $value
-     * @return mixed
      */
     private static function sortKeys(mixed $value): mixed
     {

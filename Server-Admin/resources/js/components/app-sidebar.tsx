@@ -1,3 +1,4 @@
+import { router } from '@inertiajs/react';
 import {
     BarChart3,
     Bell,
@@ -11,7 +12,6 @@ import {
     TrendingUp,
     UserCircle,
 } from 'lucide-react';
-import { router } from '@inertiajs/react';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
 import { SidebarSearch } from '@/components/sidebar-search';

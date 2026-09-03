@@ -1,9 +1,9 @@
-import { Checkbox } from '@/components/ui/checkbox';
-import { ChatAvatar } from '@/components/chat/avatar';
-import { cn } from '@/lib/utils';
-import { formatRelativeTime } from '@/lib/date';
-import type { ChatConversationData } from '@/types/chat';
 import { Trash2 } from 'lucide-react';
+import { ChatAvatar } from '@/components/chat/avatar';
+import { Checkbox } from '@/components/ui/checkbox';
+import { formatRelativeTime } from '@/lib/date';
+import { cn } from '@/lib/utils';
+import type { ChatConversationData } from '@/types/chat';
 
 const activeCardStyle =
     'bg-white/5 border border-able-green/60 shadow-[0_0_15px_rgba(34,197,94,0.25)]';
@@ -28,7 +28,9 @@ export function ConversationList({
     onSelectionChange?: (ids: Set<number>) => void;
 }) {
     function toggleSelection(id: number) {
-        if (!onSelectionChange) return;
+        if (!onSelectionChange) {
+return;
+}
 
         const next = new Set(selectedIds);
 

@@ -1,5 +1,5 @@
-import { lazy, Suspense } from 'react';
 import { usePage } from '@inertiajs/react';
+import { lazy, Suspense } from 'react';
 import { AppContent } from '@/components/app-content';
 import { AppShell } from '@/components/app-shell';
 import { AppSidebar } from '@/components/app-sidebar';

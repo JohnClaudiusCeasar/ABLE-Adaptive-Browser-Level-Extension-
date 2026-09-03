@@ -3,17 +3,17 @@ import { useRef } from 'react';
 import SecurityController from '@/actions/App/Http/Controllers/SecurityController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
+import type { Props as ManagePasskeysProps } from '@/components/manage-passkeys';
+import ManagePasskeys from '@/components/manage-passkeys';
+import type { Props as ManageTwoFactorProps } from '@/components/manage-two-factor';
+import ManageTwoFactor from '@/components/manage-two-factor';
 import PasswordInput from '@/components/password-input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { edit } from '@/routes/security';
 /* @chisel-passkeys */
-import type { Props as ManagePasskeysProps } from '@/components/manage-passkeys';
-import ManagePasskeys from '@/components/manage-passkeys';
 /* @end-chisel-passkeys */
 /* @chisel-2fa */
-import type { Props as ManageTwoFactorProps } from '@/components/manage-two-factor';
-import ManageTwoFactor from '@/components/manage-two-factor';
 /* @end-chisel-2fa */
 
 type Props = {
@@ -79,14 +79,16 @@ export default function Security(props: Props) {
                                             Current password
                                         </Label>
 
-                                        <PasswordInput
-                                            id="current_password"
-                                            ref={currentPasswordInput}
-                                            name="current_password"
-                                            className="mt-1 block w-full"
-                                            autoComplete="current-password"
-                                            placeholder="Current password"
-                                        />
+                                        <div className="max-w-sm">
+                                            <PasswordInput
+                                                id="current_password"
+                                                ref={currentPasswordInput}
+                                                name="current_password"
+                                                className="mt-1 block w-full"
+                                                autoComplete="current-password"
+                                                placeholder="Current password"
+                                            />
+                                        </div>
 
                                         <InputError message={errors.current_password} />
                                     </div>
@@ -94,15 +96,17 @@ export default function Security(props: Props) {
                                     <div className="grid gap-2">
                                         <Label htmlFor="password">New password</Label>
 
-                                        <PasswordInput
-                                            id="password"
-                                            ref={passwordInput}
-                                            name="password"
-                                            className="mt-1 block w-full"
-                                            autoComplete="new-password"
-                                            placeholder="New password"
-                                            passwordrules={props.passwordRules}
-                                        />
+                                        <div className="max-w-sm">
+                                            <PasswordInput
+                                                id="password"
+                                                ref={passwordInput}
+                                                name="password"
+                                                className="mt-1 block w-full"
+                                                autoComplete="new-password"
+                                                placeholder="New password"
+                                                passwordrules={props.passwordRules}
+                                            />
+                                        </div>
 
                                         <InputError message={errors.password} />
                                     </div>
@@ -112,14 +116,16 @@ export default function Security(props: Props) {
                                             Confirm password
                                         </Label>
 
-                                        <PasswordInput
-                                            id="password_confirmation"
-                                            name="password_confirmation"
-                                            className="mt-1 block w-full"
-                                            autoComplete="new-password"
-                                            placeholder="Confirm password"
-                                            passwordrules={props.passwordRules}
-                                        />
+                                        <div className="max-w-sm">
+                                            <PasswordInput
+                                                id="password_confirmation"
+                                                name="password_confirmation"
+                                                className="mt-1 block w-full"
+                                                autoComplete="new-password"
+                                                placeholder="Confirm password"
+                                                passwordrules={props.passwordRules}
+                                            />
+                                        </div>
 
                                         <InputError
                                             message={errors.password_confirmation}

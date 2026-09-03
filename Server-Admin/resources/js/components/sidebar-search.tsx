@@ -1,8 +1,8 @@
 import { router } from '@inertiajs/react';
 import { Search } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
-import type { NavItem } from '@/types';
 import { cn } from '@/lib/utils';
+import type { NavItem } from '@/types';
 
 interface FlatNavItem {
     title: string;

@@ -1,11 +1,11 @@
 import { useCallback, useRef, useState } from 'react';
-import { getCsrfToken } from '@/lib/csrf';
 import {
     mergeOlderMessages,
     setCursor,
     upsertMessage,
     useChatStore,
 } from '@/lib/chat-store';
+import { getCsrfToken } from '@/lib/csrf';
 import type { ChatMessageData, ChatMessagesResponse } from '@/types/chat';
 
 function dedupe(messages: ChatMessageData[]): ChatMessageData[] {

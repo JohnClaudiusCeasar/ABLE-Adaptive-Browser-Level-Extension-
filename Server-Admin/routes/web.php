@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DashboardReportController;
 use App\Http\Controllers\DomainPolicyController;
 use App\Http\Controllers\DomainVisitController;
 use App\Http\Controllers\EgressEventController;
@@ -21,6 +22,8 @@ Route::get('/', function () {
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('dashboard/report/pdf', [DashboardReportController::class, 'pdf'])->name('dashboard.report.pdf');
+    Route::get('dashboard/report/excel', [DashboardReportController::class, 'excel'])->name('dashboard.report.excel');
     Route::get('egress-logs', [EgressEventController::class, 'index'])->name('egress-logs');
     Route::get('domain-visits', [DomainVisitController::class, 'index'])->name('domain-visits');
     Route::get('security-analytics', [SecurityAnalyticsController::class, 'index'])->name('security-analytics');

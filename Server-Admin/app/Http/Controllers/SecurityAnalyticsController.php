@@ -37,11 +37,11 @@ class SecurityAnalyticsController extends Controller
 
         // 4. Nudge Effectiveness - count interactions grouped by date and action
         $nudgeEffectiveness = NudgeInteraction::select(
-            DB::raw("DATE(interacted_at) as date"),
+            DB::raw('DATE(interacted_at) as date'),
             DB::raw("SUM(CASE WHEN user_action = 'proceeded' THEN 1 ELSE 0 END) as proceeded"),
             DB::raw("SUM(CASE WHEN user_action = 'cancelled' THEN 1 ELSE 0 END) as cancelled")
         )
-            ->groupBy(DB::raw("DATE(interacted_at)"))
+            ->groupBy(DB::raw('DATE(interacted_at)'))
             ->orderByDesc('date')
             ->limit(10)
             ->get()
@@ -143,11 +143,11 @@ class SecurityAnalyticsController extends Controller
     public function nudgeEffectiveness(): Response
     {
         $nudgeEffectiveness = NudgeInteraction::select(
-            DB::raw("DATE(interacted_at) as date"),
+            DB::raw('DATE(interacted_at) as date'),
             DB::raw("SUM(CASE WHEN user_action = 'proceeded' THEN 1 ELSE 0 END) as proceeded"),
             DB::raw("SUM(CASE WHEN user_action = 'cancelled' THEN 1 ELSE 0 END) as cancelled")
         )
-            ->groupBy(DB::raw("DATE(interacted_at)"))
+            ->groupBy(DB::raw('DATE(interacted_at)'))
             ->orderByDesc('date')
             ->get()
             ->map(function ($row) {
@@ -168,11 +168,13 @@ class SecurityAnalyticsController extends Controller
      */
     private function formatBytes(int $bytes): string
     {
-        if ($bytes === 0) return '0 B';
+        if ($bytes === 0) {
+            return '0 B';
+        }
 
         $units = ['B', 'KB', 'MB', 'GB', 'TB'];
         $i = (int) floor(log($bytes, 1024));
 
-        return round($bytes / (1024 ** $i), 1) . ' ' . $units[$i];
+        return round($bytes / (1024 ** $i), 1).' '.$units[$i];
     }
 }

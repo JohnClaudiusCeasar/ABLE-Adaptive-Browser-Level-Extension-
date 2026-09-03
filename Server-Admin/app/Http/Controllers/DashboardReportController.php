@@ -2,22 +2,46 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\DashboardExport;
 use App\Models\DomainPolicy;
 use App\Models\DomainVisit;
 use App\Models\EgressEvent;
 use App\Models\ExtensionLifecycle;
 use App\Models\NudgeInteraction;
-use Inertia\Inertia;
-use Inertia\Response;
+use Barryvdh\DomPDF\Facade\Pdf;
 
-class DashboardController extends Controller
+class DashboardReportController extends Controller
 {
-    /**
-     * Display the Dashboard page with live data.
-     */
-    public function index(): Response
+    public function pdf()
     {
-        // 1. Active Extension Users - distinct extension user IDs with activity in the last 30 days
+        $data = $this->getReportData();
+
+        $pdf = Pdf::loadView('reports.dashboard', $data)
+            ->setPaper('a4', 'portrait')
+            ->setOptions([
+                'defaultFont' => 'Helvetica',
+                'isRemoteEnabled' => false,
+            ]);
+
+        return $pdf->download('able-security-report-'.now()->format('Y-m-d').'.pdf');
+    }
+
+    public function excel()
+    {
+        $data = $this->getReportData();
+
+        $export = new DashboardExport(
+            $data['summary'],
+            $data['recentEgressEvents'],
+            $data['recentDomainVisits']
+        );
+
+        return $export->download();
+    }
+
+    protected function getReportData(): array
+    {
+        // Active Extension Users
         $thirtyDaysAgo = now()->subDays(30);
         $activeVisitUsers = DomainVisit::where('visited_at', '>=', $thirtyDaysAgo)
             ->whereNotNull('user_id')
@@ -29,34 +53,34 @@ class DashboardController extends Controller
             ->pluck('user_id');
         $activeUsers = $activeVisitUsers->merge($activeEgressUsers)->unique()->count();
 
-        // Inactive Extension Users - users whose latest lifecycle event is 'uninstalled'
+        // Inactive Extension Users
         $inactiveUsers = ExtensionLifecycle::select('user_id')
             ->selectRaw('MAX(occurred_at) as last_event_at')
             ->groupBy('user_id')
             ->havingRaw('MAX(CASE WHEN event = ? THEN occurred_at END) = MAX(occurred_at)', ['uninstalled'])
             ->count();
 
-        // 2. Total telemetry counts
+        // Total telemetry counts
         $totalDomainVisits = DomainVisit::count();
         $totalEgressAttempts = EgressEvent::count();
 
-        // 3. Data Saved/Lost - single conditional aggregation
+        // Data Saved/Lost
         $dataStats = EgressEvent::selectRaw("
             COALESCE(SUM(CASE WHEN action = 'denied' THEN file_size ELSE 0 END), 0) as data_saved,
             COALESCE(SUM(CASE WHEN action = 'proceeded' THEN file_size ELSE 0 END), 0) as data_lost
         ")->first();
 
-        // 4. Nudge Success Rate
+        // Nudge Success Rate
         $nudgeStats = NudgeInteraction::selectRaw("
             SUM(CASE WHEN user_action = 'proceeded' THEN 1 ELSE 0 END) as proceeded,
             SUM(CASE WHEN user_action = 'cancelled' THEN 1 ELSE 0 END) as cancelled
         ")->first();
         $totalInteractions = (int) $nudgeStats->proceeded + (int) $nudgeStats->cancelled;
         $nudgeSuccessRate = $totalInteractions > 0
-            ? round(((int) $nudgeStats->proceeded / $totalInteractions) * 100, 1)
+            ? round(((int) $nudgeStats->cancelled / $totalInteractions) * 100, 1)
             : 0;
 
-        // 5. Domain Usage - single conditional aggregation
+        // Domain Usage
         $statusCounts = DomainPolicy::selectRaw("
             SUM(CASE WHEN domain_status = 'safe' THEN 1 ELSE 0 END) as safe,
             SUM(CASE WHEN domain_status = 'unsafe' THEN 1 ELSE 0 END) as unsafe,
@@ -68,9 +92,9 @@ class DashboardController extends Controller
             'unlisted' => (int) $statusCounts->unlisted,
         ];
 
-        // 6. Recent Egress Events
+        // Recent Egress Events (20 for reports)
         $recentEgressEvents = EgressEvent::orderByDesc('occurred_at')
-            ->limit(5)
+            ->limit(20)
             ->get()
             ->map(function ($event) {
                 $status = $event->risk_score >= 75 ? 'glass-unsafe' : 'glass-unlisted';
@@ -83,12 +107,12 @@ class DashboardController extends Controller
                     'fileName' => $event->file_name,
                     'action' => ucfirst($event->action),
                 ];
-            });
+            })->toArray();
 
-        // 7. Recent Domain Visits
+        // Recent Domain Visits (20 for reports)
         $recentDomainVisits = DomainVisit::with('domainPolicy')
             ->orderByDesc('visited_at')
-            ->limit(5)
+            ->limit(20)
             ->get()
             ->map(function ($visit) {
                 $status = match ($visit->domainPolicy?->domain_status) {
@@ -111,9 +135,9 @@ class DashboardController extends Controller
                     'user' => $visit->user_id,
                     'action' => $actionMap[$status],
                 ];
-            });
+            })->toArray();
 
-        return Inertia::render('dashboard', [
+        return [
             'activeUsers' => $activeUsers,
             'inactiveUsers' => $inactiveUsers,
             'totalDomainVisits' => $totalDomainVisits,
@@ -124,13 +148,20 @@ class DashboardController extends Controller
             'domainUsage' => $domainUsage,
             'recentEgressEvents' => $recentEgressEvents,
             'recentDomainVisits' => $recentDomainVisits,
-        ]);
+            'summary' => [
+                'activeUsers' => $activeUsers,
+                'inactiveUsers' => $inactiveUsers,
+                'totalDomainVisits' => $totalDomainVisits,
+                'totalEgressAttempts' => $totalEgressAttempts,
+                'dataSaved' => $this->formatBytes((int) $dataStats->data_saved),
+                'dataLost' => $this->formatBytes((int) $dataStats->data_lost),
+                'nudgeSuccessRate' => $nudgeSuccessRate,
+                'domainUsage' => $domainUsage,
+            ],
+        ];
     }
 
-    /**
-     * Format bytes to human readable format.
-     */
-    private function formatBytes(int $bytes): string
+    protected function formatBytes(int $bytes): string
     {
         if ($bytes === 0) {
             return '0 B';

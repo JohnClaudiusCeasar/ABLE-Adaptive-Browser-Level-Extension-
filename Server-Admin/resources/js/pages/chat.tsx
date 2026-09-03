@@ -85,7 +85,9 @@ export default function Chat() {
     }
 
     function confirmDeleteSingle() {
-        if (!deleteSingleConfirm) return;
+        if (!deleteSingleConfirm) {
+return;
+}
 
         router.delete(`/chat/${deleteSingleConfirm.id}`, {
             preserveScroll: true,
@@ -93,13 +95,17 @@ export default function Chat() {
                 if (activeConversation?.id === deleteSingleConfirm.id) {
                     setActiveConversation(null, [], null);
                 }
+
                 setDeleteSingleConfirm(null);
             },
         });
     }
 
     function handleDeleteSelected() {
-        if (selectedIds.size === 0) return;
+        if (selectedIds.size === 0) {
+return;
+}
+
         setDeleteBulkConfirm(true);
     }
 
@@ -257,7 +263,9 @@ export default function Chat() {
             <ConfirmDialog
                 open={deleteSingleConfirm !== null}
                 onOpenChange={(open) => {
-                    if (!open) setDeleteSingleConfirm(null);
+                    if (!open) {
+setDeleteSingleConfirm(null);
+}
                 }}
                 title="Delete conversation"
                 description={`Delete conversation with ${deleteSingleConfirm?.other_user?.name ?? 'Unknown'}?`}

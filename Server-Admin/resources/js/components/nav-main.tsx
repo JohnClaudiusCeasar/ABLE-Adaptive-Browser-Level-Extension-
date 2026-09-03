@@ -2,6 +2,11 @@ import { Link } from '@inertiajs/react';
 import { ChevronDown } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import {
     SidebarGroup,
     SidebarMenu,
     SidebarMenuButton,
@@ -10,15 +15,10 @@ import {
     SidebarMenuSubButton,
     SidebarMenuSubItem,
 } from '@/components/ui/sidebar';
-import {
-    Collapsible,
-    CollapsibleContent,
-    CollapsibleTrigger,
-} from '@/components/ui/collapsible';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import type { IsCurrentUrlFn } from '@/hooks/use-current-url';
-import type { NavItem } from '@/types';
 import { cn } from '@/lib/utils';
+import type { NavItem } from '@/types';
 
 const activeCardStyle =
     'bg-white/5 border border-blue-500/60 shadow-[0_0_15px_rgba(59,130,246,0.6)] text-foreground';

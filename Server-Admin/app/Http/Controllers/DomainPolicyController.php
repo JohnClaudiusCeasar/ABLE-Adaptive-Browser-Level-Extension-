@@ -5,9 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\DomainPolicy;
 use App\Models\DomainVisit;
 use App\Support\JsCanonical;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Redirect;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -42,6 +42,7 @@ class DomainPolicyController extends Controller
         DomainPolicy::create($validated);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Domain policy created successfully.']);
+
         return Redirect::back();
     }
 
@@ -51,7 +52,7 @@ class DomainPolicyController extends Controller
     public function update(Request $request, DomainPolicy $domainPolicy)
     {
         $validated = $request->validate([
-            'domain' => 'required|string|max:255|unique:domain_policies,domain,' . $domainPolicy->id,
+            'domain' => 'required|string|max:255|unique:domain_policies,domain,'.$domainPolicy->id,
             'domain_status' => 'required|in:safe,unsafe,unlisted',
             'policy' => 'required|in:whitelisted,blacklisted,under_review',
             'category' => 'nullable|string|max:255',
@@ -61,6 +62,7 @@ class DomainPolicyController extends Controller
         $domainPolicy->update($validated);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Domain policy updated successfully.']);
+
         return Redirect::back();
     }
 
@@ -72,6 +74,7 @@ class DomainPolicyController extends Controller
         $domainPolicy->delete();
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Domain policy deleted successfully.']);
+
         return Redirect::back();
     }
 
@@ -83,6 +86,7 @@ class DomainPolicyController extends Controller
         DomainPolicy::query()->delete();
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'All domain policies deleted successfully.']);
+
         return Redirect::back();
     }
 
@@ -183,9 +187,10 @@ class DomainPolicyController extends Controller
     private function signingKey(): string
     {
         $key = config('able.signing_key');
-        if (!$key || strlen($key) < 32) {
+        if (! $key || strlen($key) < 32) {
             abort(500, 'ABLE signing key not configured');
         }
+
         return $key;
     }
 
@@ -206,7 +211,7 @@ class DomainPolicyController extends Controller
             $policy = DomainPolicy::where('domain', $domain)->first();
 
             // If no exact match, check for subdomain match (e.g. mail.google.com → google.com)
-            if (!$policy) {
+            if (! $policy) {
                 $policy = DomainPolicy::whereRaw('? LIKE CONCAT("%.", domain)', [$domain])->first();
             }
 
@@ -277,7 +282,7 @@ class DomainPolicyController extends Controller
         if ($search) {
             $query->where(function ($q) use ($search) {
                 $q->where('user_id', 'like', "%{$search}%")
-                  ->orWhere('domain', 'like', "%{$search}%");
+                    ->orWhere('domain', 'like', "%{$search}%");
             });
         }
 

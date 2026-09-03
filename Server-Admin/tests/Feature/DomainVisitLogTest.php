@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\DomainPolicy;
 use App\Models\DomainVisit;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class DomainVisitLogTest extends TestCase
@@ -65,7 +66,7 @@ class DomainVisitLogTest extends TestCase
         $this->assertNotNull($visit);
 
         // The stored timestamp should match the client's device time, not the server's now()
-        $expected = \Illuminate\Support\Carbon::createFromTimestampMs($clientTimestamp);
+        $expected = Carbon::createFromTimestampMs($clientTimestamp);
         $this->assertSame(
             $expected->format('Y-m-d H:i:s'),
             $visit->visited_at->format('Y-m-d H:i:s'),

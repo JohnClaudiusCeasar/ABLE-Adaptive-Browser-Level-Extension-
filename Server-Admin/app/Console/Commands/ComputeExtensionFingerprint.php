@@ -21,8 +21,9 @@ class ComputeExtensionFingerprint extends Command
     public function handle(): int
     {
         $base = rtrim($this->argument('path'), '/\\');
-        if (!File::isDirectory($base)) {
+        if (! File::isDirectory($base)) {
             $this->error("Directory not found: {$base}");
+
             return self::FAILURE;
         }
 
@@ -46,10 +47,11 @@ class ComputeExtensionFingerprint extends Command
 
         $allOk = true;
         foreach ($files as $relative) {
-            $absolute = $base . DIRECTORY_SEPARATOR . $relative;
-            if (!File::exists($absolute)) {
+            $absolute = $base.DIRECTORY_SEPARATOR.$relative;
+            if (! File::exists($absolute)) {
                 $this->line(sprintf('%-22s MISSING', $relative));
                 $allOk = false;
+
                 continue;
             }
             $hash = hash_file('sha256', $absolute);
@@ -63,13 +65,13 @@ class ComputeExtensionFingerprint extends Command
         // Compute a combined fingerprint over all files in deterministic order.
         $combined = '';
         foreach ($files as $relative) {
-            $absolute = $base . DIRECTORY_SEPARATOR . $relative;
+            $absolute = $base.DIRECTORY_SEPARATOR.$relative;
             if (File::exists($absolute)) {
-                $combined .= $relative . ':' . hash_file('sha256', $absolute) . "\n";
+                $combined .= $relative.':'.hash_file('sha256', $absolute)."\n";
             }
         }
         $this->line('');
-        $this->info('Combined fingerprint: ' . hash('sha256', $combined));
+        $this->info('Combined fingerprint: '.hash('sha256', $combined));
 
         return $allOk ? self::SUCCESS : self::FAILURE;
     }

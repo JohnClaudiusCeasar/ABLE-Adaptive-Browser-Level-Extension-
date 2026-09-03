@@ -1,12 +1,14 @@
 import { Head, Link } from '@inertiajs/react';
-import { Users, Globe, ShieldAlert, Activity } from 'lucide-react';
-import { dashboard } from '@/routes';
+import { Users, UserMinus, Globe, ShieldAlert, Activity, Printer, FileSpreadsheet, FileText, ChevronDown } from 'lucide-react';
+import { DonutGauge } from '@/components/dashboard/donut-gauge';
+import { PanelCard } from '@/components/dashboard/panel-card';
+import { SegmentedBar } from '@/components/dashboard/segmented-bar';
+import { StatCard } from '@/components/dashboard/stat-card';
+import { UserStatCard } from '@/components/dashboard/user-stat-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { PanelCard } from '@/components/dashboard/panel-card';
-import { StatCard } from '@/components/dashboard/stat-card';
-import { DonutGauge } from '@/components/dashboard/donut-gauge';
-import { SegmentedBar } from '@/components/dashboard/segmented-bar';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { dashboard } from '@/routes';
 
 interface RecentEgressEvent {
     occurred_at: string;
@@ -45,6 +47,7 @@ interface DashboardProps {
 
 function formatTimestamp(ts: string): { date: string; time: string } {
     const d = new Date(ts);
+
     return {
         date: d.toLocaleDateString(undefined, {
             year: 'numeric',
@@ -61,6 +64,7 @@ function formatTimestamp(ts: string): { date: string; time: string } {
 
 export default function Dashboard({
     activeUsers,
+    inactiveUsers,
     totalDomainVisits,
     totalEgressAttempts,
     dataSaved,
@@ -72,14 +76,6 @@ export default function Dashboard({
 }: DashboardProps) {
     const totalDomains =
         domainUsage.safe + domainUsage.unsafe + domainUsage.unlisted;
-
-    // System status pill: derived from nudge success rate.
-    const systemStatus =
-        nudgeSuccessRate >= 70
-            ? { label: 'Operational', color: '#00ff66' }
-            : nudgeSuccessRate >= 40
-              ? { label: 'Degraded', color: '#f1c40f' }
-              : { label: 'At Risk', color: '#ff4d4d' };
 
     // Data protection shares (client-computed from the formatted bytes strings).
     const savedBytes = parseFloat(dataSaved) || 0;
@@ -122,26 +118,56 @@ export default function Dashboard({
                             extension network.
                         </p>
                     </div>
-                    <div className="flex items-center gap-2.5 rounded-full border border-[rgba(34,197,94,0.4)] bg-[rgba(34,197,94,0.08)] px-4 py-2 backdrop-blur-[10px] dark:border-[rgba(34,197,94,0.7)] dark:bg-white/5">
-                        <span
-                            className="animate-status-pulse h-2.5 w-2.5 rounded-full"
-                            style={{ backgroundColor: systemStatus.color }}
-                        />
-                        <span className="text-sm font-medium">
-                            System {systemStatus.label}
-                        </span>
-                    </div>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                variant="outline"
+                                className="border-[rgba(34,197,94,0.7)] hover:bg-[rgba(34,197,94,0.1)] gap-2"
+                            >
+                                <Printer size={16} />
+                                Print Report
+                                <ChevronDown size={14} />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem asChild>
+                                <a href="/dashboard/report/pdf" className="gap-2 cursor-pointer">
+                                    <FileText size={16} />
+                                    Download PDF
+                                </a>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                                <a href="/dashboard/report/excel" className="gap-2 cursor-pointer">
+                                    <FileSpreadsheet size={16} />
+                                    Download CSV
+                                </a>
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </header>
 
-                {/* KPI Row */}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <StatCard
+                {/* User Stats Row */}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <UserStatCard
                         label="Active Users"
                         value={activeUsers}
                         icon={Users}
                         accent="text-able-green"
-                        underline="bg-able-green"
+                        subtitle="Last 30 days"
+                        pulseColor="#22c55e"
                     />
+                    <UserStatCard
+                        label="Inactive Users"
+                        value={inactiveUsers}
+                        icon={UserMinus}
+                        accent="text-[#ff4d4d]"
+                        subtitle="Uninstalled"
+                        pulseColor="#ff4d4d"
+                    />
+                </div>
+
+                {/* KPI Row */}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <StatCard
                         label="Domain Visits"
                         value={totalDomainVisits.toLocaleString()}
@@ -275,6 +301,7 @@ export default function Dashboard({
                                 ) : (
                                 recentEgressEvents.map((row, i) => {
                                     const { date, time } = formatTimestamp(row.occurred_at);
+
                                     return (
                                         <tr
                                             key={i}
@@ -368,6 +395,7 @@ export default function Dashboard({
                                 ) : (
                                 recentDomainVisits.map((row, i) => {
                                     const { date, time } = formatTimestamp(row.visited_at);
+
                                     return (
                                         <tr
                                             key={i}

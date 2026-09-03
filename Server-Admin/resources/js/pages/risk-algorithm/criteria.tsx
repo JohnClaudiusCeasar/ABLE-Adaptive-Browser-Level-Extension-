@@ -61,6 +61,7 @@ const emptyCriteriaForm: CriteriaFormData = {
 function sumAllItemScores(items: CriteriaPatternItem[]): number {
     return items.reduce((total, item) => {
         const subScore = item.sub_items ? sumAllItemScores(item.sub_items) : 0;
+
         return total + (item.score || 0) + subScore;
     }, 0);
 }

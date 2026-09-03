@@ -1,8 +1,8 @@
 import { Head, usePage } from '@inertiajs/react';
 import { Search, ArrowUpDown, Layers } from 'lucide-react';
 import { useState, useMemo } from 'react';
-import { Badge } from '@/components/ui/badge';
 import { TablePagination } from '@/components/pagination';
+import { Badge } from '@/components/ui/badge';
 
 const glassCard =
     'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
@@ -34,6 +34,7 @@ const statusLabels: Record<string, string> = {
 
 function formatTimestamp(ts: string): { date: string; time: string } {
     const d = new Date(ts);
+
     return {
         date: d.toLocaleDateString(undefined, {
             year: 'numeric',
@@ -138,6 +139,7 @@ export default function EgressLogs() {
     function renderTableRows(items: EgressEvent[]) {
         return items.map((row, i) => {
             const { date, time } = formatTimestamp(row.occurred_at);
+
             return (
             <tr
                 key={i}

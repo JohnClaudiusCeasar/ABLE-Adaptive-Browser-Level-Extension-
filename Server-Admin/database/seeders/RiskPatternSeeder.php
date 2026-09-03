@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
-use App\Models\RiskPattern;
 use App\Models\CriteriaPatternItem;
+use App\Models\RiskPattern;
 use Illuminate\Database\Seeder;
 
 class RiskPatternSeeder extends Seeder

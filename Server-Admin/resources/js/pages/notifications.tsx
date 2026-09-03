@@ -100,11 +100,13 @@ export default function Notifications() {
     function toggleSource(source: NotificationItem['source']) {
         setActiveSources((prev) => {
             const next = new Set(prev);
+
             if (next.has(source)) {
                 next.delete(source);
             } else {
                 next.add(source);
             }
+
             return next;
         });
     }
@@ -152,10 +154,11 @@ export default function Notifications() {
                     </p>
 
                     {/* Source Filter Tags */}
-                    <div className="flex flex-wrap items-center gap-1.5 mb-4">
+                    <div className="flex flex-wrap items-center gap-2.5 mb-4">
                         {allSources.map((source) => {
                             const Icon = sourceIcons[source];
                             const isActive = activeSources.has(source);
+
                             return (
                                 <button
                                     key={source}
@@ -226,6 +229,7 @@ export default function Notifications() {
                     ) : (
                         filteredNotifications.map((notification) => {
                             const SourceIcon = sourceIcons[notification.source];
+
                             return (
                                 <div
                                     key={notification.id}

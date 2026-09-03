@@ -13,9 +13,9 @@ import {
 } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useEffect, useState, useMemo } from 'react';
-import { Badge } from '@/components/ui/badge';
 import DomainPolicyController from '@/actions/App/Http/Controllers/DomainPolicyController';
 import { TablePagination } from '@/components/pagination';
+import { Badge } from '@/components/ui/badge';
 
 const glassCard =
     'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';

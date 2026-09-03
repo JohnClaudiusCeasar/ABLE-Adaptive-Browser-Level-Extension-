@@ -1,16 +1,12 @@
 <?php
 
 use App\Http\Controllers\SecurityController;
-/* @chisel-password-confirmation */
-use Illuminate\Auth\Middleware\RequirePassword;
-/* @end-chisel-password-confirmation */
+use App\Http\Middleware\RequireFreshPasswordConfirmation;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('security', [SecurityController::class, 'edit'])
-        /* @chisel-password-confirmation */
-        ->middleware(RequirePassword::class)
-        /* @end-chisel-password-confirmation */
+        ->middleware(RequireFreshPasswordConfirmation::class)
         ->name('security.edit');
 
     Route::put('security/password', [SecurityController::class, 'update'])
