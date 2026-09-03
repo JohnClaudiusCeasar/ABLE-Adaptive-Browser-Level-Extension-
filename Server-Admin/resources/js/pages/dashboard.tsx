@@ -1,5 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { Users, UserMinus, Globe, ShieldAlert, Activity, Printer, FileSpreadsheet, FileText, ChevronDown } from 'lucide-react';
+import { Users, UserMinus, Globe, ShieldAlert, Activity, Printer, FileSpreadsheet, FileText, ChevronDown, Ghost, ArrowUpFromLine } from 'lucide-react';
 import { DonutGauge } from '@/components/dashboard/donut-gauge';
 import { PanelCard } from '@/components/dashboard/panel-card';
 import { SegmentedBar } from '@/components/dashboard/segmented-bar';
@@ -32,7 +32,9 @@ interface DashboardProps {
     activeUsers: number;
     inactiveUsers: number;
     totalDomainVisits: number;
-    totalEgressAttempts: number;
+    activeShadowApps: number;
+    totalEgressCount: number;
+    criticalEgressCount: number;
     dataSaved: string;
     dataLost: string;
     nudgeSuccessRate: number;
@@ -66,7 +68,9 @@ export default function Dashboard({
     activeUsers,
     inactiveUsers,
     totalDomainVisits,
-    totalEgressAttempts,
+    activeShadowApps,
+    totalEgressCount,
+    criticalEgressCount,
     dataSaved,
     dataLost,
     nudgeSuccessRate,
@@ -83,6 +87,8 @@ export default function Dashboard({
     const totalBytes = savedBytes + lostBytes;
     const savedPct = totalBytes > 0 ? (savedBytes / totalBytes) * 100 : 0;
     const lostPct = totalBytes > 0 ? (lostBytes / totalBytes) * 100 : 0;
+
+    const totalInteractions = nudgeSuccessRate === 0 ? 0 : 1;
 
     const nudgeSegments = [
         { color: '#22c55e', value: nudgeSuccessRate, label: 'Success' },
@@ -166,56 +172,6 @@ export default function Dashboard({
                     />
                 </div>
 
-                {/* KPI Row */}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    <StatCard
-                        label="Domain Visits"
-                        value={totalDomainVisits.toLocaleString()}
-                        icon={Globe}
-                        accent="text-blue-400"
-                        underline="bg-blue-400"
-                    />
-                    <StatCard
-                        label="Egress Attempts"
-                        value={totalEgressAttempts.toLocaleString()}
-                        icon={ShieldAlert}
-                        accent="text-[#ff4d4d]"
-                        underline="bg-[#ff4d4d]"
-                    />
-                    <StatCard
-                        label="Nudge Success"
-                        value={nudgeSuccessRate}
-                        icon={Activity}
-                        accent="text-[#f1c40f]"
-                        underline="bg-[#f1c40f]"
-                        suffix="%"
-                    />
-                </div>
-
-                {/* Charts Row */}
-                <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-                    <PanelCard
-                        title="Nudge Success"
-                        subtitle="Share of nudges that prevented data loss"
-                    >
-                        <DonutGauge
-                            segments={nudgeSegments}
-                            centerLabel="Success Rate"
-                            centerValue={`${nudgeSuccessRate}%`}
-                        />
-                    </PanelCard>
-                    <PanelCard
-                        title="Domain Usage"
-                        subtitle="Classification of monitored domains"
-                    >
-                        <DonutGauge
-                            segments={domainSegments}
-                            centerLabel="Total Domains"
-                            centerValue={totalDomains.toLocaleString()}
-                        />
-                    </PanelCard>
-                </div>
-
                 {/* Data Protection Panel */}
                 <PanelCard
                     title="Data Protection"
@@ -246,6 +202,84 @@ export default function Dashboard({
                         />
                     </div>
                 </PanelCard>
+
+                {/* Divider */}
+                <div className="flex items-center gap-3 py-2">
+                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[rgba(34,197,94,0.4)] to-transparent" />
+                    <div className="relative">
+                        <div className="w-2 h-2 rounded-full bg-able-green" />
+                        <div className="absolute inset-0 w-2 h-2 rounded-full bg-able-green animate-ping opacity-40" />
+                    </div>
+                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[rgba(34,197,94,0.4)] to-transparent" />
+                </div>
+
+                {/* KPI Row */}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <StatCard
+                        label="Total Egress Count"
+                        value={totalEgressCount.toLocaleString()}
+                        icon={ArrowUpFromLine}
+                        accent="text-blue-400"
+                        underline="bg-blue-400"
+                    />
+                    <StatCard
+                        label="Critical Egress Count"
+                        value={criticalEgressCount.toLocaleString()}
+                        icon={ShieldAlert}
+                        accent="text-[#ff4d4d]"
+                        underline="bg-[#ff4d4d]"
+                    />
+                    <StatCard
+                        label="Domain Visits"
+                        value={totalDomainVisits.toLocaleString()}
+                        icon={Globe}
+                        accent="text-blue-400"
+                        underline="bg-blue-400"
+                    />
+                    <StatCard
+                        label="Active Shadow Apps"
+                        value={activeShadowApps.toLocaleString()}
+                        icon={Ghost}
+                        accent="text-[#a855f7]"
+                        underline="bg-[#a855f7]"
+                    />
+                </div>
+
+                {/* Charts Row */}
+                <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+                    <PanelCard
+                        title="Nudge Success"
+                        subtitle="Share of nudges that prevented data loss"
+                    >
+                        <DonutGauge
+                            segments={nudgeSegments}
+                            centerLabel="Success Rate"
+                            centerValue={`${nudgeSuccessRate}%`}
+                            noData={totalInteractions === 0}
+                        />
+                    </PanelCard>
+                    <PanelCard
+                        title="Domain Usage"
+                        subtitle="Classification of monitored domains"
+                    >
+                        <DonutGauge
+                            segments={domainSegments}
+                            centerLabel="Total Domains"
+                            centerValue={totalDomains.toLocaleString()}
+                            noData={totalDomains === 0}
+                        />
+                    </PanelCard>
+                </div>
+
+                {/* Divider */}
+                <div className="flex items-center gap-3 py-2">
+                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[rgba(34,197,94,0.4)] to-transparent" />
+                    <div className="relative">
+                        <div className="w-2 h-2 rounded-full bg-able-green" />
+                        <div className="absolute inset-0 w-2 h-2 rounded-full bg-able-green animate-ping opacity-40" />
+                    </div>
+                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[rgba(34,197,94,0.4)] to-transparent" />
+                </div>
 
                 {/* Recent Egress Events Table */}
                 <PanelCard

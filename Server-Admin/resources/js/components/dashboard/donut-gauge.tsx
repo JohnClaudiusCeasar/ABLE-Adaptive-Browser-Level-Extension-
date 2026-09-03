@@ -9,6 +9,7 @@ interface DonutGaugeProps {
     centerLabel: string;
     centerValue: string;
     size?: number;
+    noData?: boolean;
 }
 
 export function DonutGauge({
@@ -16,11 +17,12 @@ export function DonutGauge({
     centerLabel,
     centerValue,
     size = 200,
+    noData = false,
 }: DonutGaugeProps) {
     const total = segments.reduce((sum, s) => sum + s.value, 0);
 
     const gradient =
-        total === 0
+        noData || total === 0
             ? 'conic-gradient(#3f4a44 0% 100%)'
             : (() => {
                   let cursor = 0;
@@ -58,23 +60,31 @@ export function DonutGauge({
                 </div>
             </div>
 
-            <ul className="flex min-w-[140px] flex-col gap-2.5">
-                {segments.map((s) => (
-                    <li
-                        key={s.label}
-                        className="flex items-center gap-2.5 text-sm"
-                    >
-                        <span
-                            className="h-2.5 w-2.5 shrink-0 rounded-full"
-                            style={{ backgroundColor: s.color }}
-                        />
-                        <span className="text-muted-foreground">{s.label}</span>
-                        <span className="ml-auto font-medium tabular-nums">
-                            {s.value}
-                        </span>
-                    </li>
-                ))}
-            </ul>
+            {noData ? (
+                <div className="flex min-w-[140px] items-center justify-center">
+                    <span className="text-sm font-medium text-muted-foreground italic">
+                        No Data
+                    </span>
+                </div>
+            ) : (
+                <ul className="flex min-w-[140px] flex-col gap-2.5">
+                    {segments.map((s) => (
+                        <li
+                            key={s.label}
+                            className="flex items-center gap-2.5 text-sm"
+                        >
+                            <span
+                                className="h-2.5 w-2.5 shrink-0 rounded-full"
+                                style={{ backgroundColor: s.color }}
+                            />
+                            <span className="text-muted-foreground">{s.label}</span>
+                            <span className="ml-auto font-medium tabular-nums">
+                                {s.value}
+                            </span>
+                        </li>
+                    ))}
+                </ul>
+            )}
         </div>
     );
 }
