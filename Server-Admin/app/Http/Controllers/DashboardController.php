@@ -38,7 +38,19 @@ class DashboardController extends Controller
 
         // 2. Total telemetry counts
         $totalDomainVisits = DomainVisit::count();
-        $totalEgressAttempts = EgressEvent::count();
+        $activeShadowApps = EgressEvent::select('domain')
+            ->where('action', 'proceeded')
+            ->groupBy('domain')
+            ->havingRaw('COUNT(*) > 3')
+            ->count();
+
+        // Total Egress Count - egress events for domains with policies
+        $totalEgressCount = EgressEvent::whereIn('domain', function ($query) {
+            $query->select('domain')->from('domain_policies');
+        })->count();
+
+        // Critical Egress Count - egress events with high risk scores
+        $criticalEgressCount = EgressEvent::where('risk_score', '>=', 75)->count();
 
         // 3. Data Saved/Lost - single conditional aggregation
         $dataStats = EgressEvent::selectRaw("
@@ -117,7 +129,9 @@ class DashboardController extends Controller
             'activeUsers' => $activeUsers,
             'inactiveUsers' => $inactiveUsers,
             'totalDomainVisits' => $totalDomainVisits,
-            'totalEgressAttempts' => $totalEgressAttempts,
+            'activeShadowApps' => $activeShadowApps,
+            'totalEgressCount' => $totalEgressCount,
+            'criticalEgressCount' => $criticalEgressCount,
             'dataSaved' => $this->formatBytes((int) $dataStats->data_saved),
             'dataLost' => $this->formatBytes((int) $dataStats->data_lost),
             'nudgeSuccessRate' => $nudgeSuccessRate,
