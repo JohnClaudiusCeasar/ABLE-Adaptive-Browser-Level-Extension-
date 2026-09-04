@@ -236,7 +236,7 @@ class SyncNotifications
     private function statusForRisk(int $riskScore): string
     {
         return match (true) {
-            $riskScore >= 75 => 'glass-unsafe',
+            $riskScore >= 90 => 'glass-unsafe',
             $riskScore >= 50 => 'glass-unlisted',
             default => 'glass-safe',
         };

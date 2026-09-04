@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\DomainPolicy;
 use App\Models\EgressEvent;
 use App\Models\NudgeInteraction;
 use Illuminate\Http\JsonResponse;
@@ -20,7 +21,7 @@ class EgressEventController extends Controller
         $egressEvents = EgressEvent::orderByDesc('occurred_at')
             ->get()
             ->map(function ($event) {
-                $status = $event->risk_score >= 75 ? 'glass-unsafe' : 'glass-unlisted';
+                $status = $event->risk_score >= 90 ? 'glass-unsafe' : 'glass-unlisted';
 
                 return [
                     'occurred_at' => $event->occurred_at->toIso8601String(),
@@ -53,7 +54,22 @@ class EgressEventController extends Controller
             'occurred_at' => 'nullable|numeric',
         ]);
 
+        // Skip excluded domains (defense-in-depth)
+        if (in_array($validated['domain'], config('able.excluded_domains', []))) {
+            return response()->json(['success' => true, 'egress_event_id' => null]);
+        }
+
         $occurredAt = $validated['occurred_at'] ?? null;
+
+        // Auto-create domain policy if it doesn't exist
+        DomainPolicy::firstOrCreate(
+            ['domain' => $validated['domain']],
+            [
+                'domain_status' => 'unlisted',
+                'policy' => 'under_review',
+                'risk_score' => 70,
+            ]
+        );
 
         $egressEvent = EgressEvent::create([
             'domain' => $validated['domain'],

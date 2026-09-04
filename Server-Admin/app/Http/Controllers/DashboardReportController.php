@@ -97,7 +97,7 @@ class DashboardReportController extends Controller
             ->limit(20)
             ->get()
             ->map(function ($event) {
-                $status = $event->risk_score >= 75 ? 'glass-unsafe' : 'glass-unlisted';
+                $status = $event->risk_score >= 90 ? 'glass-unsafe' : 'glass-unlisted';
 
                 return [
                     'occurred_at' => $event->occurred_at->toIso8601String(),

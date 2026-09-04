@@ -50,7 +50,7 @@ class DashboardController extends Controller
         })->count();
 
         // Critical Egress Count - egress events with high risk scores
-        $criticalEgressCount = EgressEvent::where('risk_score', '>=', 75)->count();
+        $criticalEgressCount = EgressEvent::where('risk_score', '>=', 90)->count();
 
         // 3. Data Saved/Lost - single conditional aggregation
         $dataStats = EgressEvent::selectRaw("
@@ -59,13 +59,15 @@ class DashboardController extends Controller
         ")->first();
 
         // 4. Nudge Success Rate
+        // Success = user cancelled upload (nudge prevented data loss)
+        // Failure = user proceeded with upload (data left the network)
         $nudgeStats = NudgeInteraction::selectRaw("
-            SUM(CASE WHEN user_action = 'proceeded' THEN 1 ELSE 0 END) as proceeded,
-            SUM(CASE WHEN user_action = 'cancelled' THEN 1 ELSE 0 END) as cancelled
+            SUM(CASE WHEN user_action = 'cancelled' THEN 1 ELSE 0 END) as success,
+            SUM(CASE WHEN user_action = 'proceeded' THEN 1 ELSE 0 END) as failure
         ")->first();
-        $totalInteractions = (int) $nudgeStats->proceeded + (int) $nudgeStats->cancelled;
+        $totalInteractions = (int) $nudgeStats->success + (int) $nudgeStats->failure;
         $nudgeSuccessRate = $totalInteractions > 0
-            ? round(((int) $nudgeStats->proceeded / $totalInteractions) * 100, 1)
+            ? round(((int) $nudgeStats->success / $totalInteractions) * 100, 1)
             : 0;
 
         // 5. Domain Usage - single conditional aggregation
@@ -85,7 +87,7 @@ class DashboardController extends Controller
             ->limit(5)
             ->get()
             ->map(function ($event) {
-                $status = $event->risk_score >= 75 ? 'glass-unsafe' : 'glass-unlisted';
+                $status = $event->risk_score >= 90 ? 'glass-unsafe' : 'glass-unlisted';
 
                 return [
                     'occurred_at' => $event->occurred_at->toIso8601String(),
@@ -125,6 +127,30 @@ class DashboardController extends Controller
                 ];
             });
 
+        // 8. Shadow Activity Timeline - daily counts for last 7 days
+        $sevenDaysAgo = now()->subDays(6)->startOfDay();
+
+        $dailyVisits = DomainVisit::selectRaw('DATE(visited_at) as date, COUNT(*) as count')
+            ->where('visited_at', '>=', $sevenDaysAgo)
+            ->groupBy('date')
+            ->pluck('count', 'date');
+
+        $dailyEgress = EgressEvent::selectRaw('DATE(occurred_at) as date, COUNT(*) as count')
+            ->where('occurred_at', '>=', $sevenDaysAgo)
+            ->groupBy('date')
+            ->pluck('count', 'date');
+
+        $shadowActivity = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $date = now()->subDays($i)->format('Y-m-d');
+            $shadowActivity[] = [
+                'date' => $date,
+                'day' => now()->subDays($i)->format('D'),
+                'visits' => (int) ($dailyVisits[$date] ?? 0),
+                'egress' => (int) ($dailyEgress[$date] ?? 0),
+            ];
+        }
+
         return Inertia::render('dashboard', [
             'activeUsers' => $activeUsers,
             'inactiveUsers' => $inactiveUsers,
@@ -138,6 +164,7 @@ class DashboardController extends Controller
             'domainUsage' => $domainUsage,
             'recentEgressEvents' => $recentEgressEvents,
             'recentDomainVisits' => $recentDomainVisits,
+            'shadowActivity' => $shadowActivity,
         ]);
     }
 

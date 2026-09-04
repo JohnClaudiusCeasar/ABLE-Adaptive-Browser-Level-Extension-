@@ -103,6 +103,11 @@ class DomainPolicyController extends Controller
             'visited_at' => 'nullable|numeric',
         ]);
 
+        // Skip excluded domains (defense-in-depth)
+        if (in_array($validated['domain'], config('able.excluded_domains', []))) {
+            return response()->json(['success' => true, 'visit_count' => 0]);
+        }
+
         $domain = $validated['domain'];
         $status = $validated['status'];
         $source = $validated['source'] ?? null;

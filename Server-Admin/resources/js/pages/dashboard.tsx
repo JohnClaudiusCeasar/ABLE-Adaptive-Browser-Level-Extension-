@@ -1,6 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
-import { Users, UserMinus, Globe, ShieldAlert, Activity, Printer, FileSpreadsheet, FileText, ChevronDown, Ghost, Ghost, ArrowUpFromLine } from 'lucide-react';
+import { Users, UserMinus, Globe, ShieldAlert, Activity, Printer, FileSpreadsheet, FileText, ChevronDown, Ghost, ArrowUpFromLine } from 'lucide-react';
 import { DonutGauge } from '@/components/dashboard/donut-gauge';
+import { GroupedBarChart } from '@/components/dashboard/grouped-bar-chart';
 import { PanelCard } from '@/components/dashboard/panel-card';
 import { SegmentedBar } from '@/components/dashboard/segmented-bar';
 import { StatCard } from '@/components/dashboard/stat-card';
@@ -28,13 +29,17 @@ interface RecentDomainVisit {
     action: string;
 }
 
+interface DailyActivity {
+    date: string;
+    day: string;
+    visits: number;
+    egress: number;
+}
+
 interface DashboardProps {
     activeUsers: number;
     inactiveUsers: number;
     totalDomainVisits: number;
-    activeShadowApps: number;
-    totalEgressCount: number;
-    criticalEgressCount: number;
     activeShadowApps: number;
     totalEgressCount: number;
     criticalEgressCount: number;
@@ -48,6 +53,7 @@ interface DashboardProps {
     };
     recentEgressEvents: RecentEgressEvent[];
     recentDomainVisits: RecentDomainVisit[];
+    shadowActivity: DailyActivity[];
 }
 
 function formatTimestamp(ts: string): { date: string; time: string } {
@@ -74,15 +80,13 @@ export default function Dashboard({
     activeShadowApps,
     totalEgressCount,
     criticalEgressCount,
-    activeShadowApps,
-    totalEgressCount,
-    criticalEgressCount,
     dataSaved,
     dataLost,
     nudgeSuccessRate,
     domainUsage,
     recentEgressEvents,
     recentDomainVisits,
+    shadowActivity,
 }: DashboardProps) {
     const totalDomains =
         domainUsage.safe + domainUsage.unsafe + domainUsage.unlisted;
@@ -181,7 +185,7 @@ export default function Dashboard({
                 {/* Data Protection Panel */}
                 <PanelCard
                     title="Data Protection"
-                    subtitle="Bytes blocked vs. bytes that left the network"
+                    subtitle="File upload outcomes from user-intercepted nudges — blocked uploads vs. uploads the user chose to proceed with"
                 >
                     <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
                         <SegmentedBar
@@ -208,82 +212,6 @@ export default function Dashboard({
                         />
                     </div>
                 </PanelCard>
-
-                {/* Divider */}
-                <div className="flex items-center gap-3 py-2">
-                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[rgba(34,197,94,0.4)] to-transparent" />
-                    <div className="relative">
-                        <div className="w-2 h-2 rounded-full bg-able-green" />
-                        <div className="absolute inset-0 w-2 h-2 rounded-full bg-able-green animate-ping opacity-40" />
-                    </div>
-                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[rgba(34,197,94,0.4)] to-transparent" />
-                </div>
-
-                {/* KPI Row */}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <StatCard
-                        label="Total Egress Count"
-                        value={totalEgressCount.toLocaleString()}
-                        icon={ShieldAlert}
-                        accent="text-[#ff4d4d]"
-                        underline="bg-[#ff4d4d]"
-                    />
-                    <StatCard
-                        label="Critical Egress Count"
-                        value={criticalEgressCount.toLocaleString()}
-                        icon={Activity}
-                        accent="text-[#f1c40f]"
-                        underline="bg-[#f1c40f]"
-                    />
-                    <StatCard
-                        label="Domain Visits"
-                        value={totalDomainVisits.toLocaleString()}
-                        icon={Globe}
-                        accent="text-blue-400"
-                        underline="bg-blue-400"
-                    />
-                    <StatCard
-                        label="Active Shadow Apps"
-                        value={activeShadowApps.toLocaleString()}
-                        icon={Ghost}
-                        accent="text-[#a855f7]"
-                        underline="bg-[#a855f7]"
-                    />
-                </div>
-
-                {/* Charts Row */}
-                <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-                    <PanelCard
-                        title="Nudge Success"
-                        subtitle="Share of nudges that prevented data loss"
-                    >
-                        <DonutGauge
-                            segments={nudgeSegments}
-                            centerLabel="Success Rate"
-                            centerValue={`${nudgeSuccessRate}%`}
-                        />
-                    </PanelCard>
-                    <PanelCard
-                        title="Domain Usage"
-                        subtitle="Classification of monitored domains"
-                    >
-                        <DonutGauge
-                            segments={domainSegments}
-                            centerLabel="Total Domains"
-                            centerValue={totalDomains.toLocaleString()}
-                        />
-                    </PanelCard>
-                </div>
-
-                {/* Divider */}
-                <div className="flex items-center gap-3 py-2">
-                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[rgba(34,197,94,0.4)] to-transparent" />
-                    <div className="relative">
-                        <div className="w-2 h-2 rounded-full bg-able-green" />
-                        <div className="absolute inset-0 w-2 h-2 rounded-full bg-able-green animate-ping opacity-40" />
-                    </div>
-                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[rgba(34,197,94,0.4)] to-transparent" />
-                </div>
 
                 {/* Divider */}
                 <div className="flex items-center gap-3 py-2">
@@ -352,6 +280,14 @@ export default function Dashboard({
                         />
                     </PanelCard>
                 </div>
+
+                {/* Shadow Activity Timeline */}
+                <PanelCard
+                    title="Shadow Activity Timeline"
+                    subtitle="Domain visits and egress attempts over the last 7 days"
+                >
+                    <GroupedBarChart data={shadowActivity} />
+                </PanelCard>
 
                 {/* Divider */}
                 <div className="flex items-center gap-3 py-2">

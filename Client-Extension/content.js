@@ -12,13 +12,22 @@ let pageNonceHex = null;
  */
 async function getRiskPatterns() {
   try {
+    // Check if extension context is still valid
+    if (!chrome.runtime?.id) {
+      console.warn("ABLE: Extension context invalidated, cannot fetch risk patterns.");
+      return [];
+    }
     const response = await chrome.runtime.sendMessage({ type: "getRiskPatterns" });
     if (response && response.success) {
       return response.patterns;
     }
     return [];
   } catch (error) {
-    console.warn("ABLE: Failed to get risk patterns via background:", error);
+    if (error.message?.includes("Extension context invalidated")) {
+      console.warn("ABLE: Extension context invalidated. Please refresh the page.");
+    } else {
+      console.warn("ABLE: Failed to get risk patterns via background:", error);
+    }
     return [];
   }
 }
@@ -29,6 +38,10 @@ async function getRiskPatterns() {
  */
 async function logEgressEvent(payload) {
   try {
+    // Check if extension context is still valid
+    if (!chrome.runtime?.id) {
+      return; // Silently skip if context invalidated
+    }
     await chrome.runtime.sendMessage({
       type: "logEgress",
       payload: { ...payload, timestamp: Date.now() },
@@ -51,6 +64,18 @@ function getWebsiteName() {
 
 async function classifyCurrentDomain() {
   try {
+    // Check if extension context is still valid
+    if (!chrome.runtime?.id) {
+      console.warn("ABLE: Extension context invalidated, using default classification.");
+      const hostname = window.location.hostname;
+      domainStatus = {
+        status: "unlisted",
+        domain: hostname,
+        title: "The site you are entering is UNLISTED",
+        message: `${hostname} is an unlisted service that has not been reviewed by our security team. Please refrain from sending sensitive institutional data from this website until it is properly reviewed.`
+      };
+      return domainStatus;
+    }
     const result = await chrome.runtime.sendMessage({
       type: "classifyDomain",
       url: window.location.href,
@@ -69,7 +94,16 @@ async function classifyCurrentDomain() {
   }
 }
 
+function isExcludedDomain() {
+  if (!domainStatus?.domain) return false;
+  const domain = domainStatus.domain.toLowerCase();
+  return EXCLUDED_DOMAINS.some(
+    (excluded) => domain === excluded || domain.endsWith("." + excluded)
+  );
+}
+
 function shouldActivate() {
+  if (isExcludedDomain()) return false;
   return domainStatus && (domainStatus.status === "unsafe" || domainStatus.status === "unlisted");
 }
 
@@ -381,15 +415,15 @@ async function scanFile(file) {
   }
   flaggedItems.push(...result.flaggedItems);
 
-  console.log("ABLE Scan:", {
+    console.log("ABLE Scan:", {
     file: file.name,
     domain: domainStatus.domain,
     domain_status: domainStatus.status,
     domain_risk_score: domainRiskScore,
     pattern_score: result.score,
     total_score: totalScore,
-    threshold: 85,
-    triggered: totalScore > 85,
+    threshold: 90,
+    triggered: totalScore > 90,
     flagged_item_count: flaggedItems.length,
   });
 
@@ -411,12 +445,6 @@ async function handleInterceptedFiles(files, requestId) {
     return;
   }
 
-  const consent = await hasSessionConsent();
-  if (consent) {
-    sendDecision(requestId, "proceed");
-    return;
-  }
-
   // Scan all files and find the highest-risk one
   let highestRisk = null;
 
@@ -427,7 +455,9 @@ async function handleInterceptedFiles(files, requestId) {
     }
   }
 
-  if (highestRisk && highestRisk.score > 85) {
+  const consent = await hasSessionConsent();
+
+  if (highestRisk && highestRisk.score > 90 && !consent) {
     showInterceptModal({
       score: highestRisk.score,
       flaggedItems: highestRisk.flaggedItems,
@@ -440,6 +470,7 @@ async function handleInterceptedFiles(files, requestId) {
       requestId: requestId,
     });
   } else {
+    // Low-risk files: proceed without logging (no user interaction)
     sendDecision(requestId, "proceed");
   }
 }
@@ -755,6 +786,9 @@ function showRepeatVisitModal(data) {
 async function logDomainVisit() {
   if (!domainStatus || !domainStatus.domain) return null;
 
+  // Skip excluded domains
+  if (isExcludedDomain()) return null;
+
   // Debounce: Don't log the same domain within 5 seconds
   const DEBOUNCE_KEY = `able:last_visit:${domainStatus.domain}`;
   try {
@@ -775,6 +809,10 @@ async function logDomainVisit() {
   }
 
   try {
+    // Check if extension context is still valid
+    if (!chrome.runtime?.id) {
+      return null;
+    }
     const response = await chrome.runtime.sendMessage({
       type: "logVisit",
       domain: domainStatus.domain,

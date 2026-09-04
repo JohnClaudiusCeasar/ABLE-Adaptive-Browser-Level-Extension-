@@ -18,7 +18,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["office-parser.js", "content.js"],
+      "js": ["config.js", "office-parser.js", "content.js"],
       "css": ["content.css"],
       "run_at": "document_end"
     }

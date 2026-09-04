@@ -62,6 +62,17 @@ const ALLOWED_ORIGINS = (() => {
 })();
 
 /**
+ * Domains excluded from extension detection.
+ * Uploads to these domains will not trigger the intercept modal or logging.
+ * Useful for development (localhost) and internal services.
+ */
+const EXCLUDED_DOMAINS = [
+  "localhost",
+  "127.0.0.1",
+  "[::1]",
+];
+
+/**
  * Generate status messages for domain classification.
  * These are template messages, not data - they use the classification result from the server/cache.
  */
