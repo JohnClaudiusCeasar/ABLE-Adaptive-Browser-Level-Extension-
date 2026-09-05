@@ -67,7 +67,7 @@ class SecurityAnalyticsController extends Controller
         /** @var object{data_saved: int, data_lost: int} $dataStats */
         $dataStats = EgressEvent::selectRaw("
             COALESCE(SUM(CASE WHEN action = 'denied' THEN file_size ELSE 0 END), 0) as data_saved,
-            COALESCE(SUM(CASE WHEN action = 'proceeded' THEN file_size ELSE 0 END), 0) as data_lost
+            COALESCE(SUM(CASE WHEN action IN ('proceeded', 'allowed') THEN file_size ELSE 0 END), 0) as data_lost
         ")->first();
 
         // 8. Top Domains - LEFT JOIN instead of correlated subqueries

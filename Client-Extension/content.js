@@ -62,34 +62,46 @@ function getWebsiteName() {
   return hostname;
 }
 
+function buildDefaultDomainStatus() {
+  const hostname = window.location.hostname;
+  return {
+    status: "unlisted",
+    domain: hostname,
+    title: "The site you are entering is UNLISTED",
+    message: `${hostname} is an unlisted service that has not been reviewed by our security team. Please refrain from sending sensitive institutional data from this website until it is properly reviewed.`
+  };
+}
+
 async function classifyCurrentDomain() {
+  const CLASSIFY_TIMEOUT_MS = 8000;
+
   try {
     // Check if extension context is still valid
     if (!chrome.runtime?.id) {
       console.warn("ABLE: Extension context invalidated, using default classification.");
-      const hostname = window.location.hostname;
-      domainStatus = {
-        status: "unlisted",
-        domain: hostname,
-        title: "The site you are entering is UNLISTED",
-        message: `${hostname} is an unlisted service that has not been reviewed by our security team. Please refrain from sending sensitive institutional data from this website until it is properly reviewed.`
-      };
+      domainStatus = buildDefaultDomainStatus();
       return domainStatus;
     }
-    const result = await chrome.runtime.sendMessage({
-      type: "classifyDomain",
-      url: window.location.href,
-    });
+
+    // Race the background response against a hard timeout. In MV3 the
+    // service worker can be terminated mid-flight (e.g. while secureFetch
+    // waits on DNS), causing sendMessage() to hang indefinitely instead
+    // of rejecting. The timeout ensures evaluateAndShowModal() is always
+    // reached within a reasonable time.
+    const result = await Promise.race([
+      chrome.runtime.sendMessage({
+        type: "classifyDomain",
+        url: window.location.href,
+      }),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("classifyDomain timeout")), CLASSIFY_TIMEOUT_MS)
+      ),
+    ]);
+
     domainStatus = result;
     return result;
   } catch {
-    const hostname = window.location.hostname;
-    domainStatus = {
-      status: "unlisted",
-      domain: hostname,
-      title: "The site you are entering is UNLISTED",
-      message: `${hostname} is an unlisted service that has not been reviewed by our security team. Please refrain from sending sensitive institutional data from this website until it is properly reviewed.`
-    };
+    domainStatus = buildDefaultDomainStatus();
     return domainStatus;
   }
 }
@@ -364,9 +376,18 @@ async function injectPageScript() {
   // Verify inject.js integrity before injecting into the page world.
   // If the resource hash doesn't match, abort injection entirely.
   if (typeof EXPECTED_INJECT_HASH === "string" && EXPECTED_INJECT_HASH.length > 0) {
-    const url = chrome.runtime.getURL("inject.js");
-    const ok = await ABLESecurity.verifyResourceIntegrity(url, EXPECTED_INJECT_HASH);
-    if (!ok) {
+    try {
+      const url = chrome.runtime.getURL("inject.js");
+      const response = await chrome.runtime.sendMessage({
+        type: "verifyIntegrity",
+        url: url,
+        hash: EXPECTED_INJECT_HASH,
+      });
+      if (!response || !response.ok) {
+        console.warn("ABLE: inject.js integrity check failed, aborting injection.");
+        return;
+      }
+    } catch {
       console.warn("ABLE: inject.js integrity check failed, aborting injection.");
       return;
     }
@@ -457,6 +478,18 @@ async function handleInterceptedFiles(files, requestId) {
 
   if (!shouldActivate()) {
     sendDecision(requestId, "proceed");
+
+    // Log egress event for safe domains with action 'allowed'
+    for (const file of files) {
+      logEgressEvent({
+        domain: domainStatus?.domain || new URL(window.location.href).hostname.replace(/^www\./, ""),
+        fileName: file.name,
+        fileSize: file.size,
+        riskScore: 0,
+        action: "allowed",
+        userAction: "allowed",
+      });
+    }
     return;
   }
 
@@ -485,8 +518,31 @@ async function handleInterceptedFiles(files, requestId) {
       requestId: requestId,
     });
   } else {
-    // Low-risk files: proceed without logging (no user interaction)
+    // Low-risk files: proceed without modal
     sendDecision(requestId, "proceed");
+
+    // Log egress event for unlisted/unsafe domains even when below threshold
+    if (highestRisk) {
+      logEgressEvent({
+        domain: domainStatus.domain,
+        fileName: highestRisk.fileName,
+        fileSize: highestRisk.fileSize,
+        riskScore: highestRisk.score,
+        action: "proceeded",
+        userAction: "proceeded",
+      });
+    } else if (files.length > 0) {
+      // scanFile returned null for all files (binary, Office parse error, >100MB)
+      // Log with first file's metadata and riskScore 0 — the upload still happened
+      logEgressEvent({
+        domain: domainStatus.domain,
+        fileName: files[0].name,
+        fileSize: files[0].size,
+        riskScore: 0,
+        action: "proceeded",
+        userAction: "proceeded",
+      });
+    }
   }
 }
 
@@ -519,6 +575,42 @@ function setupInterceptionListener() {
       const { requestId, files } = event.data.payload;
       if (!requestId || !files || files.length === 0) return;
       await handleInterceptedFiles(files, requestId);
+    }
+
+    if (event.data.type === "ABLE_TIMEOUT") {
+      // inject.js timed out waiting for content.js to respond.
+      // Log the egress event with whatever info we have.
+      const { files } = event.data.payload || {};
+      if (files && files.length > 0) {
+        const domain = domainStatus?.domain || new URL(window.location.href).hostname.replace(/^www\./, "");
+        logEgressEvent({
+          domain,
+          fileName: files[0].name,
+          fileSize: files[0].size,
+          riskScore: 0,
+          action: "proceeded",
+          userAction: "proceeded",
+        });
+      }
+      return;
+    }
+
+    if (event.data.type === "ABLE_NONCE_FAILED") {
+      // Nonce handshake failed — upload bypassed interception entirely.
+      // Log the egress event so the upload is still recorded.
+      const { files } = event.data.payload || {};
+      if (files && files.length > 0) {
+        const domain = new URL(window.location.href).hostname.replace(/^www\./, "");
+        logEgressEvent({
+          domain,
+          fileName: files[0].name,
+          fileSize: files[0].size,
+          riskScore: 0,
+          action: "proceeded",
+          userAction: "proceeded",
+        });
+      }
+      return;
     }
 
     if (event.data.type === "ABLE_SPA_NAVIGATION") {
@@ -829,13 +921,18 @@ async function logDomainVisit() {
     if (!chrome.runtime?.id) {
       return null;
     }
-    const response = await chrome.runtime.sendMessage({
-      type: "logVisit",
-      domain: domainStatus.domain,
-      status: domainStatus.status || "unlisted",
-      source: domainStatus.source || "unknown",
-      timestamp: Date.now(),
-    });
+    const response = await Promise.race([
+      chrome.runtime.sendMessage({
+        type: "logVisit",
+        domain: domainStatus.domain,
+        status: domainStatus.status || "unlisted",
+        source: domainStatus.source || "unknown",
+        timestamp: Date.now(),
+      }),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("logVisit timeout")), 8000)
+      ),
+    ]);
     return response?.visit_count ?? null;
   } catch {
     return null;

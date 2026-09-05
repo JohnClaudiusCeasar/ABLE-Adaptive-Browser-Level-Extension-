@@ -120,6 +120,12 @@ class AbleSettingsSchema
                 'rule' => 'required|integer|min:1|max:1440',
                 'description' => 'How often the extension retries queued visit logs.',
             ],
+            'sync.egress_log_flush_interval_minutes' => [
+                'type' => 'integer',
+                'default' => 5,
+                'rule' => 'required|integer|min:1|max:1440',
+                'description' => 'How often the extension retries queued egress logs.',
+            ],
             'connection.allowed_origins' => [
                 'type' => 'array',
                 'default' => [],

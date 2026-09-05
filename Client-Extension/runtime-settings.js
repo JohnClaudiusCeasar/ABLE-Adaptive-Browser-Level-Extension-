@@ -37,6 +37,10 @@ function buildDefaults() {
       typeof ABLE_VISIT_LOG_FLUSH_INTERVAL_MINUTES !== "undefined"
         ? ABLE_VISIT_LOG_FLUSH_INTERVAL_MINUTES
         : 5,
+    "sync.egress_log_flush_interval_minutes":
+      typeof ABLE_EGRESS_LOG_FLUSH_INTERVAL_MINUTES !== "undefined"
+        ? ABLE_EGRESS_LOG_FLUSH_INTERVAL_MINUTES
+        : 5,
     "connection.allowed_origins":
       typeof ALLOWED_ORIGINS !== "undefined" ? ALLOWED_ORIGINS : [],
     "connection.tls_pins":

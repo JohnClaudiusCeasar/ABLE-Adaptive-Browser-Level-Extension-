@@ -98,6 +98,12 @@
           // ABLE content script didn't establish a nonce handshake.
           // Cannot verify identity — fail open (proceed) to avoid
           // blocking legitimate uploads when ABLE is misconfigured.
+          // Notify content.js so it can still log the egress event.
+          window.postMessage({
+            source: 'ABLE_INJECT',
+            type: 'ABLE_NONCE_FAILED',
+            payload: { requestId: id, files: files }
+          }, '*');
           resolve('proceed');
           return;
         }
@@ -105,6 +111,13 @@
         var id = generateId();
         var timeout = setTimeout(function () {
           pendingRequests.delete(id);
+          // Notify content.js so it can log the egress event
+          window.postMessage({
+            source: 'ABLE_INJECT',
+            type: 'ABLE_TIMEOUT',
+            nonce: ableNonce,
+            payload: { requestId: id, files: files }
+          }, '*');
           resolve('proceed');
         }, 30000);
 

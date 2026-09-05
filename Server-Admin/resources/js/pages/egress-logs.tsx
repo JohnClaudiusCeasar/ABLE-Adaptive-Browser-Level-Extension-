@@ -10,7 +10,7 @@ const glassCard =
 interface EgressEvent {
     occurred_at: string;
     domain: string;
-    status: 'glass-unsafe' | 'glass-unlisted';
+    status: 'glass-safe' | 'glass-unsafe' | 'glass-unlisted';
     user: string;
     fileName: string;
     action: string;
@@ -28,6 +28,7 @@ type SortDir = 'asc' | 'desc';
 type GroupField = 'none' | 'status' | 'action';
 
 const statusLabels: Record<string, string> = {
+    'glass-safe': 'Safe',
     'glass-unsafe': 'Unsafe',
     'glass-unlisted': 'Unlisted',
 };

@@ -361,6 +361,88 @@ async function processVisitLogQueue() {
 }
 
 /**
+ * Pending egress log queue — stores egress events that couldn't be sent
+ * to the server (e.g., network unreachable, rate-limited) so they can
+ * be retried later.
+ */
+const PENDING_EGRESS_KEY = "able:pending_egress";
+
+/**
+ * Queue an egress event for later retry when the server is unreachable.
+ */
+async function queueEgressEvent(event) {
+  try {
+    const result = await chrome.storage.local.get(PENDING_EGRESS_KEY);
+    const queue = result[PENDING_EGRESS_KEY] || [];
+    queue.push({
+      ...event,
+      enqueued_at: Date.now(),
+    });
+    await chrome.storage.local.set({ [PENDING_EGRESS_KEY]: queue });
+  } catch {
+    // Silently fail — queueing is best-effort
+  }
+}
+
+/**
+ * Attempt to flush pending egress events to the server.
+ * Respects rate-limit backoff. Successfully sent entries are removed;
+ * failures remain in the queue for the next attempt.
+ */
+async function processEgressLogQueue() {
+  try {
+    if (await isEndpointCoolingDown("log-egress")) return;
+
+    const result = await chrome.storage.local.get(PENDING_EGRESS_KEY);
+    const queue = result[PENDING_EGRESS_KEY] || [];
+    if (queue.length === 0) return;
+
+    const remaining = [];
+
+    for (const entry of queue) {
+      try {
+        const response = await ABLESecurity.secureFetch(
+          `${SERVER_URL}/api/log-egress`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Accept": "application/json" },
+            body: JSON.stringify({
+              domain: entry.domain,
+              user_id: entry.user_id,
+              file_name: entry.file_name,
+              file_size: entry.file_size,
+              risk_score: entry.risk_score,
+              action: entry.action,
+              user_action: entry.user_action,
+              occurred_at: entry.occurred_at,
+            }),
+          }
+        );
+
+        if (response.status === 429) {
+          await recordRateLimitBackoff("log-egress", response);
+          console.warn("ABLE: log-egress queue retry rate-limited by server, backing off.");
+          remaining.push(entry);
+          break; // stop — rate limited, retry next attempt
+        }
+
+        if (!response.ok) {
+          console.warn("ABLE: Failed to flush queued egress event:", response.status);
+          remaining.push(entry);
+        }
+        // Success — don't re-queue
+      } catch {
+        remaining.push(entry);
+      }
+    }
+
+    await chrome.storage.local.set({ [PENDING_EGRESS_KEY]: remaining });
+  } catch {
+    // Silently fail — best-effort retry
+  }
+}
+
+/**
  * Log a domain visit to the server.
  * Honors Retry-After on 429 responses by suppressing further visit logs
  * to this endpoint for the indicated backoff window.
@@ -404,46 +486,63 @@ async function logDomainVisit(domain, status, source, timestamp) {
 
 /**
  * Log an egress event to the server.
- * Called when user interacts with the file upload intercept modal.
+ * Called when user interacts with the file upload intercept modal, or
+ * when a file is uploaded to a safe domain.
  * Honors Retry-After on 429 responses. Enforces a per-user daily cap
  * to prevent log flooding in case of misconfiguration.
+ * If the server is unreachable, queues the event for later retry.
  */
 async function logEgressEvent({ domain, fileName, fileSize, riskScore, action, userAction, timestamp }) {
-  if (await isEndpointCoolingDown("log-egress")) return;
-  if (await isDailyEgressCapReached()) return;
+  // Best-effort: retry any previously queued egress events
+  await processEgressLogQueue();
 
   const userId = await getOrCreateUserId();
+
+  const payload = {
+    domain,
+    user_id: userId,
+    file_name: fileName,
+    file_size: fileSize,
+    risk_score: riskScore,
+    action,
+    user_action: userAction,
+    occurred_at: timestamp,
+  };
+
+  // Queue instead of dropping when rate-limited or daily cap reached
+  if (await isEndpointCoolingDown("log-egress")) {
+    await queueEgressEvent(payload);
+    return;
+  }
+  if (await isDailyEgressCapReached()) {
+    await queueEgressEvent(payload);
+    return;
+  }
 
   try {
     const response = await ABLESecurity.secureFetch(`${SERVER_URL}/api/log-egress`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify({
-        domain,
-        user_id: userId,
-        file_name: fileName,
-        file_size: fileSize,
-        risk_score: riskScore,
-        action,
-        user_action: userAction,
-        occurred_at: timestamp,
-      }),
+      body: JSON.stringify(payload),
     });
 
     if (response.status === 429) {
       await recordRateLimitBackoff("log-egress", response);
       console.warn("ABLE: log-egress rate-limited by server, backing off.");
+      await queueEgressEvent(payload);
       return;
     }
 
     if (!response.ok) {
       console.warn("ABLE: Failed to log egress event:", response.status);
+      await queueEgressEvent(payload);
       return;
     }
 
-    await incrementDailyEgressCount();
+    await incrementDailyEgressCount(action);
   } catch (error) {
-    // Silently fail — logging egress is non-critical
+    // Server unreachable — queue for later retry
+    await queueEgressEvent(payload);
   }
 }
 
@@ -511,7 +610,11 @@ async function isDailyEgressCapReached() {
   }
 }
 
-async function incrementDailyEgressCount() {
+async function incrementDailyEgressCount(action) {
+  // Only count high-risk events (proceeded/denied) toward the daily cap.
+  // Safe domain "allowed" events are low-impact and shouldn't be capped.
+  if (action === 'allowed') return;
+
   try {
     const today = new Date().toISOString().slice(0, 10);
     const result = await chrome.storage.session.get([DAILY_EGRESS_COUNT_KEY, DAILY_EGRESS_DATE_KEY]);

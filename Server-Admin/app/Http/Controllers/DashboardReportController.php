@@ -73,7 +73,7 @@ class DashboardReportController extends Controller
         /** @var object{data_saved: int, data_lost: int} $dataStats */
         $dataStats = EgressEvent::selectRaw("
             COALESCE(SUM(CASE WHEN action = 'denied' THEN file_size ELSE 0 END), 0) as data_saved,
-            COALESCE(SUM(CASE WHEN action = 'proceeded' THEN file_size ELSE 0 END), 0) as data_lost
+            COALESCE(SUM(CASE WHEN action IN ('proceeded', 'allowed') THEN file_size ELSE 0 END), 0) as data_lost
         ")->first();
 
         // Nudge Success Rate
@@ -105,7 +105,13 @@ class DashboardReportController extends Controller
             ->limit(20)
             ->get()
             ->map(function ($event) {
-                $status = $event->risk_score >= 90 ? 'glass-unsafe' : 'glass-unlisted';
+                if ($event->action === 'allowed') {
+                    $status = 'glass-safe';
+                } elseif ($event->risk_score >= 90) {
+                    $status = 'glass-unsafe';
+                } else {
+                    $status = 'glass-unlisted';
+                }
 
                 return [
                     'occurred_at' => $event->occurred_at->toIso8601String(),

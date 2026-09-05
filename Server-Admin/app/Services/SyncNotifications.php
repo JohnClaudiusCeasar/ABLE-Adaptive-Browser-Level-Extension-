@@ -258,6 +258,10 @@ class SyncNotifications
 
     private function typeForEgress(EgressEvent $event, ?string $nudgeAction): string
     {
+        if ($event->action === 'allowed') {
+            return 'Egress Allowed';
+        }
+
         if ($nudgeAction === 'cancelled') {
             return 'Nudge Success - Upload Cancelled';
         }
@@ -272,6 +276,10 @@ class SyncNotifications
     private function descriptionForEgress(EgressEvent $event, ?string $nudgeAction): string
     {
         $size = $this->formatFileSize($event->file_size);
+
+        if ($event->action === 'allowed') {
+            return "{$event->file_name} ({$size}) — upload allowed on safe domain {$event->domain}";
+        }
 
         return match ($nudgeAction) {
             'cancelled' => "{$event->file_name} ({$size}) — user cancelled upload after nudge prompt",
