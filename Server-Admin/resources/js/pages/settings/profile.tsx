@@ -17,30 +17,41 @@ type PageProps = {
     auth: Auth;
 };
 
-export default function Profile(
-    {
-        mustVerifyEmail,
-        status,
-        profileLastUpdatedAt,
-    }: {
-        mustVerifyEmail: boolean;
-        status?: string;
-        profileLastUpdatedAt: string | null;
-    },
-) {
+export default function Profile({
+    mustVerifyEmail,
+    status,
+    profileLastUpdatedAt,
+}: {
+    mustVerifyEmail: boolean;
+    status?: string;
+    profileLastUpdatedAt: string | null;
+}) {
     const { auth } = usePage<PageProps>().props;
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-    const [pendingSubmit, setPendingSubmit] = useState<(() => void) | null>(null);
+    const [pendingSubmit, setPendingSubmit] = useState<(() => void) | null>(
+        null,
+    );
 
+    const now = new Date();
     const cooldownExpiresAt = profileLastUpdatedAt
-        ? new Date(new Date(profileLastUpdatedAt).getTime() + 7 * 24 * 60 * 60 * 1000)
+        ? new Date(
+              new Date(profileLastUpdatedAt).getTime() +
+                  7 * 24 * 60 * 60 * 1000,
+          )
         : null;
-    const isOnCooldown = cooldownExpiresAt ? cooldownExpiresAt > new Date() : false;
+    const isOnCooldown = cooldownExpiresAt ? cooldownExpiresAt > now : false;
     const cooldownDaysRemaining = isOnCooldown
-        ? Math.ceil((cooldownExpiresAt!.getTime() - Date.now()) / (24 * 60 * 60 * 1000))
+        ? Math.ceil(
+              (cooldownExpiresAt!.getTime() - now.getTime()) /
+                  (24 * 60 * 60 * 1000),
+          )
         : 0;
     const cooldownExpiresFormatted = cooldownExpiresAt
-        ? cooldownExpiresAt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+        ? cooldownExpiresAt.toLocaleDateString('en-US', {
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric',
+          })
         : null;
 
     return (
@@ -58,9 +69,11 @@ export default function Profile(
 
                 {isOnCooldown && (
                     <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
-                        To prevent misuse, changes to your name and email are limited to once every 7 days.
-                        You can next update these fields on {cooldownExpiresFormatted} (in{' '}
-                        {cooldownDaysRemaining} {cooldownDaysRemaining === 1 ? 'day' : 'days'}).
+                        To prevent misuse, changes to your name and email are
+                        limited to once every 7 days. You can next update these
+                        fields on {cooldownExpiresFormatted} (in{' '}
+                        {cooldownDaysRemaining}{' '}
+                        {cooldownDaysRemaining === 1 ? 'day' : 'days'}).
                     </div>
                 )}
 

@@ -3,8 +3,8 @@
  */
 export function formatTime(isoString: string | null | undefined): string {
     if (!isoString) {
-return '';
-}
+        return '';
+    }
 
     return new Date(isoString).toLocaleTimeString(undefined, {
         hour: 'numeric',
@@ -18,8 +18,8 @@ return '';
  */
 export function formatDate(isoString: string | null | undefined): string {
     if (!isoString) {
-return '';
-}
+        return '';
+    }
 
     return new Date(isoString).toLocaleDateString();
 }
@@ -27,10 +27,12 @@ return '';
 /**
  * Format an ISO 8601 timestamp to a relative time string (e.g., "2 hours ago").
  */
-export function formatRelativeTime(isoString: string | null | undefined): string {
+export function formatRelativeTime(
+    isoString: string | null | undefined,
+): string {
     if (!isoString) {
-return '';
-}
+        return '';
+    }
 
     const date = new Date(isoString);
     const now = new Date();
@@ -41,20 +43,20 @@ return '';
     const diffDay = Math.floor(diffHour / 24);
 
     if (diffSec < 60) {
-return 'just now';
-}
+        return 'just now';
+    }
 
     if (diffMin < 60) {
-return `${diffMin} minute${diffMin === 1 ? '' : 's'} ago`;
-}
+        return `${diffMin} minute${diffMin === 1 ? '' : 's'} ago`;
+    }
 
     if (diffHour < 24) {
-return `${diffHour} hour${diffHour === 1 ? '' : 's'} ago`;
-}
+        return `${diffHour} hour${diffHour === 1 ? '' : 's'} ago`;
+    }
 
     if (diffDay < 7) {
-return `${diffDay} day${diffDay === 1 ? '' : 's'} ago`;
-}
+        return `${diffDay} day${diffDay === 1 ? '' : 's'} ago`;
+    }
 
     return formatDate(isoString);
 }

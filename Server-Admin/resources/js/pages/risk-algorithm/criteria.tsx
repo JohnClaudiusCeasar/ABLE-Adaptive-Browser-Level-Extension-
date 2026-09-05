@@ -10,7 +10,7 @@ import {
     Copy,
 } from 'lucide-react';
 import type { FormEvent } from 'react';
-import { useState, Fragment, useMemo, useEffect } from 'react';
+import { useState, Fragment, useMemo } from 'react';
 import AlertError from '@/components/alert-error';
 
 const glassCard =
@@ -128,11 +128,13 @@ export default function CriteriaPatternConfiguration() {
         [criteriaForm.criteria_pattern_items],
     );
 
-    useEffect(() => {
-        if (!compositeScoreManual && criteriaForm.score !== autoCompositeScore) {
-            setCriteriaForm((prev) => ({ ...prev, score: autoCompositeScore }));
-        }
-    }, [autoCompositeScore, compositeScoreManual]);
+    // Keep the visible composite score in sync with the auto-sum unless the
+    // user has manually overridden it. This is computed during render from
+    // the authoritative `compositeScoreManual` flag and the item list, so no
+    // effect is needed and the form always submits the current effective value.
+    const effectiveScore = compositeScoreManual
+        ? criteriaForm.score
+        : autoCompositeScore;
 
     function openAddModal() {
         setEditingId(null);
@@ -172,6 +174,7 @@ export default function CriteriaPatternConfiguration() {
 
         const data = {
             ...criteriaForm,
+            score: effectiveScore,
             type: 'criteria' as const,
         };
 
@@ -631,18 +634,20 @@ export default function CriteriaPatternConfiguration() {
                                         required
                                         min={0}
                                         max={100}
-                                        value={criteriaForm.score}
+                                        value={effectiveScore}
                                         onChange={(e) => {
                                             setCompositeScoreManual(true);
                                             setCriteriaForm({
                                                 ...criteriaForm,
-                                                score: parseInt(e.target.value) || 0,
+                                                score:
+                                                    parseInt(e.target.value) ||
+                                                    0,
                                             });
                                         }}
                                         className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-foreground transition-colors outline-none focus:border-able-green dark:border-white/10"
                                     />
-                                    {!compositeScoreManual && criteriaForm.score === autoCompositeScore && (
-                                        <span className="text-xs text-muted-foreground bg-[rgba(34,197,94,0.15)] px-2 py-0.5 rounded-full whitespace-nowrap">
+                                    {!compositeScoreManual && (
+                                        <span className="rounded-full bg-[rgba(34,197,94,0.15)] px-2 py-0.5 text-xs whitespace-nowrap text-muted-foreground">
                                             Auto
                                         </span>
                                     )}

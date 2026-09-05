@@ -2,6 +2,7 @@
 
 namespace App\Listeners;
 
+use App\Models\User;
 use App\Services\LoginAuditService;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
@@ -15,7 +16,9 @@ class LoginActivityListener
 
     public function handleLogin(Login $event): void
     {
+        /** @var User $user */
         $user = $event->user;
+
         $this->auditService->log(
             email: $user->email,
             type: $event->guard === 'web' ? 'success' : "success_{$event->guard}",
@@ -27,18 +30,23 @@ class LoginActivityListener
 
     public function handleFailed(Failed $event): void
     {
+        /** @var User|null $user */
+        $user = $event->user;
+
         $this->auditService->log(
             email: $event->credentials['email'] ?? 'unknown',
             type: 'failed',
             ipAddress: request()->ip() ?? 'unknown',
             userAgent: request()->userAgent(),
-            userId: $event->user?->id,
+            userId: $user?->id,
         );
     }
 
     public function handleLogout(Logout $event): void
     {
+        /** @var User $user */
         $user = $event->user;
+
         $this->auditService->log(
             email: $user->email,
             type: 'logout',

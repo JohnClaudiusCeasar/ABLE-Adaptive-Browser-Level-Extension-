@@ -50,7 +50,8 @@ export default function PasskeyItem({ passkey, onDelete }: Props) {
                                 <span className="mx-1 text-muted-foreground/50">
                                     /
                                 </span>
-                                Last used {formatRelativeTime(passkey.last_used_at)}
+                                Last used{' '}
+                                {formatRelativeTime(passkey.last_used_at)}
                             </>
                         )}
                     </p>

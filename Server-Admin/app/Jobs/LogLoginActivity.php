@@ -13,6 +13,9 @@ class LogLoginActivity implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    /**
+     * @param  array<string, mixed>|null  $metadata
+     */
     public function __construct(
         public string $email,
         public string $type,

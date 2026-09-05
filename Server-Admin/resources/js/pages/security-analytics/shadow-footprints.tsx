@@ -156,8 +156,13 @@ export default function ShadowFootprints({
                 <td className="py-3.5">{row.users}</td>
                 <td className="py-3.5">{row.status}</td>
                 <td className="py-3.5 text-center">
-                    <Link href={`/policy-algorithm?highlight=${encodeURIComponent(row.domain)}`}>
-                        <button className="cursor-pointer border-none bg-transparent text-muted-foreground transition-colors hover:text-able-green" title="View in Policy">
+                    <Link
+                        href={`/policy-algorithm?highlight=${encodeURIComponent(row.domain)}`}
+                    >
+                        <button
+                            className="cursor-pointer border-none bg-transparent text-muted-foreground transition-colors hover:text-able-green"
+                            title="View in Policy"
+                        >
                             <Eye size={16} />
                         </button>
                     </Link>

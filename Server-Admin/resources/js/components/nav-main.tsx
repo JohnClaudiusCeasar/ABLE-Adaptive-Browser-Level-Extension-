@@ -1,6 +1,6 @@
 import { Link } from '@inertiajs/react';
 import { ChevronDown } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
     Collapsible,
     CollapsibleContent,
@@ -57,15 +57,16 @@ function CollapsibleNavItem({
     const groupActive = isCurrentUrl(groupRoot, undefined, true);
 
     const [open, setOpen] = useState(groupActive);
+    const [syncedGroupActive, setSyncedGroupActive] = useState(groupActive);
 
-    // Sync the open state with group activity on navigation. Using an
-    // effect (instead of a render-phase setState) ensures the user's
-    // manual toggle is respected between navigations — a render-phase
-    // update would immediately override the user's click to expand the
-    // collapsible when the group is not currently active.
-    useEffect(() => {
+    // Keep the collapsible open state in sync with the active group without
+    // triggering a cascading render. When the group becomes active (or
+    // inactive) the state is reset during the same render by keying off the
+    // previous value instead of calling setState inside an effect.
+    if (syncedGroupActive !== groupActive) {
+        setSyncedGroupActive(groupActive);
         setOpen(groupActive);
-    }, [groupActive]);
+    }
 
     function handleOpenChange(next: boolean) {
         setOpen(next);

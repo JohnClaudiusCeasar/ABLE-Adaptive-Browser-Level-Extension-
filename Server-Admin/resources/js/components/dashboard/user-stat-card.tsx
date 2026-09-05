@@ -27,8 +27,8 @@ export function UserStatCard({
         <div
             className={cn(
                 'relative flex items-center gap-5 rounded-xl border p-6 backdrop-blur-[12px]',
-                'bg-[rgba(34,197,94,0.06)] border-[rgba(34,197,94,0.3)]',
-                'dark:bg-white/[0.04] dark:border-[rgba(34,197,94,0.5)]',
+                'border-[rgba(34,197,94,0.3)] bg-[rgba(34,197,94,0.06)]',
+                'dark:border-[rgba(34,197,94,0.5)] dark:bg-white/[0.04]',
             )}
             style={{
                 boxShadow: `0 0 20px -4px ${pulseColor}15, 0 4px 12px -2px rgba(0,0,0,0.08)`,
@@ -65,17 +65,14 @@ export function UserStatCard({
                         className={cn(accent)}
                     />
                 </svg>
-                <Icon
-                    size={24}
-                    className={cn('absolute', accent)}
-                />
+                <Icon size={24} className={cn('absolute', accent)} />
             </div>
 
             {/* Value and label */}
-            <div className="flex flex-col gap-1 min-w-0">
+            <div className="flex min-w-0 flex-col gap-1">
                 <p
                     className={cn(
-                        'text-4xl font-bold tabular-nums leading-none tracking-tight',
+                        'text-4xl leading-none font-bold tracking-tight tabular-nums',
                         accent,
                     )}
                 >
@@ -86,7 +83,7 @@ export function UserStatCard({
                         {label}
                     </span>
                     <span
-                        className="h-2 w-2 rounded-full animate-status-pulse"
+                        className="animate-status-pulse h-2 w-2 rounded-full"
                         style={{ backgroundColor: pulseColor }}
                     />
                 </div>

@@ -7,6 +7,7 @@ use App\Models\RiskPattern;
 use App\Rules\CompilableRegex;
 use App\Support\JsCanonical;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redirect;
 use Inertia\Inertia;
@@ -42,7 +43,7 @@ class RiskPatternController extends Controller
     /**
      * Store a newly created risk pattern.
      */
-    public function store(Request $request)
+    public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'title' => 'required|string|max:255',
@@ -81,6 +82,8 @@ class RiskPatternController extends Controller
 
     /**
      * Create criteria items recursively.
+     *
+     * @param  array<int, array<string, mixed>>  $items
      */
     private function createCriteriaItems(int $patternId, array $items, ?int $parentId = null): void
     {
@@ -104,6 +107,8 @@ class RiskPatternController extends Controller
     /**
      * Create single-pattern rows for each criteria item and sub-item,
      * linked to the parent criteria via parent_criteria_id.
+     *
+     * @param  array<int, array<string, mixed>>  $items
      */
     private function syncAutoCreatedSingles(int $criteriaId, array $items): void
     {
@@ -126,7 +131,7 @@ class RiskPatternController extends Controller
     /**
      * Update the specified risk pattern.
      */
-    public function update(Request $request, RiskPattern $riskPattern)
+    public function update(Request $request, RiskPattern $riskPattern): RedirectResponse
     {
         $validated = $request->validate([
             'title' => 'required|string|max:255',
@@ -174,7 +179,7 @@ class RiskPatternController extends Controller
     /**
      * Remove the specified risk pattern.
      */
-    public function destroy(RiskPattern $riskPattern)
+    public function destroy(RiskPattern $riskPattern): RedirectResponse
     {
         // Delete auto-created single patterns linked to this criteria
         RiskPattern::where('parent_criteria_id', $riskPattern->id)->delete();
@@ -187,7 +192,7 @@ class RiskPatternController extends Controller
     /**
      * Remove all risk patterns.
      */
-    public function destroyAll()
+    public function destroyAll(): RedirectResponse
     {
         RiskPattern::query()->delete();
 

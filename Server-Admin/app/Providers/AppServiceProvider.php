@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Listeners\LoginActivityListener;
+use App\Models\AbleSetting;
 use App\Models\CriteriaPatternItem;
 use App\Models\DomainPolicy;
 use App\Models\RiskPattern;
@@ -47,6 +48,7 @@ class AppServiceProvider extends ServiceProvider
         DomainPolicy::observe(AuditLogObserver::class);
         RiskPattern::observe(AuditLogObserver::class);
         CriteriaPatternItem::observe(AuditLogObserver::class);
+        AbleSetting::observe(AuditLogObserver::class);
     }
 
     /**

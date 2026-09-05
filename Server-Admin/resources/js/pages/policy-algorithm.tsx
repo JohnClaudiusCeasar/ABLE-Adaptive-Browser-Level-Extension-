@@ -124,7 +124,9 @@ export default function PolicyAlgorithm() {
     const [sortField, setSortField] = useState<SortField>('domain');
     const [sortDir, setSortDir] = useState<SortDir>('asc');
     const [groupField, setGroupField] = useState<GroupField>('none');
-    const [highlightDomain, setHighlightDomain] = useState<string | null>(initialHighlight);
+    const [highlightDomain, setHighlightDomain] = useState<string | null>(
+        initialHighlight,
+    );
 
     // Form state
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -405,7 +407,7 @@ export default function PolicyAlgorithm() {
             <tr
                 key={d.id}
                 data-highlight={d.domain === highlightDomain ? 'true' : 'false'}
-                className={`border-b border-black/10 last:border-b-0 dark:border-white/10 transition-all ${
+                className={`border-b border-black/10 transition-all last:border-b-0 dark:border-white/10 ${
                     d.domain === highlightDomain
                         ? 'highlight-glow ring-2 ring-[rgba(34,197,94,0.9)]'
                         : ''
@@ -642,7 +644,7 @@ export default function PolicyAlgorithm() {
                             className="text-[1.6rem] font-bold"
                             style={{ fontFamily: "'Unbounded', sans-serif" }}
                         >
-                            Domain Classification 
+                            Domain Classification
                         </h2>
                         <div className="flex items-center gap-3">
                             {domainPolicies.length > 0 && (
@@ -800,9 +802,10 @@ export default function PolicyAlgorithm() {
                                                 risk_score:
                                                     policy === 'under_review'
                                                         ? 70
-                                                        : policy === 'whitelisted'
-                                                            ? 0
-                                                            : form.risk_score,
+                                                        : policy ===
+                                                            'whitelisted'
+                                                          ? 0
+                                                          : form.risk_score,
                                             });
                                         }}
                                         className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-foreground transition-colors outline-none focus:border-able-green dark:border-white/10"

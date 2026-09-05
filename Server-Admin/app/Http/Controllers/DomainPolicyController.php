@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\DomainPolicy;
 use App\Models\DomainVisit;
+use App\Services\AbleSettingsService;
 use App\Support\JsCanonical;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Redirect;
@@ -29,7 +31,7 @@ class DomainPolicyController extends Controller
     /**
      * Store a newly created domain policy.
      */
-    public function store(Request $request)
+    public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'domain' => 'required|string|max:255|unique:domain_policies,domain',
@@ -49,7 +51,7 @@ class DomainPolicyController extends Controller
     /**
      * Update the specified domain policy.
      */
-    public function update(Request $request, DomainPolicy $domainPolicy)
+    public function update(Request $request, DomainPolicy $domainPolicy): RedirectResponse
     {
         $validated = $request->validate([
             'domain' => 'required|string|max:255|unique:domain_policies,domain,'.$domainPolicy->id,
@@ -69,7 +71,7 @@ class DomainPolicyController extends Controller
     /**
      * Remove the specified domain policy.
      */
-    public function destroy(DomainPolicy $domainPolicy)
+    public function destroy(DomainPolicy $domainPolicy): RedirectResponse
     {
         $domainPolicy->delete();
 
@@ -81,7 +83,7 @@ class DomainPolicyController extends Controller
     /**
      * Remove all domain policies.
      */
-    public function destroyAll()
+    public function destroyAll(): RedirectResponse
     {
         DomainPolicy::query()->delete();
 
@@ -176,6 +178,9 @@ class DomainPolicyController extends Controller
     /**
      * Sign a payload with the server's HMAC secret and return the envelope.
      * Format: { payload, signature, key_version }
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
      */
     private function signEnvelope(array $payload): array
     {
@@ -209,8 +214,8 @@ class DomainPolicyController extends Controller
         ]);
 
         try {
-            $hostname = strtolower(parse_url($request->input('url'), PHP_URL_HOST));
-            $domain = preg_replace('/^www\./', '', $hostname);
+            $hostname = parse_url($request->input('url'), PHP_URL_HOST);
+            $domain = preg_replace('/^www\./', '', strtolower((string) $hostname));
 
             // Query the database - exact match first
             $policy = DomainPolicy::where('domain', $domain)->first();
@@ -232,10 +237,14 @@ class DomainPolicyController extends Controller
             }
 
             // Check if domain matches safe patterns (edu, gov, org)
-            $safePatterns = [
-                '/^([\w-]+\.)*\.(edu|gov|org)$/i',
-                '/^([\w-]+\.)*gov\.(uk|au|nz|ca)$/i',
-            ];
+            $safePatterns = app(AbleSettingsService::class)->value(
+                'server',
+                'algorithm.safe_patterns',
+                [
+                    '/^([\w-]+\.)*\.(edu|gov|org)$/i',
+                    '/^([\w-]+\.)*gov\.(uk|au|nz|ca)$/i',
+                ],
+            );
 
             foreach ($safePatterns as $pattern) {
                 if (preg_match($pattern, $domain)) {
@@ -251,12 +260,15 @@ class DomainPolicyController extends Controller
             }
 
             // Not found in database
+            $defaultRiskScore = (int) app(AbleSettingsService::class)->value('server', 'algorithm.default_risk_score', 70);
+            $fallbackPolicy = (string) app(AbleSettingsService::class)->value('server', 'algorithm.fallback_policy', 'under_review');
+
             return response()->json([
                 'status' => 'unlisted',
                 'domain' => $domain,
                 'category' => null,
-                'policy' => 'under_review',
-                'risk_score' => 70,
+                'policy' => $fallbackPolicy,
+                'risk_score' => $defaultRiskScore,
                 'source' => 'default',
             ]);
 

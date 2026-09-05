@@ -83,7 +83,7 @@ class SecurityHeaders
                 $devScheme = $parsed['scheme'] ?? 'http';
             } else {
                 $devHost = str_replace(['http://', 'https://'], '', $appUrl);
-                $devPort = env('VITE_DEV_SERVER_PORT', '5173');
+                $devPort = (string) config('vite.dev_server_port', '5173');
                 $devScheme = 'http';
             }
             $devBase = "{$devScheme}://{$devHost}:{$devPort}";

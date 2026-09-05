@@ -97,8 +97,9 @@ async function classifyCurrentDomain() {
 function isExcludedDomain() {
   if (!domainStatus?.domain) return false;
   const domain = domainStatus.domain.toLowerCase();
-  return EXCLUDED_DOMAINS.some(
-    (excluded) => domain === excluded || domain.endsWith("." + excluded)
+  const excluded = ABLERuntimeSettings.get("excluded_domains", EXCLUDED_DOMAINS);
+  return excluded.some(
+    (excludedDomain) => domain === excludedDomain || domain.endsWith("." + excludedDomain)
   );
 }
 
@@ -108,6 +109,10 @@ function shouldActivate() {
 }
 
 async function hasSessionConsent() {
+  if (ABLERuntimeSettings.get("behavior.session_consent_enabled", true) === false) {
+    return false;
+  }
+
   try {
     const key = domainStatus.domain;
     const data = await chrome.storage.session.get(key);
@@ -161,6 +166,14 @@ async function migrateOldSessionConsent() {
 const COOLDOWN_SHORT_MS = 10000; // 10 seconds
 const COOLDOWN_STAGGER_MS = 300000; // 5 minutes
 
+function getShortCooldown() {
+  return ABLERuntimeSettings.get("behavior.modal_short_cooldown_ms", COOLDOWN_SHORT_MS);
+}
+
+function getStaggerCooldown() {
+  return ABLERuntimeSettings.get("behavior.modal_stagger_cooldown_ms", COOLDOWN_STAGGER_MS);
+}
+
 async function getLastModalShownTime() {
   try {
     const key = "able:last_modal:" + domainStatus.domain;
@@ -208,8 +221,8 @@ async function shouldShowRepeatVisitModal() {
   // staggers to 5 minutes.
   const nextShowNumber = interactionCount + 1;
   const cooldown = (nextShowNumber % 3 === 0)
-    ? COOLDOWN_STAGGER_MS
-    : COOLDOWN_SHORT_MS;
+    ? getStaggerCooldown()
+    : getShortCooldown();
   return Date.now() - lastShown >= cooldown;
 }
 
@@ -415,15 +428,17 @@ async function scanFile(file) {
   }
   flaggedItems.push(...result.flaggedItems);
 
-    console.log("ABLE Scan:", {
+  const riskThreshold = ABLERuntimeSettings.get("behavior.risk_threshold", 90);
+
+  console.log("ABLE Scan:", {
     file: file.name,
     domain: domainStatus.domain,
     domain_status: domainStatus.status,
     domain_risk_score: domainRiskScore,
     pattern_score: result.score,
     total_score: totalScore,
-    threshold: 90,
-    triggered: totalScore > 90,
+    threshold: riskThreshold,
+    triggered: totalScore > riskThreshold,
     flagged_item_count: flaggedItems.length,
   });
 
@@ -457,7 +472,7 @@ async function handleInterceptedFiles(files, requestId) {
 
   const consent = await hasSessionConsent();
 
-  if (highestRisk && highestRisk.score > 90 && !consent) {
+  if (highestRisk && highestRisk.score > ABLERuntimeSettings.get("behavior.risk_threshold", 90) && !consent) {
     showInterceptModal({
       score: highestRisk.score,
       flaggedItems: highestRisk.flaggedItems,
@@ -789,13 +804,14 @@ async function logDomainVisit() {
   // Skip excluded domains
   if (isExcludedDomain()) return null;
 
-  // Debounce: Don't log the same domain within 5 seconds
+  // Debounce: Don't log the same domain within the configured window
   const DEBOUNCE_KEY = `able:last_visit:${domainStatus.domain}`;
+  const debounceMs = ABLERuntimeSettings.get("logging.visit_debounce_ms", 5000);
   try {
     const result = await chrome.storage.session.get(DEBOUNCE_KEY);
     const lastVisit = result[DEBOUNCE_KEY];
 
-    if (lastVisit && Date.now() - lastVisit < 5000) {
+    if (lastVisit && Date.now() - lastVisit < debounceMs) {
       return null; // Skip duplicate visit
     }
   } catch (error) {

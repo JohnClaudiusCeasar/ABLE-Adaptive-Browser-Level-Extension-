@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ExtensionLifecycle;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 
 class ExtensionLifecycleController extends Controller
 {
@@ -35,7 +36,7 @@ class ExtensionLifecycleController extends Controller
      * Log an uninstall event. Chrome opens this URL via setUninstallURL as a
      * GET request in a new tab right before the extension is removed.
      */
-    public function logUninstall(Request $request)
+    public function logUninstall(Request $request): HttpResponse
     {
         $validated = $request->validate([
             'user_id' => 'required|string|max:255',

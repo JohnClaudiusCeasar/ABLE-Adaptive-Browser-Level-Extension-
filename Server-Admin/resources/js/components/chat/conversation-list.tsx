@@ -29,8 +29,8 @@ export function ConversationList({
 }) {
     function toggleSelection(id: number) {
         if (!onSelectionChange) {
-return;
-}
+            return;
+        }
 
         const next = new Set(selectedIds);
 
@@ -99,7 +99,7 @@ return;
                                             onDelete(conversation);
                                         }}
                                         aria-label={`Delete conversation with ${conversation.other_user?.name ?? 'Unknown'}`}
-                                        className="absolute inset-0 flex items-center justify-center rounded-full bg-red-500/10 text-red-500 opacity-0 transition-opacity duration-200 hover:bg-red-500/20 group-hover/avatar:opacity-100"
+                                        className="absolute inset-0 flex items-center justify-center rounded-full bg-red-500/10 text-red-500 opacity-0 transition-opacity duration-200 group-hover/avatar:opacity-100 hover:bg-red-500/20"
                                     >
                                         <Trash2 size={16} />
                                     </button>
@@ -121,7 +121,9 @@ return;
                                     </span>
                                     {conversation.last_message_at && (
                                         <span className="shrink-0 text-[0.68rem] text-muted-foreground">
-                                            {formatRelativeTime(conversation.last_message_at)}
+                                            {formatRelativeTime(
+                                                conversation.last_message_at,
+                                            )}
                                         </span>
                                     )}
                                 </div>

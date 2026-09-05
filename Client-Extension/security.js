@@ -140,13 +140,22 @@ async function secureFetch(url, options = {}) {
     throw new Error(`ABLE: Refusing non-HTTPS request to ${parsed.origin}`);
   }
 
-  if (!ALLOWED_ORIGINS.includes(parsed.origin)) {
+  const allowedOrigins =
+    typeof ABLERuntimeSettings !== "undefined"
+      ? ABLERuntimeSettings.get("connection.allowed_origins", ALLOWED_ORIGINS)
+      : ALLOWED_ORIGINS;
+
+  if (!allowedOrigins.includes(parsed.origin)) {
     throw new Error(`ABLE: Origin ${parsed.origin} not in allowlist`);
   }
 
   // Verify the TLS pin before issuing the real request, so a failed pin
   // never causes us to receive the response body. No-op when pins[] is empty.
-  await verifyTlsPin(parsed.hostname);
+  const tlsPins =
+    typeof ABLERuntimeSettings !== "undefined"
+      ? ABLERuntimeSettings.get("connection.tls_pins", TLS_PINS)
+      : TLS_PINS;
+  await verifyTlsPin(parsed.hostname, tlsPins);
 
   // Abort the request if the server doesn't respond within 5 seconds.
   // Without this, an unreachable host causes fetch() to hang for the OS
@@ -184,9 +193,9 @@ async function secureFetch(url, options = {}) {
  * security info via a parallel probe request. If no pins are configured
  * for the host, the check is skipped (warn-only).
  */
-async function verifyTlsPin(hostname) {
-  const pins = TLS_PINS[hostname];
-  if (!pins || pins.length === 0) return;
+async function verifyTlsPin(hostname, pins = TLS_PINS) {
+  const hostPins = pins[hostname];
+  if (!hostPins || hostPins.length === 0) return;
 
   // The service worker can use chrome.webRequest.getSecurityInfo via
   // a probe request and Promise bridge. For MV3 service workers, the
@@ -211,7 +220,7 @@ async function verifyTlsPin(hostname) {
   } catch (error) {
     console.warn(`ABLE: TLS pin verification inconclusive for ${hostname}:`, error);
     // Fail-closed when pins are configured but cannot be verified.
-    if (pins.length > 0) {
+    if (hostPins.length > 0) {
       throw new Error(`ABLE: TLS pin check failed for ${hostname}`);
     }
   }

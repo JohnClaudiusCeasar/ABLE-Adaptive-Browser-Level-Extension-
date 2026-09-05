@@ -21,6 +21,10 @@ class SyncNotifications
      */
     public function sync(): void
     {
+        if (! app(AbleSettingsService::class)->value('server', 'runtime.notification_sync_enabled', true)) {
+            return;
+        }
+
         $this->syncEgressEvents();
         $this->syncDomainVisits();
         $this->syncAuditLogs();
@@ -87,10 +91,10 @@ class SyncNotifications
                     return;
                 }
 
-                $isFirstVisit = $visit->domainPolicy && $visit->domainPolicy->visit_count === 1;
+                $isFirstVisit = $visit->domainPolicy !== null && $visit->domainPolicy->visit_count === 1;
                 $type = $isFirstVisit ? 'New Domain Detected' : 'New Domain Visit';
                 $status = $this->statusForDomainStatus($visit->domainPolicy?->domain_status);
-                $riskScore = $visit->domainPolicy?->risk_score ?? 0;
+                $riskScore = $visit->domainPolicy->risk_score ?? 0;
 
                 Notification::create([
                     'source' => 'domain',
@@ -175,14 +179,14 @@ class SyncNotifications
 
                 Notification::create([
                     'source' => 'extension',
-                    'type' => $typeMap[$lifecycle->event] ?? 'Extension Lifecycle Event',
+                    'type' => $typeMap[$lifecycle->event],
                     'description' => "Extension {$lifecycle->extension_id} {$lifecycle->event} by user {$lifecycle->user_id}",
                     'domain' => null,
                     'user_id' => $lifecycle->user_id,
                     'email' => null,
                     'ip_address' => null,
                     'risk_score' => null,
-                    'status' => $statusMap[$lifecycle->event] ?? 'glass-unlisted',
+                    'status' => $statusMap[$lifecycle->event],
                     'message' => 'extension-lifecycle-'.$lifecycle->id,
                     'occurred_at' => $lifecycle->occurred_at,
                     'read_at' => null,
@@ -213,8 +217,8 @@ class SyncNotifications
                     : null;
                 $recipient = $recipientId ? User::find($recipientId) : null;
                 $sender = User::find($message->sender_id);
-                $senderName = $sender?->name ?? 'Unknown';
-                $bodyExcerpt = Str::limit($message->body ?? '', 60);
+                $senderName = $sender->name ?? 'Unknown';
+                $bodyExcerpt = Str::limit($message->body, 60);
 
                 Notification::create([
                     'source' => 'chat',

@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
@@ -20,10 +19,10 @@ use Illuminate\Support\Carbon;
 #[Fillable(['conversation_id', 'sender_id', 'body', 'read_at'])]
 class ChatMessage extends Model
 {
-    use HasFactory;
-
     /**
      * Get the conversation the message belongs to.
+     *
+     * @return BelongsTo<ChatConversation, $this>
      */
     public function conversation(): BelongsTo
     {
@@ -32,6 +31,8 @@ class ChatMessage extends Model
 
     /**
      * Get the user who sent the message.
+     *
+     * @return BelongsTo<User, $this>
      */
     public function sender(): BelongsTo
     {

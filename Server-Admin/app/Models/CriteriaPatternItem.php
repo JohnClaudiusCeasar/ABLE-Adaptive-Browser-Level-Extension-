@@ -2,19 +2,16 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CriteriaPatternItem extends Model
 {
-    use HasFactory;
-
     /**
      * The attributes that are mass assignable.
      *
-     * @var array<int, string>
+     * @var list<string>
      */
     protected $fillable = [
         'criteria_pattern_id',
@@ -27,6 +24,8 @@ class CriteriaPatternItem extends Model
 
     /**
      * Get the risk pattern that owns this item.
+     *
+     * @return BelongsTo<RiskPattern, $this>
      */
     public function riskPattern(): BelongsTo
     {
@@ -35,6 +34,8 @@ class CriteriaPatternItem extends Model
 
     /**
      * Get the parent item (if this is a sub-item).
+     *
+     * @return BelongsTo<CriteriaPatternItem, $this>
      */
     public function parent(): BelongsTo
     {
@@ -43,6 +44,8 @@ class CriteriaPatternItem extends Model
 
     /**
      * Get the sub-items for this item.
+     *
+     * @return HasMany<CriteriaPatternItem, $this>
      */
     public function subItems(): HasMany
     {

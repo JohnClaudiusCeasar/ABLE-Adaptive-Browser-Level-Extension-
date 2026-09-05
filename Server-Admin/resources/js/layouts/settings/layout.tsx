@@ -6,18 +6,30 @@ import { Separator } from '@/components/ui/separator';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { cn, toUrl } from '@/lib/utils';
 import { edit as editAppearance } from '@/routes/appearance';
-import { edit } from '@/routes/profile';
+import { edit as editExtension } from '@/routes/extension-settings';
+import { edit as editProfile } from '@/routes/profile';
+import { edit as editServer } from '@/routes/server-settings';
 import type { NavItem } from '@/types';
 
 const sidebarNavItems: NavItem[] = [
     {
         title: 'Profile',
-        href: edit(),
+        href: editProfile(),
         icon: null,
     },
     {
         title: 'Appearance',
         href: editAppearance(),
+        icon: null,
+    },
+    {
+        title: 'Extension',
+        href: editExtension(),
+        icon: null,
+    },
+    {
+        title: 'Server',
+        href: editServer(),
         icon: null,
     },
 ];

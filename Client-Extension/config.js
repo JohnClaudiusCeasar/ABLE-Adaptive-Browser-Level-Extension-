@@ -1,6 +1,13 @@
 const COMPANY_NAME = "ABLE";
 
 /**
+ * ABLE now supports a signed runtime configuration pushed from the admin
+ * server. The constants in this file remain the fallback defaults used when
+ * the server is unreachable or returns an unverifiable payload. Values present
+ * in the verified runtime payload (see runtime-settings.js) take precedence.
+ */
+
+/**
  * Server URL the extension talks to. Single source of truth — api.js reads
  * this constant and security.js derives its ALLOWED_ORIGINS from it so the
  * origin and port can never disagree.
@@ -71,6 +78,21 @@ const EXCLUDED_DOMAINS = [
   "127.0.0.1",
   "[::1]",
 ];
+
+/**
+ * Fallback runtime values used by runtime-settings.js when the signed server
+ * payload is unavailable. These mirror the server-side schema defaults.
+ */
+const ABLE_RISK_THRESHOLD = 90;
+const ABLE_MODAL_SHORT_COOLDOWN_MS = 10000;
+const ABLE_MODAL_STAGGER_COOLDOWN_MS = 300000;
+const ABLE_SESSION_CONSENT_ENABLED = true;
+const ABLE_CACHE_TTL = 5 * 60 * 1000;
+const ABLE_RISK_PATTERNS_SYNC_INTERVAL_MINUTES = 24 * 60;
+const ABLE_VISIT_LOG_FLUSH_INTERVAL_MINUTES = 5;
+const ABLE_RATE_LIMIT_DEFAULT_BACKOFF_MS = 60000;
+const ABLE_DAILY_EGRESS_CAP = 500;
+const ABLE_VISIT_DEBOUNCE_MS = 5000;
 
 /**
  * Generate status messages for domain classification.

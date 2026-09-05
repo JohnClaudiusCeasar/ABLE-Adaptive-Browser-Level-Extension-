@@ -9,11 +9,9 @@
 
 @theme {
     --font-sans:
-        'Archivo', ui-sans-serif, system-ui, sans-serif,
-        'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
-        'Noto Color Emoji';
-    --font-brand:
-        'Unbounded', ui-sans-serif, system-ui, sans-serif;
+        'Archivo', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
+        'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-brand: 'Unbounded', ui-sans-serif, system-ui, sans-serif;
 
     --radius-lg: var(--radius);
     --radius-md: calc(var(--radius) - 2px);
@@ -158,12 +156,22 @@
 
     body {
         @apply bg-background text-foreground;
-        background: linear-gradient(180deg, #ffffff 0%, #f9fafb 50%, #f3f4f6 100%);
+        background: linear-gradient(
+            180deg,
+            #ffffff 0%,
+            #f9fafb 50%,
+            #f3f4f6 100%
+        );
         min-height: 100vh;
     }
 
     .dark body {
-        background: linear-gradient(180deg, #1e4b3e 0%, #143a2e 50%, #0f1f1b 100%);
+        background: linear-gradient(
+            180deg,
+            #1e4b3e 0%,
+            #143a2e 50%,
+            #0f1f1b 100%
+        );
     }
 }
 

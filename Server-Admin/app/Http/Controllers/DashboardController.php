@@ -53,6 +53,7 @@ class DashboardController extends Controller
         $criticalEgressCount = EgressEvent::where('risk_score', '>=', 90)->count();
 
         // 3. Data Saved/Lost - single conditional aggregation
+        /** @var object{data_saved: int, data_lost: int} $dataStats */
         $dataStats = EgressEvent::selectRaw("
             COALESCE(SUM(CASE WHEN action = 'denied' THEN file_size ELSE 0 END), 0) as data_saved,
             COALESCE(SUM(CASE WHEN action = 'proceeded' THEN file_size ELSE 0 END), 0) as data_lost
@@ -61,6 +62,7 @@ class DashboardController extends Controller
         // 4. Nudge Success Rate
         // Success = user cancelled upload (nudge prevented data loss)
         // Failure = user proceeded with upload (data left the network)
+        /** @var object{success: int, failure: int} $nudgeStats */
         $nudgeStats = NudgeInteraction::selectRaw("
             SUM(CASE WHEN user_action = 'cancelled' THEN 1 ELSE 0 END) as success,
             SUM(CASE WHEN user_action = 'proceeded' THEN 1 ELSE 0 END) as failure
@@ -71,6 +73,7 @@ class DashboardController extends Controller
             : 0;
 
         // 5. Domain Usage - single conditional aggregation
+        /** @var object{safe: int, unsafe: int, unlisted: int} $statusCounts */
         $statusCounts = DomainPolicy::selectRaw("
             SUM(CASE WHEN domain_status = 'safe' THEN 1 ELSE 0 END) as safe,
             SUM(CASE WHEN domain_status = 'unsafe' THEN 1 ELSE 0 END) as unsafe,

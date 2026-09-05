@@ -11,19 +11,27 @@ interface PanelCardProps {
     children: React.ReactNode;
 }
 
-export function PanelCard({ title, subtitle, action, className, children }: PanelCardProps) {
+export function PanelCard({
+    title,
+    subtitle,
+    action,
+    className,
+    children,
+}: PanelCardProps) {
     return (
         <div className={cn(glassCard, 'p-6', className)}>
-            <div className="flex items-start justify-between gap-4 mb-6">
+            <div className="mb-6 flex items-start justify-between gap-4">
                 <div>
                     <h2
-                        className="text-xl font-semibold uppercase tracking-wide"
+                        className="text-xl font-semibold tracking-wide uppercase"
                         style={{ fontFamily: "'Unbounded', sans-serif" }}
                     >
                         {title}
                     </h2>
                     {subtitle && (
-                        <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            {subtitle}
+                        </p>
                     )}
                 </div>
                 {action}

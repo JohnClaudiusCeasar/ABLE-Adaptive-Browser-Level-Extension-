@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -20,10 +19,10 @@ use Illuminate\Support\Carbon;
 #[Fillable(['user_one_id', 'user_two_id', 'last_message_at'])]
 class ChatConversation extends Model
 {
-    use HasFactory;
-
     /**
      * Get the first participant of the conversation.
+     *
+     * @return BelongsTo<User, $this>
      */
     public function userOne(): BelongsTo
     {
@@ -32,6 +31,8 @@ class ChatConversation extends Model
 
     /**
      * Get the second participant of the conversation.
+     *
+     * @return BelongsTo<User, $this>
      */
     public function userTwo(): BelongsTo
     {
@@ -40,6 +41,8 @@ class ChatConversation extends Model
 
     /**
      * Get the messages belonging to the conversation.
+     *
+     * @return HasMany<ChatMessage, $this>
      */
     public function messages(): HasMany
     {

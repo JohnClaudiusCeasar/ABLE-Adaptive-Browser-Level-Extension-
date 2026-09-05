@@ -8,6 +8,13 @@ const domainCache = new Map();
 // Cache TTL in milliseconds (5 minutes)
 const CACHE_TTL = 5 * 60 * 1000;
 
+/**
+ * Effective cache TTL from signed runtime settings, falling back to CACHE_TTL.
+ */
+function getCacheTtl() {
+  return ABLERuntimeSettings.get("sync.cache_ttl_ms", CACHE_TTL);
+}
+
 // Storage key for offline policy cache (signed envelope format)
 const OFFLINE_CACHE_KEY = "able:domain_policies";
 const OFFLINE_CACHE_TIMESTAMP_KEY = "able:domain_policies_timestamp";
@@ -20,6 +27,11 @@ const RISK_PATTERNS_ENVELOPE_KEY = "able:risk_patterns_envelope";
 
 // Risk patterns sync interval (24 hours)
 const RISK_PATTERNS_SYNC_INTERVAL = 24 * 60 * 60 * 1000;
+
+function getRiskPatternsSyncIntervalMs() {
+  const minutes = ABLERuntimeSettings.get("sync.risk_patterns_interval_minutes", 1440);
+  return minutes * 60 * 1000;
+}
 
 // In-memory cache for risk patterns to avoid repeated fetch failures on rapid scans
 let riskPatternsMemoryCache = null;
@@ -165,7 +177,7 @@ async function getDomainClassification(url) {
 
     // Step 1: Check in-memory cache first
     const cached = domainCache.get(domain);
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    if (cached && Date.now() - cached.timestamp < getCacheTtl()) {
       return cached.data;
     }
 
@@ -453,7 +465,7 @@ async function isEndpointCoolingDown(endpoint) {
 }
 
 async function recordRateLimitBackoff(endpoint, response) {
-  let retryAfterMs = 60000; // default 60s if header missing
+  let retryAfterMs = ABLERuntimeSettings.get("logging.rate_limit_default_backoff_ms", 60000);
   try {
     const header = response.headers.get("Retry-After");
     if (header) {
@@ -484,12 +496,16 @@ const DAILY_EGRESS_CAP = 500;
 const DAILY_EGRESS_COUNT_KEY = "able:daily_egress_count";
 const DAILY_EGRESS_DATE_KEY = "able:daily_egress_date";
 
+function getDailyEgressCap() {
+  return ABLERuntimeSettings.get("logging.daily_egress_cap", DAILY_EGRESS_CAP);
+}
+
 async function isDailyEgressCapReached() {
   try {
     const today = new Date().toISOString().slice(0, 10);
     const result = await chrome.storage.session.get([DAILY_EGRESS_COUNT_KEY, DAILY_EGRESS_DATE_KEY]);
     if (result[DAILY_EGRESS_DATE_KEY] !== today) return false;
-    return (result[DAILY_EGRESS_COUNT_KEY] || 0) >= DAILY_EGRESS_CAP;
+    return (result[DAILY_EGRESS_COUNT_KEY] || 0) >= getDailyEgressCap();
   } catch {
     return false;
   }

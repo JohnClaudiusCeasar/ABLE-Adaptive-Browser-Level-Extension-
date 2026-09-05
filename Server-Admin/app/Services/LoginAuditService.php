@@ -8,6 +8,8 @@ class LoginAuditService
 {
     /**
      * Log a login activity asynchronously.
+     *
+     * @param  array<string, mixed>|null  $metadata
      */
     public function log(
         string $email,

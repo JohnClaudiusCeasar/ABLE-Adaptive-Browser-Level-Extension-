@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Notification;
 use App\Services\SyncNotifications;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Redirect;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -50,7 +51,7 @@ class NotificationController extends Controller
     /**
      * Mark a single notification as read.
      */
-    public function markAsRead(Notification $notification)
+    public function markAsRead(Notification $notification): RedirectResponse
     {
         if ($notification->read_at === null) {
             $notification->update(['read_at' => now()]);
@@ -62,7 +63,7 @@ class NotificationController extends Controller
     /**
      * Mark all notifications as read.
      */
-    public function markAllAsRead()
+    public function markAllAsRead(): RedirectResponse
     {
         Notification::query()->whereNull('read_at')->update(['read_at' => now()]);
 
@@ -72,7 +73,7 @@ class NotificationController extends Controller
     /**
      * Remove a single notification.
      */
-    public function destroy(Notification $notification)
+    public function destroy(Notification $notification): RedirectResponse
     {
         $notification->delete();
 
@@ -82,7 +83,7 @@ class NotificationController extends Controller
     /**
      * Remove all notifications.
      */
-    public function destroyAll()
+    public function destroyAll(): RedirectResponse
     {
         Notification::query()->delete();
 

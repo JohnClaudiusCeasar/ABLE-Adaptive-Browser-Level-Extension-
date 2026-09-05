@@ -15,7 +15,14 @@ function flattenItems(items: NavItem[], parentTitle = ''): FlatNavItem[] {
     return items.flatMap((item) => {
         const flat = item.items?.length
             ? flattenItems(item.items, item.title)
-            : [{ title: item.title, href: item.href, icon: item.icon, parentTitle }];
+            : [
+                  {
+                      title: item.title,
+                      href: item.href,
+                      icon: item.icon,
+                      parentTitle,
+                  },
+              ];
 
         return flat;
     });
@@ -74,7 +81,7 @@ export function SidebarSearch({ items }: { items: NavItem[] }) {
 
     return (
         <div className="relative mx-auto w-4/5">
-            <div className="flex items-center rounded-full bg-black/5 border border-black/10 px-3.5 py-2 dark:bg-black/20 dark:border-white/10">
+            <div className="flex items-center rounded-full border border-black/10 bg-black/5 px-3.5 py-2 dark:border-white/10 dark:bg-black/20">
                 <Search size={14} className="text-muted-foreground" />
                 <input
                     ref={inputRef}
@@ -92,12 +99,12 @@ export function SidebarSearch({ items }: { items: NavItem[] }) {
                         setTimeout(() => setOpen(false), 150);
                     }}
                     onKeyDown={handleKeyDown}
-                    className="ml-2.5 w-full bg-transparent border-none outline-none text-sm text-foreground placeholder:text-muted-foreground"
+                    className="ml-2.5 w-full border-none bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
                 />
             </div>
 
             {open && hasQuery && (
-                <div className="absolute top-full left-0 right-0 mt-2 z-50 rounded-xl bg-[#0f2e24]/95 backdrop-blur-[10px] border border-[rgba(34,197,94,0.4)] shadow-lg overflow-hidden">
+                <div className="absolute top-full right-0 left-0 z-50 mt-2 overflow-hidden rounded-xl border border-[rgba(34,197,94,0.4)] bg-[#0f2e24]/95 shadow-lg backdrop-blur-[10px]">
                     {results.length === 0 ? (
                         <div className="px-4 py-3 text-sm text-muted-foreground">
                             No pages match your search.
@@ -110,18 +117,27 @@ export function SidebarSearch({ items }: { items: NavItem[] }) {
                                         type="button"
                                         onMouseDown={(e) => e.preventDefault()}
                                         onClick={() => navigate(item.href)}
-                                        onMouseEnter={() => setHighlightedIndex(i)}
+                                        onMouseEnter={() =>
+                                            setHighlightedIndex(i)
+                                        }
                                         className={cn(
-                                            'flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors cursor-pointer',
+                                            'flex w-full cursor-pointer items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors',
                                             i === highlightedIndex
                                                 ? 'bg-white/10 text-foreground'
                                                 : 'text-muted-foreground hover:text-foreground',
                                         )}
                                     >
-                                        {item.icon && <item.icon size={16} className="shrink-0 text-able-green" />}
-                                        <span className="flex flex-col min-w-0">
-                                            <span className="truncate">{item.title}</span>
-                                            <span className="text-xs text-muted-foreground/70 truncate">
+                                        {item.icon && (
+                                            <item.icon
+                                                size={16}
+                                                className="shrink-0 text-able-green"
+                                            />
+                                        )}
+                                        <span className="flex min-w-0 flex-col">
+                                            <span className="truncate">
+                                                {item.title}
+                                            </span>
+                                            <span className="truncate text-xs text-muted-foreground/70">
                                                 {item.parentTitle}
                                             </span>
                                         </span>

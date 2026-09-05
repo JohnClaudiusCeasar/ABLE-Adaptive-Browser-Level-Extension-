@@ -52,7 +52,8 @@ export default function Chat() {
     const [showRecipientPicker, setShowRecipientPicker] = useState(false);
     const [selectMode, setSelectMode] = useState(false);
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-    const [deleteSingleConfirm, setDeleteSingleConfirm] = useState<ChatConversationData | null>(null);
+    const [deleteSingleConfirm, setDeleteSingleConfirm] =
+        useState<ChatConversationData | null>(null);
     const [deleteBulkConfirm, setDeleteBulkConfirm] = useState(false);
 
     function openConversation(next: ChatConversationData) {
@@ -86,8 +87,8 @@ export default function Chat() {
 
     function confirmDeleteSingle() {
         if (!deleteSingleConfirm) {
-return;
-}
+            return;
+        }
 
         router.delete(`/chat/${deleteSingleConfirm.id}`, {
             preserveScroll: true,
@@ -103,8 +104,8 @@ return;
 
     function handleDeleteSelected() {
         if (selectedIds.size === 0) {
-return;
-}
+            return;
+        }
 
         setDeleteBulkConfirm(true);
     }
@@ -210,9 +211,7 @@ return;
                             className="absolute inset-x-0 bottom-0 z-10 flex items-center justify-center border-t border-white/20 bg-gradient-to-t from-red-600 to-red-500 px-4 py-4 text-sm font-medium text-white shadow-[0_-4px_20px_rgba(239,68,68,0.4)] transition-all hover:from-red-700 hover:to-red-600 hover:shadow-[0_-4px_28px_rgba(239,68,68,0.55)]"
                         >
                             ({selectedIds.size}){' '}
-                            {selectedIds.size === 1
-                                ? 'Message'
-                                : 'Messages'}{' '}
+                            {selectedIds.size === 1 ? 'Message' : 'Messages'}{' '}
                             Selected
                         </button>
                     )}
@@ -264,8 +263,8 @@ return;
                 open={deleteSingleConfirm !== null}
                 onOpenChange={(open) => {
                     if (!open) {
-setDeleteSingleConfirm(null);
-}
+                        setDeleteSingleConfirm(null);
+                    }
                 }}
                 title="Delete conversation"
                 description={`Delete conversation with ${deleteSingleConfirm?.other_user?.name ?? 'Unknown'}?`}

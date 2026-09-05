@@ -27,13 +27,18 @@ export default function Login({ status, canResetPassword }: Props) {
             <Form
                 {...store.form()}
                 resetOnSuccess={['password']}
-                className="flex flex-col gap-6 -mt-3"
+                className="-mt-3 flex flex-col gap-6"
             >
                 {({ processing, errors }) => (
                     <>
                         <div className="grid gap-6">
                             <div className="grid gap-2">
-                                <Label htmlFor="email" className="text-[0.85rem] font-medium text-muted-foreground">Email Address</Label>
+                                <Label
+                                    htmlFor="email"
+                                    className="text-[0.85rem] font-medium text-muted-foreground"
+                                >
+                                    Email Address
+                                </Label>
                                 <Input
                                     id="email"
                                     type="email"
@@ -43,14 +48,19 @@ export default function Login({ status, canResetPassword }: Props) {
                                     tabIndex={1}
                                     autoComplete="email"
                                     placeholder="admin@able.security"
-                                    className="bg-white/8 border-white/12 focus:border-[rgba(34,197,94,0.6)] focus:shadow-[0_0_12px_rgba(34,197,94,0.2)]"
+                                    className="border-white/12 bg-white/8 focus:border-[rgba(34,197,94,0.6)] focus:shadow-[0_0_12px_rgba(34,197,94,0.2)]"
                                 />
                                 <InputError message={errors.email} />
                             </div>
 
                             <div className="grid gap-2">
                                 <div className="flex items-center">
-                                    <Label htmlFor="password" className="text-[0.85rem] font-medium text-muted-foreground">Password</Label>
+                                    <Label
+                                        htmlFor="password"
+                                        className="text-[0.85rem] font-medium text-muted-foreground"
+                                    >
+                                        Password
+                                    </Label>
                                     {canResetPassword && (
                                         <TextLink
                                             href={request()}
@@ -83,7 +93,7 @@ export default function Login({ status, canResetPassword }: Props) {
 
                             <Button
                                 type="submit"
-                                className="mt-4 w-full bg-gradient-to-r from-[#22c55e] to-[#16a34a] hover:shadow-[0_4px_20px_rgba(34,197,94,0.4)] hover:scale-[1.02] active:scale-[0.98] transition-all text-white font-semibold border-none"
+                                className="mt-4 w-full border-none bg-gradient-to-r from-[#22c55e] to-[#16a34a] font-semibold text-white transition-all hover:scale-[1.02] hover:shadow-[0_4px_20px_rgba(34,197,94,0.4)] active:scale-[0.98]"
                                 tabIndex={4}
                                 disabled={processing}
                                 data-test="login-button"
@@ -96,7 +106,11 @@ export default function Login({ status, canResetPassword }: Props) {
                         <div className="flex flex-col items-center gap-4 pt-2">
                             <div className="text-center text-sm text-muted-foreground">
                                 Don't have an account?{' '}
-                                <TextLink href={register()} tabIndex={5} className="text-able-green">
+                                <TextLink
+                                    href={register()}
+                                    tabIndex={5}
+                                    className="text-able-green"
+                                >
                                     Request Access
                                 </TextLink>
                             </div>

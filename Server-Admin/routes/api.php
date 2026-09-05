@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\DomainPolicyController;
 use App\Http\Controllers\EgressEventController;
+use App\Http\Controllers\ExtensionConfigController;
 use App\Http\Controllers\ExtensionLifecycleController;
 use App\Http\Controllers\RiskPatternController;
 use Illuminate\Support\Facades\Route;
@@ -17,3 +18,4 @@ Route::get('/risk-patterns/signed', [RiskPatternController::class, 'signed'])->m
 
 Route::post('/extension/lifecycle', [ExtensionLifecycleController::class, 'logLifecycle'])->middleware('throttle:60,1');
 Route::get('/extension/uninstall', [ExtensionLifecycleController::class, 'logUninstall'])->middleware('throttle:60,1');
+Route::get('/extension/config', [ExtensionConfigController::class, 'signed'])->middleware('throttle:30,1');

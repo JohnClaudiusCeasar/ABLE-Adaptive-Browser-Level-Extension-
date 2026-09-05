@@ -16,12 +16,6 @@ export function GroupedBarChart({ data }: GroupedBarChartProps) {
     const hasData = data.some((d) => d.visits > 0 || d.egress > 0);
 
     const chartHeight = 180;
-    const barWidth = 28;
-    const groupGap = 16;
-    const barGap = 4;
-
-    // Y-axis grid lines
-    const gridLines = 4;
 
     return (
         <div className="flex flex-col gap-6">
@@ -92,10 +86,9 @@ export function GroupedBarChart({ data }: GroupedBarChartProps) {
                                             style={{
                                                 height: Math.max(
                                                     visitHeight,
-                                                    2
+                                                    2,
                                                 ),
-                                                opacity:
-                                                    d.visits > 0 ? 1 : 0.3,
+                                                opacity: d.visits > 0 ? 1 : 0.3,
                                             }}
                                         />
                                         {/* Egress bar */}
@@ -104,10 +97,9 @@ export function GroupedBarChart({ data }: GroupedBarChartProps) {
                                             style={{
                                                 height: Math.max(
                                                     egressHeight,
-                                                    2
+                                                    2,
                                                 ),
-                                                opacity:
-                                                    d.egress > 0 ? 1 : 0.3,
+                                                opacity: d.egress > 0 ? 1 : 0.3,
                                             }}
                                         />
                                     </div>
@@ -141,7 +133,7 @@ export function GroupedBarChart({ data }: GroupedBarChartProps) {
                                 </div>
                             ))}
                         </div>
-                        <span className="mt-4 text-sm font-medium italic text-muted-foreground">
+                        <span className="mt-4 text-sm font-medium text-muted-foreground italic">
                             No Data
                         </span>
                     </div>

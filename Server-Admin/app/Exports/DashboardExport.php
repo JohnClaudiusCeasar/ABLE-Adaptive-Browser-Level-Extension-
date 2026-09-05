@@ -7,6 +7,11 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DashboardExport
 {
+    /**
+     * @param  array<string, mixed>  $summary
+     * @param  array<int, array<string, mixed>>  $recentEgressEvents
+     * @param  array<int, array<string, mixed>>  $recentDomainVisits
+     */
     public function __construct(
         protected array $summary,
         protected array $recentEgressEvents,
@@ -15,10 +20,14 @@ class DashboardExport
 
     public function download(): StreamedResponse
     {
-        $filename = 'able-security-report-' . now()->format('Y-m-d') . '.csv';
+        $filename = 'able-security-report-'.now()->format('Y-m-d').'.csv';
 
         return Response::streamDownload(function () {
             $handle = fopen('php://output', 'w');
+
+            if ($handle === false) {
+                return;
+            }
 
             // Summary Section
             fputcsv($handle, ['ABLE Security Overview Report']);
@@ -31,7 +40,7 @@ class DashboardExport
             fputcsv($handle, ['Inactive Users', $this->summary['inactiveUsers']]);
             fputcsv($handle, ['Domain Visits', $this->summary['totalDomainVisits']]);
             fputcsv($handle, ['Egress Attempts', $this->summary['totalEgressAttempts']]);
-            fputcsv($handle, ['Nudge Success Rate', $this->summary['nudgeSuccessRate'] . '%']);
+            fputcsv($handle, ['Nudge Success Rate', $this->summary['nudgeSuccessRate'].'%']);
             fputcsv($handle, ['Data Saved', $this->summary['dataSaved']]);
             fputcsv($handle, ['Data Lost', $this->summary['dataLost']]);
             fputcsv($handle, ['Safe Domains', $this->summary['domainUsage']['safe']]);
@@ -71,7 +80,7 @@ class DashboardExport
             fclose($handle);
         }, $filename, [
             'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
         ]);
     }
 }

@@ -38,7 +38,8 @@ export default function Security(props: Props) {
                         Security
                     </h1>
                     <p className="mb-6 text-[1.05rem] text-muted-foreground">
-                        Manage your account security settings including password, two-factor authentication, and passkeys.
+                        Manage your account security settings including
+                        password, two-factor authentication, and passkeys.
                     </p>
                 </header>
 
@@ -90,11 +91,15 @@ export default function Security(props: Props) {
                                             />
                                         </div>
 
-                                        <InputError message={errors.current_password} />
+                                        <InputError
+                                            message={errors.current_password}
+                                        />
                                     </div>
 
                                     <div className="grid gap-2">
-                                        <Label htmlFor="password">New password</Label>
+                                        <Label htmlFor="password">
+                                            New password
+                                        </Label>
 
                                         <div className="max-w-sm">
                                             <PasswordInput
@@ -104,7 +109,9 @@ export default function Security(props: Props) {
                                                 className="mt-1 block w-full"
                                                 autoComplete="new-password"
                                                 placeholder="New password"
-                                                passwordrules={props.passwordRules}
+                                                passwordrules={
+                                                    props.passwordRules
+                                                }
                                             />
                                         </div>
 
@@ -123,12 +130,16 @@ export default function Security(props: Props) {
                                                 className="mt-1 block w-full"
                                                 autoComplete="new-password"
                                                 placeholder="Confirm password"
-                                                passwordrules={props.passwordRules}
+                                                passwordrules={
+                                                    props.passwordRules
+                                                }
                                             />
                                         </div>
 
                                         <InputError
-                                            message={errors.password_confirmation}
+                                            message={
+                                                errors.password_confirmation
+                                            }
                                         />
                                     </div>
 

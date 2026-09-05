@@ -141,20 +141,20 @@ export default function EgressLogs() {
             const { date, time } = formatTimestamp(row.occurred_at);
 
             return (
-            <tr
-                key={i}
-                className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0"
-            >
-                <td className="py-3 pr-2.5">{date}</td>
-                <td className="py-3 pr-2.5">{time}</td>
-                <td className="py-3 pr-2.5">{row.domain}</td>
-                <td className="py-3 pr-2.5">
-                    <Badge variant={row.status}>
-                        {row.status.replace('glass-', '').toUpperCase()}
-                    </Badge>
-                </td>
-                <td className="py-3 pr-2.5">{row.user}</td>
-                <td className="py-3 pr-2.5">{row.fileName}</td>
+                <tr
+                    key={i}
+                    className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0"
+                >
+                    <td className="py-3 pr-2.5">{date}</td>
+                    <td className="py-3 pr-2.5">{time}</td>
+                    <td className="py-3 pr-2.5">{row.domain}</td>
+                    <td className="py-3 pr-2.5">
+                        <Badge variant={row.status}>
+                            {row.status.replace('glass-', '').toUpperCase()}
+                        </Badge>
+                    </td>
+                    <td className="py-3 pr-2.5">{row.user}</td>
+                    <td className="py-3 pr-2.5">{row.fileName}</td>
                     <td className="py-3">{row.action}</td>
                 </tr>
             );

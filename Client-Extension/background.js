@@ -1,15 +1,22 @@
-self.importScripts("config.js", "security.js", "api.js");
+self.importScripts("config.js", "security.js", "api.js", "runtime-settings.js");
 
 const RISK_PATTERNS_ALARM = "risk-patterns-sync";
 const VISIT_LOG_ALARM = "visit-log-flush";
+const SETTINGS_ALARM = "settings-sync";
 
 chrome.runtime.onInstalled.addListener(async (details) => {
+  // Load runtime settings before any other work so sync intervals are current.
+  await ABLERuntimeSettings.initialize();
+
   // Sync risk patterns when extension is installed or updated
   await refreshRiskPatternsCache();
 
   // Set up periodic sync every 24 hours
-  chrome.alarms.create(RISK_PATTERNS_ALARM, { periodInMinutes: 24 * 60 });
-  chrome.alarms.create(VISIT_LOG_ALARM, { periodInMinutes: 5 });
+  const riskInterval = ABLERuntimeSettings.get("sync.risk_patterns_interval_minutes", 1440);
+  const visitInterval = ABLERuntimeSettings.get("sync.visit_log_flush_interval_minutes", 5);
+  chrome.alarms.create(RISK_PATTERNS_ALARM, { periodInMinutes: riskInterval });
+  chrome.alarms.create(VISIT_LOG_ALARM, { periodInMinutes: visitInterval });
+  chrome.alarms.create(SETTINGS_ALARM, { periodInMinutes: 30 });
 
   // Set up uninstall URL for lifecycle tracking
   try {
@@ -38,10 +45,13 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     await refreshRiskPatternsCache();
   } else if (alarm.name === VISIT_LOG_ALARM) {
     await processVisitLogQueue();
+  } else if (alarm.name === SETTINGS_ALARM) {
+    await ABLERuntimeSettings.load();
   }
 });
 
 chrome.runtime.onStartup.addListener(() => {
+  ABLERuntimeSettings.initialize();
   processVisitLogQueue();
 });
 

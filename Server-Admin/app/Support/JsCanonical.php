@@ -54,7 +54,10 @@ class JsCanonical
             throw new \InvalidArgumentException('Signing key must be 64 hex chars (32 raw bytes).');
         }
 
-        return hex2bin($hex);
+        /** @var string $rawKey */
+        $rawKey = hex2bin($hex);
+
+        return $rawKey;
     }
 
     /**

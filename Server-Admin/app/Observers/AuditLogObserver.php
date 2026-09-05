@@ -3,6 +3,7 @@
 namespace App\Observers;
 
 use App\Models\AuditLog;
+use App\Services\AbleSettingsService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 
@@ -23,13 +24,21 @@ class AuditLogObserver
         $this->record('deleted', $model, $model->getOriginal(), null);
     }
 
+    /**
+     * @param  array<string, mixed>|null  $original
+     * @param  array<string, mixed>|null  $changes
+     */
     protected function record(string $action, Model $model, ?array $original, ?array $changes): void
     {
+        if (! app(AbleSettingsService::class)->value('server', 'runtime.audit_logging_enabled', true)) {
+            return;
+        }
+
         $user = Auth::user();
 
         AuditLog::create([
             'auditable_type' => $model::class,
-            'auditable_id' => $model->id,
+            'auditable_id' => $model->getKey(),
             'action' => $action,
             'user_id' => $user?->id,
             'user_email' => $user?->email,

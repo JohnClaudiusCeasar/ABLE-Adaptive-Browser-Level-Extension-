@@ -233,7 +233,9 @@ class ChatController extends Controller
 
         $hasMore = $rows->count() > self::PAGE_SIZE;
         $page = $hasMore ? $rows->take(self::PAGE_SIZE) : $rows;
-        $oldestId = $page->last()?->id;
+        /** @var ChatMessage|null $oldest */
+        $oldest = $page->last();
+        $oldestId = $oldest?->id;
 
         return [
             'messages' => $page->map(fn (ChatMessage $message) => $this->messageData($message))
@@ -297,7 +299,7 @@ class ChatController extends Controller
             'id' => $conversation->id,
             'path' => route('chat.show', $conversation),
             'other_user' => $otherUser !== null ? $this->userData($otherUser) : null,
-            'last_message' => $lastMessage?->body,
+            'last_message' => $lastMessage instanceof ChatMessage ? $lastMessage->body : null,
             'last_message_at' => $conversation->last_message_at?->toIso8601String(),
             'unread_count' => $unreadCount,
         ];

@@ -77,7 +77,9 @@ export function DonutGauge({
                                 className="h-2.5 w-2.5 shrink-0 rounded-full"
                                 style={{ backgroundColor: s.color }}
                             />
-                            <span className="text-muted-foreground">{s.label}</span>
+                            <span className="text-muted-foreground">
+                                {s.label}
+                            </span>
                             <span className="ml-auto font-medium tabular-nums">
                                 {s.value}
                             </span>

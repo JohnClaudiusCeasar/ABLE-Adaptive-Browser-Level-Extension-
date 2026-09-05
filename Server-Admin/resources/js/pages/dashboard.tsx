@@ -1,5 +1,16 @@
 import { Head, Link } from '@inertiajs/react';
-import { Users, UserMinus, Globe, ShieldAlert, Activity, Printer, FileSpreadsheet, FileText, ChevronDown, Ghost, ArrowUpFromLine } from 'lucide-react';
+import {
+    Users,
+    UserMinus,
+    Globe,
+    ShieldAlert,
+    Printer,
+    FileSpreadsheet,
+    FileText,
+    ChevronDown,
+    Ghost,
+    ArrowUpFromLine,
+} from 'lucide-react';
 import { DonutGauge } from '@/components/dashboard/donut-gauge';
 import { GroupedBarChart } from '@/components/dashboard/grouped-bar-chart';
 import { PanelCard } from '@/components/dashboard/panel-card';
@@ -8,7 +19,12 @@ import { StatCard } from '@/components/dashboard/stat-card';
 import { UserStatCard } from '@/components/dashboard/user-stat-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { dashboard } from '@/routes';
 
 interface RecentEgressEvent {
@@ -138,7 +154,7 @@ export default function Dashboard({
                         <DropdownMenuTrigger asChild>
                             <Button
                                 variant="outline"
-                                className="border-[rgba(34,197,94,0.7)] hover:bg-[rgba(34,197,94,0.1)] gap-2"
+                                className="gap-2 border-[rgba(34,197,94,0.7)] hover:bg-[rgba(34,197,94,0.1)]"
                             >
                                 <Printer size={16} />
                                 Print Report
@@ -147,13 +163,19 @@ export default function Dashboard({
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48">
                             <DropdownMenuItem asChild>
-                                <a href="/dashboard/report/pdf" className="gap-2 cursor-pointer">
+                                <a
+                                    href="/dashboard/report/pdf"
+                                    className="cursor-pointer gap-2"
+                                >
                                     <FileText size={16} />
                                     Download PDF
                                 </a>
                             </DropdownMenuItem>
                             <DropdownMenuItem asChild>
-                                <a href="/dashboard/report/excel" className="gap-2 cursor-pointer">
+                                <a
+                                    href="/dashboard/report/excel"
+                                    className="cursor-pointer gap-2"
+                                >
                                     <FileSpreadsheet size={16} />
                                     Download CSV
                                 </a>
@@ -215,12 +237,12 @@ export default function Dashboard({
 
                 {/* Divider */}
                 <div className="flex items-center gap-3 py-2">
-                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[rgba(34,197,94,0.4)] to-transparent" />
+                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[rgba(34,197,94,0.4)] to-transparent" />
                     <div className="relative">
-                        <div className="w-2 h-2 rounded-full bg-able-green" />
-                        <div className="absolute inset-0 w-2 h-2 rounded-full bg-able-green animate-ping opacity-40" />
+                        <div className="h-2 w-2 rounded-full bg-able-green" />
+                        <div className="absolute inset-0 h-2 w-2 animate-ping rounded-full bg-able-green opacity-40" />
                     </div>
-                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[rgba(34,197,94,0.4)] to-transparent" />
+                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[rgba(34,197,94,0.4)] to-transparent" />
                 </div>
 
                 {/* KPI Row */}
@@ -291,12 +313,12 @@ export default function Dashboard({
 
                 {/* Divider */}
                 <div className="flex items-center gap-3 py-2">
-                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[rgba(34,197,94,0.4)] to-transparent" />
+                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[rgba(34,197,94,0.4)] to-transparent" />
                     <div className="relative">
-                        <div className="w-2 h-2 rounded-full bg-able-green" />
-                        <div className="absolute inset-0 w-2 h-2 rounded-full bg-able-green animate-ping opacity-40" />
+                        <div className="h-2 w-2 rounded-full bg-able-green" />
+                        <div className="absolute inset-0 h-2 w-2 animate-ping rounded-full bg-able-green opacity-40" />
                     </div>
-                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[rgba(34,197,94,0.4)] to-transparent" />
+                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[rgba(34,197,94,0.4)] to-transparent" />
                 </div>
 
                 {/* Recent Egress Events Table */}
@@ -351,42 +373,47 @@ export default function Dashboard({
                                         </td>
                                     </tr>
                                 ) : (
-                                recentEgressEvents.map((row, i) => {
-                                    const { date, time } = formatTimestamp(row.occurred_at);
+                                    recentEgressEvents.map((row, i) => {
+                                        const { date, time } = formatTimestamp(
+                                            row.occurred_at,
+                                        );
 
-                                    return (
-                                        <tr
-                                            key={i}
-                                            className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0"
-                                        >
-                                            <td className="py-3 pr-2.5">
-                                                {date}
-                                            </td>
-                                            <td className="py-3 pr-2.5">
-                                                {time}
-                                            </td>
-                                            <td className="py-3 pr-2.5">
-                                                {row.domain}
-                                            </td>
-                                            <td className="py-3 pr-2.5">
-                                                <Badge variant={row.status}>
-                                                    {row.status
-                                                        .replace('glass-', '')
-                                                        .toUpperCase()}
-                                                </Badge>
-                                            </td>
-                                            <td className="py-3 pr-2.5">
-                                                {row.user ?? '—'}
-                                            </td>
-                                            <td className="py-3 pr-2.5">
-                                                {row.fileName ?? '—'}
-                                            </td>
-                                            <td className="py-3">
-                                                {row.action}
-                                            </td>
-                                        </tr>
-                                    );
-                                })
+                                        return (
+                                            <tr
+                                                key={i}
+                                                className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0"
+                                            >
+                                                <td className="py-3 pr-2.5">
+                                                    {date}
+                                                </td>
+                                                <td className="py-3 pr-2.5">
+                                                    {time}
+                                                </td>
+                                                <td className="py-3 pr-2.5">
+                                                    {row.domain}
+                                                </td>
+                                                <td className="py-3 pr-2.5">
+                                                    <Badge variant={row.status}>
+                                                        {row.status
+                                                            .replace(
+                                                                'glass-',
+                                                                '',
+                                                            )
+                                                            .toUpperCase()}
+                                                    </Badge>
+                                                </td>
+                                                <td className="py-3 pr-2.5">
+                                                    {row.user ?? '—'}
+                                                </td>
+                                                <td className="py-3 pr-2.5">
+                                                    {row.fileName ?? '—'}
+                                                </td>
+                                                <td className="py-3">
+                                                    {row.action}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
                                 )}
                             </tbody>
                         </table>
@@ -445,42 +472,47 @@ export default function Dashboard({
                                         </td>
                                     </tr>
                                 ) : (
-                                recentDomainVisits.map((row, i) => {
-                                    const { date, time } = formatTimestamp(row.visited_at);
+                                    recentDomainVisits.map((row, i) => {
+                                        const { date, time } = formatTimestamp(
+                                            row.visited_at,
+                                        );
 
-                                    return (
-                                        <tr
-                                            key={i}
-                                            className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0"
-                                        >
-                                            <td className="py-3 pr-2.5">
-                                                {date}
-                                            </td>
-                                            <td className="py-3 pr-2.5">
-                                                {time}
-                                            </td>
-                                            <td className="py-3 pr-2.5">
-                                                {row.url}
-                                            </td>
-                                            <td className="py-3 pr-2.5">
-                                                {row.domain}
-                                            </td>
-                                            <td className="py-3 pr-2.5">
-                                                <Badge variant={row.status}>
-                                                    {row.status
-                                                        .replace('glass-', '')
-                                                        .toUpperCase()}
-                                                </Badge>
-                                            </td>
-                                            <td className="py-3 pr-2.5">
-                                            {row.user ?? '—'}
-                                        </td>
-                                        <td className="py-3">
-                                            {row.action}
-                                        </td>
-                                    </tr>
-                                );
-                                })
+                                        return (
+                                            <tr
+                                                key={i}
+                                                className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0"
+                                            >
+                                                <td className="py-3 pr-2.5">
+                                                    {date}
+                                                </td>
+                                                <td className="py-3 pr-2.5">
+                                                    {time}
+                                                </td>
+                                                <td className="py-3 pr-2.5">
+                                                    {row.url}
+                                                </td>
+                                                <td className="py-3 pr-2.5">
+                                                    {row.domain}
+                                                </td>
+                                                <td className="py-3 pr-2.5">
+                                                    <Badge variant={row.status}>
+                                                        {row.status
+                                                            .replace(
+                                                                'glass-',
+                                                                '',
+                                                            )
+                                                            .toUpperCase()}
+                                                    </Badge>
+                                                </td>
+                                                <td className="py-3 pr-2.5">
+                                                    {row.user ?? '—'}
+                                                </td>
+                                                <td className="py-3">
+                                                    {row.action}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
                                 )}
                             </tbody>
                         </table>

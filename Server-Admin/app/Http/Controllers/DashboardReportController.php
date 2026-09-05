@@ -9,10 +9,12 @@ use App\Models\EgressEvent;
 use App\Models\ExtensionLifecycle;
 use App\Models\NudgeInteraction;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\Response as HttpResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DashboardReportController extends Controller
 {
-    public function pdf()
+    public function pdf(): HttpResponse
     {
         $data = $this->getReportData();
 
@@ -26,7 +28,7 @@ class DashboardReportController extends Controller
         return $pdf->download('able-security-report-'.now()->format('Y-m-d').'.pdf');
     }
 
-    public function excel()
+    public function excel(): StreamedResponse
     {
         $data = $this->getReportData();
 
@@ -39,6 +41,9 @@ class DashboardReportController extends Controller
         return $export->download();
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     protected function getReportData(): array
     {
         // Active Extension Users
@@ -65,12 +70,14 @@ class DashboardReportController extends Controller
         $totalEgressAttempts = EgressEvent::count();
 
         // Data Saved/Lost
+        /** @var object{data_saved: int, data_lost: int} $dataStats */
         $dataStats = EgressEvent::selectRaw("
             COALESCE(SUM(CASE WHEN action = 'denied' THEN file_size ELSE 0 END), 0) as data_saved,
             COALESCE(SUM(CASE WHEN action = 'proceeded' THEN file_size ELSE 0 END), 0) as data_lost
         ")->first();
 
         // Nudge Success Rate
+        /** @var object{proceeded: int, cancelled: int} $nudgeStats */
         $nudgeStats = NudgeInteraction::selectRaw("
             SUM(CASE WHEN user_action = 'proceeded' THEN 1 ELSE 0 END) as proceeded,
             SUM(CASE WHEN user_action = 'cancelled' THEN 1 ELSE 0 END) as cancelled
@@ -81,6 +88,7 @@ class DashboardReportController extends Controller
             : 0;
 
         // Domain Usage
+        /** @var object{safe: int, unsafe: int, unlisted: int} $statusCounts */
         $statusCounts = DomainPolicy::selectRaw("
             SUM(CASE WHEN domain_status = 'safe' THEN 1 ELSE 0 END) as safe,
             SUM(CASE WHEN domain_status = 'unsafe' THEN 1 ELSE 0 END) as unsafe,

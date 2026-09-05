@@ -13,14 +13,21 @@ interface StatCardProps {
     suffix?: string;
 }
 
-export function StatCard({ label, value, icon: Icon, accent, underline, suffix }: StatCardProps) {
+export function StatCard({
+    label,
+    value,
+    icon: Icon,
+    accent,
+    underline,
+    suffix,
+}: StatCardProps) {
     return (
-        <div className={cn(glassCard, 'p-5 flex flex-col gap-3')}>
+        <div className={cn(glassCard, 'flex flex-col gap-3 p-5')}>
             <div className="flex items-center justify-between gap-2">
                 <span className="text-sm text-muted-foreground">{label}</span>
                 <span
                     className={cn(
-                        'w-9 h-9 rounded-lg flex items-center justify-center shrink-0',
+                        'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
                         accent,
                         'bg-current/10',
                     )}
@@ -28,9 +35,14 @@ export function StatCard({ label, value, icon: Icon, accent, underline, suffix }
                     <Icon size={18} className={accent} />
                 </span>
             </div>
-            <p className={cn('text-3xl font-semibold tabular-nums leading-none', accent)}>
+            <p
+                className={cn(
+                    'text-3xl leading-none font-semibold tabular-nums',
+                    accent,
+                )}
+            >
                 {value}
-                {suffix && <span className="text-lg ml-1">{suffix}</span>}
+                {suffix && <span className="ml-1 text-lg">{suffix}</span>}
             </p>
             <span className={cn('block h-0.5 w-10 rounded-full', underline)} />
         </div>

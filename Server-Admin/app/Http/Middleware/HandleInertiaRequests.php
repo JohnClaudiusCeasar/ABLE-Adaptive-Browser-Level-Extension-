@@ -92,25 +92,7 @@ class HandleInertiaRequests extends Middleware
             ->orderByDesc('last_message_at')
             ->with(['messages' => fn ($query) => $query->orderByDesc('created_at')])
             ->get()
-            ->map(function (ChatConversation $conversation) use ($user) {
-                $otherUser = $conversation->otherUser($user);
-
-                $messages = $conversation->messages;
-                $lastMessage = $messages->first();
-                $unreadCount = $messages
-                    ->where('sender_id', '!=', $user->id)
-                    ->whereNull('read_at')
-                    ->count();
-
-                return [
-                    'id' => $conversation->id,
-                    'path' => route('chat.show', $conversation),
-                    'other_user' => $otherUser !== null ? $this->userData($otherUser) : null,
-                    'last_message' => $lastMessage?->body,
-                    'last_message_at' => $conversation->last_message_at?->diffForHumans(),
-                    'unread_count' => $unreadCount,
-                ];
-            })
+            ->map(fn (ChatConversation $conversation) => $this->conversationData($conversation, $user))
             ->values()
             ->all();
     }
@@ -139,6 +121,30 @@ class HandleInertiaRequests extends Middleware
             ->where('sender_id', '!=', $user->id)
             ->whereNull('read_at')
             ->count();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function conversationData(ChatConversation $conversation, User $user): array
+    {
+        $otherUser = $conversation->otherUser($user);
+
+        $messages = $conversation->messages;
+        $lastMessage = $messages->first();
+        $unreadCount = $messages
+            ->where('sender_id', '!=', $user->id)
+            ->whereNull('read_at')
+            ->count();
+
+        return [
+            'id' => $conversation->id,
+            'path' => route('chat.show', $conversation),
+            'other_user' => $otherUser !== null ? $this->userData($otherUser) : null,
+            'last_message' => $lastMessage instanceof ChatMessage ? $lastMessage->body : null,
+            'last_message_at' => $conversation->last_message_at?->diffForHumans(),
+            'unread_count' => $unreadCount,
+        ];
     }
 
     /**

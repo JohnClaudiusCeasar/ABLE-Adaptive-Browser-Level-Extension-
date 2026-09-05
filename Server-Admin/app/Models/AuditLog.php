@@ -4,9 +4,23 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property int $id
+ * @property string $auditable_type
+ * @property int $auditable_id
+ * @property string $action
+ * @property int|null $user_id
+ * @property string|null $user_email
+ * @property array<string, mixed>|null $data_changes
+ * @property Carbon|null $occurred_at
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ */
 class AuditLog extends Model
 {
+    /** @var list<string> */
     protected $fillable = [
         'auditable_type',
         'auditable_id',
@@ -25,6 +39,9 @@ class AuditLog extends Model
         ];
     }
 
+    /**
+     * @return MorphTo<Model, $this>
+     */
     public function auditable(): MorphTo
     {
         return $this->morphTo();

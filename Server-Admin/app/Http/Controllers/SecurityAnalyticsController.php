@@ -21,6 +21,7 @@ class SecurityAnalyticsController extends Controller
         $uniqueDomains = DomainVisit::distinct('domain')->count();
 
         // 2. Domain Usage - single conditional aggregation instead of 3 separate counts
+        /** @var object{safe: int, unsafe: int, unlisted: int} $statusCounts */
         $statusCounts = DomainPolicy::selectRaw("
             SUM(CASE WHEN domain_status = 'safe' THEN 1 ELSE 0 END) as safe,
             SUM(CASE WHEN domain_status = 'unsafe' THEN 1 ELSE 0 END) as unsafe,
@@ -46,6 +47,7 @@ class SecurityAnalyticsController extends Controller
             ->limit(10)
             ->get()
             ->map(function ($row) {
+                /** @var object{date: string, proceeded: int, cancelled: int} $row */
                 return [
                     'date' => $row->date,
                     'proceeded' => (int) $row->proceeded,
@@ -62,6 +64,7 @@ class SecurityAnalyticsController extends Controller
             : 0;
 
         // 6 & 7. Data Saved/Lost - single conditional aggregation instead of 2 separate sums
+        /** @var object{data_saved: int, data_lost: int} $dataStats */
         $dataStats = EgressEvent::selectRaw("
             COALESCE(SUM(CASE WHEN action = 'denied' THEN file_size ELSE 0 END), 0) as data_saved,
             COALESCE(SUM(CASE WHEN action = 'proceeded' THEN file_size ELSE 0 END), 0) as data_lost
@@ -79,6 +82,7 @@ class SecurityAnalyticsController extends Controller
             ->limit(5)
             ->get()
             ->map(function ($row) {
+                /** @var object{domain: string, totalVisits: int, activeUsers: int} $row */
                 return [
                     'domain' => $row->domain,
                     'totalVisits' => (int) $row->totalVisits,
@@ -112,6 +116,7 @@ class SecurityAnalyticsController extends Controller
             ->orderByDesc('domain_policies.risk_score')
             ->get()
             ->map(function ($row) {
+                /** @var object{id: int, domain: string, category: string|null, risk_score: int, policy: string, active_users: int} $row */
                 $domainName = explode('.', $row->domain)[0];
                 $appName = ucfirst($domainName);
 
@@ -128,7 +133,7 @@ class SecurityAnalyticsController extends Controller
                     'category' => $row->category ?? '—',
                     'risk' => $row->risk_score > 50 ? 'high' : 'low',
                     'users' => (int) $row->active_users,
-                    'status' => $statusMap[$row->policy] ?? 'Pending',
+                    'status' => $statusMap[$row->policy],
                 ];
             });
 
@@ -151,6 +156,7 @@ class SecurityAnalyticsController extends Controller
             ->orderByDesc('date')
             ->get()
             ->map(function ($row) {
+                /** @var object{date: string, proceeded: int, cancelled: int} $row */
                 return [
                     'date' => $row->date,
                     'proceeded' => (int) $row->proceeded,
