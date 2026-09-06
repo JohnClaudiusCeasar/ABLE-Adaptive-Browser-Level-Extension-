@@ -80,9 +80,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   if (message.type === "getRiskPatterns") {
+    console.debug("ABLE: Background received getRiskPatterns request");
     getRiskPatterns()
-      .then((patterns) => sendResponse({ success: true, patterns }))
-      .catch(() => sendResponse({ success: false, patterns: [] }));
+      .then((patterns) => {
+        console.debug(`ABLE: Background returning ${patterns.length} risk patterns`);
+        sendResponse({ success: true, patterns });
+      })
+      .catch((err) => {
+        console.warn("ABLE: Background getRiskPatterns failed:", err);
+        sendResponse({ success: false, patterns: [] });
+      });
     return true;
   }
   if (message.type === "logEgress") {

@@ -492,7 +492,7 @@ async function logDomainVisit(domain, status, source, timestamp) {
  * to prevent log flooding in case of misconfiguration.
  * If the server is unreachable, queues the event for later retry.
  */
-async function logEgressEvent({ domain, fileName, fileSize, riskScore, action, userAction, timestamp }) {
+async function logEgressEvent({ domain, fileName, fileSize, riskScore, action, userAction, timestamp, source, contentHash, scanDurationMs, contentSize, flaggedItems }) {
   // Best-effort: retry any previously queued egress events
   await processEgressLogQueue();
 
@@ -507,6 +507,12 @@ async function logEgressEvent({ domain, fileName, fileSize, riskScore, action, u
     action,
     user_action: userAction,
     occurred_at: timestamp,
+    // New fields for enhanced tracking
+    source: source || 'unknown',
+    content_hash: contentHash || null,
+    scan_duration_ms: scanDurationMs || null,
+    content_size: contentSize || fileSize || null,
+    flagged_items: flaggedItems ? JSON.stringify(flaggedItems) : null,
   };
 
   // Queue instead of dropping when rate-limited or daily cap reached
@@ -708,16 +714,20 @@ async function getRiskPatterns() {
   try {
     // Step 1: Check in-memory cache first
     if (riskPatternsMemoryCache && Date.now() - riskPatternsMemoryCacheTimestamp < RISK_PATTERNS_MEMORY_TTL) {
+      console.debug(`ABLE: Returning ${riskPatternsMemoryCache.length} patterns from memory cache`);
       return riskPatternsMemoryCache;
     }
+    console.debug("ABLE: Memory cache miss, checking server...");
 
     // Step 2: Try server first (refreshRiskPatternsCache already stores to chrome.storage.local)
     const serverPatterns = await refreshRiskPatternsCache();
     if (serverPatterns) {
+      console.debug(`ABLE: Got ${serverPatterns.length} patterns from server`);
       riskPatternsMemoryCache = serverPatterns;
       riskPatternsMemoryCacheTimestamp = Date.now();
       return serverPatterns;
     }
+    console.debug("ABLE: Server patterns unavailable, checking offline cache...");
 
     // Step 3: Server unavailable — try verified offline cache
     const { patterns } = await getRiskPatternsOfflineCache();

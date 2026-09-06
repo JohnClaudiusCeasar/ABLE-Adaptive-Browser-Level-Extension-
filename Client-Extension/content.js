@@ -17,10 +17,13 @@ async function getRiskPatterns() {
       console.warn("ABLE: Extension context invalidated, cannot fetch risk patterns.");
       return [];
     }
+    console.debug("ABLE: Requesting risk patterns from background...");
     const response = await chrome.runtime.sendMessage({ type: "getRiskPatterns" });
+    console.debug("ABLE: Risk patterns response:", response ? `success=${response.success}, count=${response.patterns?.length || 0}` : 'null');
     if (response && response.success) {
       return response.patterns;
     }
+    console.warn("ABLE: getRiskPatterns response indicates failure:", response);
     return [];
   } catch (error) {
     if (error.message?.includes("Extension context invalidated")) {
@@ -37,18 +40,52 @@ async function getRiskPatterns() {
  * Fire-and-forget — failures are silently ignored.
  */
 async function logEgressEvent(payload) {
-  try {
-    // Check if extension context is still valid
-    if (!chrome.runtime?.id) {
-      return; // Silently skip if context invalidated
+  var maxRetries = 3;
+  for (var attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      // Check if extension context is still valid
+      if (!chrome.runtime?.id) {
+        return; // Silently skip if context invalidated
+      }
+      await chrome.runtime.sendMessage({
+        type: "logEgress",
+        payload: { ...payload, timestamp: Date.now() },
+      });
+      return; // Success
+    } catch (err) {
+      if (attempt === maxRetries - 1) {
+        console.warn("ABLE: Failed to log egress after", maxRetries, "attempts");
+      }
+      // Wait before retry (exponential backoff)
+      await new Promise(function (resolve) { setTimeout(resolve, 100 * (attempt + 1)); });
     }
-    await chrome.runtime.sendMessage({
-      type: "logEgress",
-      payload: { ...payload, timestamp: Date.now() },
-    });
-  } catch {
-    // Silently fail — logging egress is non-critical
   }
+}
+
+// ─── Deduplication ──────────────────────────────────────────────────
+// Track recently scanned files to prevent duplicate audit entries
+var recentScans = [];
+var DEDUPLICATION_WINDOW_MS = 5000; // 5 seconds
+
+function isDuplicateScan(contentHash, fileName) {
+  if (!contentHash) return false;
+
+  var now = Date.now();
+  // Clean old entries
+  recentScans = recentScans.filter(function (entry) {
+    return now - entry.timestamp < DEDUPLICATION_WINDOW_MS;
+  });
+
+  // Check for duplicate
+  for (var i = 0; i < recentScans.length; i++) {
+    if (recentScans[i].hash === contentHash && recentScans[i].name === fileName) {
+      return true;
+    }
+  }
+
+  // Add to recent scans
+  recentScans.push({ hash: contentHash, name: fileName, timestamp: now });
+  return false;
 }
 
 // ─── Domain helpers ────────────────────────────────────────────────
@@ -370,6 +407,8 @@ function readFileContent(file) {
 
 // ─── Network interception (inject.js bridge) ───────────────────────
 
+var injectReadyReceived = false;
+
 async function injectPageScript() {
   if (document.getElementById("able-inject-script")) return;
 
@@ -385,10 +424,12 @@ async function injectPageScript() {
       });
       if (!response || !response.ok) {
         console.warn("ABLE: inject.js integrity check failed, aborting injection.");
+        setupFallbackDetection();
         return;
       }
     } catch {
       console.warn("ABLE: inject.js integrity check failed, aborting injection.");
+      setupFallbackDetection();
       return;
     }
   }
@@ -397,7 +438,92 @@ async function injectPageScript() {
   script.id = "able-inject-script";
   script.src = chrome.runtime.getURL("inject.js");
   script.onload = () => script.remove();
+  // If the script fails to load (e.g., CSP blocks chrome-extension: URLs),
+  // the onerror event fires. Fall back to content-script-level detection.
+  script.onerror = () => {
+    console.warn("ABLE: inject.js failed to load (possible CSP block). Using fallback detection.");
+    setupFallbackDetection();
+  };
   (document.head || document.documentElement).appendChild(script);
+
+  // Set a timeout to detect if inject.js never announces itself (ABLE_READY).
+  // This can happen if CSP blocks the script or if the script crashes.
+  setTimeout(() => {
+    if (!injectReadyReceived) {
+      console.warn("ABLE: inject.js did not announce readiness within 5s. Using fallback detection.");
+      setupFallbackDetection();
+    }
+  }, 5000);
+}
+
+/**
+ * Fallback detection when inject.js cannot be loaded (e.g., CSP blocks
+ * chrome-extension: script injection). Watches for file inputs and
+ * attachment buttons, and logs egress events when files are selected.
+ * This provides partial coverage — pattern scoring still requires the
+ * full inject.js interception flow.
+ */
+function setupFallbackDetection() {
+  if (document.getElementById("able-fallback-active")) return;
+  var marker = document.createElement("div");
+  marker.id = "able-fallback-active";
+  marker.style.display = "none";
+  document.documentElement.appendChild(marker);
+
+  console.warn("ABLE: Fallback file detection active. Pattern scoring unavailable without inject.js.");
+
+  var reportedInputs = new Set();
+
+  function watchFileInput(el) {
+    if (reportedInputs.has(el)) return;
+    reportedInputs.add(el);
+    el.addEventListener("change", function () {
+      if (el.files && el.files.length > 0) {
+        var domain = new URL(window.location.href).hostname.replace(/^www\./, "");
+        for (var i = 0; i < el.files.length; i++) {
+          logEgressEvent({
+            domain,
+            fileName: el.files[i].name,
+            fileSize: el.files[i].size,
+            riskScore: 0,
+            action: "proceeded",
+            userAction: "proceeded",
+            source: "fallback",
+          });
+        }
+      }
+    }, true);
+  }
+
+  // Watch for new file inputs
+  var observer = new MutationObserver(function (mutations) {
+    for (var m = 0; m < mutations.length; m++) {
+      var addedNodes = mutations[m].addedNodes;
+      for (var n = 0; n < addedNodes.length; n++) {
+        var node = addedNodes[n];
+        if (node.nodeType === 1) {
+          if (node instanceof HTMLInputElement && node.type === "file") {
+            watchFileInput(node);
+          }
+          var children = node.querySelectorAll("input[type='file']");
+          for (var c = 0; c < children.length; c++) {
+            watchFileInput(children[c]);
+          }
+        }
+      }
+    }
+  });
+
+  observer.observe(document.documentElement || document.body, {
+    childList: true,
+    subtree: true,
+  });
+
+  // Check existing file inputs
+  var existingInputs = document.querySelectorAll("input[type='file']");
+  for (var i = 0; i < existingInputs.length; i++) {
+    watchFileInput(existingInputs[i]);
+  }
 }
 
 function sendDecision(requestId, action) {
@@ -408,30 +534,234 @@ function sendDecision(requestId, action) {
   }, "*");
 }
 
+function sendTextDecision(checkId, action) {
+  window.postMessage({
+    source: "ABLE_CONTENT",
+    type: "ABLE_TEXT_DECISION",
+    payload: { checkId, action }
+  }, "*");
+}
+
+/**
+ * Handle a text check request from inject.js.
+ * Scans the text for sensitive patterns and sends back a decision.
+ * If sensitive content is found, shows a warning modal and blocks the send.
+ */
+async function handleTextCheck(checkId, text, inputType, url) {
+  try {
+    // Limit text size to avoid performance issues
+    const MAX_TEXT_LENGTH = 50000;
+    if (text.length > MAX_TEXT_LENGTH) {
+      text = text.substring(0, MAX_TEXT_LENGTH);
+    }
+
+    const result = await calculateRiskScore(text);
+    const domainRiskScore = domainStatus?.risk_score || 0;
+    const totalScore = Math.min(100, domainRiskScore + result.score);
+    const riskThreshold = ABLERuntimeSettings.get("behavior.risk_threshold", 90);
+
+    console.debug("ABLE Text Scan:", {
+      inputType,
+      textLength: text.length,
+      pattern_score: result.score,
+      domain_risk_score: domainRiskScore,
+      total_score: totalScore,
+      flaggedItems: result.flaggedItems,
+    });
+
+    // Log the egress event regardless of action
+    const domain = domainStatus?.domain || new URL(url).hostname.replace(/^www\./, "");
+    logEgressEvent({
+      domain,
+      fileName: "[text-input]",
+      fileSize: text.length,
+      riskScore: totalScore,
+      action: totalScore >= riskThreshold ? "blocked" : "proceeded",
+      userAction: "typing",
+      source: "text-intercept",
+      flaggedItems: result.flaggedItems,
+    });
+
+    if (totalScore >= riskThreshold && result.flaggedItems.length > 0) {
+      // Sensitive content detected — block and show warning
+      showTextWarningModal({
+        domain,
+        totalScore,
+        flaggedItems: result.flaggedItems,
+        inputType,
+      });
+      sendTextDecision(checkId, "block");
+    } else {
+      // Allow the text to proceed
+      sendTextDecision(checkId, "allow");
+    }
+  } catch (error) {
+    console.warn("ABLE: Text check failed:", error);
+    // Fail open — allow the text to proceed
+    sendTextDecision(checkId, "allow");
+  }
+}
+
+/**
+ * Show a warning modal when sensitive content is detected in text input.
+ */
+function showTextWarningModal(data) {
+  removeModal();
+
+  const backdrop = document.createElement("div");
+  backdrop.className = "able-modal-backdrop";
+
+  const card = document.createElement("div");
+  card.className = "able-intercept-modal";
+  card.innerHTML = `
+    <div class="able-intercept-header" style="background: #d32f2f;">
+      <span class="able-intercept-title">Sensitive Content Detected</span>
+    </div>
+    <div class="able-intercept-body">
+      <p style="margin: 0 0 12px; font-size: 14px; color: #333;">
+        The text you're about to send contains <strong>sensitive information</strong> that may violate your organization's data protection policy.
+      </p>
+      <div style="background: #fff3e0; border-left: 3px solid #ff9800; padding: 8px 12px; margin-bottom: 12px; font-size: 12px; color: #e65100;">
+        <strong>Risk Score: ${data.totalScore}/100</strong><br>
+        Domain: ${data.domain}
+      </div>
+      <div style="font-size: 12px; color: #666; margin-bottom: 16px;">
+        <strong>Detected patterns:</strong>
+        <ul style="margin: 4px 0; padding-left: 20px;">
+          ${data.flaggedItems.map(item => `<li>${item.label} (${item.count} matches)</li>`).join("")}
+        </ul>
+      </div>
+    </div>
+    <div class="able-intercept-footer">
+      <button class="able-btn able-btn-cancel" id="able-text-cancel">Cancel Send</button>
+      <button class="able-btn able-btn-proceed" id="able-text-proceed">Send Anyway</button>
+    </div>
+  `;
+
+  backdrop.appendChild(card);
+  document.body.appendChild(backdrop);
+
+  // Cancel button — closes modal and clears the input
+  document.getElementById("able-text-cancel").addEventListener("click", function () {
+    removeModal();
+    // Try to clear the input
+    var activeElement = document.activeElement;
+    if (activeElement instanceof HTMLTextAreaElement || activeElement instanceof HTMLInputElement) {
+      activeElement.value = "";
+    } else if (activeElement.isContentEditable) {
+      activeElement.innerText = "";
+    }
+  });
+
+  // Proceed button — closes modal (the Enter key was already blocked)
+  document.getElementById("able-text-proceed").addEventListener("click", function () {
+    removeModal();
+    // User confirmed they want to send — we don't re-trigger the Enter key
+    // The user can press Enter again to send
+  });
+}
+
+/**
+ * Compute SHA-256 hash of the first 4KB of a file for identification/deduplication.
+ * Returns null if hashing fails.
+ */
+async function computeContentHash(file) {
+  try {
+    const slice = file.slice(0, 4096); // First 4KB
+    const buffer = await slice.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+    return Array.from(new Uint8Array(hashBuffer)).map(function (b) {
+      return b.toString(16).padStart(2, '0');
+    }).join('');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Detect file type from magic bytes (file signature).
+ * Returns file extension or null if unknown.
+ */
+function detectFileTypeFromMagicBytes(file) {
+  return new Promise(function (resolve) {
+    var slice = file.slice(0, 8);
+    var reader = new FileReader();
+    reader.onload = function () {
+      try {
+        var arr = new Uint8Array(reader.result);
+        var hex = Array.from(arr).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+
+        // Magic byte signatures
+        if (hex.startsWith('25504446')) return resolve('pdf');           // %PDF
+        if (hex.startsWith('504b0304')) return resolve('zip');           // PK (ZIP/DOCX/XLSX)
+        if (hex.startsWith('d0cf11e0')) return resolve('ole');           // OLE (old Office)
+        if (hex.startsWith('89504e47')) return resolve('png');           // PNG
+        if (hex.startsWith('ffd8ff')) return resolve('jpg');             // JPEG
+        if (hex.startsWith('47494638')) return resolve('gif');           // GIF
+        return resolve(null);
+      } catch {
+        return resolve(null);
+      }
+    };
+    reader.onerror = function () { resolve(null); };
+    reader.readAsArrayBuffer(slice);
+  });
+}
+
 async function scanFile(file) {
+  const scanStartTime = Date.now();
   const MAX_TEXT_FILE_SIZE = 100 * 1024 * 1024; // 100MB
+  const MAX_BINARY_SCAN_SIZE = 10 * 1024 * 1024; // 10MB for binary detection
   let text;
   let fileFormat = "plain";
 
-  const officeFormat = detectOfficeFormat(file);
-  if (officeFormat) {
-    try {
-      const result = await extractOfficeText(file);
-      text = result.text;
-      fileFormat = result.format;
-    } catch (err) {
-      console.warn("ABLE: Office parsing skipped:", err.message || err);
-      return null;
+  // For binary-upload files (from ArrayBuffer), detect file type from magic bytes
+  // This enables proper parsing of PDF/DOCX/XLSX sent as binary chunks
+  const isBinaryUpload = file.name === 'binary-upload' || file.name === 'blob';
+  console.debug("ABLE: Scanning file:", file.name, "size:", file.size, "isBinaryUpload:", isBinaryUpload);
+
+  if (isBinaryUpload && file.size < MAX_BINARY_SCAN_SIZE) {
+    var detectedType = await detectFileTypeFromMagicBytes(file);
+    console.debug("ABLE: Detected file type:", detectedType);
+    if (detectedType === 'pdf' || detectedType === 'zip' || detectedType === 'ole') {
+      try {
+        var officeFormatBinary = detectOfficeFormat(file);
+        if (officeFormatBinary) {
+          var officeResult = await extractOfficeText(file);
+          text = officeResult.text;
+          fileFormat = officeResult.format;
+        }
+      } catch (err) {
+        console.warn("ABLE: Office extraction failed:", err.message || err);
+        // Fall through to text extraction
+      }
     }
-  } else {
-    if (file.size > MAX_TEXT_FILE_SIZE) {
-      console.warn("ABLE: File too large for scanning, skipping:", file.name);
-      return null;
-    }
-    try {
-      text = await readFileContent(file);
-    } catch {
-      return null;
+  }
+
+  // Standard text extraction for non-binary files or if binary detection failed
+  if (!text) {
+    var officeFormat = detectOfficeFormat(file);
+    if (officeFormat) {
+      try {
+        var officeResult = await extractOfficeText(file);
+        text = officeResult.text;
+        fileFormat = officeResult.format;
+      } catch (err) {
+        console.warn("ABLE: Office parsing skipped:", err.message || err);
+        return null;
+      }
+    } else {
+      if (file.size > MAX_TEXT_FILE_SIZE) {
+        console.warn("ABLE: File too large for scanning, skipping:", file.name);
+        return null;
+      }
+      try {
+        text = await readFileContent(file);
+        console.debug("ABLE: Read file content, length:", text?.length, "type:", typeof text);
+      } catch (err) {
+        console.warn("ABLE: Failed to read file content:", err.message || err);
+        return null;
+      }
     }
   }
 
@@ -451,6 +781,10 @@ async function scanFile(file) {
 
   const riskThreshold = ABLERuntimeSettings.get("behavior.risk_threshold", 90);
 
+  // Compute content hash for identification/deduplication
+  const contentHash = await computeContentHash(file);
+  const scanDurationMs = Date.now() - scanStartTime;
+
   console.log("ABLE Scan:", {
     file: file.name,
     domain: domainStatus.domain,
@@ -461,6 +795,8 @@ async function scanFile(file) {
     threshold: riskThreshold,
     triggered: totalScore > riskThreshold,
     flagged_item_count: flaggedItems.length,
+    scan_duration_ms: scanDurationMs,
+    content_hash: contentHash ? contentHash.substring(0, 16) + '...' : null,
   });
 
   return {
@@ -469,43 +805,67 @@ async function scanFile(file) {
     fileName: file.name,
     fileSize: file.size,
     fileType: fileFormat,
+    contentHash,
+    scanDurationMs,
   };
 }
 
-async function handleInterceptedFiles(files, requestId) {
+async function handleInterceptedFiles(fileInfos, requestId) {
   // Wait for domain classification to complete before making scanning decisions
   if (classifyReady) await classifyReady;
+
+  // Extract File objects from fileInfos (filter out null files from streams)
+  var files = fileInfos.map(function (info) { return info.file; }).filter(Boolean);
+  var sources = fileInfos.map(function (info) { return info.source; });
+  var primarySource = sources[0] || 'unknown';
 
   if (!shouldActivate()) {
     sendDecision(requestId, "proceed");
 
     // Log egress event for safe domains with action 'allowed'
-    for (const file of files) {
+    for (var i = 0; i < files.length; i++) {
       logEgressEvent({
         domain: domainStatus?.domain || new URL(window.location.href).hostname.replace(/^www\./, ""),
-        fileName: file.name,
-        fileSize: file.size,
+        fileName: files[i].name,
+        fileSize: files[i].size,
         riskScore: 0,
         action: "allowed",
         userAction: "allowed",
+        source: fileInfos[i].source,
       });
     }
     return;
   }
 
   // Scan all files and find the highest-risk one
-  let highestRisk = null;
+  var highestRisk = null;
 
-  for (const file of files) {
-    const result = await scanFile(file);
+  for (var i = 0; i < files.length; i++) {
+    var result = await scanFile(files[i]);
     if (result && (!highestRisk || result.score > highestRisk.score)) {
       highestRisk = result;
     }
   }
 
-  const consent = await hasSessionConsent();
+  // Check for duplicate scan (prevent duplicate audit entries)
+  if (highestRisk && highestRisk.contentHash && isDuplicateScan(highestRisk.contentHash, highestRisk.fileName)) {
+    console.debug("ABLE: Duplicate scan detected, skipping");
+    sendDecision(requestId, "proceed");
+    return;
+  }
 
-  if (highestRisk && highestRisk.score > ABLERuntimeSettings.get("behavior.risk_threshold", 90) && !consent) {
+  var consent = await hasSessionConsent();
+
+  // Lowered threshold from 90 to 80 for better sensitivity
+  // Also show modal if pattern score alone is high (>= 40) even if total is below threshold
+  var riskThreshold = ABLERuntimeSettings.get("behavior.risk_threshold", 80);
+  var patternScore = highestRisk ? (highestRisk.score - (domainStatus?.risk_score || 0)) : 0;
+  var shouldShowModal = highestRisk && !consent && (
+    highestRisk.score > riskThreshold ||
+    (patternScore >= 40 && highestRisk.flaggedItems.length > 0)
+  );
+
+  if (shouldShowModal) {
     showInterceptModal({
       score: highestRisk.score,
       flaggedItems: highestRisk.flaggedItems,
@@ -530,17 +890,25 @@ async function handleInterceptedFiles(files, requestId) {
         riskScore: highestRisk.score,
         action: "proceeded",
         userAction: "proceeded",
+        source: primarySource,
+        contentHash: highestRisk.contentHash,
+        scanDurationMs: highestRisk.scanDurationMs,
+        contentSize: highestRisk.fileSize,
+        flaggedItems: highestRisk.flaggedItems,
       });
-    } else if (files.length > 0) {
+    } else if (fileInfos.length > 0) {
       // scanFile returned null for all files (binary, Office parse error, >100MB)
       // Log with first file's metadata and riskScore 0 — the upload still happened
+      var firstInfo = fileInfos[0];
       logEgressEvent({
         domain: domainStatus.domain,
-        fileName: files[0].name,
-        fileSize: files[0].size,
+        fileName: firstInfo.file?.name || firstInfo.source || 'unknown',
+        fileSize: firstInfo.contentSize || firstInfo.file?.size || 0,
         riskScore: 0,
         action: "proceeded",
         userAction: "proceeded",
+        source: primarySource,
+        contentSize: firstInfo.contentSize || firstInfo.file?.size || 0,
       });
     }
   }
@@ -557,6 +925,7 @@ function setupInterceptionListener() {
     if (event.data?.source !== "ABLE_INJECT") return;
 
     if (event.data.type === "ABLE_READY") {
+      injectReadyReceived = true;
       // inject.js just announced itself; reply with the nonce.
       window.postMessage({
         source: "ABLE_CONTENT",
@@ -572,24 +941,47 @@ function setupInterceptionListener() {
         console.warn("ABLE: Rejecting ABLE_INTERCEPT with invalid nonce.");
         return;
       }
-      const { requestId, files } = event.data.payload;
-      if (!requestId || !files || files.length === 0) return;
-      await handleInterceptedFiles(files, requestId);
+      const { requestId, fileInfos } = event.data.payload;
+      if (!requestId || !fileInfos || fileInfos.length === 0) return;
+      await handleInterceptedFiles(fileInfos, requestId);
+    }
+
+    if (event.data.type === "ABLE_TEXT_CHECK") {
+      // inject.js intercepted an Enter key in a text input.
+      // Scan the text for sensitive patterns and return a decision.
+      if (event.data.nonce !== pageNonceHex) {
+        console.warn("ABLE: Rejecting ABLE_TEXT_CHECK with invalid nonce.");
+        return;
+      }
+      const { checkId, text, inputType, url } = event.data.payload || {};
+      if (!checkId || !text) return;
+
+      // Scan the text asynchronously
+      handleTextCheck(checkId, text, inputType, url);
+    }
+
+    if (event.data.type === "ABLE_TEXT_BLOCKED") {
+      // inject.js blocked an Enter key because we detected sensitive content.
+      // The egress event was already logged in handleTextCheck.
+      console.debug("ABLE: Text send blocked by pattern detection.");
+      return;
     }
 
     if (event.data.type === "ABLE_TIMEOUT") {
       // inject.js timed out waiting for content.js to respond.
       // Log the egress event with whatever info we have.
-      const { files } = event.data.payload || {};
-      if (files && files.length > 0) {
+      const { fileInfos } = event.data.payload || {};
+      if (fileInfos && fileInfos.length > 0) {
         const domain = domainStatus?.domain || new URL(window.location.href).hostname.replace(/^www\./, "");
+        const firstInfo = fileInfos[0];
         logEgressEvent({
           domain,
-          fileName: files[0].name,
-          fileSize: files[0].size,
+          fileName: firstInfo.file?.name || firstInfo.source || 'unknown',
+          fileSize: firstInfo.contentSize || firstInfo.file?.size || 0,
           riskScore: 0,
           action: "proceeded",
           userAction: "proceeded",
+          source: firstInfo.source,
         });
       }
       return;
@@ -598,18 +990,35 @@ function setupInterceptionListener() {
     if (event.data.type === "ABLE_NONCE_FAILED") {
       // Nonce handshake failed — upload bypassed interception entirely.
       // Log the egress event so the upload is still recorded.
-      const { files } = event.data.payload || {};
-      if (files && files.length > 0) {
+      const { fileInfos } = event.data.payload || {};
+      if (fileInfos && fileInfos.length > 0) {
         const domain = new URL(window.location.href).hostname.replace(/^www\./, "");
+        const firstInfo = fileInfos[0];
         logEgressEvent({
           domain,
-          fileName: files[0].name,
-          fileSize: files[0].size,
+          fileName: firstInfo.file?.name || firstInfo.source || 'unknown',
+          fileSize: firstInfo.contentSize || firstInfo.file?.size || 0,
           riskScore: 0,
           action: "proceeded",
           userAction: "proceeded",
+          source: firstInfo.source,
         });
       }
+      return;
+    }
+
+    if (event.data.type === "ABLE_FILE_SELECTED") {
+      // A file input detected a file selection. This is informational —
+      // the actual upload will be intercepted via fetch/XHR wrapping.
+      // Log for diagnostic purposes when debugging site-specific issues.
+      console.debug("ABLE: File selection detected:", event.data.payload);
+      return;
+    }
+
+    if (event.data.type === "ABLE_ATTACH_BUTTON_CLICKED") {
+      // An attachment button was clicked. The file input may be created
+      // transiently after this click. Log for diagnostics.
+      console.debug("ABLE: Attach button clicked:", event.data.payload);
       return;
     }
 
