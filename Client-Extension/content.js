@@ -40,6 +40,14 @@ async function getRiskPatterns() {
  * Fire-and-forget — failures are silently ignored.
  */
 async function logEgressEvent(payload) {
+  // Skip events with generic filenames (no real file uploaded)
+  // These are typically analytics/tracking endpoints or failed filename recovery
+  var genericNames = ['binary-upload', 'blob', 'websocket-upload', 'stream-upload', 'unknown'];
+  if (payload.fileName && genericNames.includes(payload.fileName.toLowerCase())) {
+    console.debug("ABLE: Skipping generic filename:", payload.fileName);
+    return;
+  }
+
   var maxRetries = 3;
   for (var attempt = 0; attempt < maxRetries; attempt++) {
     try {

@@ -36,7 +36,7 @@
       /aplus.*\.js/i,                          // APLUS analytics
       /youtubei\/v1\/log_event/i,              // YouTube analytics
       /youtubei\/v1\/player\/log/i,            // YouTube player analytics
-      \/log_event\?alt=json/i,                 // YouTube log event (relative URL)
+      /\/log_event\?alt=json/i,                // YouTube log event (relative URL)
       /google-analytics\.com/i,                // Google Analytics
       /stats\.g\.doubleclick\.net/i,           // DoubleClick stats
       /log\.xing\.com/i,                       // XING analytics

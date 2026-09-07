@@ -1,0 +1,10 @@
+{
+  "name": "able-extension",
+  "version": "1.0.0",
+  "description": "ABLE - Adaptive Browser Level Extension",
+  "private": true,
+  "scripts": {
+    "build": "node Client-Extension/scripts/build.js",
+    "hash": "node Client-Extension/scripts/hash-assets.js"
+  }
+}

@@ -51,7 +51,7 @@ const TLS_PINS = {
  * TODO: Compute these at deploy time:
  *   node -e "console.log(require('crypto').createHash('sha256').update(require('fs').readFileSync('inject.js')).digest('hex'))"
  */
-const EXPECTED_INJECT_HASH = "6bfdfa237c19928cf74fb37c54a6f26d5dc64704cc890cbe87082bf9f65c935f";
+const EXPECTED_INJECT_HASH = "ca48d27768d063e8ad46bcd24966e71fc9e64cd8787815fac52f12ff8b85d5d6";
 const EXPECTED_CONTENT_CSS_HASH = "a214eb4e885669bcf0d0a7b0f7dd619531b762ea0291cc89b1a20ee4d0955542";
 
 /**
