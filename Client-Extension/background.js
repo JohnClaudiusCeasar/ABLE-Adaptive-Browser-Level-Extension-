@@ -1,4 +1,13 @@
-self.importScripts("config.js", "security.js", "api.js", "runtime-settings.js");
+self.importScripts(
+  "config.js",
+  "core/security.js",
+  "core/runtime-settings.js",
+  "api/rate-limiter.js",
+  "api/classification.js",
+  "api/risk-patterns.js",
+  "api/logging.js",
+  "api/index.js"
+);
 
 const RISK_PATTERNS_ALARM = "risk-patterns-sync";
 const VISIT_LOG_ALARM = "visit-log-flush";
@@ -63,8 +72,6 @@ chrome.runtime.onStartup.addListener(() => {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // SECURITY: Reject messages from any sender that isn't this extension.
-  // Without this check, any page script could call chrome.runtime.sendMessage
-  // and trigger log-visit / log-egress events, poisoning server analytics.
   if (sender.id !== chrome.runtime.id) {
     return false;
   }
@@ -113,7 +120,6 @@ async function handleClassifyDomain(url, sendResponse) {
     const serverResult = await getDomainClassification(url);
 
     if (serverResult) {
-      // Server or offline cache responded successfully
       const messages = getStatusMessage(serverResult.status, serverResult.domain, serverResult.category, []);
       sendResponse({
         status: serverResult.status,
@@ -172,7 +178,6 @@ async function handleClassifyDomain(url, sendResponse) {
 
 /**
  * Classify a domain using the offline cache stored in chrome.storage.local.
- * This cache was last saved when the admin server was online.
  */
 async function classifyFromOfflineCache(url) {
   try {

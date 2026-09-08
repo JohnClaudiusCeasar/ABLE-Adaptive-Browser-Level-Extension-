@@ -18,14 +18,38 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["config.js", "runtime-settings.js", "office-parser.js", "content.js"],
+      "js": [
+        "config.js",
+        "core/storage.js",
+        "core/security.js",
+        "core/runtime-settings.js",
+        "parsers/office-parser.js",
+        "api/rate-limiter.js",
+        "api/classification.js",
+        "api/risk-patterns.js",
+        "api/logging.js",
+        "api/index.js",
+        "content/zoom.js",
+        "content/risk-scoring.js",
+        "content/file-scanner.js",
+        "content/intercept-modal.js",
+        "content/text-warning-modal.js",
+        "content/site-warning-modal.js",
+        "content/repeat-visit-modal.js",
+        "content/content.js"
+      ],
       "css": ["content.css"],
       "run_at": "document_end"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["inject.js"],
+      "resources": [
+        "inject/inject.js",
+        "inject/file-extractor.js",
+        "inject/network-interceptor.js",
+        "inject/file-tracker.js"
+      ],
       "matches": ["<all_urls>"]
     }
   ],
