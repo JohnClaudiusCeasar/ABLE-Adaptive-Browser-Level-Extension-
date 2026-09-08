@@ -109,11 +109,12 @@ function getWebsiteName() {
 
 function buildDefaultDomainStatus() {
   const hostname = window.location.hostname;
+  const statusLabel = "unlisted";
   return {
-    status: "unlisted",
+    status: statusLabel,
     domain: hostname,
-    title: "The site you are entering is UNLISTED",
-    message: `${hostname} is an unlisted service that has not been reviewed by our security team. Please refrain from sending sensitive institutional data from this website until it is properly reviewed.`
+    title: `The site you are entering is ${statusLabel.toUpperCase()}`,
+    message: `<span class="able-highlight-text">${hostname}</span> is an <span class="able-highlight-text">${statusLabel}</span> service that has not been reviewed by our security team. Please refrain from sending sensitive institutional data from this website until it is properly reviewed.`
   };
 }
 
@@ -679,6 +680,7 @@ function showTextWarningModal(data) {
 
   backdrop.appendChild(card);
   document.body.appendChild(backdrop);
+  applyZoomCompensation(backdrop);
 
   // Cancel button — closes modal and clears the input
   document.getElementById("able-text-cancel").addEventListener("click", function () {
@@ -1067,6 +1069,48 @@ function setupInterceptionListener() {
   });
 }
 
+// ─── Zoom compensation ─────────────────────────────────────────────
+
+/**
+ * Get the current browser zoom level as a multiplier.
+ * 1.0 = 100%, 1.5 = 150%, 0.75 = 75%, etc.
+ */
+function getZoomLevel() {
+  if (window.visualViewport && window.visualViewport.scale) {
+    return window.visualViewport.scale;
+  }
+  // Fallback for browsers without visualViewport
+  if (window.outerWidth && window.innerWidth) {
+    return window.outerWidth / window.innerWidth;
+  }
+  return 1;
+}
+
+/**
+ * Apply inverse scale to modal backdrop to counteract browser zoom.
+ */
+function applyZoomCompensation(backdrop) {
+  const zoom = getZoomLevel();
+  const counterScale = 1 / zoom;
+  backdrop.style.transform = `scale(${counterScale})`;
+}
+
+/**
+ * Update zoom compensation on any visible modal.
+ */
+function updateActiveModalZoom() {
+  const backdrop = document.querySelector('.able-modal-backdrop');
+  if (backdrop) {
+    applyZoomCompensation(backdrop);
+  }
+}
+
+// Listen for zoom/resize changes
+window.addEventListener('resize', updateActiveModalZoom);
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', updateActiveModalZoom);
+}
+
 // ─── Intercept modal ───────────────────────────────────────────────
 
 function showInterceptModal(data) {
@@ -1133,6 +1177,7 @@ function showInterceptModal(data) {
   `;
 
   document.documentElement.appendChild(backdrop);
+  applyZoomCompensation(backdrop);
 
   backdrop.querySelector("#ableProceedBtn").addEventListener("click", async () => {
     await setSessionConsent();
@@ -1267,6 +1312,7 @@ function showSiteWarningModal(data) {
   `;
 
   document.documentElement.appendChild(backdrop);
+  applyZoomCompensation(backdrop);
 
   backdrop.querySelector("#ableWarningDismiss").addEventListener("click", async () => {
     await setSiteWarningConsent();
@@ -1300,7 +1346,7 @@ function showRepeatVisitModal(data) {
           <p>
             You have visited <span class="able-highlight-text">${data.domain}</span>
             for <span class="able-highlight-text">${data.visitCount} time${data.visitCount !== 1 ? 's' : ''}</span> now.
-            The ABLE security team is still marking this site as ${data.status}.
+            The ABLE security team is still marking this site as <span class="able-highlight-text">${data.status}</span>.
           </p>
           <br>
           <p>
@@ -1319,6 +1365,7 @@ function showRepeatVisitModal(data) {
   `;
 
   document.documentElement.appendChild(backdrop);
+  applyZoomCompensation(backdrop);
 
   backdrop.querySelector("#ableRepeatDismiss").addEventListener("click", async () => {
     await setLastModalShownTime();

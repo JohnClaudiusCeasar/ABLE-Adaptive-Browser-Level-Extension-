@@ -182,6 +182,7 @@ body {
 }
 
 .card-title {
+  font-family: 'Unbounded', sans-serif;
   font-size: 0.9rem;
   font-weight: 700;
   text-align: center;
