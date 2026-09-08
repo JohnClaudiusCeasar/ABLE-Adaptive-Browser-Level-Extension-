@@ -17,8 +17,10 @@ return new class extends Migration
 
         Schema::create('able_settings', function (Blueprint $table) {
             $table->id();
-            $table->string('group');
-            $table->string('key');
+            // Column lengths kept small so the composite unique index fits
+            // MySQL's 1000-byte key limit under utf8mb4.
+            $table->string('group', 50);
+            $table->string('key', 150);
             $table->json('value')->nullable();
             $table->foreignId('updated_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();

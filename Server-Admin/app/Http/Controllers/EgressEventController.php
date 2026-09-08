@@ -59,6 +59,7 @@ class EgressEventController extends Controller
             'action' => 'required|in:proceeded,denied,allowed',
             'user_action' => 'nullable|in:proceeded,cancelled,allowed',
             'occurred_at' => 'nullable|numeric',
+            'flagged_items' => 'nullable|string',
         ]);
 
         // Skip excluded domains (defense-in-depth)
@@ -85,6 +86,12 @@ class EgressEventController extends Controller
             'file_size' => $validated['file_size'] ?? 0,
             'risk_score' => $validated['risk_score'],
             'action' => $validated['action'],
+            // The extension sends flagged_items as a JSON string; decode it so
+            // the model's array cast re-encodes it cleanly (a raw string would
+            // be double-encoded).
+            'flagged_items' => isset($validated['flagged_items'])
+                ? json_decode($validated['flagged_items'], true)
+                : null,
             'occurred_at' => $occurredAt
                 ? Carbon::createFromTimestampMs($occurredAt)
                 : now(),
@@ -104,5 +111,25 @@ class EgressEventController extends Controller
             'success' => true,
             'egress_event_id' => $egressEvent->id,
         ]);
+    }
+
+    /**
+     * Delete a single egress event.
+     */
+    public function destroy(EgressEvent $egressEvent): JsonResponse
+    {
+        $egressEvent->delete();
+
+        return response()->json(['success' => true]);
+    }
+
+    /**
+     * Delete all egress events.
+     */
+    public function destroyAll(): JsonResponse
+    {
+        EgressEvent::query()->delete();
+
+        return response()->json(['success' => true]);
     }
 }

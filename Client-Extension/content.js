@@ -336,41 +336,68 @@ async function calculateRiskScore(text) {
     };
   }
 
-  // Process single patterns
-  const singlePatterns = patterns.filter(p => p.type === 'single');
-  for (const pattern of singlePatterns) {
-    const count = safeTestPattern(pattern.regex, text);
-    if (count > 0) {
-      totalScore += pattern.score;
-      flaggedItems.push({
-        label: pattern.title,
-        count: count,
-        weight: pattern.score,
-      });
+  // Scan order: high-priority patterns are checked before medium and low.
+  // The sort is stable, preserving the server's ordering within each tier;
+  // patterns without a priority degrade to the end of the scan.
+  const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
+  const orderedPatterns = patterns
+    .map((pattern, index) => ({ pattern, index }))
+    .sort(
+      (a, b) =>
+        (PRIORITY_ORDER[a.pattern.priority] ?? 3) -
+          (PRIORITY_ORDER[b.pattern.priority] ?? 3) ||
+        a.index - b.index,
+    )
+    .map((entry) => entry.pattern);
+
+  // Duplicate conditioning: a regex contributes score only on its first
+  // match in scan order. Later duplicates are still flagged as detected
+  // but with zero weight, so shared pattern entries never double-score.
+  const scoredRegexes = new Set();
+
+  function recordRegexMatch(regex, count, score, label) {
+    const isDuplicate = scoredRegexes.has(regex);
+    if (!isDuplicate) {
+      scoredRegexes.add(regex);
     }
+    const weight = isDuplicate ? 0 : score;
+    totalScore += weight;
+    flaggedItems.push({
+      label: label,
+      count: count,
+      weight: weight,
+    });
   }
 
-  // Process criteria patterns
-  const criteriaPatterns = patterns.filter(p => p.type === 'criteria');
-  for (const criteria of criteriaPatterns) {
-    const items = criteria.criteria_pattern_items || [];
+  for (const pattern of orderedPatterns) {
+    if (pattern.type === 'single') {
+      const count = safeTestPattern(pattern.regex, text);
+      if (count > 0) {
+        recordRegexMatch(pattern.regex, count, pattern.score, pattern.title);
+      }
+      continue;
+    }
+
+    if (pattern.type !== 'criteria') continue;
+
+    const items = pattern.criteria_pattern_items || [];
     if (items.length === 0) continue;
 
     let matchCount = 0;
 
     // Sub-items are independent single-pattern contributors: they always
-    // score on their own and do not gate the criteria's composite match.
+    // count as detections and do not gate the criteria's composite match.
     function scoreSubItems(subItems, prefix) {
       for (const sub of subItems) {
         const count = safeTestPattern(sub.regex, text);
         if (count > 0) {
           matchCount += count;
-          totalScore += sub.score;
-          flaggedItems.push({
-            label: `${prefix} › ${sub.title}`,
-            count: count,
-            weight: sub.score,
-          });
+          recordRegexMatch(
+            sub.regex,
+            count,
+            sub.score,
+            `${prefix} › ${sub.title}`,
+          );
         }
         if (sub.sub_items && sub.sub_items.length > 0) {
           scoreSubItems(sub.sub_items, `${prefix} › ${sub.title}`);
@@ -378,22 +405,26 @@ async function calculateRiskScore(text) {
       }
     }
 
+    // Top-level items are gate inputs only: they increment the match count
+    // (and may flag via sub-items) but never reserve a regex or score.
     for (const item of items) {
       const count = safeTestPattern(item.regex, text);
       if (count > 0) matchCount += count;
       if (item.sub_items && item.sub_items.length > 0) {
-        scoreSubItems(item.sub_items, criteria.title);
+        scoreSubItems(item.sub_items, pattern.title);
       }
     }
 
+    // The composite bonus is criteria-level (not regex-backed), so it is
+    // earned whenever the AND/OR gate passes.
     const criteriaMatched = evaluateCriteriaItems(items, text);
 
     if (criteriaMatched) {
-      totalScore += criteria.score;
+      totalScore += pattern.score;
       flaggedItems.push({
-        label: criteria.title,
+        label: pattern.title,
         count: matchCount,
-        weight: criteria.score,
+        weight: pattern.score,
       });
     }
   }

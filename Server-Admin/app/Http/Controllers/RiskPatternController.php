@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CriteriaPatternItem;
+use App\Models\EgressEvent;
 use App\Models\RiskPattern;
 use App\Rules\CompilableRegex;
 use App\Support\JsCanonical;
@@ -30,13 +31,56 @@ class RiskPatternController extends Controller
         if ($request->path() === 'risk-algorithm/criteria') {
             return Inertia::render('risk-algorithm/criteria', [
                 'riskPatterns' => $criteriaPatterns,
-                'singlePatterns' => $singlePatterns,
+                'existingPatterns' => $riskPatterns->values(),
             ]);
         }
 
         return Inertia::render('risk-algorithm/single', [
             'riskPatterns' => $singlePatterns,
             'criteriaPatterns' => $criteriaPatterns,
+            'flagCounts' => $this->buildFlagCounts(),
+        ]);
+    }
+
+    /**
+     * Tally how many egress events flagged each pattern. The extension
+     * reports flagged items as {label, count, weight} entries per event;
+     * each event containing the label counts as one flag occurrence.
+     *
+     * @return array<string, int>
+     */
+    private function buildFlagCounts(): array
+    {
+        $flagCounts = [];
+
+        EgressEvent::query()
+            ->whereNotNull('flagged_items')
+            ->get(['flagged_items'])
+            ->each(function (EgressEvent $event) use (&$flagCounts): void {
+                foreach ((array) $event->flagged_items as $item) {
+                    $label = is_array($item) ? ($item['label'] ?? null) : null;
+
+                    if (is_string($label) && $label !== '') {
+                        $flagCounts[$label] = ($flagCounts[$label] ?? 0) + 1;
+                    }
+                }
+            });
+
+        return $flagCounts;
+    }
+
+    /**
+     * Display the standalone page for creating a new criteria pattern.
+     */
+    public function createCriteria(): Response
+    {
+        $existingPatterns = RiskPattern::with('criteriaPatternItems')
+            ->whereIn('type', ['single', 'criteria'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return Inertia::render('risk-algorithm/create-criteria', [
+            'existingPatterns' => $existingPatterns,
         ]);
     }
 
@@ -52,7 +96,9 @@ class RiskPatternController extends Controller
             'score' => 'required_if:type,single|nullable|integer|min:0|max:100',
             'criteria_pattern_items' => 'required_if:type,criteria|nullable|array|min:1',
             'criteria_pattern_items.*.title' => 'required|string|max:255',
-            'criteria_pattern_items.*.regex' => ['required', 'string', 'max:1000', new CompilableRegex],
+            // Nullable: wrapper items imported from criteria patterns group
+            // sub-items instead of matching on their own regex.
+            'criteria_pattern_items.*.regex' => ['nullable', 'string', 'max:1000', new CompilableRegex],
             'criteria_pattern_items.*.operator' => 'nullable|in:and,or',
             'criteria_pattern_items.*.score' => 'required|integer|min:0|max:100',
             'criteria_pattern_items.*.sub_items' => 'nullable|array',
@@ -68,13 +114,13 @@ class RiskPatternController extends Controller
             'type' => $validated['type'],
             'regex' => $validated['type'] === 'single' ? $validated['regex'] : null,
             'score' => $validated['score'] ?? 0,
-            'status' => 'active',
+            'priority' => 'medium',
         ]);
 
         // Create criteria pattern items if type is criteria
         if ($validated['type'] === 'criteria' && isset($validated['criteria_pattern_items'])) {
             $this->createCriteriaItems($riskPattern->id, $validated['criteria_pattern_items']);
-            $this->syncAutoCreatedSingles($riskPattern->id, $validated['criteria_pattern_items']);
+            $this->syncAutoCreatedSingles($riskPattern->id, $validated['criteria_pattern_items'], $riskPattern->priority);
         }
 
         return Redirect::back()->with('success', 'Risk pattern created successfully.');
@@ -106,24 +152,31 @@ class RiskPatternController extends Controller
 
     /**
      * Create single-pattern rows for each criteria item and sub-item,
-     * linked to the parent criteria via parent_criteria_id.
+     * linked to the parent criteria via parent_criteria_id. Auto-created
+     * singles inherit the parent criteria's priority so the criteria and
+     * its items are scanned in the same tier.
      *
      * @param  array<int, array<string, mixed>>  $items
      */
-    private function syncAutoCreatedSingles(int $criteriaId, array $items): void
+    private function syncAutoCreatedSingles(int $criteriaId, array $items, string $priority = 'medium'): void
     {
         foreach ($items as $item) {
-            RiskPattern::create([
-                'title' => $item['title'],
-                'type' => 'single',
-                'regex' => $item['regex'],
-                'score' => $item['score'],
-                'status' => 'active',
-                'parent_criteria_id' => $criteriaId,
-            ]);
+            // Wrapper items imported from criteria patterns carry no regex —
+            // they group sub-items rather than match on their own, so no
+            // single pattern is recorded for them.
+            if (($item['regex'] ?? '') !== '') {
+                RiskPattern::create([
+                    'title' => $item['title'],
+                    'type' => 'single',
+                    'regex' => $item['regex'],
+                    'score' => $item['score'],
+                    'priority' => $priority,
+                    'parent_criteria_id' => $criteriaId,
+                ]);
+            }
 
             if (isset($item['sub_items']) && is_array($item['sub_items'])) {
-                $this->syncAutoCreatedSingles($criteriaId, $item['sub_items']);
+                $this->syncAutoCreatedSingles($criteriaId, $item['sub_items'], $priority);
             }
         }
     }
@@ -138,10 +191,12 @@ class RiskPatternController extends Controller
             'type' => 'required|in:single,criteria',
             'regex' => ['required_if:type,single', 'nullable', 'string', 'max:1000', new CompilableRegex],
             'score' => 'required_if:type,single|nullable|integer|min:0|max:100',
-            'status' => 'required|in:active,inactive',
+            'priority' => 'required|in:low,medium,high',
             'criteria_pattern_items' => 'required_if:type,criteria|nullable|array|min:1',
             'criteria_pattern_items.*.title' => 'required|string|max:255',
-            'criteria_pattern_items.*.regex' => ['required', 'string', 'max:1000', new CompilableRegex],
+            // Nullable: wrapper items imported from criteria patterns group
+            // sub-items instead of matching on their own regex.
+            'criteria_pattern_items.*.regex' => ['nullable', 'string', 'max:1000', new CompilableRegex],
             'criteria_pattern_items.*.operator' => 'nullable|in:and,or',
             'criteria_pattern_items.*.score' => 'required|integer|min:0|max:100',
             'criteria_pattern_items.*.sub_items' => 'nullable|array',
@@ -157,7 +212,7 @@ class RiskPatternController extends Controller
             'type' => $validated['type'],
             'regex' => $validated['type'] === 'single' ? $validated['regex'] : null,
             'score' => $validated['score'] ?? 0,
-            'status' => $validated['status'],
+            'priority' => $validated['priority'],
         ]);
 
         // Update criteria pattern items if type is criteria
@@ -170,7 +225,7 @@ class RiskPatternController extends Controller
 
             // Delete old auto-created singles for this criteria, then recreate
             RiskPattern::where('parent_criteria_id', $riskPattern->id)->delete();
-            $this->syncAutoCreatedSingles($riskPattern->id, $validated['criteria_pattern_items']);
+            $this->syncAutoCreatedSingles($riskPattern->id, $validated['criteria_pattern_items'], $riskPattern->priority);
         }
 
         return Redirect::back()->with('success', 'Risk pattern updated successfully.');
@@ -204,7 +259,9 @@ class RiskPatternController extends Controller
      */
     public function all(): JsonResponse
     {
-        $patterns = RiskPattern::with('criteriaPatternItems')->where('status', 'active')->get();
+        $patterns = RiskPattern::with('criteriaPatternItems')
+            ->orderByRaw("CASE priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END")
+            ->get();
 
         return response()->json([
             'patterns' => $patterns,
@@ -218,7 +275,7 @@ class RiskPatternController extends Controller
     public function signed(): JsonResponse
     {
         $patterns = RiskPattern::with('criteriaPatternItems')
-            ->where('status', 'active')
+            ->orderByRaw("CASE priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END")
             ->get()
             ->toArray();
 

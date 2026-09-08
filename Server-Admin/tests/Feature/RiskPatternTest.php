@@ -38,7 +38,7 @@ class RiskPatternTest extends TestCase
         $this->assertSame('single', $pattern->type);
         $this->assertSame('^\d{2}-\d{4}-\d{3}$', $pattern->regex);
         $this->assertSame(30, $pattern->score);
-        $this->assertSame('active', $pattern->status);
+        $this->assertSame('medium', $pattern->priority);
     }
 
     public function test_invalid_regex_is_rejected()
@@ -147,7 +147,7 @@ class RiskPatternTest extends TestCase
         $pattern = RiskPattern::create([
             'title' => 'Old Title',
             'type' => 'criteria',
-            'status' => 'active',
+            'priority' => 'medium',
             'score' => 40,
         ]);
 
@@ -162,7 +162,7 @@ class RiskPatternTest extends TestCase
         $response = $this->patch(route('risk-algorithm.update', $pattern), [
             'title' => 'New Title',
             'type' => 'criteria',
-            'status' => 'inactive',
+            'priority' => 'low',
             'score' => 45,
             'criteria_pattern_items' => [
                 [
@@ -178,7 +178,7 @@ class RiskPatternTest extends TestCase
 
         $pattern->refresh();
         $this->assertSame('New Title', $pattern->title);
-        $this->assertSame('inactive', $pattern->status);
+        $this->assertSame('low', $pattern->priority);
 
         $this->assertSame(1, CriteriaPatternItem::count());
         $this->assertNull(CriteriaPatternItem::find($item->id));
@@ -194,14 +194,14 @@ class RiskPatternTest extends TestCase
             'title' => 'Pattern A',
             'type' => 'single',
             'regex' => 'a',
-            'status' => 'active',
+            'priority' => 'medium',
             'score' => 10,
         ]);
         RiskPattern::create([
             'title' => 'Pattern B',
             'type' => 'single',
             'regex' => 'b',
-            'status' => 'active',
+            'priority' => 'medium',
             'score' => 10,
         ]);
 
@@ -211,27 +211,37 @@ class RiskPatternTest extends TestCase
         $this->assertSame(0, RiskPattern::count());
     }
 
-    public function test_api_returns_only_active_patterns()
+    public function test_api_orders_patterns_by_priority()
     {
         RiskPattern::create([
-            'title' => 'Active Pattern',
+            'title' => 'Low Pattern',
             'type' => 'single',
-            'regex' => 'active',
-            'status' => 'active',
+            'regex' => 'low',
+            'priority' => 'low',
             'score' => 10,
         ]);
         RiskPattern::create([
-            'title' => 'Inactive Pattern',
+            'title' => 'High Pattern',
             'type' => 'single',
-            'regex' => 'inactive',
-            'status' => 'inactive',
+            'regex' => 'high',
+            'priority' => 'high',
+            'score' => 10,
+        ]);
+        RiskPattern::create([
+            'title' => 'Medium Pattern',
+            'type' => 'single',
+            'regex' => 'medium',
+            'priority' => 'medium',
             'score' => 10,
         ]);
 
         $response = $this->getJson('/api/risk-patterns');
 
-        $response->assertOk()->assertJson(['count' => 1]);
-        $this->assertSame('Active Pattern', $response->json('patterns.0.title'));
+        $response->assertOk()->assertJson(['count' => 3]);
+        $this->assertSame(
+            ['High Pattern', 'Medium Pattern', 'Low Pattern'],
+            collect($response->json('patterns'))->pluck('title')->all(),
+        );
     }
 
     public function test_creating_criteria_pattern_auto_records_items_as_single_patterns()
@@ -301,7 +311,7 @@ class RiskPatternTest extends TestCase
         $this->patch(route('risk-algorithm.update', $criteria), [
             'title' => 'Updated Criteria',
             'type' => 'criteria',
-            'status' => 'active',
+            'priority' => 'medium',
             'score' => 60,
             'criteria_pattern_items' => [
                 ['title' => 'New Item 1', 'regex' => 'new1', 'operator' => 'and', 'score' => 25],
@@ -357,5 +367,135 @@ class RiskPatternTest extends TestCase
         $criteria = RiskPattern::where('type', 'criteria')->first();
         $this->assertNotNull($criteria);
         $this->assertSame(75, $criteria->score);
+    }
+
+    public function test_auto_created_singles_inherit_parent_priority()
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $this->post(route('risk-algorithm.store'), [
+            'title' => 'Escalating Criteria',
+            'type' => 'criteria',
+            'score' => 50,
+            'criteria_pattern_items' => [
+                ['title' => 'Item', 'regex' => 'escalate', 'operator' => 'and', 'score' => 20],
+            ],
+        ]);
+
+        $criteria = RiskPattern::where('type', 'criteria')->first();
+        $this->assertSame('medium', $criteria->priority);
+        $this->assertSame(
+            'medium',
+            RiskPattern::where('parent_criteria_id', $criteria->id)->first()->priority,
+        );
+
+        $this->patch(route('risk-algorithm.update', $criteria), [
+            'title' => 'Escalating Criteria',
+            'type' => 'criteria',
+            'priority' => 'high',
+            'score' => 50,
+            'criteria_pattern_items' => [
+                ['title' => 'Item', 'regex' => 'escalate', 'operator' => 'and', 'score' => 20],
+            ],
+        ]);
+
+        $linkedSingles = RiskPattern::where('parent_criteria_id', $criteria->id)->get();
+        $this->assertCount(1, $linkedSingles);
+        $this->assertSame('high', $linkedSingles->first()->priority);
+    }
+
+    public function test_create_criteria_page_lists_single_and_criteria_patterns()
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        RiskPattern::create([
+            'title' => 'Standalone Single',
+            'type' => 'single',
+            'regex' => 'standalone',
+            'priority' => 'high',
+            'score' => 20,
+        ]);
+        // Pin ordering so the created_at desc sort is deterministic.
+        RiskPattern::where('title', 'Standalone Single')->update([
+            'created_at' => now()->subDay(),
+        ]);
+
+        $criteria = RiskPattern::create([
+            'title' => 'Existing Criteria',
+            'type' => 'criteria',
+            'priority' => 'medium',
+            'score' => 40,
+        ]);
+        CriteriaPatternItem::create([
+            'criteria_pattern_id' => $criteria->id,
+            'title' => 'Criteria Item',
+            'regex' => 'criteriaregex',
+            'operator' => 'and',
+            'score' => 0,
+        ]);
+
+        $response = $this->actingAs($user)
+            ->get(route('risk-algorithm.create-criteria'));
+
+        $response->assertOk();
+        $response->assertInertia(
+            fn ($page) => $page
+                ->component('risk-algorithm/create-criteria')
+                ->has('existingPatterns', 2)
+                ->where('existingPatterns.0.title', 'Existing Criteria')
+                ->has('existingPatterns.0.criteria_pattern_items', 1)
+                ->where('existingPatterns.1.title', 'Standalone Single'),
+        );
+    }
+
+    public function test_criteria_item_without_regex_is_allowed_as_group()
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $response = $this->post(route('risk-algorithm.store'), [
+            'title' => 'Grouping Criteria',
+            'type' => 'criteria',
+            'score' => 30,
+            'criteria_pattern_items' => [
+                [
+                    'title' => 'Imported Group',
+                    'regex' => '',
+                    'operator' => 'and',
+                    'score' => 15,
+                    'sub_items' => [
+                        [
+                            'title' => 'Nested Item',
+                            'regex' => 'nestedregex',
+                            'operator' => 'and',
+                            'score' => 10,
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $response->assertRedirect();
+
+        $criteria = RiskPattern::where('type', 'criteria')->first();
+        $this->assertNotNull($criteria);
+
+        $groupItem = CriteriaPatternItem::where(
+            'criteria_pattern_id',
+            $criteria->id,
+        )
+            ->where('title', 'Imported Group')
+            ->first();
+        $this->assertNotNull($groupItem);
+
+        // The wrapper is not auto-recorded as a single; its sub-item is.
+        $linkedSingles = RiskPattern::where(
+            'parent_criteria_id',
+            $criteria->id,
+        )->get();
+        $this->assertCount(1, $linkedSingles);
+        $this->assertSame('Nested Item', $linkedSingles->first()->title);
     }
 }

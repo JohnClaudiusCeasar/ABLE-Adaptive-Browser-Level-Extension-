@@ -34,6 +34,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('risk-algorithm/{view}', [RiskPatternController::class, 'index'])
         ->whereIn('view', ['single', 'criteria'])
         ->name('risk-algorithm.view');
+    Route::get('risk-algorithm/criteria/create', [RiskPatternController::class, 'createCriteria'])
+        ->name('risk-algorithm.create-criteria');
     Route::get('risk-algorithm', [RiskPatternController::class, 'index'])->name('risk-algorithm');
     Route::post('risk-algorithm', [RiskPatternController::class, 'store'])->name('risk-algorithm.store');
     Route::patch('risk-algorithm/{riskPattern}', [RiskPatternController::class, 'update'])->name('risk-algorithm.update');

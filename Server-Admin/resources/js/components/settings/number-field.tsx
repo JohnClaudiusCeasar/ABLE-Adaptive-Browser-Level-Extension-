@@ -19,7 +19,9 @@ export function NumberField({
         <Input
             id={name}
             name={name}
-            type="number"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             defaultValue={defaultValue}
             min={min}
             max={max}

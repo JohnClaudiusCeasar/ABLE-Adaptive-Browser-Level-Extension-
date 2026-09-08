@@ -17,7 +17,7 @@ class RiskPattern extends Model
         'title',
         'type',
         'regex',
-        'status',
+        'priority',
         'score',
         'parent_criteria_id',
     ];

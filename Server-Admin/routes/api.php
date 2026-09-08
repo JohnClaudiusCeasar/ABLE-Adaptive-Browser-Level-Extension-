@@ -12,6 +12,8 @@ Route::get('/domain-policies', [DomainPolicyController::class, 'all'])->middlewa
 Route::get('/domain-policies/signed', [DomainPolicyController::class, 'signed'])->middleware('throttle:30,1');
 Route::post('/log-visit', [DomainPolicyController::class, 'logVisit'])->middleware('throttle:60,1');
 Route::post('/log-egress', [EgressEventController::class, 'logEgress'])->middleware('throttle:60,1');
+Route::delete('/egress-events/{egressEvent}', [EgressEventController::class, 'destroy'])->middleware('throttle:60,1');
+Route::delete('/egress-events', [EgressEventController::class, 'destroyAll'])->middleware('throttle:10,1');
 Route::get('/domain-policies/{domainPolicy}/visits', [DomainPolicyController::class, 'getDomainVisits'])->middleware('throttle:60,1');
 Route::get('/risk-patterns', [RiskPatternController::class, 'all'])->middleware('throttle:30,1');
 Route::get('/risk-patterns/signed', [RiskPatternController::class, 'signed'])->middleware('throttle:30,1');

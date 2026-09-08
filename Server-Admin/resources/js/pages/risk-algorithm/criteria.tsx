@@ -30,7 +30,7 @@ interface RiskPattern {
     title: string;
     type: 'single' | 'criteria';
     regex: string | null;
-    status: 'active' | 'inactive';
+    priority: 'low' | 'medium' | 'high';
     score: number;
     criteria_pattern_items: CriteriaPatternItem[];
     created_at: string;
@@ -39,21 +39,23 @@ interface RiskPattern {
 
 interface PageProps {
     riskPatterns: RiskPattern[];
-    singlePatterns: RiskPattern[];
+    existingPatterns: RiskPattern[];
     [key: string]: unknown;
 }
 
 interface CriteriaFormData {
     title: string;
     score: number;
-    status: 'active' | 'inactive';
+    priority: 'low' | 'medium' | 'high';
     criteria_pattern_items: CriteriaPatternItem[];
 }
+
+type ExistingSort = 'newest' | 'oldest' | 'name' | 'priority' | 'score';
 
 const emptyCriteriaForm: CriteriaFormData = {
     title: '',
     score: 0,
-    status: 'active',
+    priority: 'medium',
     criteria_pattern_items: [],
 };
 
@@ -76,7 +78,7 @@ function nextTempId(): number {
 }
 
 export default function CriteriaPatternConfiguration() {
-    const { riskPatterns, singlePatterns } = usePage<PageProps>().props;
+    const { riskPatterns, existingPatterns } = usePage<PageProps>().props;
 
     const [showModal, setShowModal] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
@@ -94,6 +96,8 @@ export default function CriteriaPatternConfiguration() {
         null,
     );
     const [existingSearch, setExistingSearch] = useState('');
+    const [existingSort, setExistingSort] =
+        useState<ExistingSort>('newest');
 
     // Filter patterns
     const filteredPatterns = useMemo(() => {
@@ -113,12 +117,38 @@ export default function CriteriaPatternConfiguration() {
     const availablePatterns = useMemo(() => {
         const search = existingSearch.toLowerCase();
 
-        return singlePatterns.filter(
+        return existingPatterns.filter(
             (p) =>
                 p.title.toLowerCase().includes(search) ||
                 (p.regex && p.regex.toLowerCase().includes(search)),
         );
-    }, [singlePatterns, existingSearch]);
+    }, [existingPatterns, existingSearch]);
+
+    const sortedPatterns = useMemo(() => {
+        const priorityRank: Record<string, number> = {
+            high: 0,
+            medium: 1,
+            low: 2,
+        };
+        const list = [...availablePatterns];
+
+        switch (existingSort) {
+            case 'oldest':
+                return list.reverse();
+            case 'name':
+                return list.sort((a, b) => a.title.localeCompare(b.title));
+            case 'priority':
+                return list.sort(
+                    (a, b) =>
+                        (priorityRank[a.priority] ?? 3) -
+                        (priorityRank[b.priority] ?? 3),
+                );
+            case 'score':
+                return list.sort((a, b) => b.score - a.score);
+            default:
+                return list;
+        }
+    }, [availablePatterns, existingSort]);
 
     // --- Composite score auto-sum ---
     // When the user hasn't manually set the composite score, auto-compute
@@ -149,7 +179,7 @@ export default function CriteriaPatternConfiguration() {
         setCriteriaForm({
             title: pattern.title,
             score: pattern.score,
-            status: pattern.status,
+            priority: pattern.priority,
             criteria_pattern_items: pattern.criteria_pattern_items || [],
         });
         setFormErrors({});
@@ -420,13 +450,13 @@ export default function CriteriaPatternConfiguration() {
                                 Delete All
                             </button>
                         )}
-                        <button
-                            onClick={openAddModal}
+                        <a
+                            href="/risk-algorithm/criteria/create"
                             className="flex items-center gap-2 rounded-lg border-none bg-able-green px-5 py-2 text-[0.9rem] font-semibold text-white transition-colors hover:bg-[#1a9e4b] active:scale-[0.98]"
                         >
                             <Plus size={18} />
                             Add Pattern
-                        </button>
+                        </a>
                     </div>
                 </div>
 
@@ -456,15 +486,18 @@ export default function CriteriaPatternConfiguration() {
                                             <div className="mt-2 flex items-center gap-2">
                                                 <span
                                                     className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                                                        pattern.status ===
-                                                        'active'
-                                                            ? 'bg-[rgba(34,197,94,0.2)] text-[#22c55e]'
-                                                            : 'bg-[rgba(248,113,113,0.2)] text-[#f87171]'
+                                                        pattern.priority === 'high'
+                                                            ? 'bg-[rgba(248,113,113,0.2)] text-[#f87171]'
+                                                            : pattern.priority === 'medium'
+                                                                ? 'bg-[rgba(245,158,11,0.2)] text-[#f59e0b]'
+                                                                : 'bg-[rgba(34,197,94,0.2)] text-[#22c55e]'
                                                     }`}
                                                 >
-                                                    {pattern.status === 'active'
-                                                        ? 'Active'
-                                                        : 'Inactive'}
+                                                    {pattern.priority === 'high'
+                                                        ? 'High'
+                                                        : pattern.priority === 'medium'
+                                                            ? 'Medium'
+                                                            : 'Low'}
                                                 </span>
                                                 <span className="text-xs text-muted-foreground">
                                                     {
@@ -568,7 +601,7 @@ export default function CriteriaPatternConfiguration() {
                     >
                         {searchQuery
                             ? 'No criteria patterns match your search.'
-                            : 'No criteria patterns yet. Click "Add Pattern" to create one.'}
+                            : 'No criteria patterns yet. Click "Add Pattern" above to create one.'}
                     </div>
                 )}
             </div>
@@ -576,7 +609,7 @@ export default function CriteriaPatternConfiguration() {
             {/* Add/Edit Modal */}
             {showModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                    <div className="mx-4 w-full max-w-lg rounded-xl border border-[rgba(34,197,94,0.3)] bg-white shadow-2xl dark:bg-[#0f172a]">
+                    <div className="mx-4 w-full max-w-3xl rounded-xl border border-[rgba(34,197,94,0.3)] bg-white shadow-2xl dark:bg-[#0f172a]">
                         <div className="flex items-center justify-between border-b border-black/10 px-6 py-4 dark:border-white/10">
                             <h3
                                 className="text-lg font-bold"
@@ -630,10 +663,9 @@ export default function CriteriaPatternConfiguration() {
                                 </label>
                                 <div className="flex items-center gap-2">
                                     <input
-                                        type="number"
+                                        type="text"
+                                        inputMode="numeric"
                                         required
-                                        min={0}
-                                        max={100}
                                         value={effectiveScore}
                                         onChange={(e) => {
                                             setCompositeScoreManual(true);
@@ -656,7 +688,7 @@ export default function CriteriaPatternConfiguration() {
 
                             <div>
                                 <label className="mb-1 block text-sm font-medium text-muted-foreground">
-                                    Status
+                                    Priority
                                 </label>
                                 <div className="flex gap-2">
                                     <button
@@ -664,32 +696,48 @@ export default function CriteriaPatternConfiguration() {
                                         onClick={() =>
                                             setCriteriaForm({
                                                 ...criteriaForm,
-                                                status: 'active',
+                                                priority: 'low',
                                             })
                                         }
                                         className={`rounded-lg border px-4 py-2 text-sm font-semibold transition-colors ${
-                                            criteriaForm.status === 'active'
+                                            criteriaForm.priority === 'low'
                                                 ? 'border-able-green bg-able-green text-white'
                                                 : 'border-black/10 text-muted-foreground hover:text-foreground dark:border-white/10'
                                         }`}
                                     >
-                                        Active
+                                        Low
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() =>
                                             setCriteriaForm({
                                                 ...criteriaForm,
-                                                status: 'inactive',
+                                                priority: 'medium',
                                             })
                                         }
                                         className={`rounded-lg border px-4 py-2 text-sm font-semibold transition-colors ${
-                                            criteriaForm.status === 'inactive'
+                                            criteriaForm.priority === 'medium'
+                                                ? 'border-[#f59e0b] bg-[#f59e0b] text-white'
+                                                : 'border-black/10 text-muted-foreground hover:text-foreground dark:border-white/10'
+                                        }`}
+                                    >
+                                        Medium
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setCriteriaForm({
+                                                ...criteriaForm,
+                                                priority: 'high',
+                                            })
+                                        }
+                                        className={`rounded-lg border px-4 py-2 text-sm font-semibold transition-colors ${
+                                            criteriaForm.priority === 'high'
                                                 ? 'border-[#f87171] bg-[#f87171] text-white'
                                                 : 'border-black/10 text-muted-foreground hover:text-foreground dark:border-white/10'
                                         }`}
                                     >
-                                        Inactive
+                                        High
                                     </button>
                                 </div>
                             </div>
@@ -725,74 +773,190 @@ export default function CriteriaPatternConfiguration() {
                                     </div>
                                 </div>
 
-                                {/* Existing Pattern Picker */}
+                                {/* Existing Pattern Picker Modal */}
                                 {showExistingPicker !== null && (
-                                    <div className="mb-3 rounded-lg border border-[#36cfc9]/30 bg-[rgba(54,207,201,0.05)] p-3">
-                                        <div className="relative mb-2">
-                                            <Search
-                                                size={14}
-                                                className="absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
-                                            />
-                                            <input
-                                                type="text"
-                                                placeholder="Search patterns..."
-                                                value={existingSearch}
-                                                onChange={(e) =>
-                                                    setExistingSearch(
-                                                        e.target.value,
-                                                    )
-                                                }
-                                                className="w-full rounded-lg border border-black/10 bg-black/5 py-2 pr-3 pl-9 text-sm text-foreground transition-colors outline-none placeholder:text-muted-foreground focus:border-[#36cfc9] dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]"
-                                            />
-                                        </div>
-                                        <div className="max-h-40 space-y-1 overflow-y-auto">
-                                            {availablePatterns.map(
-                                                (pattern) => (
-                                                    <button
-                                                        key={pattern.id}
-                                                        type="button"
-                                                        onClick={() =>
-                                                            addExistingPattern(
-                                                                pattern,
+                                    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                                        <div className="mx-4 w-full max-w-2xl rounded-xl border border-[rgba(34,197,94,0.3)] bg-white shadow-2xl dark:bg-[#0f172a]">
+                                            <div className="flex items-center justify-between border-b border-black/10 px-6 py-4 dark:border-white/10">
+                                                <h3
+                                                    className="text-lg font-bold"
+                                                    style={{
+                                                        fontFamily:
+                                                            "'Unbounded', sans-serif",
+                                                    }}
+                                                >
+                                                    Add Existing Pattern
+                                                </h3>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setShowExistingPicker(null);
+                                                        setExistingSearch('');
+                                                    }}
+                                                    className="cursor-pointer rounded-md border-none bg-transparent p-1 text-muted-foreground transition-colors hover:text-foreground"
+                                                >
+                                                    <X size={20} />
+                                                </button>
+                                            </div>
+                                            <div className="space-y-3 px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="relative flex-1">
+                                                        <Search
+                                                            size={14}
+                                                            className="absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
+                                                        />
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Search patterns..."
+                                                            value={existingSearch}
+                                                            onChange={(e) =>
+                                                                setExistingSearch(
+                                                                    e.target.value,
+                                                                )
+                                                            }
+                                                            className="w-full rounded-lg border border-black/10 bg-black/5 py-2.5 pr-3 pl-9 text-sm text-foreground transition-colors outline-none placeholder:text-muted-foreground focus:border-[#36cfc9] dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]"
+                                                        />
+                                                    </div>
+                                                    <select
+                                                        value={existingSort}
+                                                        onChange={(e) =>
+                                                            setExistingSort(
+                                                                e.target
+                                                                    .value as ExistingSort,
                                                             )
                                                         }
-                                                        className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-[rgba(54,207,201,0.1)]"
+                                                        className="rounded-lg border border-black/10 bg-black/5 px-3 py-2.5 text-sm text-foreground outline-none focus:border-[#36cfc9] dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]"
                                                     >
-                                                        <div>
-                                                            <span className="font-semibold">
-                                                                {pattern.title}
-                                                            </span>
-                                                            {pattern.regex && (
-                                                                <span className="ml-2 font-mono text-xs text-muted-foreground">
-                                                                    {
-                                                                        pattern.regex
-                                                                    }
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                        <span className="text-xs text-muted-foreground">
-                                                            Single •{' '}
-                                                            {pattern.score}
-                                                        </span>
-                                                    </button>
-                                                ),
-                                            )}
-                                            {availablePatterns.length === 0 && (
-                                                <div className="py-3 text-center text-sm text-muted-foreground">
-                                                    No single patterns found.
+                                                        <option value="newest">
+                                                            Newest
+                                                        </option>
+                                                        <option value="oldest">
+                                                            Oldest
+                                                        </option>
+                                                        <option value="name">
+                                                            Name (A-Z)
+                                                        </option>
+                                                        <option value="priority">
+                                                            Priority (High-Low)
+                                                        </option>
+                                                        <option value="score">
+                                                            Score (High-Low)
+                                                        </option>
+                                                    </select>
                                                 </div>
-                                            )}
+
+                                                <div className="overflow-hidden rounded-lg border border-black/10 dark:border-white/10">
+                                                    <table className="w-full text-sm">
+                                                        <thead>
+                                                            <tr className="bg-black/5 dark:bg-white/5">
+                                                                <th className="px-4 py-2.5 text-left font-normal text-muted-foreground">
+                                                                    Pattern Name
+                                                                </th>
+                                                                <th className="w-28 px-4 py-2.5 text-left font-normal text-muted-foreground">
+                                                                    Pattern Type
+                                                                </th>
+                                                                <th className="w-28 px-4 py-2.5 text-left font-normal text-muted-foreground">
+                                                                    Priority Level
+                                                                </th>
+                                                                <th className="w-20 px-4 py-2.5 text-left font-normal text-muted-foreground">
+                                                                    Score
+                                                                </th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {sortedPatterns.map(
+                                                                (pattern) => (
+                                                                    <tr
+                                                                        key={pattern.id}
+                                                                        onClick={() =>
+                                                                            addExistingPattern(
+                                                                                pattern,
+                                                                            )
+                                                                        }
+                                                                        className="cursor-pointer transition-colors hover:bg-[rgba(54,207,201,0.08)]"
+                                                                    >
+                                                                        <td
+                                                                            className="max-w-[240px] truncate px-4 py-2.5 font-semibold text-foreground"
+                                                                            title={
+                                                                                pattern.title
+                                                                            }
+                                                                        >
+                                                                            {
+                                                                                pattern.title
+                                                                            }
+                                                                        </td>
+                                                                        <td className="px-4 py-2.5">
+                                                                            <span
+                                                                                className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                                                                                    pattern.type ===
+                                                                                    'criteria'
+                                                                                        ? 'bg-[rgba(54,207,201,0.15)] text-[#36cfc9]'
+                                                                                        : 'bg-black/5 text-muted-foreground dark:bg-white/10'
+                                                                                }`}
+                                                                            >
+                                                                                {pattern.type ===
+                                                                                'criteria'
+                                                                                    ? 'Criteria'
+                                                                                    : 'Single'}
+                                                                            </span>
+                                                                        </td>
+                                                                        <td className="px-4 py-2.5">
+                                                                            <span
+                                                                                className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                                                                                    pattern.priority ===
+                                                                                    'high'
+                                                                                        ? 'bg-[rgba(248,113,113,0.2)] text-[#f87171]'
+                                                                                        : pattern.priority ===
+                                                                                              'medium'
+                                                                                            ? 'bg-[rgba(245,158,11,0.2)] text-[#f59e0b]'
+                                                                                            : 'bg-[rgba(34,197,94,0.2)] text-[#22c55e]'
+                                                                                }`}
+                                                                            >
+                                                                                {pattern.priority ===
+                                                                                'high'
+                                                                                    ? 'High'
+                                                                                    : pattern.priority ===
+                                                                                          'medium'
+                                                                                        ? 'Medium'
+                                                                                        : 'Low'}
+                                                                            </span>
+                                                                        </td>
+                                                                        <td className="px-4 py-2.5 text-muted-foreground">
+                                                                            {
+                                                                                pattern.score
+                                                                            }
+                                                                        </td>
+                                                                    </tr>
+                                                                ),
+                                                            )}
+                                                            {sortedPatterns.length ===
+                                                                0 && (
+                                                                <tr>
+                                                                    <td
+                                                                        colSpan={4}
+                                                                        className="py-6 text-center text-muted-foreground"
+                                                                    >
+                                                                        No patterns
+                                                                        found.
+                                                                    </td>
+                                                                </tr>
+                                                            )}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setShowExistingPicker(null);
+                                                        setExistingSearch('');
+                                                    }}
+                                                    className="w-full cursor-pointer rounded-md border border-black/10 bg-transparent py-2 text-sm text-muted-foreground transition-colors hover:text-foreground dark:border-white/10"
+                                                >
+                                                    Close
+                                                </button>
+                                            </div>
                                         </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setShowExistingPicker(null);
-                                                setExistingSearch('');
-                                            }}
-                                            className="mt-2 w-full rounded-md border border-black/10 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground dark:border-white/10"
-                                        >
-                                            Close
-                                        </button>
                                     </div>
                                 )}
 
@@ -887,7 +1051,12 @@ export default function CriteriaPatternConfiguration() {
                                                                 <td className="px-2 py-2">
                                                                     <input
                                                                         type="text"
-                                                                        required
+                                                                        required={
+                                                                            item.sub_items ===
+                                                                                undefined ||
+                                                                            item.sub_items.length ===
+                                                                                0
+                                                                        }
                                                                         value={
                                                                             item.regex
                                                                         }
@@ -902,18 +1071,23 @@ export default function CriteriaPatternConfiguration() {
                                                                                     .value,
                                                                             )
                                                                         }
-                                                                        placeholder="Regex"
+                                                                        placeholder={
+                                                                            item.sub_items &&
+                                                                            item.sub_items.length >
+                                                                                0 &&
+                                                                            item.regex ===
+                                                                                ''
+                                                                                ? 'Group — matches via sub-items'
+                                                                                : 'Regex'
+                                                                        }
                                                                         className="w-full rounded border border-black/10 bg-transparent px-2 py-1 font-mono text-sm text-foreground transition-colors outline-none focus:border-able-green dark:border-white/10"
                                                                     />
                                                                 </td>
                                                                 <td className="px-2 py-2">
                                                                     <input
-                                                                        type="number"
+                                                                        type="text"
+                                                                        inputMode="numeric"
                                                                         required
-                                                                        min={0}
-                                                                        max={
-                                                                            100
-                                                                        }
                                                                         value={
                                                                             item.score
                                                                         }
@@ -1072,14 +1246,9 @@ export default function CriteriaPatternConfiguration() {
                                                                             </td>
                                                                             <td className="px-2 py-2">
                                                                                 <input
-                                                                                    type="number"
+                                                                                    type="text"
+                                                                                    inputMode="numeric"
                                                                                     required
-                                                                                    min={
-                                                                                        0
-                                                                                    }
-                                                                                    max={
-                                                                                        100
-                                                                                    }
                                                                                     value={
                                                                                         subItem.score
                                                                                     }

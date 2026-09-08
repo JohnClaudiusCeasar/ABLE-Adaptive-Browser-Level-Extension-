@@ -844,10 +844,9 @@ export default function PolicyAlgorithm() {
                                     Risk Score (0-100)
                                 </label>
                                 <input
-                                    type="number"
+                                    type="text"
+                                    inputMode="numeric"
                                     required
-                                    min={0}
-                                    max={100}
                                     value={form.risk_score}
                                     onChange={(e) =>
                                         setForm({

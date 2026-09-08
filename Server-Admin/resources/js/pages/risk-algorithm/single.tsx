@@ -1,5 +1,5 @@
 import { Head, router, usePage } from '@inertiajs/react';
-import { Pencil, Search, Trash2, Plus, X, Trash } from 'lucide-react';
+import { Search, Trash2, Plus, X, Trash } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useState, useMemo } from 'react';
 import AlertError from '@/components/alert-error';
@@ -21,7 +21,7 @@ interface RiskPattern {
     title: string;
     type: 'single' | 'criteria';
     regex: string | null;
-    status: 'active' | 'inactive';
+    priority: 'low' | 'medium' | 'high';
     score: number;
     criteria_pattern_items: CriteriaPatternItem[];
     created_at: string;
@@ -31,6 +31,7 @@ interface RiskPattern {
 interface PageProps {
     riskPatterns: RiskPattern[];
     criteriaPatterns: RiskPattern[];
+    flagCounts: Record<string, number>;
     [key: string]: unknown;
 }
 
@@ -38,20 +39,35 @@ interface SingleFormData {
     title: string;
     regex: string;
     score: number;
-    status: 'active' | 'inactive';
+    priority: 'low' | 'medium' | 'high';
 }
 
 const emptySingleForm: SingleFormData = {
     title: '',
     regex: '',
     score: 0,
-    status: 'active',
+    priority: 'medium',
 };
 
 const ROWS_PER_PAGE = 5;
 
+// Word-capped display text so long values don't inflate table cells; the
+// full text stays available via the cell's title tooltip.
+function truncateWords(text: string | null, maxWords: number): string {
+    if (!text) {
+        return '';
+    }
+
+    const words = text.split(/\s+/).filter(Boolean);
+    if (words.length <= maxWords) {
+        return text;
+    }
+
+    return `${words.slice(0, maxWords).join(' ')}…`;
+}
+
 export default function SinglePatternConfiguration() {
-    const { riskPatterns } = usePage<PageProps>().props;
+    const { riskPatterns, flagCounts } = usePage<PageProps>().props;
 
     const [showModal, setShowModal] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
@@ -101,7 +117,7 @@ export default function SinglePatternConfiguration() {
             title: pattern.title,
             regex: pattern.regex || '',
             score: pattern.score,
-            status: pattern.status,
+            priority: pattern.priority,
         });
         setFormErrors({});
         setShowModal(true);
@@ -139,6 +155,8 @@ export default function SinglePatternConfiguration() {
     function handleDelete(id: number) {
         router.delete(`/risk-algorithm/${id}`);
         setDeleteConfirmId(null);
+        setShowModal(false);
+        setEditingId(null);
     }
 
     function handleDeleteAll() {
@@ -215,8 +233,8 @@ export default function SinglePatternConfiguration() {
                                         'Pattern Name',
                                         'Regex Pattern',
                                         'Score',
-                                        'Status',
-                                        'Action',
+                                        'Priority',
+                                        'Flagged',
                                     ].map((h) => (
                                         <th
                                             key={h}
@@ -229,12 +247,22 @@ export default function SinglePatternConfiguration() {
                             </thead>
                             <tbody>
                                 {paginatedPatterns.map((pattern) => (
-                                    <tr key={pattern.id}>
-                                        <td className="border-b border-black/10 px-4 py-5 font-semibold dark:border-[#2e434d]">
-                                            {pattern.title}
+                                    <tr
+                                        key={pattern.id}
+                                        onClick={() => openEditModal(pattern)}
+                                        className="cursor-pointer transition-colors hover:bg-[rgba(34,197,94,0.04)] dark:hover:bg-[rgba(34,197,94,0.08)]"
+                                    >
+                                        <td
+                                            className="max-w-[220px] truncate border-b border-black/10 px-4 py-5 font-semibold dark:border-[#2e434d]"
+                                            title={pattern.title}
+                                        >
+                                            {truncateWords(pattern.title, 15)}
                                         </td>
-                                        <td className="border-b border-black/10 px-4 py-5 font-mono text-muted-foreground dark:border-[#2e434d]">
-                                            {pattern.regex}
+                                        <td
+                                            className="max-w-[280px] truncate border-b border-black/10 px-4 py-5 font-mono text-muted-foreground dark:border-[#2e434d]"
+                                            title={pattern.regex ?? ''}
+                                        >
+                                            {truncateWords(pattern.regex, 30)}
                                         </td>
                                         <td className="border-b border-black/10 px-4 py-5 dark:border-[#2e434d]">
                                             {pattern.score}
@@ -242,43 +270,22 @@ export default function SinglePatternConfiguration() {
                                         <td className="border-b border-black/10 px-4 py-5 dark:border-[#2e434d]">
                                             <span
                                                 className={`rounded-full px-2 py-1 text-xs font-semibold ${
-                                                    pattern.status === 'active'
-                                                        ? 'bg-[rgba(34,197,94,0.2)] text-[#22c55e]'
-                                                        : 'bg-[rgba(248,113,113,0.2)] text-[#f87171]'
+                                                    pattern.priority === 'high'
+                                                        ? 'bg-[rgba(248,113,113,0.2)] text-[#f87171]'
+                                                        : pattern.priority === 'medium'
+                                                            ? 'bg-[rgba(245,158,11,0.2)] text-[#f59e0b]'
+                                                            : 'bg-[rgba(34,197,94,0.2)] text-[#22c55e]'
                                                 }`}
                                             >
-                                                {pattern.status === 'active'
-                                                    ? 'Active'
-                                                    : 'Inactive'}
+                                                {pattern.priority === 'high'
+                                                    ? 'High'
+                                                    : pattern.priority === 'medium'
+                                                        ? 'Medium'
+                                                        : 'Low'}
                                             </span>
                                         </td>
-                                        <td className="border-b border-black/10 px-4 py-5 dark:border-[#2e434d]">
-                                            <div className="flex gap-3">
-                                                <button
-                                                    onClick={() =>
-                                                        openEditModal(pattern)
-                                                    }
-                                                    className="cursor-pointer border-none bg-transparent p-0 hover:opacity-80"
-                                                >
-                                                    <Pencil
-                                                        size={18}
-                                                        className="text-[#36cfc9]"
-                                                    />
-                                                </button>
-                                                <button
-                                                    onClick={() =>
-                                                        setDeleteConfirmId(
-                                                            pattern.id,
-                                                        )
-                                                    }
-                                                    className="cursor-pointer border-none bg-transparent p-0 hover:opacity-80"
-                                                >
-                                                    <Trash2
-                                                        size={18}
-                                                        className="text-muted-foreground"
-                                                    />
-                                                </button>
-                                            </div>
+                                        <td className="border-b border-black/10 px-4 py-5 text-sm text-muted-foreground dark:border-[#2e434d]">
+                                            {flagCounts[pattern.title] ?? 0}
                                         </td>
                                     </tr>
                                 ))}
@@ -383,10 +390,9 @@ export default function SinglePatternConfiguration() {
                                     Risk Score (0-100)
                                 </label>
                                 <input
-                                    type="number"
+                                    type="text"
+                                    inputMode="numeric"
                                     required
-                                    min={0}
-                                    max={100}
                                     value={singleForm.score}
                                     onChange={(e) =>
                                         setSingleForm({
@@ -401,7 +407,7 @@ export default function SinglePatternConfiguration() {
 
                             <div>
                                 <label className="mb-1 block text-sm font-medium text-muted-foreground">
-                                    Status
+                                    Priority
                                 </label>
                                 <div className="flex gap-2">
                                     <button
@@ -409,37 +415,66 @@ export default function SinglePatternConfiguration() {
                                         onClick={() =>
                                             setSingleForm({
                                                 ...singleForm,
-                                                status: 'active',
+                                                priority: 'low',
                                             })
                                         }
                                         className={`rounded-lg border px-4 py-2 text-sm font-semibold transition-colors ${
-                                            singleForm.status === 'active'
+                                            singleForm.priority === 'low'
                                                 ? 'border-able-green bg-able-green text-white'
                                                 : 'border-black/10 text-muted-foreground hover:text-foreground dark:border-white/10'
                                         }`}
                                     >
-                                        Active
+                                        Low
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() =>
                                             setSingleForm({
                                                 ...singleForm,
-                                                status: 'inactive',
+                                                priority: 'medium',
                                             })
                                         }
                                         className={`rounded-lg border px-4 py-2 text-sm font-semibold transition-colors ${
-                                            singleForm.status === 'inactive'
+                                            singleForm.priority === 'medium'
+                                                ? 'border-[#f59e0b] bg-[#f59e0b] text-white'
+                                                : 'border-black/10 text-muted-foreground hover:text-foreground dark:border-white/10'
+                                        }`}
+                                    >
+                                        Medium
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setSingleForm({
+                                                ...singleForm,
+                                                priority: 'high',
+                                            })
+                                        }
+                                        className={`rounded-lg border px-4 py-2 text-sm font-semibold transition-colors ${
+                                            singleForm.priority === 'high'
                                                 ? 'border-[#f87171] bg-[#f87171] text-white'
                                                 : 'border-black/10 text-muted-foreground hover:text-foreground dark:border-white/10'
                                         }`}
                                     >
-                                        Inactive
+                                        High
                                     </button>
                                 </div>
                             </div>
 
-                            <div className="flex justify-end gap-3 pt-2">
+                            <div className="flex items-center gap-3 pt-2">
+                                {editingId !== null && (
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setDeleteConfirmId(editingId)
+                                        }
+                                        className="flex items-center gap-2 rounded-lg border border-[rgba(248,113,113,0.4)] px-4 py-2 text-muted-foreground transition-colors hover:bg-[rgba(248,113,113,0.1)] hover:text-[#f87171]"
+                                    >
+                                        <Trash2 size={16} />
+                                        Delete
+                                    </button>
+                                )}
+                                <div className="flex-1" />
                                 <button
                                     type="button"
                                     onClick={closeModal}

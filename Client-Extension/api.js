@@ -415,6 +415,7 @@ async function processEgressLogQueue() {
               action: entry.action,
               user_action: entry.user_action,
               occurred_at: entry.occurred_at,
+              flagged_items: entry.flagged_items || null,
             }),
           }
         );
