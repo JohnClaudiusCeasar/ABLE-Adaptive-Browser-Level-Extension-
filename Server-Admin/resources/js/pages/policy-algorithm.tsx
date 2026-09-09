@@ -961,14 +961,16 @@ export default function PolicyAlgorithm() {
                         {/* Header */}
                         <div className="flex items-center justify-between border-b border-black/10 px-6 py-4 dark:border-white/10">
                             <div className="flex items-center gap-3">
-                                <img
-                                    src={`https://www.google.com/s2/favicons?domain=${selectedDomain.domain}&sz=32`}
-                                    alt={selectedDomain.domain}
-                                    className="h-8 w-8 rounded-md"
-                                    onError={(e) => {
-                                        e.currentTarget.style.display = 'none';
-                                    }}
-                                />
+                                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-[rgba(34,197,94,0.1)]">
+                                    <img
+                                        src={`https://www.google.com/s2/favicons?domain=${selectedDomain.domain}&sz=32`}
+                                        alt={selectedDomain.domain}
+                                        className="h-8 w-8 rounded-md"
+                                        onError={(e) => {
+                                            e.currentTarget.style.display = 'none';
+                                        }}
+                                    />
+                                </div>
                                 <div>
                                     <h3
                                         className="text-xl font-bold"

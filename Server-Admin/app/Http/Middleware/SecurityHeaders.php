@@ -55,7 +55,7 @@ class SecurityHeaders
         $styleSrc = ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'];
         $fontSrc = ["'self'", 'https://fonts.googleapis.com', 'https://fonts.gstatic.com'];
         $connectSrc = ["'self'"];
-        $imgSrc = ["'self'", 'data:', 'https://www.google.com'];
+        $imgSrc = ["'self'", 'data:', 'https://www.google.com', 'https://*.gstatic.com'];
 
         // Allow the Reverb websocket connection for real-time chat.
         if (config('broadcasting.default') === 'reverb') {

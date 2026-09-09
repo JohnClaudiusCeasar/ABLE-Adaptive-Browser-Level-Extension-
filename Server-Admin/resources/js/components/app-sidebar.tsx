@@ -23,7 +23,7 @@ import {
 import { dashboard, notifications } from '@/routes';
 import type { NavItem } from '@/types';
 
-const mainNavItems: NavItem[] = [
+export const mainNavItems: NavItem[] = [
     {
         title: 'Menu',
         href: '/',

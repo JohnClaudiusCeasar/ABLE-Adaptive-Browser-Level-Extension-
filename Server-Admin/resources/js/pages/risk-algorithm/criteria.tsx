@@ -1394,7 +1394,7 @@ export default function CriteriaPatternConfiguration() {
 
 CriteriaPatternConfiguration.layout = {
     breadcrumbs: [
-        { title: 'Risk Algorithm', href: '/risk-algorithm' },
+        { title: 'Risk Algorithm', href: '/risk-algorithm/criteria' },
         {
             title: 'Pattern Settings',
             href: '/risk-algorithm/criteria',
