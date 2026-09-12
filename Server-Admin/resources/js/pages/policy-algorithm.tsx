@@ -26,6 +26,8 @@ interface DomainPolicy {
     domain_status: 'safe' | 'unsafe' | 'unlisted';
     policy: 'whitelisted' | 'blacklisted' | 'under_review';
     category: string | null;
+    classification_source: string | null;
+    confidence: number | null;
     risk_score: number;
     visit_count: number;
     last_visited_at: string | null;
@@ -44,6 +46,8 @@ interface FormData {
     domain_status: 'safe' | 'unsafe' | 'unlisted';
     policy: 'whitelisted' | 'blacklisted' | 'under_review';
     category: string;
+    classification_source: string;
+    confidence: number | null;
     risk_score: number;
 }
 
@@ -52,6 +56,8 @@ const emptyForm: FormData = {
     domain_status: 'unlisted',
     policy: 'under_review',
     category: '',
+    classification_source: '',
+    confidence: null,
     risk_score: 70,
 };
 
@@ -85,6 +91,16 @@ const statusLabels: Record<string, string> = {
     unlisted: 'Unlisted',
 };
 
+const sourceLabels: Record<string, string> = {
+    manual: 'Manual',
+    brand: 'Brand map',
+    heuristic: 'Auto',
+    ut1: 'UT1 list',
+    seed: 'Seed',
+    pattern: 'Pattern',
+    pending: 'Needs review',
+};
+
 const policyLabels: Record<string, string> = {
     whitelisted: 'Whitelisted',
     blacklisted: 'Blacklisted',
@@ -103,6 +119,7 @@ export default function PolicyAlgorithm() {
     const [editingId, setEditingId] = useState<number | null>(null);
     const [form, setForm] = useState<FormData>(emptyForm);
     const [searchQuery, setSearchQuery] = useState('');
+    const [sourceFilter, setSourceFilter] = useState('all');
     const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
     const [deleteAllConfirm, setDeleteAllConfirm] = useState(false);
     const [currentPage, setCurrentPage] = useState(() => {
@@ -190,6 +207,13 @@ export default function PolicyAlgorithm() {
             );
         }
 
+        // Filter by classification source (pending = needs review queue)
+        if (sourceFilter !== 'all') {
+            items = items.filter(
+                (p) => (p.classification_source || '') === sourceFilter,
+            );
+        }
+
         // Sort
         items.sort((a, b) => {
             let cmp = 0;
@@ -213,7 +237,7 @@ export default function PolicyAlgorithm() {
         });
 
         return items;
-    }, [domainPolicies, searchQuery, sortField, sortDir]);
+    }, [domainPolicies, searchQuery, sourceFilter, sortField, sortDir]);
 
     // Group the processed items
     const groupedPolicies = useMemo(() => {
@@ -270,6 +294,8 @@ export default function PolicyAlgorithm() {
             domain_status: policy.domain_status,
             policy: policy.policy,
             category: policy.category || '',
+            classification_source: policy.classification_source || '',
+            confidence: policy.confidence,
             risk_score: policy.risk_score,
         });
         setShowModal(true);
@@ -439,6 +465,17 @@ export default function PolicyAlgorithm() {
                 </td>
                 <td className="px-4 py-5 text-muted-foreground">
                     {d.category || '—'}
+                    {d.classification_source &&
+                        d.classification_source !== 'manual' &&
+                        d.classification_source !== 'pattern' && (
+                            <span className="mt-1 block text-xs text-muted-foreground/70">
+                                {sourceLabels[d.classification_source] ||
+                                    d.classification_source}
+                                {d.confidence !== null &&
+                                    d.classification_source !== 'pending' &&
+                                    ` · ${Math.round(d.confidence * 100)}%`}
+                            </span>
+                        )}
                 </td>
                 <td
                     className={`px-4 py-5 ${d.risk_score > 0 ? 'font-semibold text-[#f87171]' : 'text-muted-foreground'}`}
@@ -628,6 +665,28 @@ export default function PolicyAlgorithm() {
                                     Group: Domain Status
                                 </option>
                                 <option value="policy">Group: Policy</option>
+                            </select>
+                            <Layers
+                                size={16}
+                                className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
+                            />
+                        </div>
+
+                        {/* Source Filter Dropdown */}
+                        <div className="relative">
+                            <select
+                                value={sourceFilter}
+                                onChange={(e) =>
+                                    setSourceFilter(e.target.value)
+                                }
+                                className="cursor-pointer appearance-none rounded-full border border-black/10 bg-black/5 py-2.5 pr-8 pl-9 text-[0.85rem] text-foreground transition-all duration-200 outline-none hover:border-able-green/50 hover:bg-black/10 focus:border-able-green focus:ring-1 focus:ring-able-green/30 dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)] dark:hover:bg-white/5"
+                            >
+                                <option value="all">Source: All</option>
+                                <option value="pending">Needs review</option>
+                                <option value="brand">Brand map</option>
+                                <option value="heuristic">Auto</option>
+                                <option value="ut1">UT1 list</option>
+                                <option value="manual">Manual</option>
                             </select>
                             <Layers
                                 size={16}
@@ -828,15 +887,54 @@ export default function PolicyAlgorithm() {
                                 </label>
                                 <input
                                     type="text"
+                                    list="able-category-taxonomy"
                                     value={form.category}
                                     onChange={(e) =>
                                         setForm({
                                             ...form,
                                             category: e.target.value,
+                                            classification_source: 'manual',
                                         })
                                     }
-                                    placeholder="e.g., Major Tech Companies"
+                                    placeholder="e.g., E-commerce"
                                     className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-foreground transition-colors outline-none focus:border-able-green dark:border-white/10"
+                                />
+                                <datalist id="able-category-taxonomy">
+                                    {[
+                                        'Social Media',
+                                        'Search Engine',
+                                        'News & Media',
+                                        'E-commerce',
+                                        'Finance',
+                                        'Education',
+                                        'Government',
+                                        'Health',
+                                        'Technology',
+                                        'Entertainment',
+                                        'Gaming',
+                                        'Sports',
+                                        'Travel',
+                                        'Food & Dining',
+                                        'Real Estate',
+                                        'Automotive',
+                                        'Jobs & Careers',
+                                        'Productivity',
+                                        'Developer Tools',
+                                        'Cloud & Hosting',
+                                        'Email',
+                                        'Streaming',
+                                        'Gambling',
+                                        'Adult',
+                                        'Shopping',
+                                        'Reference',
+                                    ].map((c) => (
+                                        <option key={c} value={c} />
+                                    ))}
+                                </datalist>
+                                <input
+                                    type="hidden"
+                                    value={form.classification_source}
+                                    readOnly
                                 />
                             </div>
                             <div>

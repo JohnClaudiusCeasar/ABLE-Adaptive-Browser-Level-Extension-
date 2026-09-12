@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\DomainPolicy;
 use App\Models\DomainVisit;
 use App\Services\AbleSettingsService;
+use App\Support\DomainBrandMap;
+use App\Support\HeuristicClassifier;
 use App\Support\JsCanonical;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -38,8 +40,14 @@ class DomainPolicyController extends Controller
             'domain_status' => 'required|in:safe,unsafe,unlisted',
             'policy' => 'required|in:whitelisted,blacklisted,under_review',
             'category' => 'nullable|string|max:255',
+            'classification_source' => 'nullable|string|max:50',
+            'confidence' => 'nullable|numeric|min:0|max:1',
             'risk_score' => 'required|integer|min:0|max:100',
         ]);
+
+        if (! empty($validated['category']) && empty($validated['classification_source'])) {
+            $validated['classification_source'] = 'manual';
+        }
 
         DomainPolicy::create($validated);
 
@@ -58,8 +66,14 @@ class DomainPolicyController extends Controller
             'domain_status' => 'required|in:safe,unsafe,unlisted',
             'policy' => 'required|in:whitelisted,blacklisted,under_review',
             'category' => 'nullable|string|max:255',
+            'classification_source' => 'nullable|string|max:50',
+            'confidence' => 'nullable|numeric|min:0|max:1',
             'risk_score' => 'required|integer|min:0|max:100',
         ]);
+
+        if (! empty($validated['category']) && empty($validated['classification_source'])) {
+            $validated['classification_source'] = 'manual';
+        }
 
         $domainPolicy->update($validated);
 
@@ -206,11 +220,41 @@ class DomainPolicyController extends Controller
 
     /**
      * API endpoint: Classify a domain for the browser extension.
+     *
+     * Accepts GET ?url= (legacy) and POST {url, signals} where signals are
+     * rich page hints (title, meta, headings, excerpt, JSON-LD, URL tokens,
+     * anchors, forms) used to auto-categorize unlisted domains. Lookup order:
+     * database → brand seed map → safe patterns → heuristic → pending/default.
+     * Everything resolves offline on our own infrastructure; no visited
+     * domain is ever sent to a third party.
      */
     public function classify(Request $request): JsonResponse
     {
         $request->validate([
             'url' => 'required|string|max:2048',
+            'signals.title' => 'nullable|string|max:500',
+            'signals.meta' => 'nullable|array',
+            'signals.meta.*' => 'nullable|string|max:500',
+            'signals.headings' => 'nullable|array',
+            'signals.headings.*' => 'nullable|string|max:500',
+            'signals.excerpt' => 'nullable|string|max:10000',
+            'signals.ldJson' => 'nullable|array',
+            'signals.ldJson.*' => 'nullable|string|max:3000',
+            'signals.canonical' => 'nullable|string|max:500',
+            'signals.urlTokens' => 'nullable|array',
+            'signals.urlTokens.hostParts' => 'nullable|array',
+            'signals.urlTokens.hostParts.*' => 'nullable|string|max:100',
+            'signals.urlTokens.pathSegs' => 'nullable|array',
+            'signals.urlTokens.pathSegs.*' => 'nullable|string|max:100',
+            'signals.urlTokens.queryKeys' => 'nullable|array',
+            'signals.urlTokens.queryKeys.*' => 'nullable|string|max:100',
+            'signals.anchors' => 'nullable|array',
+            'signals.forms' => 'nullable|array',
+            'signals.forms.hasPassword' => 'nullable|boolean',
+            'signals.forms.hasFileInput' => 'nullable|boolean',
+            'signals.forms.actionMismatch' => 'nullable|boolean',
+            'signals.lang' => 'nullable|string|max:20',
+            'signals.favicon' => 'nullable|string|max:500',
         ]);
 
         try {
@@ -226,6 +270,8 @@ class DomainPolicyController extends Controller
             }
 
             if ($policy) {
+                $policy = $this->maybeUpgradeHeuristic($policy, $request);
+
                 return response()->json([
                     'status' => $policy->domain_status,
                     'domain' => $domain,
@@ -233,6 +279,31 @@ class DomainPolicyController extends Controller
                     'policy' => $policy->policy,
                     'risk_score' => $policy->risk_score,
                     'source' => 'database',
+                    'classification_source' => $policy->classification_source,
+                    'confidence' => $policy->confidence !== null ? (float) $policy->confidence : null,
+                ]);
+            }
+
+            // Curated brand map: deterministic categories for mainstream domains.
+            $brandCategory = DomainBrandMap::lookup($domain);
+
+            if ($brandCategory !== null && $this->autoCategorizeEnabled()) {
+                $policy = $this->persistAutoCategory($domain, [
+                    'category' => $brandCategory,
+                    'confidence' => 1.0,
+                    'policy' => 'under_review',
+                    'risk_score' => $this->riskForCategory($brandCategory),
+                ], 'brand');
+
+                return response()->json([
+                    'status' => 'unlisted',
+                    'domain' => $domain,
+                    'category' => $brandCategory,
+                    'policy' => $policy->policy,
+                    'risk_score' => $policy->risk_score,
+                    'source' => 'brand',
+                    'classification_source' => 'brand',
+                    'confidence' => 1.0,
                 ]);
             }
 
@@ -255,8 +326,46 @@ class DomainPolicyController extends Controller
                         'policy' => 'whitelisted',
                         'risk_score' => 0,
                         'source' => 'pattern',
+                        'classification_source' => 'pattern',
+                        'confidence' => null,
                     ]);
                 }
+            }
+
+            // Auto-categorize unlisted domains from page signals before the fallback.
+            $heuristic = null;
+            if ($this->autoCategorizeEnabled()) {
+                $signals = $request->input('signals', []);
+                if (! is_array($signals)) {
+                    $signals = [];
+                }
+                $signals['url'] = $request->input('url');
+                $heuristic = HeuristicClassifier::classify($domain, $signals);
+            }
+
+            if ($heuristic !== null) {
+                $this->persistAutoCategory($domain, $heuristic, 'heuristic');
+
+                return response()->json([
+                    'status' => 'unlisted',
+                    'domain' => $domain,
+                    'category' => $heuristic['category'],
+                    'policy' => $heuristic['policy'],
+                    'risk_score' => $heuristic['risk_score'],
+                    'source' => 'heuristic',
+                    'classification_source' => 'heuristic',
+                    'confidence' => $heuristic['confidence'],
+                ]);
+            }
+
+            // Nothing matched: park the domain in the admin review queue.
+            if ($this->autoCategorizeEnabled()) {
+                $this->persistAutoCategory($domain, [
+                    'category' => null,
+                    'confidence' => null,
+                    'policy' => (string) app(AbleSettingsService::class)->value('server', 'algorithm.fallback_policy', 'under_review'),
+                    'risk_score' => (int) app(AbleSettingsService::class)->value('server', 'algorithm.default_risk_score', 70),
+                ], 'pending');
             }
 
             // Not found in database
@@ -269,7 +378,9 @@ class DomainPolicyController extends Controller
                 'category' => null,
                 'policy' => $fallbackPolicy,
                 'risk_score' => $defaultRiskScore,
-                'source' => 'default',
+                'source' => 'pending',
+                'classification_source' => 'pending',
+                'confidence' => null,
             ]);
 
         } catch (\Exception $e) {
@@ -283,6 +394,113 @@ class DomainPolicyController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Fill in category/policy for rows that were created before
+     * auto-categorization existed (category NULL, no classification_source).
+     */
+    private function maybeUpgradeHeuristic(DomainPolicy $policy, Request $request): DomainPolicy
+    {
+        if ($policy->category !== null || $policy->classification_source !== null) {
+            return $policy;
+        }
+
+        if (! $this->autoCategorizeEnabled()) {
+            return $policy;
+        }
+
+        $brandCategory = DomainBrandMap::lookup($policy->domain);
+
+        if ($brandCategory !== null) {
+            $policy->update([
+                'category' => $brandCategory,
+                'classification_source' => 'brand',
+                'confidence' => 1.0,
+                'risk_score' => $policy->risk_score === 70 || $policy->risk_score === 0 ? $this->riskForCategory($brandCategory) : $policy->risk_score,
+            ]);
+
+            return $policy->refresh();
+        }
+
+        $signals = $request->input('signals', []);
+        if (! is_array($signals)) {
+            $signals = [];
+        }
+        $signals['url'] = $request->input('url');
+        $heuristic = HeuristicClassifier::classify($policy->domain, $signals);
+
+        if ($heuristic === null) {
+            return $policy;
+        }
+
+        $policy->update([
+            'policy' => $policy->policy === 'under_review' ? $heuristic['policy'] : $policy->policy,
+            'category' => $heuristic['category'],
+            'classification_source' => 'heuristic',
+            'confidence' => $heuristic['confidence'],
+            'risk_score' => $policy->risk_score === 70 || $policy->risk_score === 0 ? $heuristic['risk_score'] : $policy->risk_score,
+        ]);
+
+        return $policy->refresh();
+    }
+
+    private function autoCategorizeEnabled(): bool
+    {
+        return (bool) app(AbleSettingsService::class)->value('server', 'algorithm.auto_categorize_enabled', true);
+    }
+
+    private function riskForCategory(string $category): int
+    {
+        return match ($category) {
+            'Gambling' => 90,
+            'Adult' => 95,
+            'Finance' => 60,
+            'E-commerce' => 55,
+            'Health' => 55,
+            'Shopping' => 50,
+            'Government' => 10,
+            'Education' => 15,
+            'Search Engine' => 10,
+            'Reference' => 20,
+            default => 70,
+        };
+    }
+
+    /**
+     * Create or backfill a domain row with an auto-derived category.
+     * A bare row may already exist (e.g. log-visit won the race) — backfill
+     * it so the admin UI never shows a blank category.
+     *
+     * @param  array{category: string|null, confidence: float|null, policy: string, risk_score: int}  $result
+     */
+    private function persistAutoCategory(string $domain, array $result, string $source): DomainPolicy
+    {
+        $policy = DomainPolicy::firstOrCreate(
+            ['domain' => $domain],
+            [
+                'domain_status' => 'unlisted',
+                'policy' => $result['policy'],
+                'category' => $result['category'],
+                'classification_source' => $source,
+                'confidence' => $result['confidence'],
+                'risk_score' => $result['risk_score'],
+                'visit_count' => 0,
+            ]
+        );
+
+        if ($policy->category === null && $policy->classification_source === null) {
+            $policy->update([
+                'policy' => $policy->policy === 'under_review' ? $result['policy'] : $policy->policy,
+                'category' => $result['category'],
+                'classification_source' => $source,
+                'confidence' => $result['confidence'],
+                'risk_score' => $policy->risk_score === 70 || $policy->risk_score === 0 ? $result['risk_score'] : $policy->risk_score,
+            ]);
+            $policy->refresh();
+        }
+
+        return $policy;
     }
 
     /**

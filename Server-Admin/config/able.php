@@ -39,4 +39,20 @@ return [
         '[::1]',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | ABLE - UT1 Blacklist Sync
+    |--------------------------------------------------------------------------
+    |
+    | Bulk download URL for the Université Toulouse Capitole categorized
+    | blacklists. Synced via `php artisan able:import-ut1` — a bulk import,
+    | never a per-visit lookup, so visited domains stay on our network.
+    |
+    */
+
+    'ut1_sync_url' => env(
+        'ABLE_UT1_SYNC_URL',
+        'http://dsi.ut-capitole.fr/blacklists/download/blacklists.tar.gz'
+    ),
+
 ];

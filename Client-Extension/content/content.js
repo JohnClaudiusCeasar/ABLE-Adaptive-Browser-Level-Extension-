@@ -63,10 +63,15 @@ async function classifyCurrentDomain() {
       return domainStatus;
     }
 
+    const signals = (typeof ABLEPageSignals !== "undefined")
+      ? ABLEPageSignals.collectPageSignals()
+      : { url: window.location.href, title: (document.title || "").slice(0, 200), meta: {}, headings: [], excerpt: "" };
+
     const result = await Promise.race([
       chrome.runtime.sendMessage({
         type: "classifyDomain",
         url: window.location.href,
+        signals: signals,
       }),
       new Promise((_, reject) =>
         setTimeout(() => reject(new Error("classifyDomain timeout")), CLASSIFY_TIMEOUT_MS)
@@ -542,6 +547,12 @@ async function handleSPANavigation() {
   classifyReady = classifyCurrentDomain();
   await classifyReady;
 
+  try {
+    if (typeof ABLEPageSignals !== "undefined" && ABLEPageSignals.contentHash) {
+      initialContentHash = ABLEPageSignals.contentHash();
+    }
+  } catch {}
+
   const serverVisitCount = await logDomainVisit();
   await evaluateAndShowModal(serverVisitCount);
 }
@@ -665,14 +676,49 @@ function setupFallbackDetection() {
 
 // ─── Initialization ─────────────────────────────────────────────────
 
+var initialContentHash = null;
+
 async function initialize() {
   injectFonts();
 
   classifyReady = classifyCurrentDomain();
   await classifyReady;
 
+  try {
+    if (typeof ABLEPageSignals !== "undefined" && ABLEPageSignals.contentHash) {
+      initialContentHash = ABLEPageSignals.contentHash();
+    }
+  } catch {}
+
   const serverVisitCount = await logDomainVisit();
   await evaluateAndShowModal(serverVisitCount);
+
+  scheduleHydrationRecheck();
+}
+
+function scheduleHydrationRecheck() {
+  var run = async function () {
+    try {
+      if (!domainStatus || !domainStatus.domain) return;
+      if (document.querySelector(".able-modal-backdrop")) return;
+      if (typeof ABLEPageSignals === "undefined" || !ABLEPageSignals.contentHash) return;
+      var current = ABLEPageSignals.contentHash();
+      if (!current || current === initialContentHash) return;
+      initialContentHash = current;
+      classifyReady = classifyCurrentDomain();
+      await classifyReady;
+    } catch {}
+  };
+
+  try {
+    if (typeof requestIdleCallback !== "undefined") {
+      requestIdleCallback(function () { setTimeout(run, 1500); }, { timeout: 5000 });
+    } else {
+      setTimeout(run, 2500);
+    }
+  } catch {
+    setTimeout(run, 2500);
+  }
 }
 
 // ─── Bootstrap ──────────────────────────────────────────────────────

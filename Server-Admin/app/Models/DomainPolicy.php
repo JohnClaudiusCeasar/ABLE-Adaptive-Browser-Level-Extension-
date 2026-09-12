@@ -12,6 +12,8 @@ use Illuminate\Support\Carbon;
  * @property string $domain_status
  * @property string $policy
  * @property string|null $category
+ * @property string|null $classification_source
+ * @property float|null $confidence
  * @property int $risk_score
  * @property int $visit_count
  * @property Carbon|null $last_visited_at
@@ -27,6 +29,8 @@ class DomainPolicy extends Model
         'domain_status',
         'policy',
         'category',
+        'classification_source',
+        'confidence',
         'risk_score',
         'visit_count',
         'last_visited_at',
@@ -36,6 +40,7 @@ class DomainPolicy extends Model
     protected $casts = [
         'risk_score' => 'integer',
         'visit_count' => 'integer',
+        'confidence' => 'float',
         'last_visited_at' => 'datetime',
     ];
 

@@ -12,6 +12,7 @@ import {
 import type { FormEvent } from 'react';
 import { useState, Fragment, useMemo } from 'react';
 import AlertError from '@/components/alert-error';
+import { PatternItemsModal } from './pattern-items-modal';
 
 const glassCard =
     'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
@@ -22,6 +23,7 @@ interface CriteriaPatternItem {
     regex: string;
     score: number;
     operator?: 'and' | 'or';
+    risk_weight?: 'low' | 'medium' | 'high';
     sub_items?: CriteriaPatternItem[];
 }
 
@@ -89,9 +91,6 @@ export default function CriteriaPatternConfiguration() {
     const [searchQuery, setSearchQuery] = useState('');
     const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
     const [deleteAllConfirm, setDeleteAllConfirm] = useState(false);
-    const [expandedCards, setExpandedCards] = useState<Record<number, boolean>>(
-        {},
-    );
     const [showExistingPicker, setShowExistingPicker] = useState<number | null>(
         null,
     );
@@ -243,6 +242,7 @@ export default function CriteriaPatternConfiguration() {
                     regex: '',
                     score: 0,
                     operator: 'and',
+                    risk_weight: 'medium',
                     sub_items: [],
                 },
             ],
@@ -265,6 +265,7 @@ export default function CriteriaPatternConfiguration() {
                 regex: '',
                 score: 0,
                 operator: 'and',
+                risk_weight: 'medium',
             },
         ];
         updatedItems[parentIndex] = parentItem;
@@ -345,6 +346,7 @@ export default function CriteriaPatternConfiguration() {
             regex: pattern.regex || '',
             score: pattern.score,
             operator: 'and',
+            risk_weight: pattern.priority,
             sub_items: pattern.criteria_pattern_items || [],
         };
 
@@ -358,46 +360,6 @@ export default function CriteriaPatternConfiguration() {
 
         setShowExistingPicker(null);
         setExistingSearch('');
-    }
-
-    function toggleCard(cardId: number) {
-        setExpandedCards((prev) => ({
-            ...prev,
-            [cardId]: !prev[cardId],
-        }));
-    }
-
-    function renderCriteriaItem(
-        item: CriteriaPatternItem,
-        isSubItem: boolean = false,
-    ) {
-        return (
-            <div key={item.id} className={`${isSubItem ? 'ml-4' : ''}`}>
-                <div
-                    className="grid grid-cols-[160px_1fr_56px] items-center border-b border-[rgba(56,193,73,0.2)] bg-[rgba(56,193,73,0.1)] px-3 py-2.5"
-                    style={{
-                        borderLeft: '2px solid #38c149',
-                        borderRight: '2px solid #38c149',
-                    }}
-                >
-                    <span className="truncate text-[0.85rem] font-semibold">
-                        {item.title}
-                    </span>
-                    <span className="truncate px-2 font-mono text-[0.8rem] text-muted-foreground">
-                        {item.regex}
-                    </span>
-                    <span className="text-center text-[0.85rem]">
-                        {item.score}
-                    </span>
-                </div>
-                {item.sub_items &&
-                    item.sub_items.map((subItem) => (
-                        <div key={subItem.id} className="ml-4">
-                            {renderCriteriaItem(subItem, true)}
-                        </div>
-                    ))}
-            </div>
-        );
     }
 
     return (
@@ -464,8 +426,6 @@ export default function CriteriaPatternConfiguration() {
                 {filteredPatterns.length > 0 ? (
                     <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
                         {filteredPatterns.map((pattern) => {
-                            const isExpanded = !!expandedCards[pattern.id];
-
                             return (
                                 <div
                                     key={pattern.id}
@@ -489,15 +449,15 @@ export default function CriteriaPatternConfiguration() {
                                                         pattern.priority === 'high'
                                                             ? 'bg-[rgba(248,113,113,0.2)] text-[#f87171]'
                                                             : pattern.priority === 'medium'
-                                                                ? 'bg-[rgba(245,158,11,0.2)] text-[#f59e0b]'
-                                                                : 'bg-[rgba(34,197,94,0.2)] text-[#22c55e]'
+                                                              ? 'bg-[rgba(245,158,11,0.2)] text-[#f59e0b]'
+                                                              : 'bg-[rgba(34,197,94,0.2)] text-[#22c55e]'
                                                     }`}
                                                 >
                                                     {pattern.priority === 'high'
                                                         ? 'High'
                                                         : pattern.priority === 'medium'
-                                                            ? 'Medium'
-                                                            : 'Low'}
+                                                          ? 'Medium'
+                                                          : 'Low'}
                                                 </span>
                                                 <span className="text-xs text-muted-foreground">
                                                     {
@@ -508,32 +468,6 @@ export default function CriteriaPatternConfiguration() {
                                                     Items
                                                 </span>
                                             </div>
-                                        </div>
-                                        <div className="flex shrink-0 items-center gap-2">
-                                            <button
-                                                onClick={() =>
-                                                    openEditModal(pattern)
-                                                }
-                                                className="cursor-pointer border-none bg-transparent p-1 hover:opacity-80"
-                                            >
-                                                <Pencil
-                                                    size={16}
-                                                    className="text-[#36cfc9]"
-                                                />
-                                            </button>
-                                            <button
-                                                onClick={() =>
-                                                    setDeleteConfirmId(
-                                                        pattern.id,
-                                                    )
-                                                }
-                                                className="cursor-pointer border-none bg-transparent p-1 hover:opacity-80"
-                                            >
-                                                <Trash2
-                                                    size={16}
-                                                    className="text-muted-foreground"
-                                                />
-                                            </button>
                                         </div>
                                     </div>
 
@@ -557,34 +491,55 @@ export default function CriteriaPatternConfiguration() {
                                         </div>
                                     </div>
 
-                                    {/* Expandable items */}
+                                    {/* Pattern Items with table modal */}
                                     <div className="flex-1">
                                         {pattern.criteria_pattern_items.length >
                                         0 ? (
-                                            <>
-                                                <button
-                                                    onClick={() =>
-                                                        toggleCard(pattern.id)
+                                            <div className="flex items-center">
+                                                <PatternItemsModal
+                                                    pattern={pattern}
+                                                    trigger={
+                                                        <button className="flex items-center gap-1 py-2 text-[0.85rem] font-semibold text-able-green transition-opacity hover:opacity-80">
+                                                            <span>
+                                                                Pattern Items
+                                                            </span>
+                                                            <ChevronDown
+                                                                size={16}
+                                                            />
+                                                        </button>
                                                     }
-                                                    className="flex w-full items-center justify-between py-2 text-[0.85rem] font-semibold text-able-green transition-opacity hover:opacity-80"
-                                                >
-                                                    <span>Pattern Items</span>
-                                                    <ChevronDown
-                                                        size={16}
-                                                        className={`transition-transform ${isExpanded ? 'rotate-0' : '-rotate-90'}`}
-                                                    />
-                                                </button>
-                                                {isExpanded && (
-                                                    <div className="overflow-hidden rounded-lg border border-[rgba(56,193,73,0.3)]">
-                                                        {pattern.criteria_pattern_items.map(
-                                                            (item) =>
-                                                                renderCriteriaItem(
-                                                                    item,
-                                                                ),
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </>
+                                                />
+                                                <div className="ml-auto flex items-center gap-2">
+                                                    <button
+                                                        onClick={() =>
+                                                            openEditModal(
+                                                                pattern,
+                                                            )
+                                                        }
+                                                        className="cursor-pointer rounded-md p-1 transition-opacity hover:opacity-80"
+                                                        title="Edit pattern"
+                                                    >
+                                                        <Pencil
+                                                            size={18}
+                                                            className="text-[#36cfc9]"
+                                                        />
+                                                    </button>
+                                                    <button
+                                                        onClick={() =>
+                                                            setDeleteConfirmId(
+                                                                pattern.id,
+                                                            )
+                                                        }
+                                                        className="cursor-pointer rounded-md p-1 transition-opacity hover:opacity-80"
+                                                        title="Delete pattern"
+                                                    >
+                                                        <Trash2
+                                                            size={18}
+                                                            className="text-muted-foreground"
+                                                        />
+                                                    </button>
+                                                </div>
+                                            </div>
                                         ) : (
                                             <p className="rounded-lg border border-dashed border-black/10 py-4 text-center text-sm text-muted-foreground dark:border-white/10">
                                                 No pattern items.
@@ -975,8 +930,11 @@ export default function CriteriaPatternConfiguration() {
                                                     <th className="px-3 py-2 text-left font-normal text-muted-foreground">
                                                         Regex
                                                     </th>
-                                                    <th className="w-20 px-3 py-2 text-left font-normal text-muted-foreground">
+                                                   <th className="w-20 px-3 py-2 text-left font-normal text-muted-foreground">
                                                         Score
+                                                    </th>
+                                                    <th className="w-28 px-3 py-2 text-left font-normal text-muted-foreground">
+                                                        Risk Weight
                                                     </th>
                                                     <th className="w-20 px-3 py-2"></th>
                                                 </tr>
@@ -1107,6 +1065,19 @@ export default function CriteriaPatternConfiguration() {
                                                                         }
                                                                         className="w-full rounded border border-black/10 bg-transparent px-2 py-1 text-sm text-foreground transition-colors outline-none focus:border-able-green dark:border-white/10"
                                                                     />
+                                                                </td>
+                                                                <td className="px-2 py-2">
+                                                                    <span
+                                                                        className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                                                                            (item.risk_weight || 'medium') === 'high'
+                                                                                ? 'bg-[rgba(248,113,113,0.2)] text-[#f87171]'
+                                                                                : (item.risk_weight || 'medium') === 'medium'
+                                                                                  ? 'bg-[rgba(245,158,11,0.2)] text-[#f59e0b]'
+                                                                                  : 'bg-[rgba(34,197,94,0.2)] text-[#22c55e]'
+                                                                        }`}
+                                                                    >
+                                                                        {(item.risk_weight || 'medium') === 'high' ? 'High' : (item.risk_weight || 'medium') === 'medium' ? 'Medium' : 'Low'}
+                                                                    </span>
                                                                 </td>
                                                                 <td className="px-2 py-2">
                                                                     <div className="flex gap-1">
@@ -1269,6 +1240,19 @@ export default function CriteriaPatternConfiguration() {
                                                                                     }
                                                                                     className="w-full rounded border border-black/10 bg-transparent px-2 py-1 text-sm text-foreground transition-colors outline-none focus:border-able-green dark:border-white/10"
                                                                                 />
+                                                                            </td>
+                                                                            <td className="px-2 py-2">
+                                                                                <span
+                                                                                    className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                                                                                        (subItem.risk_weight || 'medium') === 'high'
+                                                                                            ? 'bg-[rgba(248,113,113,0.2)] text-[#f87171]'
+                                                                                            : (subItem.risk_weight || 'medium') === 'medium'
+                                                                                              ? 'bg-[rgba(245,158,11,0.2)] text-[#f59e0b]'
+                                                                                              : 'bg-[rgba(34,197,94,0.2)] text-[#22c55e]'
+                                                                                    }`}
+                                                                                >
+                                                                                    {(subItem.risk_weight || 'medium') === 'high' ? 'High' : (subItem.risk_weight || 'medium') === 'medium' ? 'Medium' : 'Low'}
+                                                                                </span>
                                                                             </td>
                                                                             <td className="px-2 py-2">
                                                                                 <button

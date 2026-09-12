@@ -82,11 +82,15 @@ async function clearOfflineCache() {
   }
 }
 
-async function classifyDomainViaServer(url) {
+async function classifyDomainViaServer(url, signals) {
   try {
     const response = await ABLESecurity.secureFetch(
-      `${SERVER_URL}/api/classify-domain?url=${encodeURIComponent(url)}`,
-      { method: "GET", headers: { "Accept": "application/json" } }
+      `${SERVER_URL}/api/classify-domain`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({ url: url, signals: signals || null }),
+      }
     );
 
     if (!response.ok) {
@@ -101,7 +105,21 @@ async function classifyDomainViaServer(url) {
   }
 }
 
-async function getDomainClassification(url) {
+function collectSignals(url) {
+  try {
+    if (typeof globalThis !== "undefined" && globalThis.ABLEPageSignals) {
+      return globalThis.ABLEPageSignals.collectPageSignals();
+    }
+  } catch (e) {}
+  try {
+    if (typeof document !== "undefined") {
+      return { url: url, title: (document.title || "").slice(0, 200), meta: {}, headings: [], excerpt: "" };
+    }
+  } catch (e) {}
+  return null;
+}
+
+async function getDomainClassification(url, signals) {
   try {
     const urlObj = new URL(url);
     const hostname = urlObj.hostname.toLowerCase();
@@ -112,7 +130,7 @@ async function getDomainClassification(url) {
       return cached.data;
     }
 
-    const serverResult = await classifyDomainViaServer(url);
+    const serverResult = await classifyDomainViaServer(url, signals || collectSignals(url));
     if (serverResult) {
       domainCache.set(domain, {
         data: serverResult,

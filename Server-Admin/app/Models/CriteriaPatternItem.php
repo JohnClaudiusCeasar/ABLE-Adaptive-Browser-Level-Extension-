@@ -20,6 +20,7 @@ class CriteriaPatternItem extends Model
         'regex',
         'operator',
         'score',
+        'risk_weight',
     ];
 
     /**

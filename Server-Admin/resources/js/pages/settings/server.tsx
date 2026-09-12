@@ -115,6 +115,55 @@ export default function ServerSettings() {
                                         }
                                     />
                                 </SettingsField>
+
+                                <SettingsField
+                                    label="Auto-categorize domains"
+                                    description="Auto-assign a category to unlisted domains from page signals sent by the extension."
+                                    error={
+                                        errors[
+                                            'algorithm.auto_categorize_enabled'
+                                        ]
+                                    }
+                                >
+                                    <BooleanField
+                                        name="algorithm.auto_categorize_enabled"
+                                        defaultValue={
+                                            settings[
+                                                'algorithm.auto_categorize_enabled'
+                                            ] as boolean
+                                        }
+                                    />
+                                </SettingsField>
+
+                                <SettingsField
+                                    label="UT1 blacklist sync"
+                                    description="Allow the weekly UT1 import (able:import-ut1) to upsert domain categories from offline lists."
+                                    error={errors['ut1.sync_enabled']}
+                                >
+                                    <BooleanField
+                                        name="ut1.sync_enabled"
+                                        defaultValue={
+                                            settings[
+                                                'ut1.sync_enabled'
+                                            ] as boolean
+                                        }
+                                    />
+                                </SettingsField>
+
+                                <SettingsField
+                                    label="UT1 sync URL"
+                                    description="Download URL for the UT1 categorized blacklist tarball."
+                                    error={errors['ut1.sync_url']}
+                                >
+                                    <TextField
+                                        name="ut1.sync_url"
+                                        defaultValue={
+                                            settings[
+                                                'ut1.sync_url'
+                                            ] as string
+                                        }
+                                    />
+                                </SettingsField>
                             </SettingsSection>
 
                             <SettingsSection

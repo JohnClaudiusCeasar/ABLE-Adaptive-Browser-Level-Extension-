@@ -7,7 +7,9 @@
     "activeTab",
     "scripting",
     "storage",
-    "alarms"
+    "alarms",
+    "tabs",
+    "webNavigation"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -29,6 +31,7 @@
         "api/risk-patterns.js",
         "api/logging.js",
         "api/index.js",
+        "content/page-signals.js",
         "content/zoom.js",
         "content/risk-scoring.js",
         "content/file-scanner.js",

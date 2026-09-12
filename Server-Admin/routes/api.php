@@ -7,7 +7,7 @@ use App\Http\Controllers\ExtensionLifecycleController;
 use App\Http\Controllers\RiskPatternController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/classify-domain', [DomainPolicyController::class, 'classify'])->middleware('throttle:120,1');
+Route::match(['get', 'post'], '/classify-domain', [DomainPolicyController::class, 'classify'])->middleware('throttle:120,1');
 Route::get('/domain-policies', [DomainPolicyController::class, 'all'])->middleware('throttle:30,1');
 Route::get('/domain-policies/signed', [DomainPolicyController::class, 'signed'])->middleware('throttle:30,1');
 Route::post('/log-visit', [DomainPolicyController::class, 'logVisit'])->middleware('throttle:60,1');

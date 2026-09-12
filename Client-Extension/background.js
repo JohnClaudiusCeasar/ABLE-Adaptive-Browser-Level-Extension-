@@ -70,6 +70,52 @@ chrome.runtime.onStartup.addListener(() => {
   processEgressLogQueue();
 });
 
+function isExcludedHostname(hostname) {
+  try {
+    const domain = hostname.toLowerCase().replace(/^www\./, "");
+    const excluded = ABLERuntimeSettings.get("excluded_domains", EXCLUDED_DOMAINS);
+    return excluded.some((e) => domain === e || domain.endsWith("." + e));
+  } catch {
+    return false;
+  }
+}
+
+async function auditNavigation(url, transitionType) {
+  try {
+    const urlObj = new URL(url);
+    if (urlObj.protocol !== "http:" && urlObj.protocol !== "https:") return;
+    if (isExcludedHostname(urlObj.hostname)) return;
+
+    const domain = urlObj.hostname.toLowerCase().replace(/^www\./, "");
+    const debounceKey = `able:last_visit:${domain}`;
+    const debounceMs = ABLERuntimeSettings.get("logging.visit_debounce_ms", 5000);
+    try {
+      const stored = await chrome.storage.session.get(debounceKey);
+      if (stored[debounceKey] && Date.now() - stored[debounceKey] < debounceMs) return;
+      await chrome.storage.session.set({ [debounceKey]: Date.now() });
+    } catch {}
+
+    const classification = await getDomainClassification(url);
+    const status = classification ? classification.status : "unlisted";
+    const source = "navigation" + (transitionType ? `:${transitionType}` : "");
+    await logDomainVisit(domain, status, source, Date.now());
+  } catch (error) {
+    console.warn("ABLE: Navigation audit failed:", error);
+  }
+}
+
+if (typeof chrome !== "undefined" && chrome.webNavigation) {
+  chrome.webNavigation.onCommitted.addListener((details) => {
+    if (details.frameId !== 0) return;
+    auditNavigation(details.url, details.transitionType);
+  });
+
+  chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
+    if (details.frameId !== 0) return;
+    auditNavigation(details.url, details.transitionType || "spa");
+  });
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // SECURITY: Reject messages from any sender that isn't this extension.
   if (sender.id !== chrome.runtime.id) {
@@ -77,7 +123,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "classifyDomain") {
-    handleClassifyDomain(message.url, sendResponse);
+    handleClassifyDomain(message.url, sendResponse, message.signals);
     return true;
   }
   if (message.type === "logVisit") {
@@ -114,10 +160,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return false;
 });
 
-async function handleClassifyDomain(url, sendResponse) {
+async function handleClassifyDomain(url, sendResponse, signals) {
   try {
     // Try server classification first (includes offline cache fallback)
-    const serverResult = await getDomainClassification(url);
+    const serverResult = await getDomainClassification(url, signals);
 
     if (serverResult) {
       const messages = getStatusMessage(serverResult.status, serverResult.domain, serverResult.category, []);

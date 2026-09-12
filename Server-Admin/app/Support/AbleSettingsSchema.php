@@ -198,6 +198,24 @@ class AbleSettingsSchema
                 'rule' => 'required|in:whitelisted,blacklisted,under_review',
                 'description' => 'Policy assigned to unmatched domains.',
             ],
+            'algorithm.auto_categorize_enabled' => [
+                'type' => 'boolean',
+                'default' => true,
+                'rule' => 'required|boolean',
+                'description' => 'Auto-assign a category to unlisted domains from page signals sent by the extension.',
+            ],
+            'ut1.sync_enabled' => [
+                'type' => 'boolean',
+                'default' => false,
+                'rule' => 'required|boolean',
+                'description' => 'Allow the weekly UT1 blacklist import (able:import-ut1) to upsert domain categories.',
+            ],
+            'ut1.sync_url' => [
+                'type' => 'string',
+                'default' => 'http://dsi.ut-capitole.fr/blacklists/download/blacklists.tar.gz',
+                'rule' => 'nullable|string|max:2048',
+                'description' => 'Download URL for the UT1 categorized blacklist tarball.',
+            ],
             'security.tls_pins' => [
                 'type' => 'object',
                 'default' => [],

@@ -22,9 +22,20 @@ function safeTestPattern(pattern, text) {
   }
 }
 
-function evaluateCriteriaItems(items, text) {
-  const results = items.map((item) => safeTestPattern(item.regex, text) > 0);
-  const hasOr = items.some((item) => item.operator === 'or');
+function sortItemsByRiskWeight(items) {
+  const weightOrder = { high: 0, medium: 1, low: 2 };
+  return [...items].sort((a, b) => {
+    const weightA = weightOrder[a.risk_weight || 'medium'] ?? 3;
+    const weightB = weightOrder[b.risk_weight || 'medium'] ?? 3;
+    if (weightA !== weightB) return weightA - weightB;
+    return (b.score || 0) - (a.score || 0);
+  });
+}
+
+function evaluateCriteriaItems(items, text, sortedItems = null) {
+  const itemsToEvaluate = sortedItems || sortItemsByRiskWeight(items);
+  const results = itemsToEvaluate.map((item) => safeTestPattern(item.regex, text) > 0);
+  const hasOr = itemsToEvaluate.some((item) => item.operator === 'or');
   return hasOr ? results.some(Boolean) : results.every(Boolean);
 }
 
@@ -103,7 +114,9 @@ async function calculateRiskScore(text) {
       }
     }
 
-    for (const item of items) {
+    const sortedItems = sortItemsByRiskWeight(items);
+
+    for (const item of sortedItems) {
       const count = safeTestPattern(item.regex, text);
       if (count > 0) matchCount += count;
       if (item.sub_items && item.sub_items.length > 0) {
@@ -111,7 +124,7 @@ async function calculateRiskScore(text) {
       }
     }
 
-    const criteriaMatched = evaluateCriteriaItems(items, text);
+    const criteriaMatched = evaluateCriteriaItems(items, text, sortedItems);
 
     if (criteriaMatched) {
       totalScore += pattern.score;
