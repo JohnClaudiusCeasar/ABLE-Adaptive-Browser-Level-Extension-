@@ -12,7 +12,7 @@ import {
     Eye,
 } from 'lucide-react';
 import type { FormEvent } from 'react';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import DomainPolicyController from '@/actions/App/Http/Controllers/DomainPolicyController';
 import { TablePagination } from '@/components/pagination';
 import { Badge } from '@/components/ui/badge';
@@ -85,6 +85,35 @@ const policyBadgeVariant: Record<
     under_review: 'glass-unlisted',
 };
 
+const CATEGORY_OPTIONS: { name: string; detail: string }[] = [
+    { name: 'Social Media', detail: 'Social networks, messaging, forums, and community platforms.' },
+    { name: 'Search Engine', detail: 'Web search providers and metasearch portals.' },
+    { name: 'News & Media', detail: 'News outlets, press, blogs, weather, and publishing.' },
+    { name: 'E-commerce', detail: 'Online stores with carts, checkout, and product listings.' },
+    { name: 'Finance', detail: 'Banks, payments, lending, trading, insurance, and billing.' },
+    { name: 'Education', detail: 'Schools, universities, courses, LMS, and research.' },
+    { name: 'Government', detail: 'Official government, municipal, and public-service sites.' },
+    { name: 'Health', detail: 'Hospitals, clinics, pharmacies, and medical information.' },
+    { name: 'Technology', detail: 'Software, hardware, AI, gadgets, and tech news.' },
+    { name: 'Entertainment', detail: 'Movies, music, celebrities, events, and fan content.' },
+    { name: 'Gaming', detail: 'Video games, storefronts, esports, and walkthroughs.' },
+    { name: 'Sports', detail: 'Leagues, teams, scores, and sports coverage.' },
+    { name: 'Travel', detail: 'Flights, hotels, bookings, maps, and ride-hailing.' },
+    { name: 'Food & Dining', detail: 'Restaurants, recipes, menus, and food delivery.' },
+    { name: 'Real Estate', detail: 'Property listings, rentals, and brokerage sites.' },
+    { name: 'Automotive', detail: 'Car makers, dealers, parts, and vehicle marketplaces.' },
+    { name: 'Jobs & Careers', detail: 'Job boards, hiring, resumes, and freelance gigs.' },
+    { name: 'Productivity', detail: 'Docs, calendars, notes, chat, meetings, and task tools.' },
+    { name: 'Developer Tools', detail: 'Code hosting, docs, SDKs, packages, and cloud dev platforms.' },
+    { name: 'Cloud & Hosting', detail: 'Hosting, domains, VPS, CDNs, and file hosting.' },
+    { name: 'Email', detail: 'Webmail providers and hosted inbox services.' },
+    { name: 'Streaming', detail: 'Video, music, and podcast streaming platforms.' },
+    { name: 'Gambling', detail: 'Casinos, betting, poker, lottery, and wagering.' },
+    { name: 'Adult', detail: 'Adult-only and explicit content sites.' },
+    { name: 'Shopping', detail: 'Deals, coupons, marketplaces, and price comparison.' },
+    { name: 'Reference', detail: 'Wikis, dictionaries, docs, manuals, and how-tos.' },
+];
+
 const statusLabels: Record<string, string> = {
     safe: 'Safe',
     unsafe: 'Unsafe',
@@ -106,6 +135,133 @@ const policyLabels: Record<string, string> = {
     blacklisted: 'Blacklisted',
     under_review: 'Under Review',
 };
+
+function CategoryPicker({
+    value,
+    onChange,
+}: {
+    value: string;
+    onChange: (category: string) => void;
+}) {
+    const [open, setOpen] = useState(false);
+    const [draft, setDraft] = useState(value);
+    const rootRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        setDraft(value);
+    }, [value]);
+
+    useEffect(() => {
+        if (!open) return;
+        function handleClickOutside(e: MouseEvent) {
+            if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+                setOpen(false);
+            }
+        }
+        function handleEscape(e: KeyboardEvent) {
+            if (e.key === 'Escape') setOpen(false);
+        }
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('keydown', handleEscape);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleEscape);
+        };
+    }, [open]);
+
+    function commitTyped() {
+        const trimmed = draft.trim();
+        if (trimmed && trimmed !== value) onChange(trimmed);
+        else setDraft(value);
+    }
+
+    const query = draft.trim().toLowerCase();
+    const filtered = query
+        ? CATEGORY_OPTIONS.filter((c) => c.name.toLowerCase().includes(query))
+        : CATEGORY_OPTIONS;
+    const showCustom =
+        query !== '' && !CATEGORY_OPTIONS.some((c) => c.name.toLowerCase() === query);
+
+    return (
+        <div ref={rootRef} className="relative w-full">
+            <div className="flex w-full items-center rounded-lg border border-black/10 bg-transparent transition-colors focus-within:border-able-green dark:border-white/10">
+                <input
+                    type="text"
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onBlur={commitTyped}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            commitTyped();
+                            setOpen(false);
+                        }
+                    }}
+                    placeholder="Type or pick a category…"
+                    className="min-w-0 flex-1 bg-transparent px-3 py-2 text-foreground outline-none placeholder:text-muted-foreground"
+                />
+                <button
+                    type="button"
+                    onClick={() => setOpen((o) => !o)}
+                    aria-haspopup="listbox"
+                    aria-expanded={open}
+                    aria-label="Open category list"
+                    className="shrink-0 px-3 py-2 text-muted-foreground transition-colors hover:text-foreground"
+                >
+                    ▾
+                </button>
+            </div>
+            {open && (
+                <ul
+                    role="listbox"
+                    className="absolute z-10 mt-1 max-h-40 w-[480px] max-w-full overflow-y-auto rounded-lg border border-black/10 bg-[#1a2f2b] py-1 shadow-xl dark:border-white/10"
+                >
+                    {filtered.map((c) => (
+                        <li key={c.name} title={c.detail}>
+                            <button
+                                type="button"
+                                role="option"
+                                aria-selected={c.name === value}
+                                title={c.detail}
+                                onClick={() => {
+                                    onChange(c.name);
+                                    setDraft(c.name);
+                                    setOpen(false);
+                                }}
+                                className={`block w-full px-3 py-1 text-left text-[0.8rem] transition-colors ${
+                                    c.name === value
+                                        ? 'bg-[rgba(34,197,94,0.35)] text-white'
+                                        : 'text-slate-100 hover:bg-[rgba(34,197,94,0.15)]'
+                                }`}
+                            >
+                                {c.name}
+                            </button>
+                        </li>
+                    ))}
+                    {showCustom && (
+                        <li>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    commitTyped();
+                                    setOpen(false);
+                                }}
+                                className="block w-full px-3 py-1 text-left text-[0.8rem] text-slate-100 hover:bg-[rgba(34,197,94,0.15)]"
+                            >
+                                Use “{draft.trim()}”
+                            </button>
+                        </li>
+                    )}
+                    {filtered.length === 0 && !showCustom && (
+                        <li className="px-3 py-1 text-[0.8rem] text-slate-400">
+                            No matches — press Enter to use your text.
+                        </li>
+                    )}
+                </ul>
+            )}
+        </div>
+    );
+}
 
 export default function PolicyAlgorithm() {
     const { domainPolicies } = usePage<PageProps>().props;
@@ -465,17 +621,6 @@ export default function PolicyAlgorithm() {
                 </td>
                 <td className="px-4 py-5 text-muted-foreground">
                     {d.category || '—'}
-                    {d.classification_source &&
-                        d.classification_source !== 'manual' &&
-                        d.classification_source !== 'pattern' && (
-                            <span className="mt-1 block text-xs text-muted-foreground/70">
-                                {sourceLabels[d.classification_source] ||
-                                    d.classification_source}
-                                {d.confidence !== null &&
-                                    d.classification_source !== 'pending' &&
-                                    ` · ${Math.round(d.confidence * 100)}%`}
-                            </span>
-                        )}
                 </td>
                 <td
                     className={`px-4 py-5 ${d.risk_score > 0 ? 'font-semibold text-[#f87171]' : 'text-muted-foreground'}`}
@@ -765,8 +910,8 @@ export default function PolicyAlgorithm() {
 
             {/* Add/Edit Modal */}
             {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                    <div className="mx-4 w-full max-w-lg rounded-xl border border-[rgba(34,197,94,0.3)] bg-white shadow-2xl dark:bg-[#0f172a]">
+                <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm">
+                    <div className="mx-4 max-h-[75vh] w-full max-w-lg overflow-y-auto rounded-xl border border-[rgba(34,197,94,0.3)] bg-white shadow-2xl dark:bg-[#0f172a]">
                         <div className="flex items-center justify-between border-b border-black/10 px-6 py-4 dark:border-white/10">
                             <h3
                                 className="text-lg font-bold"
@@ -885,52 +1030,16 @@ export default function PolicyAlgorithm() {
                                 <label className="mb-1 block text-sm font-medium text-muted-foreground">
                                     Category
                                 </label>
-                                <input
-                                    type="text"
-                                    list="able-category-taxonomy"
+                                <CategoryPicker
                                     value={form.category}
-                                    onChange={(e) =>
+                                    onChange={(category) =>
                                         setForm({
                                             ...form,
-                                            category: e.target.value,
+                                            category,
                                             classification_source: 'manual',
                                         })
                                     }
-                                    placeholder="e.g., E-commerce"
-                                    className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-foreground transition-colors outline-none focus:border-able-green dark:border-white/10"
                                 />
-                                <datalist id="able-category-taxonomy">
-                                    {[
-                                        'Social Media',
-                                        'Search Engine',
-                                        'News & Media',
-                                        'E-commerce',
-                                        'Finance',
-                                        'Education',
-                                        'Government',
-                                        'Health',
-                                        'Technology',
-                                        'Entertainment',
-                                        'Gaming',
-                                        'Sports',
-                                        'Travel',
-                                        'Food & Dining',
-                                        'Real Estate',
-                                        'Automotive',
-                                        'Jobs & Careers',
-                                        'Productivity',
-                                        'Developer Tools',
-                                        'Cloud & Hosting',
-                                        'Email',
-                                        'Streaming',
-                                        'Gambling',
-                                        'Adult',
-                                        'Shopping',
-                                        'Reference',
-                                    ].map((c) => (
-                                        <option key={c} value={c} />
-                                    ))}
-                                </datalist>
                                 <input
                                     type="hidden"
                                     value={form.classification_source}
