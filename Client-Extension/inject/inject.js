@@ -120,6 +120,51 @@
     }
   });
 
+  // ─── Inject dependencies into page context ──────────────────────
+  // The modularized inject scripts (file-extractor, network-interceptor,
+  // file-tracker) each attach their API to globalThis. Load them now so
+  // initFileTracking / extractFiles / ABLENetworkInterceptor are available.
+
+  var INJECT_SCRIPTS = [
+    'inject/file-extractor.js',
+    'inject/network-interceptor.js',
+    'inject/file-tracker.js'
+  ];
+
+  function loadScript(src) {
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = src;
+      s.onload = function () { resolve(); };
+      s.onerror = function () { reject(new Error('Failed to load ' + src)); };
+      (document.head || document.documentElement).appendChild(s);
+    });
+  }
+
+  function injectDependencies() {
+    var resolved = INJECT_SCRIPTS.map(function (rel) {
+      // Resolve relative to this script's URL (chrome-extension://.../inject/inject.js)
+      var base = '';
+      var scripts = document.querySelectorAll('script[src]');
+      for (var i = 0; i < scripts.length; i++) {
+        if (scripts[i].src.indexOf('inject/inject.js') !== -1) {
+          base = scripts[i].src.substring(0, scripts[i].src.lastIndexOf('inject/inject.js'));
+          break;
+        }
+      }
+      return base + rel;
+    });
+
+    // Chain the loads so each script runs before the next
+    var chain = Promise.resolve();
+    for (var i = 0; i < resolved.length; i++) {
+      chain = chain.then((function (url) {
+        return function () { return loadScript(url); };
+      })(resolved[i]));
+    }
+    return chain;
+  }
+
   // ─── Form submission interception ──────────────────────────────────
 
   document.addEventListener('submit', function (event) {
@@ -239,7 +284,7 @@
         lastUrl = location.href;
         window.postMessage({
           source: 'ABLE_INJECT',
-          type: 'ABLE_SPA_NAVIGATION',
+          type: 'ABLE_SPAVIGATION',
           url: location.href,
         }, '*');
       }
@@ -264,9 +309,16 @@
 
   // ─── Initialize ────────────────────────────────────────────────────
 
-  window.postMessage({ source: 'ABLE_INJECT', type: 'ABLE_READY' }, '*');
-
-  // Initialize file tracking
-  initFileTracking();
+  // Inject dependencies first, then signal ready and start file tracking
+  injectDependencies().then(function () {
+    window.postMessage({ source: 'ABLE_INJECT', type: 'ABLE_READY' }, '*');
+    if (typeof initFileTracking === 'function') {
+      initFileTracking();
+    }
+  }).catch(function (err) {
+    console.warn('ABLE: Failed to inject dependencies:', err);
+    // Still signal ready so the handshake completes
+    window.postMessage({ source: 'ABLE_INJECT', type: 'ABLE_READY' }, '*');
+  });
 
 })();

@@ -1,10 +1,13 @@
 /**
  * ABLE Extension - File Tracker
  *
- * Tracks file selections and detects file inputs/attachment buttons.
+ * Tracks file selections and detects file inputs/attachment buttons
+ * on modern websites. Uses WeakSet for observed elements to avoid
+ * memory leaks, IntersectionObserver for lazy-loaded inputs, and
+ * debounced MutationObserver for SPA DOM churn.
  */
 
-// ─── File selection tracking ────────────────────────────────────────
+// ─── File selection tracking ────────────────────────────────
 
 var FILE_MATCH_WINDOW_MS = 30000;
 var trackedFiles = [];
@@ -78,9 +81,30 @@ function matchTrackedFilename(size, quickHash) {
   return null;
 }
 
-// ─── File input detection ───────────────────────────────────────────
+// ─── File input detection ───────────────────────────────────
 
-var reportedInputs = new Set();
+var reportedInputs = new WeakSet();
+
+function isAttachButton(el) {
+  var tagName = (el.tagName || '').toLowerCase();
+  var role = (el.getAttribute('role') || '').toLowerCase();
+  var ariaLabel = (el.getAttribute('aria-label') || '').toLowerCase();
+  var title = (el.title || '').toLowerCase();
+  var textContent = (el.textContent || '').trim().toLowerCase();
+  var className = (el.className || '').toLowerCase();
+  var dataTestid = (el.getAttribute('data-testid') || '').toLowerCase();
+  var innerHTML = (el.innerHTML || '').toLowerCase();
+
+  return (
+    (role === 'button' && /attach|upload|file|paperclip/.test(ariaLabel + ' ' + title + ' ' + textContent)) ||
+    /attach|upload|add file|paperclip/.test(ariaLabel) ||
+    /attach|upload|add file|paperclip/.test(title) ||
+    (tagName === 'button' && /attach|upload|add file/.test(textContent)) ||
+    /attach|upload|paperclip|file-add|file-upload/.test(className) ||
+    /attach|upload|paperclip|file-add|file-upload/.test(dataTestid) ||
+    (tagName === 'svg' && /attach|upload|paperclip/.test(innerHTML))
+  );
+}
 
 function checkElement(el) {
   if (el instanceof HTMLInputElement && el.type === 'file' && !reportedInputs.has(el)) {
@@ -96,22 +120,7 @@ function checkElement(el) {
     }, true);
   }
 
-  var tagName = (el.tagName || '').toLowerCase();
-  var role = (el.getAttribute('role') || '').toLowerCase();
-  var ariaLabel = (el.getAttribute('aria-label') || '').toLowerCase();
-  var title = (el.title || '').toLowerCase();
-  var textContent = (el.textContent || '').trim().toLowerCase();
-
-  var isAttachButton =
-    role === 'button' && /attach|upload|file|paperclip/.test(ariaLabel + ' ' + title + ' ' + textContent) ||
-    /attach|upload|add file|paperclip/.test(ariaLabel) ||
-    /attach|upload|add file|paperclip/.test(title) ||
-    (tagName === 'button' && /attach|upload|add file/.test(textContent)) ||
-    /attach|upload|paperclip|file-add|file-upload/.test(el.className || '') ||
-    /attach|upload|paperclip|file-add|file-upload/.test(el.getAttribute('data-testid') || '') ||
-    (tagName === 'svg' && /attach|upload|paperclip/.test(el.innerHTML || ''));
-
-  if (isAttachButton && !reportedInputs.has('btn-' + (el.id || el.className))) {
+  if (isAttachButton(el) && !reportedInputs.has('btn-' + (el.id || el.className))) {
     reportedInputs.add('btn-' + (el.id || el.className));
     el.addEventListener('click', function () {
       window.postMessage({
@@ -121,6 +130,58 @@ function checkElement(el) {
       }, '*');
     }, true);
   }
+}
+
+// Drag-drop zone detection
+function isDropZone(el) {
+  if (!(el instanceof Element)) return false;
+  var tagName = el.tagName.toLowerCase();
+  var role = (el.getAttribute('role') || '').toLowerCase();
+  var ariaLabel = (el.getAttribute('aria-label') || '').toLowerCase();
+  var className = (el.className || '').toLowerCase();
+  var ondrop = el.getAttribute('ondrop');
+  var dataDragDrop = el.getAttribute('data-drag-drop');
+
+  return (
+    tagName === 'div' && (
+      role === 'region' && /drop|upload|file/.test(ariaLabel + ' ' + className) ||
+      /drop-zone|file-drop|upload-area/.test(className) ||
+      ondrop !== null ||
+      dataDragDrop !== null
+    )
+  );
+}
+
+function observeDropZone(el) {
+  if (!isDropZone(el) || reportedInputs.has('dropzone-' + (el.id || el.className))) return;
+  reportedInputs.add('dropzone-' + (el.id || el.className));
+
+  el.addEventListener('dragover', function (e) {
+    e.preventDefault();
+    el.classList.add('able-drop-active');
+  }, true);
+
+  el.addEventListener('dragleave', function () {
+    el.classList.remove('able-drop-active');
+  }, true);
+
+  el.addEventListener('drop', function (e) {
+    el.classList.remove('able-drop-active');
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      trackSelectedFiles(Array.from(e.dataTransfer.files));
+    }
+  }, true);
+}
+
+// Debounce helper
+function debounce(fn, delay) {
+  var timer;
+  return function () {
+    var args = arguments;
+    var ctx = this;
+    clearTimeout(timer);
+    timer = setTimeout(function () { fn.apply(ctx, args); }, delay);
+  };
 }
 
 function initFileTracking() {
@@ -166,27 +227,85 @@ function initFileTracking() {
     checkElement(allElements[i]);
   }
 
-  // Watch for new elements
-  var observer = new MutationObserver(function (mutations) {
+  // Check existing drop zones
+  var dropZones = document.querySelectorAll('[data-drag-drop], [ondrop], .drop-zone, [role="region"][aria-label*="drop"]');
+  for (var d = 0; d < dropZones.length; d++) {
+    observeDropZone(dropZones[d]);
+  }
+
+  // Watch for new elements — debounced to batch rapid DOM churn
+  var debouncedMutate = debounce(function (mutations) {
     for (var m = 0; m < mutations.length; m++) {
       var addedNodes = mutations[m].addedNodes;
       for (var n = 0; n < addedNodes.length; n++) {
         var node = addedNodes[n];
         if (node.nodeType === 1) {
           checkElement(node);
-          var children = node.querySelectorAll('input[type="file"], button, [role="button"], svg, [class*="attach"], [class*="upload"]');
+          if (isDropZone(node)) {
+            observeDropZone(node);
+          }
+          var children = node.querySelectorAll ? node.querySelectorAll('input[type="file"], button, [role="button"], svg, [class*="attach"], [class*="upload"], [data-testid*="attach"], [data-testid*="upload"]') : [];
           for (var c = 0; c < children.length; c++) {
             checkElement(children[c]);
+          }
+          // Check for drop zones within added nodes
+          var childDropZones = node.querySelectorAll ? node.querySelectorAll('[data-drag-drop], [ondrop], .drop-zone, [role="region"][aria-label*="drop"]') : [];
+          for (var z = 0; z < childDropZones.length; z++) {
+            observeDropZone(childDropZones[z]);
           }
         }
       }
     }
-  });
+  }, 300);
 
+  var observer = new MutationObserver(debouncedMutate);
   observer.observe(document.documentElement || document.body, {
     childList: true,
     subtree: true,
   });
+
+  // IntersectionObserver for lazy-loaded file inputs
+  if ('IntersectionObserver' in window) {
+    var lazyObserver = new IntersectionObserver(function (entries) {
+      for (var i = 0; i < entries.length; i++) {
+        if (entries[i].isIntersecting) {
+          var el = entries[i].target;
+          if (el instanceof HTMLInputElement && el.type === 'file') {
+            checkElement(el);
+          }
+          lazyObserver.unobserve(el);
+        }
+      }
+    }, { rootMargin: '100px' });
+
+    // Observe existing and future file inputs
+    var existingInputs = document.querySelectorAll('input[type="file"]');
+    for (var j = 0; j < existingInputs.length; j++) {
+      lazyObserver.observe(existingInputs[j]);
+    }
+
+    // Also observe for new file inputs via MutationObserver
+    var inputObserver = new MutationObserver(function (mutations) {
+      for (var m = 0; m < mutations.length; m++) {
+        var addedNodes = mutations[m].addedNodes;
+        for (var n = 0; n < addedNodes.length; n++) {
+          if (addedNodes[n].nodeType === 1) {
+            if (addedNodes[n] instanceof HTMLInputElement && addedNodes[n].type === 'file') {
+              lazyObserver.observe(addedNodes[n]);
+            }
+            var childInputs = addedNodes[n].querySelectorAll ? addedNodes[n].querySelectorAll('input[type="file"]') : [];
+            for (var c = 0; c < childInputs.length; c++) {
+              lazyObserver.observe(childInputs[c]);
+            }
+          }
+        }
+      }
+    });
+    inputObserver.observe(document.documentElement || document.body, {
+      childList: true,
+      subtree: true,
+    });
+  }
 }
 
 if (typeof globalThis !== "undefined") {

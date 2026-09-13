@@ -1,3 +1,12 @@
+/**
+ * ABLE Extension - Page Signals
+ *
+ * Collects page context signals for domain classification and
+ * DOM-based file upload detection. Uses section-aware scanning
+ * targeting semantic HTML5 elements first, then falling back
+ * to <body> for sites that skip semantic markup.
+ */
+
 function collectPageSignals() {
   try {
     var meta = {};
@@ -13,25 +22,65 @@ function collectPageSignals() {
       }
     } catch (e) {}
 
+    // OG / Twitter card meta — richer context for classification
+    try {
+      var ogTags = document.querySelectorAll("meta[property^='og:'], meta[name^='twitter:']");
+      for (var og = 0; og < ogTags.length; og++) {
+        var ogName = (ogTags[og].getAttribute("property") || ogTags[og].getAttribute("name") || "").toLowerCase();
+        var ogContent = ogTags[og].getAttribute("content") || "";
+        if (ogContent && !meta[ogName]) {
+          meta[ogName] = ogContent.slice(0, 500);
+        }
+      }
+    } catch (e) {}
+
     var headings = [];
     try {
-      var nodes = document.querySelectorAll("h1, h2");
-      for (var h = 0; h < Math.min(nodes.length, 10); h++) {
-        var text = (nodes[h].innerText || "").trim().replace(/\s+/g, " ");
-        if (text) headings.push(text.slice(0, 200));
+      // Section-aware heading scan: semantic containers first
+      var sectionSelectors = "article h1, article h2, main h1, main h2, section h1, section h2, [role=\"main\"] h1, [role=\"main\"] h2";
+      var sectionNodes = document.querySelectorAll(sectionSelectors);
+      var seen = new Set();
+      for (var s = 0; s < sectionNodes.length && headings.length < 50; s++) {
+        var text = (sectionNodes[s].innerText || "").trim().replace(/\s+/g, " ");
+        if (text && !seen.has(text)) {
+          seen.add(text);
+          headings.push(text.slice(0, 200));
+        }
+      }
+      // Fallback: scan all h1/h2 if semantic containers yielded too few
+      if (headings.length < 10) {
+        var nodes = document.querySelectorAll("h1, h2");
+        for (var h = 0; h < Math.min(nodes.length, 50); h++) {
+          var text = (nodes[h].innerText || "").trim().replace(/\s+/g, " ");
+          if (text && !seen.has(text)) {
+            seen.add(text);
+            headings.push(text.slice(0, 200));
+          }
+        }
       }
     } catch (e) {}
 
     var excerpt = "";
     try {
-      var bodyText = (document.body ? document.body.innerText : "") || "";
+      // Section-aware excerpt: prioritize semantic containers
+      var bodyText = "";
+      var semanticContainers = document.querySelectorAll("article, main, section[role=\"main\"]");
+      if (semanticContainers.length > 0) {
+        for (var c = 0; c < Math.min(semanticContainers.length, 3); c++) {
+          var containerText = (semanticContainers[c].innerText || "").trim();
+          if (containerText) bodyText += " " + containerText;
+        }
+      }
+      if (!bodyText.trim()) {
+        bodyText = (document.body ? document.body.innerText : "") || "";
+      }
       excerpt = bodyText.replace(/\s+/g, " ").trim().slice(0, 3000);
     } catch (e) {}
 
     var ldJson = [];
     try {
       var scripts = document.querySelectorAll('script[type="application/ld+json"]');
-      for (var s = 0; s < Math.min(scripts.length, 3); s++) {
+      for (var s = 0; s < Math.min(scripts.length, 10); s++) {
         ldJson.push((scripts[s].textContent || "").slice(0, 2000));
       }
     } catch (e) {}
@@ -70,10 +119,13 @@ function collectPageSignals() {
       var ext = 0;
       var host = "";
       try { host = new URL(window.location.href).hostname.toLowerCase(); } catch (e2) {}
-      var total = Math.min(linkNodes.length, 200);
+      var total = Math.min(linkNodes.length, 500);
       for (var a = 0; a < total; a++) {
-        var anchorText = (linkNodes[a].innerText || "").trim().replace(/\s+/g, " ").slice(0, 40).toLowerCase();
-        if (anchorText) counts[anchorText] = (counts[anchorText] || 0) + 1;
+        var anchorText = (linkNodes[a].innerText || "").trim().replace(/\s+/g, " ").slice(0, 120).toLowerCase();
+        var titleAttr = (linkNodes[a].getAttribute("title") || "").trim().toLowerCase();
+        var ariaLabel = (linkNodes[a].getAttribute("aria-label") || "").trim().toLowerCase();
+        var combinedText = (anchorText + " " + titleAttr + " " + ariaLabel).trim();
+        if (combinedText) counts[combinedText] = (counts[combinedText] || 0) + 1;
         try {
           var hrefHost = new URL(linkNodes[a].href, window.location.href).hostname.toLowerCase();
           if (host && hrefHost !== host && !hrefHost.endsWith("." + host)) ext++;
@@ -85,6 +137,16 @@ function collectPageSignals() {
         extRatio: total > 0 ? Math.round((ext / total) * 100) / 100 : 0,
         topText: sorted.map(function (t) { return { text: t, count: counts[t] }; }),
       };
+    } catch (e) {}
+
+    // Image alt-text extraction — modern sites embed sensitive info in images
+    var imageAltText = [];
+    try {
+      var imgNodes = document.querySelectorAll("img[alt]");
+      for (var img = 0; img < Math.min(imgNodes.length, 50); img++) {
+        var alt = (imgNodes[img].getAttribute("alt") || "").trim().replace(/\s+/g, " ");
+        if (alt) imageAltText.push(alt.slice(0, 200));
+      }
     } catch (e) {}
 
     var forms = { hasPassword: false, hasFileInput: false, actionMismatch: false };
@@ -116,6 +178,19 @@ function collectPageSignals() {
       if (iconEl) favicon = (iconEl.getAttribute("href") || "").slice(0, 500);
     } catch (e) {}
 
+    // DOM depth heuristic — signal for SPA-rendered vs static content
+    var domDepth = 0;
+    try {
+      function maxDepth(node, depth) {
+        if (depth > domDepth) domDepth = depth;
+        var children = node.children;
+        for (var i = 0; i < children.length; i++) {
+          maxDepth(children[i], depth + 1);
+        }
+      }
+      maxDepth(document.documentElement || document.body, 1);
+    } catch (e) {}
+
     return {
       url: window.location.href,
       title: (document.title || "").slice(0, 200),
@@ -129,9 +204,11 @@ function collectPageSignals() {
       forms: forms,
       lang: lang,
       favicon: favicon,
+      imageAltText: imageAltText,
+      domDepth: domDepth,
     };
   } catch (e) {
-    return { url: window.location.href, title: "", meta: {}, headings: [], excerpt: "" };
+    return { url: window.location.href, title: "", meta: {}, headings: [], excerpt: "", imageAltText: [], domDepth: 0 };
   }
 }
 

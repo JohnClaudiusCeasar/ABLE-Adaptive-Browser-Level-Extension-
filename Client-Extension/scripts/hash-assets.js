@@ -13,7 +13,7 @@ const fs = require("fs");
 const path = require("path");
 
 const targets = [
-  { file: "inject.js", key: "EXPECTED_INJECT_HASH" },
+  { file: "inject/inject.js", key: "EXPECTED_INJECT_HASH" },
   { file: "content.css", key: "EXPECTED_CONTENT_CSS_HASH" },
 ];
 

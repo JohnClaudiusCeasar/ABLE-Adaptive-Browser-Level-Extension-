@@ -5,15 +5,15 @@
  * Includes queueing for offline/retry scenarios.
  */
 
-const PENDING_VISITS_KEY = "able:pending_visits";
-const PENDING_EGRESS_KEY = "able:pending_egress";
+var PENDING_VISITS_KEY = "able:pending_visits";
+var PENDING_EGRESS_KEY = "able:pending_egress";
 
 async function getOrCreateUserId() {
-  const USER_ID_KEY = 'able:user_id';
+  var USER_ID_KEY = 'able:user_id';
 
   try {
-    const result = await chrome.storage.local.get(USER_ID_KEY);
-    const stored = result[USER_ID_KEY];
+    var result = await chrome.storage.local.get(USER_ID_KEY);
+    var stored = result[USER_ID_KEY];
     if (stored && ABLESecurity.isValidUserId(stored)) {
       return stored;
     }
@@ -24,7 +24,7 @@ async function getOrCreateUserId() {
     console.warn('Failed to retrieve user ID:', error);
   }
 
-  const userId = await ABLESecurity.generateSecureUserId();
+  var userId = await ABLESecurity.generateSecureUserId();
 
   try {
     await chrome.storage.local.set({ [USER_ID_KEY]: userId });
@@ -35,9 +35,10 @@ async function getOrCreateUserId() {
   return userId;
 }
 
-async function logExtensionLifecycle({ userId, extensionId, event, version }) {
+async function logExtensionLifecycle(args) {
   try {
-    const response = await ABLESecurity.secureFetch(`${SERVER_URL}/api/extension/lifecycle`, {
+    var userId = args.userId, extensionId = args.extensionId, event = args.event, version = args.version;
+    var response = await ABLESecurity.secureFetch(`${SERVER_URL}/api/extension/lifecycle`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Accept": "application/json" },
       body: JSON.stringify({
@@ -58,12 +59,12 @@ async function logExtensionLifecycle({ userId, extensionId, event, version }) {
 
 async function queueVisitLog(domain, status, source, userId, visitedAt) {
   try {
-    const result = await chrome.storage.local.get(PENDING_VISITS_KEY);
-    const queue = result[PENDING_VISITS_KEY] || [];
+    var result = await chrome.storage.local.get(PENDING_VISITS_KEY);
+    var queue = result[PENDING_VISITS_KEY] || [];
     queue.push({
-      domain,
-      status,
-      source,
+      domain: domain,
+      status: status,
+      source: source,
       user_id: userId,
       visited_at: visitedAt,
       enqueued_at: Date.now(),
@@ -78,15 +79,16 @@ async function processVisitLogQueue() {
   try {
     if (await ABLERateLimiter.isEndpointCoolingDown("log-visit")) return;
 
-    const result = await chrome.storage.local.get(PENDING_VISITS_KEY);
-    const queue = result[PENDING_VISITS_KEY] || [];
+    var result = await chrome.storage.local.get(PENDING_VISITS_KEY);
+    var queue = result[PENDING_VISITS_KEY] || [];
     if (queue.length === 0) return;
 
-    const remaining = [];
+    var remaining = [];
 
-    for (const entry of queue) {
+    for (var i = 0; i < queue.length; i++) {
+      var entry = queue[i];
       try {
-        const response = await ABLESecurity.secureFetch(
+        var response = await ABLESecurity.secureFetch(
           `${SERVER_URL}/api/log-visit`,
           {
             method: "POST",
@@ -128,13 +130,13 @@ async function logDomainVisit(domain, status, source, timestamp) {
 
   if (await ABLERateLimiter.isEndpointCoolingDown("log-visit")) return null;
 
-  const userId = await getOrCreateUserId();
+  var userId = await getOrCreateUserId();
 
   try {
-    const response = await ABLESecurity.secureFetch(`${SERVER_URL}/api/log-visit`, {
+    var response = await ABLESecurity.secureFetch(`${SERVER_URL}/api/log-visit`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify({ domain, status, source, user_id: userId, visited_at: timestamp }),
+      body: JSON.stringify({ domain: domain, status: status, source: source, user_id: userId, visited_at: timestamp }),
     });
 
     if (response.status === 429) {
@@ -149,7 +151,7 @@ async function logDomainVisit(domain, status, source, timestamp) {
       return null;
     }
 
-    const data = await response.json();
+    var data = await response.json();
     return data.visit_count ?? null;
   } catch (error) {
     await queueVisitLog(domain, status, source, userId, timestamp);
@@ -159,8 +161,8 @@ async function logDomainVisit(domain, status, source, timestamp) {
 
 async function queueEgressEvent(event) {
   try {
-    const result = await chrome.storage.local.get(PENDING_EGRESS_KEY);
-    const queue = result[PENDING_EGRESS_KEY] || [];
+    var result = await chrome.storage.local.get(PENDING_EGRESS_KEY);
+    var queue = result[PENDING_EGRESS_KEY] || [];
     queue.push({
       ...event,
       enqueued_at: Date.now(),
@@ -175,15 +177,16 @@ async function processEgressLogQueue() {
   try {
     if (await ABLERateLimiter.isEndpointCoolingDown("log-egress")) return;
 
-    const result = await chrome.storage.local.get(PENDING_EGRESS_KEY);
-    const queue = result[PENDING_EGRESS_KEY] || [];
+    var result = await chrome.storage.local.get(PENDING_EGRESS_KEY);
+    var queue = result[PENDING_EGRESS_KEY] || [];
     if (queue.length === 0) return;
 
-    const remaining = [];
+    var remaining = [];
 
-    for (const entry of queue) {
+    for (var i = 0; i < queue.length; i++) {
+      var entry = queue[i];
       try {
-        const response = await ABLESecurity.secureFetch(
+        var response = await ABLESecurity.secureFetch(
           `${SERVER_URL}/api/log-egress`,
           {
             method: "POST",
@@ -224,18 +227,20 @@ async function processEgressLogQueue() {
   }
 }
 
-async function logEgressEvent({ domain, fileName, fileSize, riskScore, action, userAction, timestamp, source, contentHash, scanDurationMs, contentSize, flaggedItems }) {
+async function logEgressEvent(args) {
+  var domain = args.domain, fileName = args.fileName, fileSize = args.fileSize, riskScore = args.riskScore, action = args.action, userAction = args.userAction, timestamp = args.timestamp, source = args.source, contentHash = args.contentHash, scanDurationMs = args.scanDurationMs, contentSize = args.contentSize, flaggedItems = args.flaggedItems;
+
   await processEgressLogQueue();
 
-  const userId = await getOrCreateUserId();
+  var userId = await getOrCreateUserId();
 
-  const payload = {
-    domain,
+  var payload = {
+    domain: domain,
     user_id: userId,
     file_name: fileName,
     file_size: fileSize,
     risk_score: riskScore,
-    action,
+    action: action,
     user_action: userAction,
     occurred_at: timestamp,
     source: source || 'unknown',
@@ -255,7 +260,7 @@ async function logEgressEvent({ domain, fileName, fileSize, riskScore, action, u
   }
 
   try {
-    const response = await ABLESecurity.secureFetch(`${SERVER_URL}/api/log-egress`, {
+    var response = await ABLESecurity.secureFetch(`${SERVER_URL}/api/log-egress`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Accept": "application/json" },
       body: JSON.stringify(payload),
@@ -282,13 +287,13 @@ async function logEgressEvent({ domain, fileName, fileSize, riskScore, action, u
 
 if (typeof globalThis !== "undefined") {
   globalThis.ABLELogging = {
-    getOrCreateUserId,
-    logExtensionLifecycle,
-    logDomainVisit,
-    queueVisitLog,
-    processVisitLogQueue,
-    logEgressEvent,
-    queueEgressEvent,
-    processEgressLogQueue,
+    getOrCreateUserId: getOrCreateUserId,
+    logExtensionLifecycle: logExtensionLifecycle,
+    logDomainVisit: logDomainVisit,
+    queueVisitLog: queueVisitLog,
+    processVisitLogQueue: processVisitLogQueue,
+    logEgressEvent: logEgressEvent,
+    queueEgressEvent: queueEgressEvent,
+    processEgressLogQueue: processEgressLogQueue,
   };
 }

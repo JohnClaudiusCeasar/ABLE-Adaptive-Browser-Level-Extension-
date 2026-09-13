@@ -9,38 +9,33 @@ self.importScripts(
   "api/index.js"
 );
 
-const RISK_PATTERNS_ALARM = "risk-patterns-sync";
-const VISIT_LOG_ALARM = "visit-log-flush";
-const EGRESS_LOG_ALARM = "egress-log-flush";
-const SETTINGS_ALARM = "settings-sync";
+var RISK_PATTERNS_ALARM = "risk-patterns-sync";
+var VISIT_LOG_ALARM = "visit-log-flush";
+var EGRESS_LOG_ALARM = "egress-log-flush";
+var SETTINGS_ALARM = "settings-sync";
 
-chrome.runtime.onInstalled.addListener(async (details) => {
-  // Load runtime settings before any other work so sync intervals are current.
+chrome.runtime.onInstalled.addListener(async function (details) {
   await ABLERuntimeSettings.initialize();
 
-  // Sync risk patterns when extension is installed or updated
   await refreshRiskPatternsCache();
 
-  // Set up periodic sync every 24 hours
-  const riskInterval = ABLERuntimeSettings.get("sync.risk_patterns_interval_minutes", 1440);
-  const visitInterval = ABLERuntimeSettings.get("sync.visit_log_flush_interval_minutes", 5);
-  const egressInterval = ABLERuntimeSettings.get("sync.egress_log_flush_interval_minutes", 5);
+  var riskInterval = ABLERuntimeSettings.get("sync.risk_patterns_interval_minutes", 1440);
+  var visitInterval = ABLERuntimeSettings.get("sync.visit_log_flush_interval_minutes", 5);
+  var egressInterval = ABLERuntimeSettings.get("sync.egress_log_flush_interval_minutes", 5);
   chrome.alarms.create(RISK_PATTERNS_ALARM, { periodInMinutes: riskInterval });
   chrome.alarms.create(VISIT_LOG_ALARM, { periodInMinutes: visitInterval });
   chrome.alarms.create(EGRESS_LOG_ALARM, { periodInMinutes: egressInterval });
   chrome.alarms.create(SETTINGS_ALARM, { periodInMinutes: 30 });
 
-  // Set up uninstall URL for lifecycle tracking
   try {
-    const userId = await getOrCreateUserId();
-    const extensionId = chrome.runtime.id;
+    var userId = await getOrCreateUserId();
+    var extensionId = chrome.runtime.id;
     chrome.runtime.setUninstallURL(
       `${SERVER_URL}/api/extension/uninstall?user_id=${encodeURIComponent(userId)}&extension_id=${encodeURIComponent(extensionId)}`
     );
 
-    // Log install/update events
-    const event = details.reason === 'install' ? 'installed' : 'updated';
-    const manifest = chrome.runtime.getManifest();
+    var event = details.reason === 'install' ? 'installed' : 'updated';
+    var manifest = chrome.runtime.getManifest();
     logExtensionLifecycle({
       userId: userId,
       extensionId: extensionId,
@@ -52,7 +47,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   }
 });
 
-chrome.alarms.onAlarm.addListener(async (alarm) => {
+chrome.alarms.onAlarm.addListener(async function (alarm) {
   if (alarm.name === RISK_PATTERNS_ALARM) {
     await refreshRiskPatternsCache();
   } else if (alarm.name === VISIT_LOG_ALARM) {
@@ -64,7 +59,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   }
 });
 
-chrome.runtime.onStartup.addListener(() => {
+chrome.runtime.onStartup.addListener(function () {
   ABLERuntimeSettings.initialize();
   processVisitLogQueue();
   processEgressLogQueue();
@@ -72,9 +67,9 @@ chrome.runtime.onStartup.addListener(() => {
 
 function isExcludedHostname(hostname) {
   try {
-    const domain = hostname.toLowerCase().replace(/^www\./, "");
-    const excluded = ABLERuntimeSettings.get("excluded_domains", EXCLUDED_DOMAINS);
-    return excluded.some((e) => domain === e || domain.endsWith("." + e));
+    var domain = hostname.toLowerCase().replace(/^www\./, "");
+    var excluded = ABLERuntimeSettings.get("excluded_domains", EXCLUDED_DOMAINS);
+    return excluded.some(function (e) { return domain === e || domain.endsWith("." + e); });
   } catch {
     return false;
   }
@@ -82,22 +77,22 @@ function isExcludedHostname(hostname) {
 
 async function auditNavigation(url, transitionType) {
   try {
-    const urlObj = new URL(url);
+    var urlObj = new URL(url);
     if (urlObj.protocol !== "http:" && urlObj.protocol !== "https:") return;
     if (isExcludedHostname(urlObj.hostname)) return;
 
-    const domain = urlObj.hostname.toLowerCase().replace(/^www\./, "");
-    const debounceKey = `able:last_visit:${domain}`;
-    const debounceMs = ABLERuntimeSettings.get("logging.visit_debounce_ms", 5000);
+    var domain = urlObj.hostname.toLowerCase().replace(/^www\./, "");
+    var debounceKey = "able:last_visit:" + domain;
+    var debounceMs = ABLERuntimeSettings.get("logging.visit_debounce_ms", 5000);
     try {
-      const stored = await chrome.storage.session.get(debounceKey);
+      var stored = await chrome.storage.session.get(debounceKey);
       if (stored[debounceKey] && Date.now() - stored[debounceKey] < debounceMs) return;
       await chrome.storage.session.set({ [debounceKey]: Date.now() });
     } catch {}
 
-    const classification = await getDomainClassification(url);
-    const status = classification ? classification.status : "unlisted";
-    const source = "navigation" + (transitionType ? `:${transitionType}` : "");
+    var classification = await getDomainClassification(url);
+    var status = classification ? classification.status : "unlisted";
+    var source = "navigation" + (transitionType ? ":" + transitionType : "");
     await logDomainVisit(domain, status, source, Date.now());
   } catch (error) {
     console.warn("ABLE: Navigation audit failed:", error);
@@ -105,19 +100,18 @@ async function auditNavigation(url, transitionType) {
 }
 
 if (typeof chrome !== "undefined" && chrome.webNavigation) {
-  chrome.webNavigation.onCommitted.addListener((details) => {
+  chrome.webNavigation.onCommitted.addListener(function (details) {
     if (details.frameId !== 0) return;
     auditNavigation(details.url, details.transitionType);
   });
 
-  chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
+  chrome.webNavigation.onHistoryStateUpdated.addListener(function (details) {
     if (details.frameId !== 0) return;
     auditNavigation(details.url, details.transitionType || "spa");
   });
 }
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  // SECURITY: Reject messages from any sender that isn't this extension.
+chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
   if (sender.id !== chrome.runtime.id) {
     return false;
   }
@@ -128,33 +122,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   if (message.type === "logVisit") {
     logDomainVisit(message.domain, message.status, message.source, message.timestamp)
-      .then((visitCount) => sendResponse({ success: true, visit_count: visitCount }))
-      .catch(() => sendResponse({ success: false, visit_count: null }));
+      .then(function (visitCount) { sendResponse({ success: true, visit_count: visitCount }); })
+      .catch(function () { sendResponse({ success: false, visit_count: null }); });
     return true;
   }
   if (message.type === "getRiskPatterns") {
-    console.debug("ABLE: Background received getRiskPatterns request");
     getRiskPatterns()
-      .then((patterns) => {
-        console.debug(`ABLE: Background returning ${patterns.length} risk patterns`);
-        sendResponse({ success: true, patterns });
-      })
-      .catch((err) => {
-        console.warn("ABLE: Background getRiskPatterns failed:", err);
-        sendResponse({ success: false, patterns: [] });
-      });
+      .then(function (patterns) { sendResponse({ success: true, patterns: patterns }); })
+      .catch(function (err) { sendResponse({ success: false, patterns: [] }); });
     return true;
   }
   if (message.type === "logEgress") {
     logEgressEvent(message.payload)
-      .then(() => sendResponse({ success: true }))
-      .catch(() => sendResponse({ success: false }));
+      .then(function () { sendResponse({ success: true }); })
+      .catch(function () { sendResponse({ success: false }); });
     return true;
   }
   if (message.type === "verifyIntegrity") {
     ABLESecurity.verifyResourceIntegrity(message.url, message.hash)
-      .then((ok) => sendResponse({ success: true, ok }))
-      .catch(() => sendResponse({ success: true, ok: false }));
+      .then(function (ok) { sendResponse({ success: true, ok: ok }); })
+      .catch(function () { sendResponse({ success: true, ok: false }); });
+    return true;
+  }
+  if (message.type === "flushEgressQueue") {
+    processEgressLogQueue().then(function () {
+      sendResponse({ success: true });
+    }).catch(function () {
+      sendResponse({ success: false });
+    });
     return true;
   }
   return false;
@@ -162,11 +157,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 async function handleClassifyDomain(url, sendResponse, signals) {
   try {
-    // Try server classification first (includes offline cache fallback)
-    const serverResult = await getDomainClassification(url, signals);
+    var serverResult = await getDomainClassification(url, signals);
 
     if (serverResult) {
-      const messages = getStatusMessage(serverResult.status, serverResult.domain, serverResult.category, []);
+      var messages = getStatusMessage(serverResult.status, serverResult.domain, serverResult.category, []);
       sendResponse({
         status: serverResult.status,
         domain: serverResult.domain,
@@ -179,11 +173,10 @@ async function handleClassifyDomain(url, sendResponse, signals) {
         message: messages.message,
       });
     } else {
-      // No classification available from server or cache — return default unlisted
-      const urlObj = new URL(url);
-      const domain = urlObj.hostname.replace(/^www\./, "");
-      const defaultResult = getDefaultClassification(domain);
-      const messages = getStatusMessage(defaultResult.status, defaultResult.domain, defaultResult.category, defaultResult.alternatives);
+      var urlObj = new URL(url);
+      var domain = urlObj.hostname.replace(/^www\./, "");
+      var defaultResult = getDefaultClassification(domain);
+      var messages = getStatusMessage(defaultResult.status, defaultResult.domain, defaultResult.category, defaultResult.alternatives);
       sendResponse({
         ...defaultResult,
         title: messages.title,
@@ -193,49 +186,44 @@ async function handleClassifyDomain(url, sendResponse, signals) {
     }
   } catch (error) {
     console.error("Error classifying domain:", error);
-    // Error fallback — return default unlisted
     try {
-      const urlObj = new URL(url);
-      const domain = urlObj.hostname.replace(/^www\./, "");
-      const defaultResult = getDefaultClassification(domain);
-      const messages = getStatusMessage(defaultResult.status, defaultResult.domain, defaultResult.category, defaultResult.alternatives);
+      var urlObj2 = new URL(url);
+      var domain2 = urlObj2.hostname.replace(/^www\./, "");
+      var defaultResult2 = getDefaultClassification(domain2);
+      var messages2 = getStatusMessage(defaultResult2.status, defaultResult2.domain, defaultResult2.category, defaultResult2.alternatives);
       sendResponse({
-        ...defaultResult,
-        title: messages.title,
-        message: messages.message,
+        ...defaultResult2,
+        title: messages2.title,
+        message: messages2.message,
         source: "error",
       });
     } catch {
-      const messages = getStatusMessage("unlisted", "unknown", null, []);
+      var messages3 = getStatusMessage("unlisted", "unknown", null, []);
       sendResponse({
         status: "unlisted",
         domain: "unknown",
         category: null,
         alternatives: [],
         policy: "under_review",
-        risk_score: 0,
-        title: messages.title,
-        message: messages.message,
+        risk_score: 70,
+        title: messages3.title,
+        message: messages3.message,
         source: "error",
       });
     }
   }
 }
 
-/**
- * Classify a domain using the offline cache stored in chrome.storage.local.
- */
 async function classifyFromOfflineCache(url) {
   try {
-    const urlObj = new URL(url);
-    const hostname = urlObj.hostname.toLowerCase();
-    const domain = hostname.replace(/^www\./, "");
+    var urlObj = new URL(url);
+    var hostname = urlObj.hostname.toLowerCase();
+    var domain = hostname.replace(/^www\./, "");
 
-    const { policies } = await getOfflineCache();
+    var _a = await getOfflineCache(), policies = _a.policies;
     if (policies.length === 0) return null;
 
-    // Exact match
-    const exactMatch = policies.find(p => p.domain === domain);
+    var exactMatch = policies.find(function (p) { return p.domain === domain; });
     if (exactMatch) {
       return {
         status: exactMatch.domain_status,
@@ -246,8 +234,7 @@ async function classifyFromOfflineCache(url) {
       };
     }
 
-    // Subdomain match (e.g., docs.google.com matches google.com)
-    const subdomainMatch = policies.find(p => domain.endsWith("." + p.domain));
+    var subdomainMatch = policies.find(function (p) { return domain.endsWith("." + p.domain); });
     if (subdomainMatch) {
       return {
         status: subdomainMatch.domain_status,

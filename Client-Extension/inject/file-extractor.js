@@ -2,7 +2,22 @@
  * ABLE Extension - File Extractor
  *
  * Extracts files from various request body formats.
+ * Includes Content-Disposition filename parsing and
+ * ReadableStream buffered peek for modern upload detection.
  */
+
+function parseContentDisposition(header) {
+  if (!header) return null;
+  // Try to extract filename from Content-Disposition header
+  // Handles: attachment; filename="file.pdf", attachment; filename*=UTF-8''file.pdf
+  var match = header.match(/filename\s*=\s*"([^"]*)"/i);
+  if (match) return match[1];
+  match = header.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
+  if (match) return decodeURIComponent(match[1]);
+  match = header.match(/filename\s*=\s*([^;\s]+)/i);
+  if (match) return match[1];
+  return null;
+}
 
 function computeBodyHashSync(body) {
   try {
@@ -26,7 +41,53 @@ function computeBodyHashSync(body) {
   }
 }
 
-function extractFiles(body) {
+async function peekReadableStream(stream, maxBytes) {
+  if (!(stream instanceof ReadableStream)) return null;
+  try {
+    var reader = stream.getReader();
+    var chunks = [];
+    var totalRead = 0;
+    while (totalRead < maxBytes) {
+      var result = await reader.read();
+      if (result.done) break;
+      chunks.push(result.value);
+      totalRead += result.value.length;
+    }
+    // Reconstruct the stream by prepending the read chunks
+    var combined = new Uint8Array(totalRead);
+    var offset = 0;
+    for (var i = 0; i < chunks.length; i++) {
+      combined.set(chunks[i], offset);
+      offset += chunks[i].length;
+    }
+    var newStream = new ReadableStream({
+      start(controller) {
+        for (var j = 0; j < chunks.length; j++) {
+          controller.enqueue(chunks[j]);
+        }
+        reader.releaseLock();
+        // Pump remaining chunks from original stream
+        (async function pump() {
+          try {
+            while (true) {
+              var r = await reader.read();
+              if (r.done) break;
+              controller.enqueue(r.value);
+            }
+            controller.close();
+          } catch (e) {
+            controller.error(e);
+          }
+        })();
+      }
+    });
+    return { buffer: combined.buffer, stream: newStream, bytesRead: totalRead };
+  } catch (e) {
+    return null;
+  }
+}
+
+async function extractFiles(body) {
   if (body instanceof File) return [{ file: body, source: 'file', contentSize: body.size }];
   if (body instanceof Blob) {
     var blobName = window.__ableMatchFilename ? window.__ableMatchFilename(body.size, null) : null;
@@ -66,6 +127,17 @@ function extractFiles(body) {
     }];
   }
   if (body instanceof ReadableStream) {
+    var peeked = await peekReadableStream(body, 512);
+    if (peeked) {
+      var detectedType = detectFileTypeFromMagicBytes(new File([peeked.buffer], 'peek', { type: 'application/octet-stream' }));
+      console.debug("ABLE: ReadableStream peek detected type:", detectedType, "bytes:", peeked.bytesRead);
+      // Return the reconstructed stream so the original fetch continues
+      return [{
+        file: new File([peeked.buffer], window.__ableMatchFilename ? window.__ableMatchFilename(peeked.bytesRead, null) || 'stream-upload' : 'stream-upload', { type: 'application/octet-stream' }),
+        source: 'readablestream',
+        contentSize: peeked.bytesRead
+      }];
+    }
     return [];
   }
   if (body instanceof URLSearchParams) {
@@ -111,5 +183,6 @@ if (typeof globalThis !== "undefined") {
     filesMatch,
     clearFileInputs,
     computeBodyHashSync,
+    parseContentDisposition,
   };
 }

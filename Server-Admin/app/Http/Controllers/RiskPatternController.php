@@ -32,6 +32,7 @@ class RiskPatternController extends Controller
             return Inertia::render('risk-algorithm/criteria', [
                 'riskPatterns' => $criteriaPatterns,
                 'existingPatterns' => $riskPatterns->values(),
+                'egressStats' => $this->buildEgressStats(),
             ]);
         }
 
@@ -39,13 +40,12 @@ class RiskPatternController extends Controller
             'riskPatterns' => $singlePatterns,
             'criteriaPatterns' => $criteriaPatterns,
             'flagCounts' => $this->buildFlagCounts(),
+            'egressStats' => $this->buildEgressStats(),
         ]);
     }
 
     /**
-     * Tally how many egress events flagged each pattern. The extension
-     * reports flagged items as {label, count, weight} entries per event;
-     * each event containing the label counts as one flag occurrence.
+     * Tally how many egress events flagged each pattern.
      *
      * @return array<string, int>
      */
@@ -67,6 +67,54 @@ class RiskPatternController extends Controller
             });
 
         return $flagCounts;
+    }
+
+    /**
+     * Build egress statistics for the risk algorithm page audit panel.
+     *
+     * @return array<string, mixed>
+     */
+    private function buildEgressStats(): array
+    {
+        $since = now()->subHours(24);
+
+        $totalEvents = EgressEvent::where('occurred_at', '>=', $since)->count();
+
+        $bucketLow = EgressEvent::where('occurred_at', '>=', $since)->where('risk_score', '<', 41)->count();
+        $bucketMedium = EgressEvent::where('occurred_at', '>=', $since)->whereBetween('risk_score', [41, 75])->count();
+        $bucketHigh = EgressEvent::where('occurred_at', '>=', $since)->where('risk_score', '>=', 76)->count();
+
+        $byAction = EgressEvent::where('occurred_at', '>=', $since)
+            ->selectRaw('action, COUNT(*) as count')
+            ->groupBy('action')
+            ->pluck('count', 'action');
+
+        $topFlagged = EgressEvent::whereNotNull('flagged_items')
+            ->where('occurred_at', '>=', $since)
+            ->get(['flagged_items'])
+            ->flatMap(function ($event) {
+                return (array) $event->flagged_items;
+            })
+            ->groupBy('label')
+            ->map(function ($items) {
+                return count($items);
+            })
+            ->sortDesc()
+            ->take(10)
+            ->toArray();
+
+        return [
+            'totalEvents24h' => $totalEvents,
+            'bucketLow' => $bucketLow,
+            'bucketMedium' => $bucketMedium,
+            'bucketHigh' => $bucketHigh,
+            'byAction' => [
+                'proceeded' => $byAction->get('proceeded', 0),
+                'denied' => $byAction->get('denied', 0),
+                'allowed' => $byAction->get('allowed', 0),
+            ],
+            'topFlagged' => $topFlagged,
+        ];
     }
 
     /**
@@ -97,8 +145,6 @@ class RiskPatternController extends Controller
             'priority' => 'required|in:low,medium,high',
             'criteria_pattern_items' => 'required_if:type,criteria|nullable|array|min:1',
             'criteria_pattern_items.*.title' => 'required|string|max:255',
-            // Nullable: wrapper items imported from criteria patterns group
-            // sub-items instead of matching on their own regex.
             'criteria_pattern_items.*.regex' => ['nullable', 'string', 'max:1000', new CompilableRegex],
             'criteria_pattern_items.*.operator' => 'nullable|in:and,or',
             'criteria_pattern_items.*.score' => 'required|integer|min:0|max:100',
@@ -111,7 +157,6 @@ class RiskPatternController extends Controller
             'criteria_pattern_items.*.sub_items.*.risk_weight' => 'required|in:low,medium,high',
         ]);
 
-        // Create the risk pattern
         $riskPattern = RiskPattern::create([
             'title' => $validated['title'],
             'type' => $validated['type'],
@@ -120,7 +165,6 @@ class RiskPatternController extends Controller
             'priority' => $validated['priority'],
         ]);
 
-        // Create criteria pattern items if type is criteria
         if ($validated['type'] === 'criteria' && isset($validated['criteria_pattern_items'])) {
             $this->createCriteriaItems($riskPattern->id, $validated['criteria_pattern_items']);
             $this->syncAutoCreatedSingles($riskPattern->id, $validated['criteria_pattern_items']);
@@ -129,11 +173,6 @@ class RiskPatternController extends Controller
         return Redirect::back()->with('success', 'Risk pattern created successfully.');
     }
 
-    /**
-     * Create criteria items recursively.
-     *
-     * @param  array<int, array<string, mixed>>  $items
-     */
     private function createCriteriaItems(int $patternId, array $items, ?int $parentId = null): void
     {
         foreach ($items as $item) {
@@ -147,27 +186,15 @@ class RiskPatternController extends Controller
                 'risk_weight' => $item['risk_weight'] ?? 'medium',
             ]);
 
-            // Create sub-items if they exist
             if (isset($item['sub_items']) && is_array($item['sub_items'])) {
                 $this->createCriteriaItems($patternId, $item['sub_items'], $criteriaItem->id);
             }
         }
     }
 
-    /**
-     * Create single-pattern rows for each criteria item and sub-item,
-     * linked to the parent criteria via parent_criteria_id. Auto-created
-     * singles inherit the item's risk_weight so items with higher weights
-     * are scanned first.
-     *
-     * @param  array<int, array<string, mixed>>  $items
-     */
     private function syncAutoCreatedSingles(int $criteriaId, array $items): void
     {
         foreach ($items as $item) {
-            // Wrapper items imported from criteria patterns carry no regex —
-            // they group sub-items rather than match on their own, so no
-            // single pattern is recorded for them.
             if (($item['regex'] ?? '') !== '') {
                 RiskPattern::create([
                     'title' => $item['title'],
@@ -185,9 +212,6 @@ class RiskPatternController extends Controller
         }
     }
 
-    /**
-     * Update the specified risk pattern.
-     */
     public function update(Request $request, RiskPattern $riskPattern): RedirectResponse
     {
         $validated = $request->validate([
@@ -198,8 +222,6 @@ class RiskPatternController extends Controller
             'priority' => 'required|in:low,medium,high',
             'criteria_pattern_items' => 'required_if:type,criteria|nullable|array|min:1',
             'criteria_pattern_items.*.title' => 'required|string|max:255',
-            // Nullable: wrapper items imported from criteria patterns group
-            // sub-items instead of matching on their own regex.
             'criteria_pattern_items.*.regex' => ['nullable', 'string', 'max:1000', new CompilableRegex],
             'criteria_pattern_items.*.operator' => 'nullable|in:and,or',
             'criteria_pattern_items.*.score' => 'required|integer|min:0|max:100',
@@ -212,7 +234,6 @@ class RiskPatternController extends Controller
             'criteria_pattern_items.*.sub_items.*.risk_weight' => 'required|in:low,medium,high',
         ]);
 
-        // Update the risk pattern
         $riskPattern->update([
             'title' => $validated['title'],
             'type' => $validated['type'],
@@ -221,15 +242,9 @@ class RiskPatternController extends Controller
             'priority' => $validated['priority'],
         ]);
 
-        // Update criteria pattern items if type is criteria
         if ($validated['type'] === 'criteria' && isset($validated['criteria_pattern_items'])) {
-            // Delete existing items (cascade will handle sub-items)
             CriteriaPatternItem::where('criteria_pattern_id', $riskPattern->id)->delete();
-
-            // Create new items
             $this->createCriteriaItems($riskPattern->id, $validated['criteria_pattern_items']);
-
-            // Delete old auto-created singles for this criteria, then recreate
             RiskPattern::where('parent_criteria_id', $riskPattern->id)->delete();
             $this->syncAutoCreatedSingles($riskPattern->id, $validated['criteria_pattern_items']);
         }
@@ -237,22 +252,14 @@ class RiskPatternController extends Controller
         return Redirect::back()->with('success', 'Risk pattern updated successfully.');
     }
 
-    /**
-     * Remove the specified risk pattern.
-     */
     public function destroy(RiskPattern $riskPattern): RedirectResponse
     {
-        // Delete auto-created single patterns linked to this criteria
         RiskPattern::where('parent_criteria_id', $riskPattern->id)->delete();
-
         $riskPattern->delete();
 
         return Redirect::back()->with('success', 'Risk pattern deleted successfully.');
     }
 
-    /**
-     * Remove all risk patterns.
-     */
     public function destroyAll(): RedirectResponse
     {
         RiskPattern::query()->delete();
@@ -260,9 +267,6 @@ class RiskPatternController extends Controller
         return Redirect::back()->with('success', 'All risk patterns deleted successfully.');
     }
 
-    /**
-     * API endpoint: Return all risk patterns for extension.
-     */
     public function all(): JsonResponse
     {
         $patterns = RiskPattern::with('criteriaPatternItems')
@@ -275,9 +279,6 @@ class RiskPatternController extends Controller
         ]);
     }
 
-    /**
-     * API endpoint: Return all risk patterns wrapped in an HMAC-signed envelope.
-     */
     public function signed(): JsonResponse
     {
         $patterns = RiskPattern::with('criteriaPatternItems')

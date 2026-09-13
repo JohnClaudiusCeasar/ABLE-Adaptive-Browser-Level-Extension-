@@ -49,10 +49,10 @@ const TLS_PINS = {
  * Used to detect tampering with inject.js or content.css.
  *
  * TODO: Compute these at deploy time:
- *   node -e "console.log(require('crypto').createHash('sha256').update(require('fs').readFileSync('inject.js')).digest('hex'))"
+ *   npm run build
  */
-const EXPECTED_INJECT_HASH = "ca48d27768d063e8ad46bcd24966e71fc9e64cd8787815fac52f12ff8b85d5d6";
-const EXPECTED_CONTENT_CSS_HASH = "a214eb4e885669bcf0d0a7b0f7dd619531b762ea0291cc89b1a20ee4d0955542";
+const EXPECTED_INJECT_HASH = "4b223b2d28b3ea0cbf451160cca8f8103de9e0cafb8b20d9d8101e65b7de240e";
+const EXPECTED_CONTENT_CSS_HASH = "cb03f6dd8c78fed3f2c2a9c28109f55db4f3e063e583178652a5ae3c1a172d1b";
 
 /**
  * Origins the extension is allowed to make requests to.

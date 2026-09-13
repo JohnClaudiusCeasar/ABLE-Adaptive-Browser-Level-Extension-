@@ -5,7 +5,7 @@
  * This is the main entry point for content script functionality.
  */
 
-// ─── State ────────────────────────────────────────────────────────
+// ─── State ────────────────────────────────────────────────
 
 var domainStatus = null;
 var pageNonceHex = null;
@@ -31,11 +31,11 @@ function isDuplicateScan(contentHash, fileName) {
   return false;
 }
 
-// ─── Domain helpers ────────────────────────────────────────────────
+// ─── Domain helpers ────────────────────────────────────────
 
 function getWebsiteName() {
-  const hostname = window.location.hostname.replace(/^www\./, "");
-  const parts = hostname.split(".");
+  var hostname = window.location.hostname.replace(/^www\./, "");
+  var parts = hostname.split(".");
   if (parts.length >= 2) {
     return parts[0].charAt(0).toUpperCase() + parts[0].slice(1) + "." + parts.slice(1).join(".");
   }
@@ -43,18 +43,18 @@ function getWebsiteName() {
 }
 
 function buildDefaultDomainStatus() {
-  const hostname = window.location.hostname;
-  const statusLabel = "unlisted";
+  var hostname = window.location.hostname;
+  var statusLabel = "unlisted";
   return {
     status: statusLabel,
     domain: hostname,
-    title: `The site you are entering is ${statusLabel.toUpperCase()}`,
-    message: `<span class="able-highlight-text">${hostname}</span> is an <span class="able-highlight-text">${statusLabel}</span> service that has not been reviewed by our security team. Please refrain from sending sensitive institutional data from this website until it is properly reviewed.`
+    title: "The site you are entering is " + statusLabel.toUpperCase(),
+    message: "<span class=\"able-highlight-text\">" + hostname + "</span> is an <span class=\"able-highlight-text\">" + statusLabel + "</span> service that has not been reviewed by our security team. Please refrain from sending sensitive institutional data from this website until it is properly reviewed."
   };
 }
 
 async function classifyCurrentDomain() {
-  const CLASSIFY_TIMEOUT_MS = 8000;
+  var CLASSIFY_TIMEOUT_MS = 8000;
 
   try {
     if (!chrome.runtime?.id) {
@@ -63,19 +63,19 @@ async function classifyCurrentDomain() {
       return domainStatus;
     }
 
-    const signals = (typeof ABLEPageSignals !== "undefined")
+    var signals = (typeof ABLEPageSignals !== "undefined")
       ? ABLEPageSignals.collectPageSignals()
-      : { url: window.location.href, title: (document.title || "").slice(0, 200), meta: {}, headings: [], excerpt: "" };
+      : { url: window.location.href, title: (document.title || "").slice(0, 200), meta: {}, headings: [], excerpt: "", imageAltText: [], domDepth: 0 };
 
-    const result = await Promise.race([
+    var result = await Promise.race([
       chrome.runtime.sendMessage({
         type: "classifyDomain",
         url: window.location.href,
         signals: signals,
       }),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("classifyDomain timeout")), CLASSIFY_TIMEOUT_MS)
-      ),
+      new Promise(function (_, reject) {
+        setTimeout(function () { reject(new Error("classifyDomain timeout")); }, CLASSIFY_TIMEOUT_MS);
+      }),
     ]);
 
     domainStatus = result;
@@ -88,11 +88,9 @@ async function classifyCurrentDomain() {
 
 function isExcludedDomain() {
   if (!domainStatus?.domain) return false;
-  const domain = domainStatus.domain.toLowerCase();
-  const excluded = ABLERuntimeSettings.get("excluded_domains", EXCLUDED_DOMAINS);
-  return excluded.some(
-    (excludedDomain) => domain === excludedDomain || domain.endsWith("." + excludedDomain)
-  );
+  var domain = domainStatus.domain.toLowerCase();
+  var excluded = ABLERuntimeSettings.get("excluded_domains", EXCLUDED_DOMAINS);
+  return excluded.some(function (excludedDomain) { return domain === excludedDomain || domain.endsWith("." + excludedDomain); });
 }
 
 function shouldActivate() {
@@ -100,15 +98,15 @@ function shouldActivate() {
   return domainStatus && (domainStatus.status === "unsafe" || domainStatus.status === "unlisted");
 }
 
-// ─── Consent management ────────────────────────────────────────────
+// ─── Consent management ────────────────────────────────────
 
 async function hasSessionConsent() {
   if (ABLERuntimeSettings.get("behavior.session_consent_enabled", true) === false) {
     return false;
   }
   try {
-    const key = domainStatus.domain;
-    const data = await chrome.storage.session.get(key);
+    var key = domainStatus.domain;
+    var data = await chrome.storage.session.get(key);
     return !!data[key];
   } catch {
     return false;
@@ -117,15 +115,15 @@ async function hasSessionConsent() {
 
 async function setSessionConsent() {
   try {
-    const key = domainStatus.domain;
+    var key = domainStatus.domain;
     await chrome.storage.session.set({ [key]: true });
   } catch {}
 }
 
 async function hasSiteWarningConsent() {
   try {
-    const key = "able:warning:" + domainStatus.domain;
-    const data = await chrome.storage.local.get(key);
+    var key = "able:warning:" + domainStatus.domain;
+    var data = await chrome.storage.local.get(key);
     return !!data[key];
   } catch {
     return false;
@@ -134,15 +132,15 @@ async function hasSiteWarningConsent() {
 
 async function setSiteWarningConsent() {
   try {
-    const key = "able:warning:" + domainStatus.domain;
+    var key = "able:warning:" + domainStatus.domain;
     await chrome.storage.local.set({ [key]: true });
   } catch {}
 }
 
 // ─── Modal cooldown tracking ────────────────────────────────────────
 
-const COOLDOWN_SHORT_MS = 10000;
-const COOLDOWN_STAGGER_MS = 300000;
+var COOLDOWN_SHORT_MS = 10000;
+var COOLDOWN_STAGGER_MS = 300000;
 
 function getShortCooldown() {
   return ABLERuntimeSettings.get("behavior.modal_short_cooldown_ms", COOLDOWN_SHORT_MS);
@@ -154,8 +152,8 @@ function getStaggerCooldown() {
 
 async function getLastModalShownTime() {
   try {
-    const key = "able:last_modal:" + domainStatus.domain;
-    const data = await chrome.storage.local.get(key);
+    var key = "able:last_modal:" + domainStatus.domain;
+    var data = await chrome.storage.local.get(key);
     return data[key] || 0;
   } catch {
     return 0;
@@ -164,15 +162,15 @@ async function getLastModalShownTime() {
 
 async function setLastModalShownTime() {
   try {
-    const key = "able:last_modal:" + domainStatus.domain;
+    var key = "able:last_modal:" + domainStatus.domain;
     await chrome.storage.local.set({ [key]: Date.now() });
   } catch {}
 }
 
 async function getInteractionCount() {
   try {
-    const key = "able:modal_interactions:" + domainStatus.domain;
-    const data = await chrome.storage.local.get(key);
+    var key = "able:modal_interactions:" + domainStatus.domain;
+    var data = await chrome.storage.local.get(key);
     return data[key] || 0;
   } catch {
     return 0;
@@ -181,31 +179,31 @@ async function getInteractionCount() {
 
 async function incrementInteractionCount() {
   try {
-    const key = "able:modal_interactions:" + domainStatus.domain;
-    const current = await getInteractionCount();
+    var key = "able:modal_interactions:" + domainStatus.domain;
+    var current = await getInteractionCount();
     await chrome.storage.local.set({ [key]: current + 1 });
   } catch {}
 }
 
 async function shouldShowRepeatVisitModal() {
-  const lastShown = await getLastModalShownTime();
+  var lastShown = await getLastModalShownTime();
   if (!lastShown) return false;
 
-  const interactionCount = await getInteractionCount();
-  const nextShowNumber = interactionCount + 1;
-  const cooldown = (nextShowNumber % 3 === 0)
+  var interactionCount = await getInteractionCount();
+  var nextShowNumber = interactionCount + 1;
+  var cooldown = (nextShowNumber % 3 === 0)
     ? getStaggerCooldown()
     : getShortCooldown();
   return Date.now() - lastShown >= cooldown;
 }
 
-// ─── Decision communication ─────────────────────────────────────────
+// ─── Decision communication ─────────────────────────────────
 
 function sendDecision(requestId, action) {
   window.postMessage({
     source: "ABLE_CONTENT",
     type: "ABLE_DECISION",
-    payload: { requestId, action }
+    payload: { requestId: requestId, action: action }
   }, "*");
 }
 
@@ -213,11 +211,11 @@ function sendTextDecision(checkId, action) {
   window.postMessage({
     source: "ABLE_CONTENT",
     type: "ABLE_TEXT_DECISION",
-    payload: { checkId, action }
+    payload: { checkId: checkId, action: action }
   }, "*");
 }
 
-// ─── Interception handling ──────────────────────────────────────────
+// ─── Interception handling ──────────────────────────────────
 
 async function handleInterceptedFiles(fileInfos, requestId) {
   if (classifyReady) await classifyReady;
@@ -242,10 +240,13 @@ async function handleInterceptedFiles(fileInfos, requestId) {
     return;
   }
 
-  var highestRisk = null;
+  // Parallel file scanning instead of sequential
+  var scanPromises = files.map(function (file) { return scanFile(file); });
+  var scanResults = await Promise.all(scanPromises);
 
-  for (var i = 0; i < files.length; i++) {
-    var result = await scanFile(files[i]);
+  var highestRisk = null;
+  for (var i = 0; i < scanResults.length; i++) {
+    var result = scanResults[i];
     if (result && (!highestRisk || result.score > highestRisk.score)) {
       highestRisk = result;
     }
@@ -276,6 +277,8 @@ async function handleInterceptedFiles(fileInfos, requestId) {
       fileSize: highestRisk.fileSize,
       fileType: highestRisk.fileType,
       requestId: requestId,
+      contentHash: highestRisk.contentHash,
+      scanDurationMs: highestRisk.scanDurationMs,
     });
   } else {
     sendDecision(requestId, "proceed");
@@ -309,22 +312,22 @@ async function handleInterceptedFiles(fileInfos, requestId) {
   }
 }
 
-// ─── Text check handling ────────────────────────────────────────────
+// ─── Text check handling ────────────────────────────────────
 
 async function handleTextCheck(checkId, text, inputType, url) {
   try {
-    const MAX_TEXT_LENGTH = 50000;
+    var MAX_TEXT_LENGTH = 50000;
     if (text.length > MAX_TEXT_LENGTH) {
       text = text.substring(0, MAX_TEXT_LENGTH);
     }
 
-    const result = await calculateRiskScore(text);
-    const domainRiskScore = domainStatus?.risk_score || 0;
-    const totalScore = Math.min(100, domainRiskScore + result.score);
-    const riskThreshold = ABLERuntimeSettings.get("behavior.risk_threshold", 90);
+    var result = await calculateRiskScore(text);
+    var domainRiskScore = domainStatus?.risk_score || 0;
+    var totalScore = Math.min(100, domainRiskScore + result.score);
+    var riskThreshold = ABLERuntimeSettings.get("behavior.risk_threshold", 90);
 
     console.debug("ABLE Text Scan:", {
-      inputType,
+      inputType: inputType,
       textLength: text.length,
       pattern_score: result.score,
       domain_risk_score: domainRiskScore,
@@ -332,9 +335,9 @@ async function handleTextCheck(checkId, text, inputType, url) {
       flaggedItems: result.flaggedItems,
     });
 
-    const domain = domainStatus?.domain || new URL(url).hostname.replace(/^www\./, "");
+    var domain = domainStatus?.domain || new URL(url).hostname.replace(/^www\./, "");
     logEgressEvent({
-      domain,
+      domain: domain,
       fileName: "[text-input]",
       fileSize: text.length,
       riskScore: totalScore,
@@ -346,10 +349,10 @@ async function handleTextCheck(checkId, text, inputType, url) {
 
     if (totalScore >= riskThreshold && result.flaggedItems.length > 0) {
       showTextWarningModal({
-        domain,
-        totalScore,
+        domain: domain,
+        totalScore: totalScore,
         flaggedItems: result.flaggedItems,
-        inputType,
+        inputType: inputType,
       });
       sendTextDecision(checkId, "block");
     } else {
@@ -364,10 +367,10 @@ async function handleTextCheck(checkId, text, inputType, url) {
 // ─── Interception listener ──────────────────────────────────────────
 
 function setupInterceptionListener() {
-  const pageNonce = crypto.getRandomValues(new Uint8Array(16));
-  pageNonceHex = Array.from(pageNonce).map((b) => b.toString(16).padStart(2, "0")).join("");
+  var pageNonce = crypto.getRandomValues(new Uint8Array(16));
+  pageNonceHex = Array.from(pageNonce).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
 
-  window.addEventListener("message", async (event) => {
+  window.addEventListener("message", async function (event) {
     if (event.data?.source !== "ABLE_INJECT") return;
 
     if (event.data.type === "ABLE_READY") {
@@ -385,7 +388,7 @@ function setupInterceptionListener() {
         console.warn("ABLE: Rejecting ABLE_INTERCEPT with invalid nonce.");
         return;
       }
-      const { requestId, fileInfos } = event.data.payload;
+      var _a = event.data.payload, requestId = _a.requestId, fileInfos = _a.fileInfos;
       if (!requestId || !fileInfos || fileInfos.length === 0) return;
       await handleInterceptedFiles(fileInfos, requestId);
     }
@@ -395,7 +398,7 @@ function setupInterceptionListener() {
         console.warn("ABLE: Rejecting ABLE_TEXT_CHECK with invalid nonce.");
         return;
       }
-      const { checkId, text, inputType, url } = event.data.payload || {};
+      var _b = event.data.payload, checkId = _b.checkId, text = _b.text, inputType = _b.inputType, url = _b.url;
       if (!checkId || !text) return;
       handleTextCheck(checkId, text, inputType, url);
     }
@@ -406,12 +409,12 @@ function setupInterceptionListener() {
     }
 
     if (event.data.type === "ABLE_TIMEOUT") {
-      const { fileInfos } = event.data.payload || {};
-      if (fileInfos && fileInfos.length > 0) {
-        const domain = domainStatus?.domain || new URL(window.location.href).hostname.replace(/^www\./, "");
-        const firstInfo = fileInfos[0];
+      var _c = event.data.payload, fileInfos$1 = _c.fileInfos;
+      if (fileInfos$1 && fileInfos$1.length > 0) {
+        var domain = domainStatus?.domain || new URL(window.location.href).hostname.replace(/^www\./, "");
+        var firstInfo = fileInfos$1[0];
         logEgressEvent({
-          domain,
+          domain: domain,
           fileName: firstInfo.file?.name || firstInfo.source || 'unknown',
           fileSize: firstInfo.contentSize || firstInfo.file?.size || 0,
           riskScore: 0,
@@ -424,18 +427,18 @@ function setupInterceptionListener() {
     }
 
     if (event.data.type === "ABLE_NONCE_FAILED") {
-      const { fileInfos } = event.data.payload || {};
-      if (fileInfos && fileInfos.length > 0) {
-        const domain = new URL(window.location.href).hostname.replace(/^www\./, "");
-        const firstInfo = fileInfos[0];
+      var _d = event.data.payload, fileInfos$2 = _d.fileInfos;
+      if (fileInfos$2 && fileInfos$2.length > 0) {
+        var domain$1 = new URL(window.location.href).hostname.replace(/^www\./, "");
+        var firstInfo$1 = fileInfos$2[0];
         logEgressEvent({
-          domain,
-          fileName: firstInfo.file?.name || firstInfo.source || 'unknown',
-          fileSize: firstInfo.contentSize || firstInfo.file?.size || 0,
+          domain: domain$1,
+          fileName: firstInfo$1.file?.name || firstInfo$1.source || 'unknown',
+          fileSize: firstInfo$1.contentSize || firstInfo$1.file?.size || 0,
           riskScore: 0,
           action: "proceeded",
           userAction: "proceeded",
-          source: firstInfo.source,
+          source: firstInfo$1.source,
         });
       }
       return;
@@ -457,10 +460,10 @@ function setupInterceptionListener() {
   });
 }
 
-// ─── Modal management ──────────────────────────────────────────────
+// ─── Modal management ──────────────────────────────────────
 
 function removeModal() {
-  const existing = document.querySelector(".able-modal-backdrop");
+  var existing = document.querySelector(".able-modal-backdrop");
   if (existing) existing.remove();
 }
 
@@ -471,11 +474,11 @@ async function logDomainVisit() {
 
   if (isExcludedDomain()) return null;
 
-  const DEBOUNCE_KEY = `able:last_visit:${domainStatus.domain}`;
-  const debounceMs = ABLERuntimeSettings.get("logging.visit_debounce_ms", 5000);
+  var DEBOUNCE_KEY = "able:last_visit:" + domainStatus.domain;
+  var debounceMs = ABLERuntimeSettings.get("logging.visit_debounce_ms", 5000);
   try {
-    const result = await chrome.storage.session.get(DEBOUNCE_KEY);
-    const lastVisit = result[DEBOUNCE_KEY];
+    var result = await chrome.storage.session.get(DEBOUNCE_KEY);
+    var lastVisit = result[DEBOUNCE_KEY];
 
     if (lastVisit && Date.now() - lastVisit < debounceMs) {
       return null;
@@ -494,7 +497,7 @@ async function logDomainVisit() {
     if (!chrome.runtime?.id) {
       return null;
     }
-    const response = await Promise.race([
+    var response = await Promise.race([
       chrome.runtime.sendMessage({
         type: "logVisit",
         domain: domainStatus.domain,
@@ -502,9 +505,9 @@ async function logDomainVisit() {
         source: domainStatus.source || "unknown",
         timestamp: Date.now(),
       }),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("logVisit timeout")), 8000)
-      ),
+      new Promise(function (_, reject) {
+        setTimeout(function () { reject(new Error("logVisit timeout")); }, 8000);
+      }),
     ]);
     return response?.visit_count ?? null;
   } catch {
@@ -512,12 +515,12 @@ async function logDomainVisit() {
   }
 }
 
-// ─── Evaluation & display ───────────────────────────────────────────
+// ─── Evaluation & display ───────────────────────────────────
 
 async function evaluateAndShowModal(serverVisitCount) {
   if (!shouldActivate()) return;
 
-  const consent = await hasSiteWarningConsent();
+  var consent = await hasSiteWarningConsent();
 
   if (!consent) {
     if (domainStatus.title && domainStatus.message) {
@@ -529,7 +532,7 @@ async function evaluateAndShowModal(serverVisitCount) {
       });
     }
   } else {
-    const shouldShow = await shouldShowRepeatVisitModal();
+    var shouldShow = await shouldShowRepeatVisitModal();
 
     if (shouldShow) {
       showRepeatVisitModal({
@@ -553,7 +556,7 @@ async function handleSPANavigation() {
     }
   } catch {}
 
-  const serverVisitCount = await logDomainVisit();
+  var serverVisitCount = await logDomainVisit();
   await evaluateAndShowModal(serverVisitCount);
 }
 
@@ -561,22 +564,22 @@ async function handleSPANavigation() {
 
 function injectFonts() {
   if (document.getElementById("able-fonts")) return;
-  const link = document.createElement("link");
+  var link = document.createElement("link");
   link.id = "able-fonts";
   link.rel = "stylesheet";
   link.href = "https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700&family=Unbounded:wght@700&display=swap";
   document.head.appendChild(link);
 }
 
-// ─── Page script injection ──────────────────────────────────────────
+// ─── Page script injection ──────────────────────────────────
 
 async function injectPageScript() {
   if (document.getElementById("able-inject-script")) return;
 
   if (typeof EXPECTED_INJECT_HASH === "string" && EXPECTED_INJECT_HASH.length > 0) {
     try {
-      const url = chrome.runtime.getURL("inject/inject.js");
-      const response = await chrome.runtime.sendMessage({
+      var url = chrome.runtime.getURL("inject/inject.js");
+      var response = await chrome.runtime.sendMessage({
         type: "verifyIntegrity",
         url: url,
         hash: EXPECTED_INJECT_HASH,
@@ -593,17 +596,17 @@ async function injectPageScript() {
     }
   }
 
-  const script = document.createElement("script");
+  var script = document.createElement("script");
   script.id = "able-inject-script";
   script.src = chrome.runtime.getURL("inject/inject.js");
-  script.onload = () => script.remove();
-  script.onerror = () => {
+  script.onload = function () { script.remove(); };
+  script.onerror = function () {
     console.warn("ABLE: inject.js failed to load (possible CSP block). Using fallback detection.");
     setupFallbackDetection();
   };
   (document.head || document.documentElement).appendChild(script);
 
-  setTimeout(() => {
+  setTimeout(function () {
     if (!injectReadyReceived) {
       console.warn("ABLE: inject.js did not announce readiness within 5s. Using fallback detection.");
       setupFallbackDetection();
@@ -632,7 +635,7 @@ function setupFallbackDetection() {
         var domain = new URL(window.location.href).hostname.replace(/^www\./, "");
         for (var i = 0; i < el.files.length; i++) {
           logEgressEvent({
-            domain,
+            domain: domain,
             fileName: el.files[i].name,
             fileSize: el.files[i].size,
             riskScore: 0,
@@ -674,7 +677,7 @@ function setupFallbackDetection() {
   }
 }
 
-// ─── Initialization ─────────────────────────────────────────────────
+// ─── Initialization ─────────────────────────────────────────
 
 var initialContentHash = null;
 
@@ -690,7 +693,7 @@ async function initialize() {
     }
   } catch {}
 
-  const serverVisitCount = await logDomainVisit();
+  var serverVisitCount = await logDomainVisit();
   await evaluateAndShowModal(serverVisitCount);
 
   scheduleHydrationRecheck();
@@ -721,7 +724,7 @@ function scheduleHydrationRecheck() {
   }
 }
 
-// ─── Bootstrap ──────────────────────────────────────────────────────
+// ─── Bootstrap ──────────────────────────────────────────────
 
 injectPageScript();
 setupInterceptionListener();
@@ -733,7 +736,7 @@ if (document.readyState === "loading") {
   initialize();
 }
 
-window.addEventListener("pageshow", (event) => {
+window.addEventListener("pageshow", function (event) {
   if (event.persisted) {
     injectPageScript();
     initialize();

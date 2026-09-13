@@ -42,8 +42,16 @@ interface RiskPattern {
 interface PageProps {
     riskPatterns: RiskPattern[];
     existingPatterns: RiskPattern[];
+    egressStats: {
+      totalEvents24h: number;
+      bucketLow: number;
+      bucketMedium: number;
+      bucketHigh: number;
+      byAction: Record<string, number>;
+      topFlagged: Record<string, number>;
+    };
     [key: string]: unknown;
-}
+  }
 
 interface CriteriaFormData {
     title: string;
@@ -80,7 +88,7 @@ function nextTempId(): number {
 }
 
 export default function CriteriaPatternConfiguration() {
-    const { riskPatterns, existingPatterns } = usePage<PageProps>().props;
+    const { riskPatterns, existingPatterns, egressStats } = usePage<PageProps>().props;
 
     const [showModal, setShowModal] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
@@ -420,6 +428,58 @@ export default function CriteriaPatternConfiguration() {
                             Add Pattern
                         </a>
                     </div>
+                </div>
+
+                {/* Egress Audit Panel */}
+                <div className="mb-6 p-4 rounded-lg border border-[rgba(34,197,94,0.3)] bg-[rgba(34,197,94,0.04)]">
+                    <h3 className="mb-3 text-[1.2rem] font-bold" style={{ fontFamily: "'Unbounded', sans-serif" }}>
+                        Egress Audit (24h)
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                            <span className="text-muted-foreground">Total Events:</span>{' '}
+                            <span className="font-semibold">{egressStats?.totalEvents24h ?? 0}</span>
+                        </div>
+                        <div>
+                            <span className="text-muted-foreground">Risk 0–40:</span>{' '}
+                            <span className="font-semibold">{egressStats?.bucketLow ?? 0}</span>
+                        </div>
+                        <div>
+                            <span className="text-muted-foreground">Risk 41–75:</span>{' '}
+                            <span className="font-semibold">{egressStats?.bucketMedium ?? 0}</span>
+                        </div>
+                        <div>
+                            <span className="text-muted-foreground">Risk 76–100:</span>{' '}
+                            <span className="font-semibold">{egressStats?.bucketHigh ?? 0}</span>
+                        </div>
+                    </div>
+                    <div className="mt-3 grid grid-cols-3 gap-3 text-sm">
+                        <div>
+                            <span className="text-muted-foreground">Proceeded:</span>{' '}
+                            <span className="font-semibold text-[#22c55e]">{egressStats?.byAction?.proceeded ?? 0}</span>
+                        </div>
+                        <div>
+                            <span className="text-muted-foreground">Denied:</span>{' '}
+                            <span className="font-semibold text-[#f87171]">{egressStats?.byAction?.denied ?? 0}</span>
+                        </div>
+                        <div>
+                            <span className="text-muted-foreground">Allowed:</span>{' '}
+                            <span className="font-semibold text-blue-400">{egressStats?.byAction?.allowed ?? 0}</span>
+                        </div>
+                    </div>
+                    {egressStats?.topFlagged && Object.keys(egressStats.topFlagged).length > 0 && (
+                        <div className="mt-3">
+                            <span className="text-sm text-muted-foreground">Top Flagged Patterns:</span>
+                            <ul className="mt-1 space-y-1">
+                                {Object.entries(egressStats.topFlagged).slice(0, 5).map(([label, count]) => (
+                                    <li key={label} className="flex justify-between text-sm">
+                                        <span className="truncate mr-2">{label}</span>
+                                        <span className="font-semibold">{count}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
                 </div>
 
                 {/* Criteria Card Grid */}
