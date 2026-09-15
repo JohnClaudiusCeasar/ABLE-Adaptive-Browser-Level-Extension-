@@ -158,9 +158,7 @@ export default function ServerSettings() {
                                     <TextField
                                         name="ut1.sync_url"
                                         defaultValue={
-                                            settings[
-                                                'ut1.sync_url'
-                                            ] as string
+                                            settings['ut1.sync_url'] as string
                                         }
                                     />
                                 </SettingsField>

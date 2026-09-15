@@ -61,6 +61,7 @@ chrome.alarms.onAlarm.addListener(async function (alarm) {
 
 chrome.runtime.onStartup.addListener(function () {
   ABLERuntimeSettings.initialize();
+  refreshRiskPatternsCache();
   processVisitLogQueue();
   processEgressLogQueue();
 });

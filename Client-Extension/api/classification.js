@@ -45,13 +45,17 @@ async function refreshOfflineCache() {
 
 async function getOfflineCache() {
   try {
-    const policies = await ABLESecurity.readSignedOfflineCache(OFFLINE_CACHE_KEY);
-    if (!policies) return { policies: [], timestamp: 0 };
+    const cached = await ABLESecurity.readSignedOfflineCache(OFFLINE_CACHE_KEY);
+    if (!cached) return { policies: [], timestamp: 0 };
+
+    var policies = Array.isArray(cached)
+      ? cached
+      : (cached.policies && Array.isArray(cached.policies) ? cached.policies : []);
 
     const tsResult = await chrome.storage.local.get(OFFLINE_CACHE_TIMESTAMP_KEY);
     return {
-      policies: Array.isArray(policies) ? policies : [],
-      timestamp: tsResult[OFFLINE_CACHE_TIMESTAMP_KEY] || 0,
+      policies: policies,
+      timestamp: tsResult[OFFLINE_CACHE_TIMESTAMP_KEY] || cached.issued_at || 0,
     };
   } catch (error) {
     console.warn("ABLE: Failed to read offline cache:", error);

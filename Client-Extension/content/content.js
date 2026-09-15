@@ -259,14 +259,23 @@ async function handleInterceptedFiles(fileInfos, requestId) {
   }
 
   var consent = await hasSessionConsent();
-  var riskThreshold = ABLERuntimeSettings.get("behavior.risk_threshold", 80);
+  var riskThreshold = ABLERuntimeSettings.get("behavior.risk_threshold", 90);
   var patternScore = highestRisk ? (highestRisk.score - (domainStatus?.risk_score || 0)) : 0;
-  var shouldShowModal = highestRisk && !consent && (
+  var isExtremeRisk = highestRisk && highestRisk.score >= 90;
+  var isFlagged = highestRisk && (
     highestRisk.score > riskThreshold ||
     (patternScore >= 40 && highestRisk.flaggedItems.length > 0)
   );
+  var shouldShowModal = isFlagged && (!consent || isExtremeRisk);
 
   if (shouldShowModal) {
+    // Notify page script that user is reviewing modal; clear upload timeout
+    window.postMessage({
+      source: "ABLE_CONTENT",
+      type: "ABLE_MODAL_ACTIVE",
+      payload: { requestId: requestId }
+    }, "*");
+
     showInterceptModal({
       score: highestRisk.score,
       flaggedItems: highestRisk.flaggedItems,

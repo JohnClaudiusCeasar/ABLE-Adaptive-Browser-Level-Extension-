@@ -100,11 +100,18 @@ async function calculateRiskScore(text) {
   for (var i = 0; i < orderedPatterns.length; i++) {
     var pattern = orderedPatterns[i];
 
+    // Skip auto-created single copies if their parent criteria is evaluated
+    if (pattern.type === 'single' && pattern.parent_criteria_id) {
+      continue;
+    }
+
     if (pattern.type === 'single') {
       var count = safeTestPattern(pattern.regex, text);
       if (count > 0) {
         recordRegexMatch(pattern.regex, count, pattern.score, pattern.title);
+        totalScore += (pattern.score || 0);
       }
+      if (totalScore >= 100) break;
       continue;
     }
 
@@ -114,6 +121,7 @@ async function calculateRiskScore(text) {
     if (items.length === 0) continue;
 
     var matchCount = 0;
+    var criteriaItemsScore = 0;
 
     function scoreSubItems(subItems, prefix) {
       for (var j = 0; j < subItems.length; j++) {
@@ -121,6 +129,7 @@ async function calculateRiskScore(text) {
         var subCount = safeTestPattern(sub.regex, text);
         if (subCount > 0) {
           matchCount += subCount;
+          criteriaItemsScore += (sub.score || 0);
           recordRegexMatch(sub.regex, subCount, sub.score, prefix + ' \u203A ' + sub.title);
         }
         if (sub.sub_items && sub.sub_items.length > 0) {
@@ -134,21 +143,21 @@ async function calculateRiskScore(text) {
     for (var j = 0; j < sortedItems.length; j++) {
       var item = sortedItems[j];
       var itemCount = safeTestPattern(item.regex, text);
-      if (itemCount > 0) matchCount += itemCount;
+      if (itemCount > 0) {
+        matchCount += itemCount;
+        criteriaItemsScore += (item.score || 0);
+        recordRegexMatch(item.regex, itemCount, item.score, pattern.title + ' \u203A ' + item.title);
+      }
       if (item.sub_items && item.sub_items.length > 0) {
-        scoreSubItems(item.sub_items, pattern.title);
+        scoreSubItems(item.sub_items, pattern.title + ' \u203A ' + item.title);
       }
     }
 
     var criteriaMatched = evaluateCriteriaItems(items, text, sortedItems);
 
     if (criteriaMatched) {
-      totalScore += pattern.score;
-      flaggedItems.push({
-        label: pattern.title,
-        count: matchCount,
-        weight: pattern.score,
-      });
+      var patternScore = (pattern.score && pattern.score > 0) ? pattern.score : criteriaItemsScore;
+      totalScore += patternScore;
     }
 
     // Short-circuit: stop scanning if max score reached

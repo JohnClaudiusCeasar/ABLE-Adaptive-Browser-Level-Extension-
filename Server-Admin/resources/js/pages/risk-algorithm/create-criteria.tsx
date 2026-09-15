@@ -1,5 +1,5 @@
 import { Head, router, usePage } from '@inertiajs/react';
-import { ChevronDown, Search, Plus, X, Trash, Copy, ArrowLeft } from 'lucide-react';
+import { Search, Plus, X, Copy, ArrowLeft } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useState, Fragment, useMemo } from 'react';
 import AlertError from '@/components/alert-error';
@@ -51,6 +51,7 @@ const emptyCriteriaForm: CriteriaFormData = {
 function sumAllItemScores(items: CriteriaPatternItem[]): number {
     return items.reduce((total, item) => {
         const subScore = item.sub_items ? sumAllItemScores(item.sub_items) : 0;
+
         return total + (item.score || 0) + subScore;
     }, 0);
 }
@@ -60,6 +61,7 @@ function sumAllItemScores(items: CriteriaPatternItem[]): number {
 let tempIdCounter = 0;
 function nextTempId(): number {
     tempIdCounter += 1;
+
     return tempIdCounter;
 }
 
@@ -72,14 +74,14 @@ export default function CreateCriteriaPattern() {
     const [compositeScoreManual, setCompositeScoreManual] = useState(false);
     const [showExistingPicker, setShowExistingPicker] = useState(false);
     const [existingSearch, setExistingSearch] = useState('');
-    const [existingSort, setExistingSort] =
-        useState<ExistingSort>('newest');
+    const [existingSort, setExistingSort] = useState<ExistingSort>('newest');
     const [confirmCreate, setConfirmCreate] = useState(false);
     const [confirmCancel, setConfirmCancel] = useState(false);
 
     // Available patterns for existing picker
     const availablePatterns = useMemo(() => {
         const search = existingSearch.toLowerCase();
+
         return existingPatterns.filter(
             (p) =>
                 p.title.toLowerCase().includes(search) ||
@@ -374,7 +376,8 @@ export default function CreateCriteriaPattern() {
                                 )}
                             </div>
                             <p className="mt-1 text-xs text-muted-foreground">
-                                Sum of all item scores. Type a value to override.
+                                Sum of all item scores. Type a value to
+                                override.
                             </p>
                         </div>
                     </div>
@@ -599,18 +602,18 @@ export default function CreateCriteriaPattern() {
                                                                             'high'
                                                                                 ? 'bg-[rgba(248,113,113,0.2)] text-[#f87171]'
                                                                                 : pattern.priority ===
-                                                                                      'medium'
-                                                                                    ? 'bg-[rgba(245,158,11,0.2)] text-[#f59e0b]'
-                                                                                    : 'bg-[rgba(34,197,94,0.2)] text-[#22c55e]'
+                                                                                    'medium'
+                                                                                  ? 'bg-[rgba(245,158,11,0.2)] text-[#f59e0b]'
+                                                                                  : 'bg-[rgba(34,197,94,0.2)] text-[#22c55e]'
                                                                         }`}
                                                                     >
                                                                         {pattern.priority ===
                                                                         'high'
                                                                             ? 'High'
                                                                             : pattern.priority ===
-                                                                                  'medium'
-                                                                                ? 'Medium'
-                                                                                : 'Low'}
+                                                                                'medium'
+                                                                              ? 'Medium'
+                                                                              : 'Low'}
                                                                     </span>
                                                                 </td>
                                                                 <td className="px-4 py-2.5 text-muted-foreground">
@@ -715,7 +718,9 @@ export default function CreateCriteriaPattern() {
                                                                         }
                                                                         title={`Require ${op === 'and' ? 'all' : 'any'} sibling item to match`}
                                                                         className={`px-2.5 py-1.5 text-xs font-semibold uppercase transition-colors ${
-                                                                            (item.operator || 'and') === op
+                                                                            (item.operator ||
+                                                                                'and') ===
+                                                                            op
                                                                                 ? 'bg-able-green text-white'
                                                                                 : 'text-muted-foreground hover:text-foreground'
                                                                         }`}
@@ -731,7 +736,9 @@ export default function CreateCriteriaPattern() {
                                                                 required={
                                                                     item.sub_items ===
                                                                         undefined ||
-                                                                    item.sub_items.length ===
+                                                                    item
+                                                                        .sub_items
+                                                                        .length ===
                                                                         0
                                                                 }
                                                                 value={
@@ -747,7 +754,9 @@ export default function CreateCriteriaPattern() {
                                                                 }
                                                                 placeholder={
                                                                     item.sub_items &&
-                                                                    item.sub_items.length >
+                                                                    item
+                                                                        .sub_items
+                                                                        .length >
                                                                         0 &&
                                                                     item.regex ===
                                                                         ''
@@ -877,7 +886,9 @@ export default function CreateCriteriaPattern() {
                                                                                         }
                                                                                         title={`Require ${op === 'and' ? 'all' : 'any'} sibling sub-item to match`}
                                                                                         className={`px-2.5 py-1.5 text-xs font-semibold uppercase transition-colors ${
-                                                                                            (subItem.operator || 'and') === op
+                                                                                            (subItem.operator ||
+                                                                                                'and') ===
+                                                                                            op
                                                                                                 ? 'bg-able-green text-white'
                                                                                                 : 'text-muted-foreground hover:text-foreground'
                                                                                         }`}
@@ -1023,6 +1034,9 @@ CreateCriteriaPattern.layout = {
     breadcrumbs: [
         { title: 'Risk Algorithm', href: '/risk-algorithm/criteria' },
         { title: 'Pattern Settings', href: '/risk-algorithm/criteria' },
-        { title: 'Create Criteria Pattern', href: '/risk-algorithm/criteria/create' },
+        {
+            title: 'Create Criteria Pattern',
+            href: '/risk-algorithm/criteria/create',
+        },
     ],
 };

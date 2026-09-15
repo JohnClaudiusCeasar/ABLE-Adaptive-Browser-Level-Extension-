@@ -13,8 +13,8 @@ return new class extends Migration
     {
         Schema::table('criteria_pattern_items', function (Blueprint $table) {
             $table->enum('risk_weight', ['low', 'medium', 'high'])
-                  ->default('medium')
-                  ->after('score');
+                ->default('medium')
+                ->after('score');
         });
     }
 

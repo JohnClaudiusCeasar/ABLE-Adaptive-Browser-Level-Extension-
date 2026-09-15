@@ -49,13 +49,17 @@ async function refreshRiskPatternsCache() {
 
 async function getRiskPatternsOfflineCache() {
   try {
-    const patterns = await ABLESecurity.readSignedOfflineCache(RISK_PATTERNS_KEY);
-    if (!patterns) return { patterns: [], timestamp: 0 };
+    const cached = await ABLESecurity.readSignedOfflineCache(RISK_PATTERNS_KEY);
+    if (!cached) return { patterns: [], timestamp: 0 };
+
+    var patterns = Array.isArray(cached)
+      ? cached
+      : (cached.patterns && Array.isArray(cached.patterns) ? cached.patterns : []);
 
     const tsResult = await chrome.storage.local.get(RISK_PATTERNS_TIMESTAMP_KEY);
     return {
-      patterns: Array.isArray(patterns) ? patterns : [],
-      timestamp: tsResult[RISK_PATTERNS_TIMESTAMP_KEY] || 0,
+      patterns: patterns,
+      timestamp: tsResult[RISK_PATTERNS_TIMESTAMP_KEY] || cached.issued_at || 0,
     };
   } catch (error) {
     console.warn("ABLE: Failed to read risk patterns offline cache:", error);
@@ -82,19 +86,37 @@ async function getRiskPatterns() {
       console.debug(`ABLE: Returning ${riskPatternsMemoryCache.length} patterns from memory cache`);
       return riskPatternsMemoryCache;
     }
-    console.debug("ABLE: Memory cache miss, checking server...");
 
-    const serverPatterns = await refreshRiskPatternsCache();
-    if (serverPatterns) {
-      console.debug(`ABLE: Got ${serverPatterns.length} patterns from server`);
-      riskPatternsMemoryCache = serverPatterns;
-      riskPatternsMemoryCacheTimestamp = Date.now();
-      return serverPatterns;
+    // In a content script, delegate to background service worker.
+    // Content scripts on HTTPS pages (e.g. grok.com) are blocked from directly fetching http://localhost:8000 by browser Mixed Content policies.
+    if (typeof window !== 'undefined' && window.document && chrome.runtime && chrome.runtime.sendMessage) {
+      try {
+        const response = await chrome.runtime.sendMessage({ type: "getRiskPatterns" });
+        if (response && response.success && Array.isArray(response.patterns) && response.patterns.length > 0) {
+          riskPatternsMemoryCache = response.patterns;
+          riskPatternsMemoryCacheTimestamp = Date.now();
+          return response.patterns;
+        }
+      } catch (e) {
+        console.debug("ABLE: Background message for risk patterns failed, falling back to cache:", e.message);
+      }
     }
-    console.debug("ABLE: Server patterns unavailable, checking offline cache...");
 
+    // In background service worker, fetch from server
+    if (typeof window === 'undefined' || !window.document) {
+      console.debug("ABLE: Memory cache miss, checking server...");
+      const serverPatterns = await refreshRiskPatternsCache();
+      if (serverPatterns && serverPatterns.length > 0) {
+        console.debug(`ABLE: Got ${serverPatterns.length} patterns from server`);
+        riskPatternsMemoryCache = serverPatterns;
+        riskPatternsMemoryCacheTimestamp = Date.now();
+        return serverPatterns;
+      }
+    }
+
+    console.debug("ABLE: Server patterns unavailable, checking offline cache...");
     const { patterns } = await getRiskPatternsOfflineCache();
-    if (patterns.length > 0) {
+    if (patterns && patterns.length > 0) {
       console.log(`ABLE: Using verified offline risk patterns cache (${patterns.length} patterns).`);
       riskPatternsMemoryCache = patterns;
       riskPatternsMemoryCacheTimestamp = Date.now();
@@ -110,10 +132,11 @@ async function getRiskPatterns() {
 }
 
 if (typeof globalThis !== "undefined") {
-  globalThis.ABLEARiskPatterns = {
+  globalThis.ABLERiskPatterns = {
     getRiskPatterns,
     refreshRiskPatternsCache,
     getRiskPatternsOfflineCache,
     clearRiskPatternsCache,
   };
+  globalThis.ABLEARiskPatterns = globalThis.ABLERiskPatterns;
 }

@@ -356,7 +356,7 @@ class HeuristicClassifier
                     'category' => $category,
                     'confidence' => $confidence,
                     'policy' => 'whitelisted',
-                    'risk_score' => self::CATEGORY_RISK[$category] ?? 70,
+                    'risk_score' => $category === 'Education' ? 15 : 10,
                 ];
             }
         }

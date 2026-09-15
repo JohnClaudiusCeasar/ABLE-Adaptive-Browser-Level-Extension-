@@ -83,6 +83,19 @@ function getHeaderValue(headers, name) {
   return null;
 }
 
+function getRequestCheckFn() {
+  if (typeof window !== 'undefined' && typeof window.__ableRequestCheck === 'function') {
+    return window.__ableRequestCheck;
+  }
+  if (typeof window !== 'undefined' && typeof window.requestCheck === 'function') {
+    return window.requestCheck;
+  }
+  if (typeof requestCheck === 'function') {
+    return requestCheck;
+  }
+  return null;
+}
+
 // ─── Fetch wrapping ─────────────────────────────────────────────────
 
 var originalFetch = window.fetch;
@@ -101,29 +114,45 @@ window.fetch = function (input, init) {
 
   if (['POST', 'PUT', 'PATCH'].indexOf(method) >= 0 && body) {
     var bodySize = body.byteLength || body.size || 0;
-    if (bodySize >= 100) {
-      if (body instanceof ArrayBuffer || ArrayBuffer.isView(body) || (body instanceof Blob && !(body instanceof File))) {
-        var contentType = init.headers ? getHeaderValue(init.headers, 'Content-Type') : null;
-        console.debug("ABLE: Binary upload detected, Content-Type:", contentType, "Size:", bodySize, "URL:", requestUrl);
-      }
+    var context = {
+      headers: init.headers || (typeof input === 'object' ? input.headers : null),
+      url: requestUrl
+    };
 
-      var fileInfos = extractFiles(body);
-      if (fileInfos.length > 0) {
-        var ct = init.headers ? getHeaderValue(init.headers, 'Content-Type') : null;
-        for (var i = 0; i < fileInfos.length; i++) {
-          fileInfos[i].contentType = ct;
-        }
-        return requestCheck(fileInfos).then(function (decision) {
-          if (decision === 'cancel') {
-            var files = fileInfos.map(function(info) { return info.file; }).filter(Boolean);
-            clearFileInputs(files);
-            throw new DOMException('Upload cancelled by ABLE security extension', 'AbortError');
-          }
-          return originalFetch.call(window, input, init);
-        });
+    function processDecision(infos) {
+      if (!infos || infos.length === 0) {
+        return originalFetch.call(window, input, init);
       }
+      var ct = init.headers ? getHeaderValue(init.headers, 'Content-Type') : null;
+      for (var i = 0; i < infos.length; i++) {
+        infos[i].contentType = ct;
+      }
+      var checkFn = getRequestCheckFn();
+      if (!checkFn) {
+        console.warn('ABLE: requestCheck handler unavailable, proceeding with fetch');
+        return originalFetch.call(window, input, init);
+      }
+      return checkFn(infos).then(function (decision) {
+        if (decision === 'cancel') {
+          var files = infos.map(function (info) { return info.file; }).filter(Boolean);
+          clearFileInputs(files);
+          throw new DOMException('Upload cancelled by ABLE security extension', 'AbortError');
+        }
+        return originalFetch.call(window, input, init);
+      });
+    }
+
+    if (body instanceof ReadableStream) {
+      return (typeof extractFilesAsync === 'function' ? extractFilesAsync(body, context) : Promise.resolve(extractFiles(body, context)))
+        .then(processDecision);
+    }
+
+    var fileInfos = extractFiles(body, context);
+    if (fileInfos && fileInfos.length > 0) {
+      return processDecision(fileInfos);
     }
   }
+
   return originalFetch.call(window, input, init);
 };
 
@@ -132,7 +161,17 @@ window.fetch = function (input, init) {
 var originalXhrOpen = XMLHttpRequest.prototype.open;
 XMLHttpRequest.prototype.open = function (method, url) {
   this.__ableUrl = url;
+  this.__ableHeaders = {};
   return originalXhrOpen.apply(this, arguments);
+};
+
+var originalSetRequestHeader = XMLHttpRequest.prototype.setRequestHeader;
+XMLHttpRequest.prototype.setRequestHeader = function (header, value) {
+  this.__ableHeaders = this.__ableHeaders || {};
+  if (typeof header === 'string') {
+    this.__ableHeaders[header.toLowerCase()] = value;
+  }
+  return originalSetRequestHeader.apply(this, arguments);
 };
 
 var originalSend = XMLHttpRequest.prototype.send;
@@ -142,47 +181,43 @@ XMLHttpRequest.prototype.send = function (body) {
   }
 
   if (body) {
-    var bodyType = typeof body;
-    if (body instanceof Blob) bodyType = body instanceof File ? 'File' : 'Blob';
-    else if (body instanceof ArrayBuffer) bodyType = 'ArrayBuffer';
-    else if (ArrayBuffer.isView(body)) bodyType = 'TypedArray';
-    else if (body instanceof FormData) bodyType = 'FormData';
-    else if (body instanceof URLSearchParams) bodyType = 'URLSearchParams';
-    else if (body instanceof ReadableStream) bodyType = 'ReadableStream';
+    var context = {
+      headers: this.__ableHeaders || null,
+      url: this.__ableUrl || ''
+    };
 
-    var bodySize = body.byteLength || body.size || 0;
-    if (bodySize >= 100) {
-      var contentType = this.getRequestHeader ? this.getRequestHeader('Content-Type') : null;
-      console.debug("ABLE: XHR upload detected, bodyType:", bodyType, "Content-Type:", contentType, "Size:", bodySize, "URL:", this.__ableUrl || 'unknown');
-
-      var fileInfos = extractFiles(body);
-      if (fileInfos.length > 0) {
-        console.debug("ABLE: Extracted", fileInfos.length, "file(s) from XHR, filenames:", fileInfos.map(function(f) { return f.file.name; }));
-        var ct = this.getRequestHeader ? this.getRequestHeader('Content-Type') : null;
-        for (var i = 0; i < fileInfos.length; i++) {
-          fileInfos[i].contentType = ct;
-        }
-        var xhr = this;
-        requestCheck(fileInfos).then(function (decision) {
-          if (decision === 'proceed') {
-            originalSend.call(xhr, body);
-          } else {
-            var files = fileInfos.map(function(info) { return info.file; }).filter(Boolean);
-            clearFileInputs(files);
-            try {
-              Object.defineProperty(xhr, 'readyState', { value: 4, writable: true });
-              Object.defineProperty(xhr, 'status', { value: 0, writable: true });
-              xhr.dispatchEvent(new ProgressEvent('abort'));
-              if (typeof xhr.onerror === 'function') {
-                xhr.onerror(new ProgressEvent('error'));
-              }
-            } catch (e) {
-              // Fallback: silently fail
-            }
-          }
-        });
-        return;
+    var fileInfos = extractFiles(body, context);
+    if (fileInfos && fileInfos.length > 0) {
+      console.debug("ABLE: Extracted", fileInfos.length, "file(s) from XHR, filenames:", fileInfos.map(function(f) { return f.file ? f.file.name : 'unnamed'; }));
+      var ct = this.getRequestHeader ? this.getRequestHeader('Content-Type') : (this.__ableHeaders ? this.__ableHeaders['content-type'] : null);
+      for (var i = 0; i < fileInfos.length; i++) {
+        fileInfos[i].contentType = ct;
       }
+      var xhr = this;
+      var checkFn = getRequestCheckFn();
+      if (!checkFn) {
+        console.warn('ABLE: requestCheck handler unavailable, proceeding with XHR');
+        return originalSend.call(xhr, body);
+      }
+      checkFn(fileInfos).then(function (decision) {
+        if (decision === 'proceed') {
+          originalSend.call(xhr, body);
+        } else {
+          var files = fileInfos.map(function(info) { return info.file; }).filter(Boolean);
+          clearFileInputs(files);
+          try {
+            Object.defineProperty(xhr, 'readyState', { value: 4, writable: true });
+            Object.defineProperty(xhr, 'status', { value: 0, writable: true });
+            xhr.dispatchEvent(new ProgressEvent('abort'));
+            if (typeof xhr.onerror === 'function') {
+              xhr.onerror(new ProgressEvent('error'));
+            }
+          } catch (e) {
+            // Fallback: silently fail
+          }
+        }
+      });
+      return;
     }
   }
   return originalSend.call(this, body);
@@ -198,24 +233,11 @@ navigator.sendBeacon = function (url, data) {
 
   try {
     if (data) {
-      var fileInfos = [];
-      if (data instanceof File) {
-        fileInfos = [{ file: data, source: 'beacon', contentSize: data.size }];
-      } else if (data instanceof Blob) {
-        var blobName = window.__ableMatchFilename ? window.__ableMatchFilename(data.size, null) : null;
-        fileInfos = [{ file: new File([data], blobName || 'blob', { type: data.type }), source: 'beacon', contentSize: data.size }];
-      } else if (data instanceof FormData) {
-        for (var entry of data.entries()) {
-          if (entry[1] instanceof File) fileInfos.push({ file: entry[1], source: 'beacon', contentSize: entry[1].size });
-        }
-      } else if (data instanceof ArrayBuffer) {
-        var beaconHash = computeBodyHashSync(data);
-        var arrayBufferName = window.__ableMatchFilename ? window.__ableMatchFilename(data.byteLength, beaconHash) : null;
-        fileInfos = [{ file: new File([data], arrayBufferName || 'binary-upload'), source: 'beacon', contentSize: data.byteLength }];
-      }
-
-      if (fileInfos.length > 0) {
-        requestCheck(fileInfos).then(function () {});
+      var context = { url: url };
+      var fileInfos = extractFiles(data, context);
+      var checkFn = getRequestCheckFn();
+      if (fileInfos && fileInfos.length > 0 && checkFn) {
+        checkFn(fileInfos).then(function () {});
       }
     }
   } catch (e) {
@@ -231,28 +253,31 @@ if (OriginalWebSocket) {
   var originalWsSend = OriginalWebSocket.prototype.send;
 
   OriginalWebSocket.prototype.send = function (data) {
-    var dataSize = data.byteLength || data.size || 0;
+    var dataSize = data ? (data.byteLength || data.size || 0) : 0;
     if (dataSize < 100) {
       return originalWsSend.call(this, data);
     }
 
-    var fileInfos = [];
-    if (data instanceof Blob) {
-      var blobName = window.__ableMatchFilename ? window.__ableMatchFilename(data.size, null) : null;
-      fileInfos = [{ file: new File([data], blobName || 'websocket-upload', { type: data.type }), source: 'websocket', contentSize: data.size }];
-    } else if (data instanceof ArrayBuffer) {
-      var wsHash = computeBodyHashSync(data);
-      var arrayBufferName = window.__ableMatchFilename ? window.__ableMatchFilename(data.byteLength, wsHash) : null;
-      fileInfos = [{ file: new File([data], arrayBufferName || 'websocket-upload'), source: 'websocket', contentSize: data.byteLength }];
-    } else if (ArrayBuffer.isView(data)) {
-      var wsHash = computeBodyHashSync(data);
-      var typedArrayName = window.__ableMatchFilename ? window.__ableMatchFilename(data.byteLength, wsHash) : null;
-      fileInfos = [{ file: new File([data.buffer], typedArrayName || 'websocket-upload'), source: 'websocket', contentSize: data.byteLength }];
-    }
+    var context = { url: this.url || '' };
+    var fileInfos = extractFiles(data, context);
 
-    if (fileInfos.length > 0) {
-      console.debug("ABLE: WebSocket file upload detected:", fileInfos[0].contentSize, "bytes");
-      requestCheck(fileInfos).then(function () {});
+    if (fileInfos && fileInfos.length > 0) {
+      console.debug("ABLE: WebSocket file upload detected:", fileInfos[0].contentSize, "bytes, filename:", fileInfos[0].file?.name);
+      var ws = this;
+      var checkFn = getRequestCheckFn();
+      if (!checkFn) {
+        return originalWsSend.call(ws, data);
+      }
+      checkFn(fileInfos).then(function (decision) {
+        if (decision === 'proceed') {
+          originalWsSend.call(ws, data);
+        } else {
+          console.warn("ABLE: WebSocket upload cancelled by security extension");
+          var files = fileInfos.map(function(info) { return info.file; }).filter(Boolean);
+          clearFileInputs(files);
+        }
+      });
+      return;
     }
 
     return originalWsSend.call(this, data);

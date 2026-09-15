@@ -30,6 +30,7 @@ class EgressEvent extends Model
         'action',
         'risk_score',
         'flagged_items',
+        'content_hash',
         'occurred_at',
     ];
 
@@ -37,6 +38,7 @@ class EgressEvent extends Model
         'risk_score' => 'integer',
         'occurred_at' => 'datetime',
         'flagged_items' => 'array',
+        'content_hash' => 'string',
     ];
 
     /**

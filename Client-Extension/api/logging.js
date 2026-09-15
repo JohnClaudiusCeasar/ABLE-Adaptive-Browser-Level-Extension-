@@ -228,6 +228,19 @@ async function processEgressLogQueue() {
 }
 
 async function logEgressEvent(args) {
+  // If running in a content script, delegate to background service worker so HTTPS pages don't block http:// backend via Mixed Content
+  if (typeof window !== 'undefined' && window.document && chrome.runtime && chrome.runtime.sendMessage) {
+    try {
+      await chrome.runtime.sendMessage({
+        type: "logEgress",
+        payload: args
+      });
+      return;
+    } catch (e) {
+      console.debug("ABLE: Delegating logEgress to background failed, falling back to local queue:", e.message);
+    }
+  }
+
   var domain = args.domain, fileName = args.fileName, fileSize = args.fileSize, riskScore = args.riskScore, action = args.action, userAction = args.userAction, timestamp = args.timestamp, source = args.source, contentHash = args.contentHash, scanDurationMs = args.scanDurationMs, contentSize = args.contentSize, flaggedItems = args.flaggedItems;
 
   await processEgressLogQueue();

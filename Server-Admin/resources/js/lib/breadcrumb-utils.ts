@@ -21,6 +21,7 @@ function buildNavTitleMap(): Map<string, LucideIcon> {
                     map.set(item.title, item.icon);
                 }
             }
+
             if (item.items) {
                 flatten(item.items);
             }
@@ -28,6 +29,7 @@ function buildNavTitleMap(): Map<string, LucideIcon> {
     }
 
     flatten(mainNavItems);
+
     return map;
 }
 
@@ -37,10 +39,13 @@ const navTitleMap = buildNavTitleMap();
  * Resolve icons for breadcrumb items by matching against the navigation structure.
  * Title matching takes precedence over href matching.
  */
-export function getBreadcrumbsWithIcons(breadcrumbs: BreadcrumbItem[]): BreadcrumbWithIcon[] {
+export function getBreadcrumbsWithIcons(
+    breadcrumbs: BreadcrumbItem[],
+): BreadcrumbWithIcon[] {
     return breadcrumbs.map((crumb) => {
         // Match by title first — this ensures each breadcrumb gets its own icon
         const icon = navTitleMap.get(crumb.title);
+
         return { ...crumb, icon };
     });
 }

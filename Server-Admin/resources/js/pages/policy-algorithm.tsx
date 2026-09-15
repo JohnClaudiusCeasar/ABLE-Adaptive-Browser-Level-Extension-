@@ -86,32 +86,101 @@ const policyBadgeVariant: Record<
 };
 
 const CATEGORY_OPTIONS: { name: string; detail: string }[] = [
-    { name: 'Social Media', detail: 'Social networks, messaging, forums, and community platforms.' },
-    { name: 'Search Engine', detail: 'Web search providers and metasearch portals.' },
-    { name: 'News & Media', detail: 'News outlets, press, blogs, weather, and publishing.' },
-    { name: 'E-commerce', detail: 'Online stores with carts, checkout, and product listings.' },
-    { name: 'Finance', detail: 'Banks, payments, lending, trading, insurance, and billing.' },
-    { name: 'Education', detail: 'Schools, universities, courses, LMS, and research.' },
-    { name: 'Government', detail: 'Official government, municipal, and public-service sites.' },
-    { name: 'Health', detail: 'Hospitals, clinics, pharmacies, and medical information.' },
-    { name: 'Technology', detail: 'Software, hardware, AI, gadgets, and tech news.' },
-    { name: 'Entertainment', detail: 'Movies, music, celebrities, events, and fan content.' },
-    { name: 'Gaming', detail: 'Video games, storefronts, esports, and walkthroughs.' },
+    {
+        name: 'Social Media',
+        detail: 'Social networks, messaging, forums, and community platforms.',
+    },
+    {
+        name: 'Search Engine',
+        detail: 'Web search providers and metasearch portals.',
+    },
+    {
+        name: 'News & Media',
+        detail: 'News outlets, press, blogs, weather, and publishing.',
+    },
+    {
+        name: 'E-commerce',
+        detail: 'Online stores with carts, checkout, and product listings.',
+    },
+    {
+        name: 'Finance',
+        detail: 'Banks, payments, lending, trading, insurance, and billing.',
+    },
+    {
+        name: 'Education',
+        detail: 'Schools, universities, courses, LMS, and research.',
+    },
+    {
+        name: 'Government',
+        detail: 'Official government, municipal, and public-service sites.',
+    },
+    {
+        name: 'Health',
+        detail: 'Hospitals, clinics, pharmacies, and medical information.',
+    },
+    {
+        name: 'Technology',
+        detail: 'Software, hardware, AI, gadgets, and tech news.',
+    },
+    {
+        name: 'Entertainment',
+        detail: 'Movies, music, celebrities, events, and fan content.',
+    },
+    {
+        name: 'Gaming',
+        detail: 'Video games, storefronts, esports, and walkthroughs.',
+    },
     { name: 'Sports', detail: 'Leagues, teams, scores, and sports coverage.' },
-    { name: 'Travel', detail: 'Flights, hotels, bookings, maps, and ride-hailing.' },
-    { name: 'Food & Dining', detail: 'Restaurants, recipes, menus, and food delivery.' },
-    { name: 'Real Estate', detail: 'Property listings, rentals, and brokerage sites.' },
-    { name: 'Automotive', detail: 'Car makers, dealers, parts, and vehicle marketplaces.' },
-    { name: 'Jobs & Careers', detail: 'Job boards, hiring, resumes, and freelance gigs.' },
-    { name: 'Productivity', detail: 'Docs, calendars, notes, chat, meetings, and task tools.' },
-    { name: 'Developer Tools', detail: 'Code hosting, docs, SDKs, packages, and cloud dev platforms.' },
-    { name: 'Cloud & Hosting', detail: 'Hosting, domains, VPS, CDNs, and file hosting.' },
+    {
+        name: 'Travel',
+        detail: 'Flights, hotels, bookings, maps, and ride-hailing.',
+    },
+    {
+        name: 'Food & Dining',
+        detail: 'Restaurants, recipes, menus, and food delivery.',
+    },
+    {
+        name: 'Real Estate',
+        detail: 'Property listings, rentals, and brokerage sites.',
+    },
+    {
+        name: 'Automotive',
+        detail: 'Car makers, dealers, parts, and vehicle marketplaces.',
+    },
+    {
+        name: 'Jobs & Careers',
+        detail: 'Job boards, hiring, resumes, and freelance gigs.',
+    },
+    {
+        name: 'Productivity',
+        detail: 'Docs, calendars, notes, chat, meetings, and task tools.',
+    },
+    {
+        name: 'Developer Tools',
+        detail: 'Code hosting, docs, SDKs, packages, and cloud dev platforms.',
+    },
+    {
+        name: 'Cloud & Hosting',
+        detail: 'Hosting, domains, VPS, CDNs, and file hosting.',
+    },
     { name: 'Email', detail: 'Webmail providers and hosted inbox services.' },
-    { name: 'Streaming', detail: 'Video, music, and podcast streaming platforms.' },
-    { name: 'Gambling', detail: 'Casinos, betting, poker, lottery, and wagering.' },
+    {
+        name: 'Streaming',
+        detail: 'Video, music, and podcast streaming platforms.',
+    },
+    {
+        name: 'Gambling',
+        detail: 'Casinos, betting, poker, lottery, and wagering.',
+    },
     { name: 'Adult', detail: 'Adult-only and explicit content sites.' },
-    { name: 'Shopping', detail: 'Deals, coupons, marketplaces, and price comparison.' },
-    { name: 'Reference', detail: 'Wikis, dictionaries, docs, manuals, and how-tos.' },
+    {
+        name: 'Shopping',
+        detail: 'Deals, coupons, marketplaces, and price comparison.',
+    },
+    {
+        name: 'Reference',
+        detail: 'Wikis, dictionaries, docs, manuals, and how-tos.',
+    },
 ];
 
 const statusLabels: Record<string, string> = {
@@ -120,7 +189,7 @@ const statusLabels: Record<string, string> = {
     unlisted: 'Unlisted',
 };
 
-const sourceLabels: Record<string, string> = {
+const sourceFilterLabels: Record<string, string> = {
     manual: 'Manual',
     brand: 'Brand map',
     heuristic: 'Auto',
@@ -145,24 +214,35 @@ function CategoryPicker({
 }) {
     const [open, setOpen] = useState(false);
     const [draft, setDraft] = useState(value);
+    const [prevValue, setPrevValue] = useState(value);
     const rootRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
+    if (prevValue !== value) {
+        setPrevValue(value);
         setDraft(value);
-    }, [value]);
+    }
 
     useEffect(() => {
-        if (!open) return;
+        if (!open) {
+            return;
+        }
+
         function handleClickOutside(e: MouseEvent) {
-            if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+            if (
+                rootRef.current &&
+                !rootRef.current.contains(e.target as Node)
+            ) {
                 setOpen(false);
             }
         }
         function handleEscape(e: KeyboardEvent) {
-            if (e.key === 'Escape') setOpen(false);
+            if (e.key === 'Escape') {
+                setOpen(false);
+            }
         }
         document.addEventListener('mousedown', handleClickOutside);
         document.addEventListener('keydown', handleEscape);
+
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
             document.removeEventListener('keydown', handleEscape);
@@ -171,8 +251,12 @@ function CategoryPicker({
 
     function commitTyped() {
         const trimmed = draft.trim();
-        if (trimmed && trimmed !== value) onChange(trimmed);
-        else setDraft(value);
+
+        if (trimmed && trimmed !== value) {
+            onChange(trimmed);
+        } else {
+            setDraft(value);
+        }
     }
 
     const query = draft.trim().toLowerCase();
@@ -180,7 +264,8 @@ function CategoryPicker({
         ? CATEGORY_OPTIONS.filter((c) => c.name.toLowerCase().includes(query))
         : CATEGORY_OPTIONS;
     const showCustom =
-        query !== '' && !CATEGORY_OPTIONS.some((c) => c.name.toLowerCase() === query);
+        query !== '' &&
+        !CATEGORY_OPTIONS.some((c) => c.name.toLowerCase() === query);
 
     return (
         <div ref={rootRef} className="relative w-full">
@@ -827,11 +912,13 @@ export default function PolicyAlgorithm() {
                                 className="cursor-pointer appearance-none rounded-full border border-black/10 bg-black/5 py-2.5 pr-8 pl-9 text-[0.85rem] text-foreground transition-all duration-200 outline-none hover:border-able-green/50 hover:bg-black/10 focus:border-able-green focus:ring-1 focus:ring-able-green/30 dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)] dark:hover:bg-white/5"
                             >
                                 <option value="all">Source: All</option>
-                                <option value="pending">Needs review</option>
-                                <option value="brand">Brand map</option>
-                                <option value="heuristic">Auto</option>
-                                <option value="ut1">UT1 list</option>
-                                <option value="manual">Manual</option>
+                                {Object.entries(sourceFilterLabels).map(
+                                    ([value, label]) => (
+                                        <option key={value} value={value}>
+                                            {label}
+                                        </option>
+                                    ),
+                                )}
                             </select>
                             <Layers
                                 size={16}
@@ -1174,7 +1261,8 @@ export default function PolicyAlgorithm() {
                                         alt={selectedDomain.domain}
                                         className="h-8 w-8 rounded-md"
                                         onError={(e) => {
-                                            e.currentTarget.style.display = 'none';
+                                            e.currentTarget.style.display =
+                                                'none';
                                         }}
                                     />
                                 </div>

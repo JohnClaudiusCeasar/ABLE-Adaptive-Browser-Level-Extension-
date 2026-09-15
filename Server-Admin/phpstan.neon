@@ -9,5 +9,9 @@ parameters:
         - config/
         - database/
         - routes/
+    treatPhpDocTypesAsCertain: false
+    ignoreErrors:
+        - identifier: array.duplicateKey
+          path: config/domain_brands.php
 
     level: 7

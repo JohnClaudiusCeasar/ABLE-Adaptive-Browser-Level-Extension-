@@ -2,19 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\CriteriaPatternItem;
 use App\Models\DomainPolicy;
 use App\Models\DomainVisit;
 use App\Models\EgressEvent;
 use App\Models\NudgeInteraction;
-use App\Models\RiskPattern;
-use App\Rules\CompilableRegex;
-use App\Support\JsCanonical;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -84,7 +78,7 @@ class EgressEventController extends Controller
             }
             if (is_array($decoded)) {
                 foreach ($decoded as $item) {
-                    if (!is_array($item) || !isset($item['label']) || !isset($item['count']) || !isset($item['weight'])) {
+                    if (! is_array($item) || ! isset($item['label']) || ! isset($item['count']) || ! isset($item['weight'])) {
                         return response()->json(['success' => false, 'error' => 'Invalid flagged_items shape'], 422);
                     }
                 }
@@ -110,7 +104,7 @@ class EgressEventController extends Controller
             ->where('visited_at', '>=', $fiveMinutesAgo)
             ->exists();
 
-        if (!$recentVisit) {
+        if (! $recentVisit) {
             DomainVisit::create([
                 'domain_policy_id' => $policy->id,
                 'domain' => $validated['domain'],
@@ -144,11 +138,11 @@ class EgressEventController extends Controller
             'flagged_items' => $flaggedItems,
             'content_hash' => $contentHash,
             'occurred_at' => $occurredAt
-                ? \Illuminate\Support\Carbon::createFromTimestampMs($occurredAt)
+                ? Carbon::createFromTimestampMs($occurredAt)
                 : now(),
         ]);
 
-        if (!empty($validated['user_action'])) {
+        if (! empty($validated['user_action'])) {
             NudgeInteraction::create([
                 'egress_event_id' => $egressEvent->id,
                 'domain' => $validated['domain'],
@@ -176,11 +170,11 @@ class EgressEventController extends Controller
         }
 
         if ($request->filled('date_from')) {
-            $query->where('occurred_at', '>=', \Illuminate\Support\Carbon::parse($request->input('date_from')));
+            $query->where('occurred_at', '>=', Carbon::parse($request->input('date_from')));
         }
 
         if ($request->filled('date_to')) {
-            $query->where('occurred_at', '<=', \Illuminate\Support\Carbon::parse($request->input('date_to')));
+            $query->where('occurred_at', '<=', Carbon::parse($request->input('date_to')));
         }
 
         if ($request->filled('risk_score_min')) {
@@ -203,7 +197,7 @@ class EgressEventController extends Controller
                     'file_size' => $event->file_size,
                     'risk_score' => $event->risk_score,
                     'action' => $event->action,
-                    'user_action' => $event->nudgeInteractions->last()?->user_action ?? null,
+                    'user_action' => $event->nudgeInteractions->last()?->user_action,
                     'flagged_items' => $event->flagged_items,
                     'content_hash' => $event->content_hash,
                 ];

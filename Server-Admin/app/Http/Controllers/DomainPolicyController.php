@@ -130,6 +130,10 @@ class DomainPolicyController extends Controller
         $userId = $validated['user_id'] ?? null;
         $visitedAt = $validated['visited_at'] ?? null;
 
+        $visitTime = $visitedAt
+            ? Carbon::createFromTimestampMs($visitedAt)
+            : now();
+
         $policy = DomainPolicy::firstOrCreate(
             ['domain' => $domain],
             [
@@ -142,6 +146,23 @@ class DomainPolicyController extends Controller
             ]
         );
 
+        $debounceMs = (int) app(AbleSettingsService::class)->value('extension', 'logging.visit_debounce_ms', 5000);
+
+        if ($debounceMs > 0) {
+            $duplicate = DomainVisit::where('domain_policy_id', $policy->id)
+                ->where('domain', $domain)
+                ->where('visited_at', '>', $visitTime->copy()->subMilliseconds($debounceMs))
+                ->exists();
+
+            if ($duplicate) {
+                return response()->json([
+                    'success' => true,
+                    'visit_count' => $policy->visit_count,
+                    'duplicate' => true,
+                ]);
+            }
+        }
+
         $policy->increment('visit_count', 1, [
             'last_visited_at' => now(),
             'last_source' => $source,
@@ -151,14 +172,15 @@ class DomainPolicyController extends Controller
             'domain_policy_id' => $policy->id,
             'domain' => $domain,
             'user_id' => $userId,
-            'visited_at' => $visitedAt
-                ? Carbon::createFromTimestampMs($visitedAt)
-                : now(),
+            'visited_at' => $visitTime,
         ]);
+
+        $policy->refresh();
 
         return response()->json([
             'success' => true,
             'visit_count' => $policy->visit_count,
+            'duplicate' => false,
         ]);
     }
 

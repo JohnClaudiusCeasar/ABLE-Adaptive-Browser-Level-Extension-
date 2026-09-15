@@ -87,65 +87,188 @@ async function peekReadableStream(stream, maxBytes) {
   }
 }
 
-async function extractFiles(body) {
-  if (body instanceof File) return [{ file: body, source: 'file', contentSize: body.size }];
-  if (body instanceof Blob) {
-    var blobName = window.__ableMatchFilename ? window.__ableMatchFilename(body.size, null) : null;
-    if (!blobName) {
-      console.debug("ABLE: Blob filename not recovered, size:", body.size, "type:", body.type);
+function extractFilenameFromUrl(url) {
+  if (!url || typeof url !== 'string') return null;
+  try {
+    var parsed = new URL(url, window.location.href);
+    var queryKeys = ['filename', 'file_name', 'fileName', 'name', 'file', 'title', 'document'];
+    for (var i = 0; i < queryKeys.length; i++) {
+      var val = parsed.searchParams.get(queryKeys[i]);
+      if (val && /\.[a-zA-Z0-9]{2,5}$/.test(val)) {
+        return decodeURIComponent(val);
+      }
     }
-    return [{ file: new File([body], blobName || 'blob', { type: body.type }), source: 'blob', contentSize: body.size }];
+    var segments = parsed.pathname.split('/');
+    var lastSegment = segments[segments.length - 1];
+    if (lastSegment && /\.[a-zA-Z0-9]{2,5}$/.test(lastSegment)) {
+      return decodeURIComponent(lastSegment);
+    }
+  } catch (e) {}
+  return null;
+}
+
+function guessExtensionFromMagicBytes(bytes) {
+  if (!bytes || bytes.length < 4) return null;
+  var hex = Array.from(bytes.slice(0, 8)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+  if (hex.startsWith('25504446')) return '.pdf';
+  if (hex.startsWith('504b0304')) return '.docx';
+  if (hex.startsWith('d0cf11e0')) return '.doc';
+  if (hex.startsWith('89504e47')) return '.png';
+  if (hex.startsWith('ffd8ff')) return '.jpg';
+  if (hex.startsWith('47494638')) return '.gif';
+  return null;
+}
+
+function extractFiles(body, context) {
+  context = context || {};
+  var headers = context.headers;
+  var requestUrl = context.url;
+
+  var cdHeader = null;
+  if (headers) {
+    if (typeof headers.get === 'function') {
+      cdHeader = headers.get('Content-Disposition') || headers.get('content-disposition');
+    } else if (typeof headers === 'object') {
+      for (var k in headers) {
+        if (k.toLowerCase() === 'content-disposition') {
+          cdHeader = headers[k];
+          break;
+        }
+      }
+    }
   }
+
+  var headerFilename = parseContentDisposition(cdHeader);
+  var urlFilename = extractFilenameFromUrl(requestUrl);
+  var candidateFilename = headerFilename || urlFilename;
+
+  if (body instanceof File) {
+    var fname = (body.name && body.name !== 'blob') ? body.name : (candidateFilename || body.name);
+    return [{ file: fname !== body.name ? new File([body], fname, { type: body.type }) : body, source: 'file', contentSize: body.size }];
+  }
+
+  if (body instanceof Blob) {
+    var blobName = candidateFilename ||
+      (window.__ableMatchFilename ? window.__ableMatchFilename(body.size, null) : null);
+    if (!blobName) {
+      var mimeExt = body.type ? (body.type.split('/')[1] || '').split(';')[0] : '';
+      blobName = mimeExt ? 'upload.' + mimeExt : 'blob-upload.bin';
+    }
+    return [{ file: new File([body], blobName, { type: body.type }), source: 'blob', contentSize: body.size }];
+  }
+
   if (body instanceof FormData) {
     var results = [];
     for (var entry of body.entries()) {
-      if (entry[1] instanceof File) {
-        results.push({ file: entry[1], source: 'formdata', contentSize: entry[1].size });
-      } else if (entry[1] instanceof Blob) {
-        var blobName = window.__ableMatchFilename ? window.__ableMatchFilename(entry[1].size, null) : null;
-        results.push({ file: new File([entry[1]], blobName || 'blob', { type: entry[1].type }), source: 'formdata', contentSize: entry[1].size });
+      var fieldName = entry[0];
+      var val = entry[1];
+      if (val instanceof File) {
+        var fname = (val.name && val.name !== 'blob') ? val.name : (candidateFilename || val.name);
+        results.push({ file: fname !== val.name ? new File([val], fname, { type: val.type }) : val, source: 'formdata', contentSize: val.size });
+      } else if (val instanceof Blob) {
+        var blobName = candidateFilename ||
+          (window.__ableMatchFilename ? window.__ableMatchFilename(val.size, null) : null) ||
+          (fieldName ? fieldName + '.bin' : 'form-upload.bin');
+        results.push({ file: new File([val], blobName, { type: val.type }), source: 'formdata', contentSize: val.size });
       }
     }
     return results;
   }
+
   if (body instanceof ArrayBuffer) {
     var bodyHash = computeBodyHashSync(body);
-    var arrayBufferName = window.__ableMatchFilename ? window.__ableMatchFilename(body.byteLength, bodyHash) : null;
+    var ext = guessExtensionFromMagicBytes(new Uint8Array(body));
+    var arrayBufferName = candidateFilename ||
+      (window.__ableMatchFilename ? window.__ableMatchFilename(body.byteLength, bodyHash) : null) ||
+      (ext ? 'upload' + ext : 'binary-upload.bin');
     return [{
-      file: new File([body], arrayBufferName || 'binary-upload', { type: 'application/octet-stream' }),
+      file: new File([body], arrayBufferName, { type: 'application/octet-stream' }),
       source: 'arraybuffer',
       contentSize: body.byteLength
     }];
   }
+
   if (ArrayBuffer.isView(body)) {
     var bodyHash = computeBodyHashSync(body);
-    var typedArrayName = window.__ableMatchFilename ? window.__ableMatchFilename(body.byteLength, bodyHash) : null;
+    var ext = guessExtensionFromMagicBytes(new Uint8Array(body.buffer, body.byteOffset, Math.min(8, body.byteLength)));
+    var typedArrayName = candidateFilename ||
+      (window.__ableMatchFilename ? window.__ableMatchFilename(body.byteLength, bodyHash) : null) ||
+      (ext ? 'upload' + ext : 'binary-upload.bin');
     return [{
-      file: new File([body.buffer], typedArrayName || 'binary-upload', { type: 'application/octet-stream' }),
+      file: new File([body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength)], typedArrayName, { type: 'application/octet-stream' }),
       source: 'typedarray',
       contentSize: body.byteLength
     }];
   }
+
+  if (body instanceof URLSearchParams) {
+    var results = [];
+    for (var pair of body.entries()) {
+      var key = pair[0];
+      var val = pair[1];
+      if (typeof val === 'string' && val.length > 500) {
+        results.push({
+          file: new File([val], candidateFilename || key + '.txt', { type: 'text/plain' }),
+          source: 'urlsearchparams',
+          contentSize: val.length
+        });
+      }
+    }
+    return results;
+  }
+
+  if (typeof body === 'string' && body.length >= 100) {
+    // Check for multipart form-data encoded as string
+    var cdMatch = body.match(/Content-Disposition:\s*form-data;\s*name="([^"]+)";\s*filename="([^"]+)"/i);
+    if (cdMatch && cdMatch[2]) {
+      return [{
+        file: new File([body], cdMatch[2], { type: 'text/plain' }),
+        source: 'string-multipart',
+        contentSize: body.length
+      }];
+    }
+    // Check for JSON containing file name and content
+    if (body.charCodeAt(0) === 123) {
+      try {
+        var json = JSON.parse(body);
+        var jsonFileName = json.fileName || json.filename || json.name || candidateFilename;
+        var fileContent = json.file || json.content || json.data || json.payload;
+        if (jsonFileName && typeof fileContent === 'string' && fileContent.length > 100) {
+          return [{
+            file: new File([fileContent], jsonFileName, { type: 'text/plain' }),
+            source: 'json-upload',
+            contentSize: fileContent.length
+          }];
+        }
+      } catch (e) {}
+    }
+  }
+
+  return [];
+}
+
+async function extractFilesAsync(body, context) {
+  var syncFiles = extractFiles(body, context);
+  if (syncFiles.length > 0) return syncFiles;
+
   if (body instanceof ReadableStream) {
     var peeked = await peekReadableStream(body, 512);
     if (peeked) {
-      var detectedType = detectFileTypeFromMagicBytes(new File([peeked.buffer], 'peek', { type: 'application/octet-stream' }));
-      console.debug("ABLE: ReadableStream peek detected type:", detectedType, "bytes:", peeked.bytesRead);
-      // Return the reconstructed stream so the original fetch continues
+      var ext = guessExtensionFromMagicBytes(new Uint8Array(peeked.buffer));
+      var requestUrl = context ? context.url : null;
+      var candidateFilename = extractFilenameFromUrl(requestUrl);
+      var streamName = candidateFilename ||
+        (window.__ableMatchFilename ? window.__ableMatchFilename(peeked.bytesRead, null) : null) ||
+        (ext ? 'stream-upload' + ext : 'stream-upload.bin');
+
       return [{
-        file: new File([peeked.buffer], window.__ableMatchFilename ? window.__ableMatchFilename(peeked.bytesRead, null) || 'stream-upload' : 'stream-upload', { type: 'application/octet-stream' }),
+        file: new File([peeked.buffer], streamName, { type: 'application/octet-stream' }),
         source: 'readablestream',
         contentSize: peeked.bytesRead
       }];
     }
-    return [];
   }
-  if (body instanceof URLSearchParams) {
-    return [];
-  }
-  if (typeof body === 'string') {
-    return [];
-  }
+
   return [];
 }
 
@@ -180,6 +303,8 @@ function clearFileInputs(files) {
 if (typeof globalThis !== "undefined") {
   globalThis.ABLEFileExtractor = {
     extractFiles,
+    extractFilesAsync,
+    extractFilenameFromUrl,
     filesMatch,
     clearFileInputs,
     computeBodyHashSync,

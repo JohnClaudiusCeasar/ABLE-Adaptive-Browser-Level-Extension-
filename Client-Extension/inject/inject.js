@@ -62,7 +62,7 @@
         }, 0);
 
         var isFireAndForget = fileInfos.some(function (info) {
-          return ['beacon', 'websocket'].includes(info.source);
+          return info.source === 'beacon';
         });
         var isStream = fileInfos.some(function (info) {
           return info.source === 'readablestream';
@@ -107,16 +107,33 @@
     });
   }
 
+  // Expose requestCheck globally in page context so network-interceptor.js can call it
+  window.requestCheck = requestCheck;
+  window.__ableRequestCheck = requestCheck;
+
   window.addEventListener('message', function (event) {
-    if (event.data && event.data.source === 'ABLE_CONTENT' && event.data.type === 'ABLE_DECISION') {
+    if (!event.data || event.data.source !== 'ABLE_CONTENT') return;
+
+    if (event.data.type === 'ABLE_DECISION') {
       var id = event.data.payload.requestId;
       var action = event.data.payload.action;
       var pending = pendingRequests.get(id);
       if (pending) {
-        clearTimeout(pending.timeout);
+        if (pending.timeout) clearTimeout(pending.timeout);
         pendingRequests.delete(id);
         pending.resolve(action);
       }
+      return;
+    }
+
+    if (event.data.type === 'ABLE_MODAL_ACTIVE') {
+      var modalId = event.data.payload && event.data.payload.requestId;
+      var activePending = pendingRequests.get(modalId);
+      if (activePending && activePending.timeout) {
+        clearTimeout(activePending.timeout);
+        activePending.timeout = null;
+      }
+      return;
     }
   });
 
@@ -284,7 +301,7 @@
         lastUrl = location.href;
         window.postMessage({
           source: 'ABLE_INJECT',
-          type: 'ABLE_SPAVIGATION',
+          type: 'ABLE_SPA_NAVIGATION',
           url: location.href,
         }, '*');
       }

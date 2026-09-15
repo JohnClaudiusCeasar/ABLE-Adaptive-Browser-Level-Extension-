@@ -1,17 +1,24 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import type { RiskPattern, CriteriaPatternItem } from './criteria';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
+import type { RiskPattern } from './criteria';
 
 interface PatternItemsModalProps {
     pattern: RiskPattern;
     trigger: React.ReactNode;
 }
 
-export function PatternItemsModal({ pattern, trigger }: PatternItemsModalProps) {
+export function PatternItemsModal({
+    pattern,
+    trigger,
+}: PatternItemsModalProps) {
     return (
         <Dialog>
-            <DialogTrigger asChild>
-                {trigger}
-            </DialogTrigger>
+            <DialogTrigger asChild>{trigger}</DialogTrigger>
             <DialogContent className="max-w-2xl">
                 <DialogHeader>
                     <DialogTitle>{pattern.title}</DialogTitle>
@@ -46,16 +53,21 @@ export function PatternItemsModal({ pattern, trigger }: PatternItemsModalProps) 
                                     <td className="px-4 py-2.5">
                                         <span
                                             className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                                                (item.risk_weight || 'medium') === 'high'
+                                                (item.risk_weight ||
+                                                    'medium') === 'high'
                                                     ? 'bg-[rgba(248,113,113,0.2)] text-[#f87171]'
-                                                    : (item.risk_weight || 'medium') === 'medium'
+                                                    : (item.risk_weight ||
+                                                            'medium') ===
+                                                        'medium'
                                                       ? 'bg-[rgba(245,158,11,0.2)] text-[#f59e0b]'
                                                       : 'bg-[rgba(34,197,94,0.2)] text-[#22c55e]'
                                             }`}
                                         >
-                                            {(item.risk_weight || 'medium') === 'high'
+                                            {(item.risk_weight || 'medium') ===
+                                            'high'
                                                 ? 'High'
-                                                : (item.risk_weight || 'medium') === 'medium'
+                                                : (item.risk_weight ||
+                                                        'medium') === 'medium'
                                                   ? 'Medium'
                                                   : 'Low'}
                                         </span>

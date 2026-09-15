@@ -88,15 +88,18 @@ class ImportUt1Blacklists extends Command
                 if ($existing) {
                     if ($existing->classification_source === 'manual') {
                         $skipped++;
+
                         continue;
                     }
                     if ($existing->category !== null && $existing->classification_source !== null && $existing->classification_source !== 'pending') {
                         $skipped++;
+
                         continue;
                     }
 
                     if ($this->option('dry-run')) {
                         $updated++;
+
                         continue;
                     }
 
@@ -107,11 +110,13 @@ class ImportUt1Blacklists extends Command
                         'risk_score' => $existing->risk_score === 70 || $existing->risk_score === 0 ? $mapped['risk_score'] : $existing->risk_score,
                     ]);
                     $updated++;
+
                     continue;
                 }
 
                 if ($this->option('dry-run')) {
                     $created++;
+
                     continue;
                 }
 

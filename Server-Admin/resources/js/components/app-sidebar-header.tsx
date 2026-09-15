@@ -1,6 +1,6 @@
-import { Fragment } from 'react';
 import { Link, router } from '@inertiajs/react';
 import { ChevronRight, LogOut } from 'lucide-react';
+import { Fragment } from 'react';
 import { getBreadcrumbsWithIcons } from '@/lib/breadcrumb-utils';
 import type { BreadcrumbItem } from '@/types';
 
@@ -17,8 +17,12 @@ export function AppSidebarHeader({
             <nav className="flex items-center gap-1.5">
                 {breadcrumbsWithIcons.length > 0 ? (
                     breadcrumbsWithIcons.map((item, index) => {
-                        const isLast = index === breadcrumbsWithIcons.length - 1;
-                        const href = typeof item.href === 'string' ? item.href : item.href.url;
+                        const isLast =
+                            index === breadcrumbsWithIcons.length - 1;
+                        const href =
+                            typeof item.href === 'string'
+                                ? item.href
+                                : item.href.url;
 
                         return (
                             <Fragment key={index}>
@@ -30,14 +34,18 @@ export function AppSidebarHeader({
                                     className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-sm transition-colors ${
                                         isLast
                                             ? 'font-semibold text-foreground'
-                                            : 'font-medium text-muted-foreground hover:text-foreground hover:bg-able-green/10'
+                                            : 'font-medium text-muted-foreground hover:bg-able-green/10 hover:text-foreground'
                                     }`}
-                                    style={{ fontFamily: "'Unbounded', sans-serif" }}
+                                    style={{
+                                        fontFamily: "'Unbounded', sans-serif",
+                                    }}
                                 >
                                     {item.icon && (
                                         <item.icon className="h-4 w-4 shrink-0" />
                                     )}
-                                    <span className="truncate">{item.title}</span>
+                                    <span className="truncate">
+                                        {item.title}
+                                    </span>
                                 </Link>
                             </Fragment>
                         );
