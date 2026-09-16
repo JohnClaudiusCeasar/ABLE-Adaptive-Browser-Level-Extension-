@@ -4,6 +4,40 @@
  * File upload intercept modal with risk score visualization.
  */
 
+var PIE_COLORS = {
+  "Credit Card Number": "var(--pie-cc)",
+  "Social Security Number (SSN)": "var(--pie-ssn)",
+  "API Key / Token": "var(--pie-api-key)",
+  "Private Key": "var(--pie-private-key)",
+  "Plaintext Password": "var(--pie-password)",
+  "Database Connection String": "var(--pie-db-string)",
+};
+
+var DYNAMIC_PALETTE = [
+  "var(--pie-cc)",
+  "var(--pie-ssn)",
+  "var(--pie-api-key)",
+  "var(--pie-private-key)",
+  "var(--pie-password)",
+  "var(--pie-db-string)",
+  "#EC4899",
+  "#10B981",
+  "#6366F1",
+  "#F43F5E",
+  "#14B8A6",
+  "#EAB308",
+];
+
+function getPieColor(label, index) {
+  if (label && PIE_COLORS[label]) {
+    return PIE_COLORS[label];
+  }
+  if (typeof index === "number" && index >= 0) {
+    return DYNAMIC_PALETTE[index % DYNAMIC_PALETTE.length];
+  }
+  return "var(--score-orange)";
+}
+
 function showInterceptModal(data) {
   removeModal();
 
@@ -19,7 +53,7 @@ function showInterceptModal(data) {
   for (var i = 0; i < data.flaggedItems.length; i++) {
     var item = data.flaggedItems[i];
     var sliceAngle = totalWeight > 0 ? (item.weight / totalWeight) * 360 : 0;
-    var color = PIE_COLORS[item.label] || "var(--score-orange)";
+    var color = getPieColor(item.label, i);
     if (sliceAngle > 0) {
       stops.push(color + " " + currentAngle + "deg " + (currentAngle + sliceAngle) + "deg");
     }
@@ -134,8 +168,8 @@ function showInterceptScoreDetails(data) {
 
   var totalWeight = data.flaggedItems.reduce(function (sum, item) { return sum + item.weight; }, 0);
 
-  var itemsHtml = data.flaggedItems.map(function (item) {
-    var color = PIE_COLORS[item.label] || "var(--score-orange)";
+  var itemsHtml = data.flaggedItems.map(function (item, i) {
+    var color = getPieColor(item.label, i);
     var pct = totalWeight > 0 ? ((item.weight / totalWeight) * 100).toFixed(0) : 0;
     return '<div class="able-detail-item">' +
       '<span class="able-detail-swatch" style="background: ' + color + ';"></span>' +

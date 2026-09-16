@@ -292,31 +292,38 @@ async function handleInterceptedFiles(fileInfos, requestId) {
   } else {
     sendDecision(requestId, "proceed");
     if (highestRisk) {
-      logEgressEvent({
-        domain: domainStatus.domain,
-        fileName: highestRisk.fileName,
-        fileSize: highestRisk.fileSize,
-        riskScore: highestRisk.score,
-        action: "proceeded",
-        userAction: "proceeded",
-        source: primarySource,
-        contentHash: highestRisk.contentHash,
-        scanDurationMs: highestRisk.scanDurationMs,
-        contentSize: highestRisk.fileSize,
-        flaggedItems: highestRisk.flaggedItems,
-      });
+      var isSynthetic = /^(upload\.|binary-upload|blob-upload|form-upload|stream-upload)/i.test(highestRisk.fileName);
+      var hasRisk = highestRisk.score > 0 || (highestRisk.flaggedItems && highestRisk.flaggedItems.length > 0);
+      if (!isSynthetic || hasRisk) {
+        logEgressEvent({
+          domain: domainStatus.domain,
+          fileName: highestRisk.fileName,
+          fileSize: highestRisk.fileSize,
+          riskScore: highestRisk.score,
+          action: "proceeded",
+          userAction: "proceeded",
+          source: primarySource,
+          contentHash: highestRisk.contentHash,
+          scanDurationMs: highestRisk.scanDurationMs,
+          contentSize: highestRisk.fileSize,
+          flaggedItems: highestRisk.flaggedItems,
+        });
+      }
     } else if (fileInfos.length > 0) {
       var firstInfo = fileInfos[0];
-      logEgressEvent({
-        domain: domainStatus.domain,
-        fileName: firstInfo.file?.name || firstInfo.source || 'unknown',
-        fileSize: firstInfo.contentSize || firstInfo.file?.size || 0,
-        riskScore: 0,
-        action: "proceeded",
-        userAction: "proceeded",
-        source: primarySource,
-        contentSize: firstInfo.contentSize || firstInfo.file?.size || 0,
-      });
+      var fallbackName = firstInfo.file?.name || firstInfo.source || 'unknown';
+      if (!/^(upload\.|binary-upload|blob-upload|form-upload|stream-upload|unknown)/i.test(fallbackName)) {
+        logEgressEvent({
+          domain: domainStatus.domain,
+          fileName: fallbackName,
+          fileSize: firstInfo.contentSize || firstInfo.file?.size || 0,
+          riskScore: 0,
+          action: "proceeded",
+          userAction: "proceeded",
+          source: primarySource,
+          contentSize: firstInfo.contentSize || firstInfo.file?.size || 0,
+        });
+      }
     }
   }
 }
@@ -422,15 +429,18 @@ function setupInterceptionListener() {
       if (fileInfos$1 && fileInfos$1.length > 0) {
         var domain = domainStatus?.domain || new URL(window.location.href).hostname.replace(/^www\./, "");
         var firstInfo = fileInfos$1[0];
-        logEgressEvent({
-          domain: domain,
-          fileName: firstInfo.file?.name || firstInfo.source || 'unknown',
-          fileSize: firstInfo.contentSize || firstInfo.file?.size || 0,
-          riskScore: 0,
-          action: "proceeded",
-          userAction: "proceeded",
-          source: firstInfo.source,
-        });
+        var timeoutFileName = firstInfo.file?.name || firstInfo.source || 'unknown';
+        if (!/^(upload\.|binary-upload|blob-upload|form-upload|stream-upload|unknown)/i.test(timeoutFileName)) {
+          logEgressEvent({
+            domain: domain,
+            fileName: timeoutFileName,
+            fileSize: firstInfo.contentSize || firstInfo.file?.size || 0,
+            riskScore: 0,
+            action: "proceeded",
+            userAction: "proceeded",
+            source: firstInfo.source,
+          });
+        }
       }
       return;
     }
@@ -440,15 +450,18 @@ function setupInterceptionListener() {
       if (fileInfos$2 && fileInfos$2.length > 0) {
         var domain$1 = new URL(window.location.href).hostname.replace(/^www\./, "");
         var firstInfo$1 = fileInfos$2[0];
-        logEgressEvent({
-          domain: domain$1,
-          fileName: firstInfo$1.file?.name || firstInfo$1.source || 'unknown',
-          fileSize: firstInfo$1.contentSize || firstInfo$1.file?.size || 0,
-          riskScore: 0,
-          action: "proceeded",
-          userAction: "proceeded",
-          source: firstInfo$1.source,
-        });
+        var nonceFailedName = firstInfo$1.file?.name || firstInfo$1.source || 'unknown';
+        if (!/^(upload\.|binary-upload|blob-upload|form-upload|stream-upload|unknown)/i.test(nonceFailedName)) {
+          logEgressEvent({
+            domain: domain$1,
+            fileName: nonceFailedName,
+            fileSize: firstInfo$1.contentSize || firstInfo$1.file?.size || 0,
+            riskScore: 0,
+            action: "proceeded",
+            userAction: "proceeded",
+            source: firstInfo$1.source,
+          });
+        }
       }
       return;
     }
@@ -518,7 +531,10 @@ async function logDomainVisit() {
         setTimeout(function () { reject(new Error("logVisit timeout")); }, 8000);
       }),
     ]);
-    return response?.visit_count ?? null;
+    if (response && response.duplicate) {
+      return { visitCount: response.visit_count ?? null, duplicate: true };
+    }
+    return { visitCount: response?.visit_count ?? null, duplicate: false };
   } catch {
     return null;
   }
@@ -526,9 +542,13 @@ async function logDomainVisit() {
 
 // ─── Evaluation & display ───────────────────────────────────
 
-async function evaluateAndShowModal(serverVisitCount) {
+async function evaluateAndShowModal(visitResult) {
   if (!shouldActivate()) return;
 
+  var visitCount = visitResult && typeof visitResult === "object"
+    ? visitResult.visitCount
+    : visitResult;
+  var isDuplicateLog = !!(visitResult && typeof visitResult === "object" && visitResult.duplicate);
   var consent = await hasSiteWarningConsent();
 
   if (!consent) {
@@ -540,16 +560,24 @@ async function evaluateAndShowModal(serverVisitCount) {
         message: domainStatus.message,
       });
     }
-  } else {
-    var shouldShow = await shouldShowRepeatVisitModal();
 
-    if (shouldShow) {
-      showRepeatVisitModal({
-        domain: domainStatus.domain,
-        status: domainStatus.status === "unsafe" ? "Unsafe" : "Unlisted",
-        visitCount: serverVisitCount || 1,
-      });
-    }
+    return;
+  }
+
+  if (!isDuplicateLog && !(await getLastModalShownTime())) {
+    await setLastModalShownTime();
+
+    return;
+  }
+
+  var shouldShow = await shouldShowRepeatVisitModal();
+
+  if (shouldShow) {
+    showRepeatVisitModal({
+      domain: domainStatus.domain,
+      status: domainStatus.status === "unsafe" ? "Unsafe" : "Unlisted",
+      visitCount: visitCount || 1,
+    });
   }
 }
 
@@ -565,8 +593,8 @@ async function handleSPANavigation() {
     }
   } catch {}
 
-  var serverVisitCount = await logDomainVisit();
-  await evaluateAndShowModal(serverVisitCount);
+  var visitResult = await logDomainVisit();
+  await evaluateAndShowModal(visitResult);
 }
 
 // ─── Font injection ─────────────────────────────────────────────────
@@ -702,8 +730,8 @@ async function initialize() {
     }
   } catch {}
 
-  var serverVisitCount = await logDomainVisit();
-  await evaluateAndShowModal(serverVisitCount);
+  var visitResult = await logDomainVisit();
+  await evaluateAndShowModal(visitResult);
 
   scheduleHydrationRecheck();
 }

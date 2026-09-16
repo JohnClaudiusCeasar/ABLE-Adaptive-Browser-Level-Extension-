@@ -123,8 +123,8 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
   }
   if (message.type === "logVisit") {
     logDomainVisit(message.domain, message.status, message.source, message.timestamp)
-      .then(function (visitCount) { sendResponse({ success: true, visit_count: visitCount }); })
-      .catch(function () { sendResponse({ success: false, visit_count: null }); });
+      .then(function (result) { sendResponse({ success: true, visit_count: result?.visit_count ?? null, duplicate: result?.duplicate ?? false }); })
+      .catch(function () { sendResponse({ success: false, visit_count: null, duplicate: false }); });
     return true;
   }
   if (message.type === "getRiskPatterns") {

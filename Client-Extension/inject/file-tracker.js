@@ -217,9 +217,15 @@ function initFileTracking() {
     }
   }, true);
 
+  function hasTrackedFiles() {
+    cleanupTrackedFiles();
+    return trackedFiles.length > 0;
+  }
+
   // Expose for use in extractFiles
   window.__ableTrackFiles = trackSelectedFiles;
   window.__ableMatchFilename = matchTrackedFilename;
+  window.__ableHasTrackedFiles = hasTrackedFiles;
 
   // Check existing elements
   var allElements = document.querySelectorAll('input[type="file"], button, [role="button"], svg, [class*="attach"], [class*="upload"], [data-testid*="attach"], [data-testid*="upload"]');

@@ -152,7 +152,7 @@ async function logDomainVisit(domain, status, source, timestamp) {
     }
 
     var data = await response.json();
-    return data.visit_count ?? null;
+    return { visit_count: data.visit_count ?? null, duplicate: data.duplicate ?? false };
   } catch (error) {
     await queueVisitLog(domain, status, source, userId, timestamp);
     return null;

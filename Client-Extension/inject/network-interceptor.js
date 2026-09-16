@@ -53,8 +53,7 @@ function isFileContentType(contentType) {
     'video/',
     'audio/',
     'text/plain',
-    'text/csv',
-    'application/json'
+    'text/csv'
   ];
 
   for (var i = 0; i < fileTypes.length; i++) {
@@ -113,9 +112,19 @@ window.fetch = function (input, init) {
   }
 
   if (['POST', 'PUT', 'PATCH'].indexOf(method) >= 0 && body) {
+    var headersObj = init.headers || (typeof input === 'object' ? input.headers : null);
+    var ctHeader = getHeaderValue(headersObj, 'Content-Type');
+    if (ctHeader && (ctHeader.indexOf('application/json') === 0 || ctHeader.indexOf('application/grpc') === 0 || ctHeader.indexOf('text/event-stream') === 0)) {
+      var candidate = typeof extractFilenameFromUrl === 'function' ? extractFilenameFromUrl(requestUrl) : null;
+      var hasTracked = typeof window.__ableHasTrackedFiles === 'function' ? window.__ableHasTrackedFiles() : false;
+      if (!candidate && !hasTracked && !(body instanceof FormData) && !(body instanceof File)) {
+        return originalFetch.call(window, input, init);
+      }
+    }
+
     var bodySize = body.byteLength || body.size || 0;
     var context = {
-      headers: init.headers || (typeof input === 'object' ? input.headers : null),
+      headers: headersObj,
       url: requestUrl
     };
 
@@ -181,6 +190,15 @@ XMLHttpRequest.prototype.send = function (body) {
   }
 
   if (body) {
+    var ct = this.getRequestHeader ? this.getRequestHeader('Content-Type') : (this.__ableHeaders ? this.__ableHeaders['content-type'] : null);
+    if (ct && (ct.indexOf('application/json') === 0 || ct.indexOf('application/grpc') === 0 || ct.indexOf('text/event-stream') === 0)) {
+      var candidate = typeof extractFilenameFromUrl === 'function' ? extractFilenameFromUrl(this.__ableUrl) : null;
+      var hasTracked = typeof window.__ableHasTrackedFiles === 'function' ? window.__ableHasTrackedFiles() : false;
+      if (!candidate && !hasTracked && !(body instanceof FormData) && !(body instanceof File)) {
+        return originalSend.call(this, body);
+      }
+    }
+
     var context = {
       headers: this.__ableHeaders || null,
       url: this.__ableUrl || ''
