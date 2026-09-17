@@ -1378,7 +1378,15 @@ export default function PolicyAlgorithm() {
                                                 <td className="px-3 py-3">
                                                     {new Date(
                                                         visit.visited_at,
-                                                    ).toLocaleTimeString()}
+                                                    ).toLocaleTimeString(
+                                                        undefined,
+                                                        {
+                                                            hour: '2-digit',
+                                                            minute: '2-digit',
+                                                            second: '2-digit',
+                                                            hour12: true,
+                                                        },
+                                                    )}
                                                 </td>
                                                 <td className="px-3 py-3">
                                                     {visit.user_id || '—'}

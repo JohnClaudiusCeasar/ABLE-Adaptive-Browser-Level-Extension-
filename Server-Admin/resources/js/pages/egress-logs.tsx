@@ -45,6 +45,7 @@ function formatTimestamp(ts: string): { date: string; time: string } {
         time: d.toLocaleTimeString(undefined, {
             hour: '2-digit',
             minute: '2-digit',
+            second: '2-digit',
             hour12: true,
         }),
     };

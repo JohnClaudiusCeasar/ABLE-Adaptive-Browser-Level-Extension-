@@ -247,7 +247,7 @@
             <tbody>
                 @foreach($recentEgressEvents as $event)
                 <tr>
-                    <td>{{ \Carbon\Carbon::parse($event['occurred_at'])->format('M j, Y g:i A') }}</td>
+                    <td>{{ \Carbon\Carbon::parse($event['occurred_at'])->format('M j, Y g:i:s A') }}</td>
                     <td>{{ $event['domain'] }}</td>
                     <td>
                         <span class="status-badge status-{{ str_replace('glass-', '', $event['status']) }}">
@@ -283,7 +283,7 @@
             <tbody>
                 @foreach($recentDomainVisits as $visit)
                 <tr>
-                    <td>{{ \Carbon\Carbon::parse($visit['visited_at'])->format('M j, Y g:i A') }}</td>
+                    <td>{{ \Carbon\Carbon::parse($visit['visited_at'])->format('M j, Y g:i:s A') }}</td>
                     <td>{{ Str::limit($visit['url'], 30) }}</td>
                     <td>{{ $visit['domain'] }}</td>
                     <td>
