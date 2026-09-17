@@ -95,6 +95,10 @@ function isExcludedDomain() {
 
 function shouldActivate() {
   if (isExcludedDomain()) return false;
+  var skipSearch = ABLERuntimeSettings.get("logging.skip_search_results", typeof ABLE_SKIP_SEARCH_RESULTS !== "undefined" ? ABLE_SKIP_SEARCH_RESULTS : true);
+  if (skipSearch && typeof isSearchResultUrl === "function" && isSearchResultUrl(window.location.href)) {
+    return false;
+  }
   return domainStatus && (domainStatus.status === "unsafe" || domainStatus.status === "unlisted");
 }
 
@@ -139,7 +143,7 @@ async function setSiteWarningConsent() {
 
 // ─── Modal cooldown tracking ────────────────────────────────────────
 
-var COOLDOWN_SHORT_MS = 10000;
+var COOLDOWN_SHORT_MS = 35000;
 var COOLDOWN_STAGGER_MS = 300000;
 
 function getShortCooldown() {
@@ -496,6 +500,21 @@ async function logDomainVisit() {
 
   if (isExcludedDomain()) return null;
 
+  var skipSearch = ABLERuntimeSettings.get("logging.skip_search_results", typeof ABLE_SKIP_SEARCH_RESULTS !== "undefined" ? ABLE_SKIP_SEARCH_RESULTS : true);
+  if (skipSearch && typeof isSearchResultUrl === "function" && isSearchResultUrl(window.location.href)) {
+    return null;
+  }
+
+  var sessionKey = "able:session_visit:" + domainStatus.domain;
+  try {
+    var sessionResult = await chrome.storage.session.get(sessionKey);
+    if (sessionResult[sessionKey]) {
+      return { visitCount: null, duplicate: true };
+    }
+  } catch (error) {
+    // Continue even if session check fails
+  }
+
   var DEBOUNCE_KEY = "able:last_visit:" + domainStatus.domain;
   var debounceMs = ABLERuntimeSettings.get("logging.visit_debounce_ms", 5000);
   try {
@@ -510,7 +529,10 @@ async function logDomainVisit() {
   }
 
   try {
-    await chrome.storage.session.set({ [DEBOUNCE_KEY]: Date.now() });
+    await chrome.storage.session.set({
+      [DEBOUNCE_KEY]: Date.now(),
+      [sessionKey]: Date.now()
+    });
   } catch (error) {
     // Continue even if debounce storage fails
   }
@@ -525,6 +547,7 @@ async function logDomainVisit() {
         domain: domainStatus.domain,
         status: domainStatus.status || "unlisted",
         source: domainStatus.source || "unknown",
+        url: window.location.href,
         timestamp: Date.now(),
       }),
       new Promise(function (_, reject) {
@@ -549,6 +572,18 @@ async function evaluateAndShowModal(visitResult) {
     ? visitResult.visitCount
     : visitResult;
   var isDuplicateLog = !!(visitResult && typeof visitResult === "object" && visitResult.duplicate);
+
+  if (visitCount) {
+    try {
+      await chrome.storage.local.set({ ["able:visit_count:" + domainStatus.domain]: visitCount });
+    } catch {}
+  } else {
+    try {
+      var storedCount = await chrome.storage.local.get("able:visit_count:" + domainStatus.domain);
+      visitCount = storedCount["able:visit_count:" + domainStatus.domain] || 1;
+    } catch {}
+  }
+
   var consent = await hasSiteWarningConsent();
 
   if (!consent) {
@@ -592,9 +627,6 @@ async function handleSPANavigation() {
       initialContentHash = ABLEPageSignals.contentHash();
     }
   } catch {}
-
-  var visitResult = await logDomainVisit();
-  await evaluateAndShowModal(visitResult);
 }
 
 // ─── Font injection ─────────────────────────────────────────────────

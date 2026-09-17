@@ -82,7 +82,19 @@ async function auditNavigation(url, transitionType) {
     if (urlObj.protocol !== "http:" && urlObj.protocol !== "https:") return;
     if (isExcludedHostname(urlObj.hostname)) return;
 
+    var skipSearch = ABLERuntimeSettings.get("logging.skip_search_results", typeof ABLE_SKIP_SEARCH_RESULTS !== "undefined" ? ABLE_SKIP_SEARCH_RESULTS : true);
+    if (skipSearch && typeof isSearchResultUrl === "function" && isSearchResultUrl(url)) {
+      return;
+    }
+
     var domain = urlObj.hostname.toLowerCase().replace(/^www\./, "");
+    var sessionKey = "able:session_visit:" + domain;
+    try {
+      var sessionStored = await chrome.storage.session.get(sessionKey);
+      if (sessionStored[sessionKey]) return;
+      await chrome.storage.session.set({ [sessionKey]: Date.now() });
+    } catch {}
+
     var debounceKey = "able:last_visit:" + domain;
     var debounceMs = ABLERuntimeSettings.get("logging.visit_debounce_ms", 5000);
     try {
@@ -106,10 +118,7 @@ if (typeof chrome !== "undefined" && chrome.webNavigation) {
     auditNavigation(details.url, details.transitionType);
   });
 
-  chrome.webNavigation.onHistoryStateUpdated.addListener(function (details) {
-    if (details.frameId !== 0) return;
-    auditNavigation(details.url, details.transitionType || "spa");
-  });
+  // Internal SPA history state changes are intra-domain navigations — skip to avoid bloated visit audits
 }
 
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
@@ -122,6 +131,11 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     return true;
   }
   if (message.type === "logVisit") {
+    var skipSearch = ABLERuntimeSettings.get("logging.skip_search_results", typeof ABLE_SKIP_SEARCH_RESULTS !== "undefined" ? ABLE_SKIP_SEARCH_RESULTS : true);
+    if (skipSearch && typeof isSearchResultUrl === "function" && message.url && isSearchResultUrl(message.url)) {
+      sendResponse({ success: true, visit_count: null, duplicate: true, skipped: true });
+      return false;
+    }
     logDomainVisit(message.domain, message.status, message.source, message.timestamp)
       .then(function (result) { sendResponse({ success: true, visit_count: result?.visit_count ?? null, duplicate: result?.duplicate ?? false }); })
       .catch(function () { sendResponse({ success: false, visit_count: null, duplicate: false }); });

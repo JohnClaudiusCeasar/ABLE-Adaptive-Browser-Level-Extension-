@@ -84,14 +84,25 @@ function matchTrackedFilename(size, quickHash) {
 // ─── File input detection ───────────────────────────────────
 
 var reportedInputs = new WeakSet();
+var reportedAttachButtons = new WeakSet();
+var reportedDropZones = new WeakSet();
+
+function getElementClass(el) {
+  if (!el || typeof el.getAttribute !== 'function') return '';
+  var cls = el.getAttribute('class');
+  if (typeof cls === 'string') return cls;
+  if (typeof el.className === 'string') return el.className;
+  if (el.className && typeof el.className.baseVal === 'string') return el.className.baseVal;
+  return '';
+}
 
 function isAttachButton(el) {
   var tagName = (el.tagName || '').toLowerCase();
   var role = (el.getAttribute('role') || '').toLowerCase();
   var ariaLabel = (el.getAttribute('aria-label') || '').toLowerCase();
-  var title = (el.title || '').toLowerCase();
+  var title = (el.getAttribute('title') || (typeof el.title === 'string' ? el.title : '')).toLowerCase();
   var textContent = (el.textContent || '').trim().toLowerCase();
-  var className = (el.className || '').toLowerCase();
+  var className = getElementClass(el).toLowerCase();
   var dataTestid = (el.getAttribute('data-testid') || '').toLowerCase();
   var innerHTML = (el.innerHTML || '').toLowerCase();
 
@@ -107,6 +118,8 @@ function isAttachButton(el) {
 }
 
 function checkElement(el) {
+  if (!(el instanceof Element)) return;
+
   if (el instanceof HTMLInputElement && el.type === 'file' && !reportedInputs.has(el)) {
     reportedInputs.add(el);
     el.addEventListener('change', function () {
@@ -120,13 +133,14 @@ function checkElement(el) {
     }, true);
   }
 
-  if (isAttachButton(el) && !reportedInputs.has('btn-' + (el.id || el.className))) {
-    reportedInputs.add('btn-' + (el.id || el.className));
+  if (isAttachButton(el) && !reportedAttachButtons.has(el)) {
+    reportedAttachButtons.add(el);
     el.addEventListener('click', function () {
+      var cls = getElementClass(el) || null;
       window.postMessage({
         source: 'ABLE_INJECT',
         type: 'ABLE_ATTACH_BUTTON_CLICKED',
-        payload: { text: el.textContent?.trim()?.slice(0, 50) || null, className: el.className || null }
+        payload: { text: el.textContent?.trim()?.slice(0, 50) || null, className: cls }
       }, '*');
     }, true);
   }
@@ -135,10 +149,10 @@ function checkElement(el) {
 // Drag-drop zone detection
 function isDropZone(el) {
   if (!(el instanceof Element)) return false;
-  var tagName = el.tagName.toLowerCase();
+  var tagName = (el.tagName || '').toLowerCase();
   var role = (el.getAttribute('role') || '').toLowerCase();
   var ariaLabel = (el.getAttribute('aria-label') || '').toLowerCase();
-  var className = (el.className || '').toLowerCase();
+  var className = getElementClass(el).toLowerCase();
   var ondrop = el.getAttribute('ondrop');
   var dataDragDrop = el.getAttribute('data-drag-drop');
 
@@ -153,8 +167,8 @@ function isDropZone(el) {
 }
 
 function observeDropZone(el) {
-  if (!isDropZone(el) || reportedInputs.has('dropzone-' + (el.id || el.className))) return;
-  reportedInputs.add('dropzone-' + (el.id || el.className));
+  if (!isDropZone(el) || reportedDropZones.has(el)) return;
+  reportedDropZones.add(el);
 
   el.addEventListener('dragover', function (e) {
     e.preventDefault();

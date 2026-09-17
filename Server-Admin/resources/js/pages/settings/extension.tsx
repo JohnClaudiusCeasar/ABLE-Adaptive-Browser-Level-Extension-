@@ -281,6 +281,23 @@ export default function ExtensionSettings() {
                                         max={3600000}
                                     />
                                 </SettingsField>
+
+                                <SettingsField
+                                    label="Skip search result visits"
+                                    description="Skip domain visit auditing for search engine result listings (e.g. Google, Yahoo, Bing)."
+                                    error={
+                                        errors['logging.skip_search_results']
+                                    }
+                                >
+                                    <BooleanField
+                                        name="logging.skip_search_results"
+                                        defaultValue={
+                                            settings[
+                                                'logging.skip_search_results'
+                                            ] as boolean
+                                        }
+                                    />
+                                </SettingsField>
                             </SettingsSection>
 
                             <SettingsSection

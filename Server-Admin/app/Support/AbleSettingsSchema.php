@@ -86,7 +86,7 @@ class AbleSettingsSchema
             ],
             'behavior.modal_short_cooldown_ms' => [
                 'type' => 'integer',
-                'default' => 10000,
+                'default' => 35000,
                 'rule' => 'required|integer|min:0|max:3600000',
                 'description' => 'Short cooldown between repeat-visit modals.',
             ],
@@ -155,6 +155,12 @@ class AbleSettingsSchema
                 'default' => 5000,
                 'rule' => 'required|integer|min:0|max:3600000',
                 'description' => 'Same-domain visit debounce window.',
+            ],
+            'logging.skip_search_results' => [
+                'type' => 'boolean',
+                'default' => true,
+                'rule' => 'required|boolean',
+                'description' => 'Skip domain visit auditing for search engine result listings (e.g. Google, Yahoo, Bing).',
             ],
             'excluded_domains' => [
                 'type' => 'array',

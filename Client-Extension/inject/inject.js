@@ -330,7 +330,11 @@
   injectDependencies().then(function () {
     window.postMessage({ source: 'ABLE_INJECT', type: 'ABLE_READY' }, '*');
     if (typeof initFileTracking === 'function') {
-      initFileTracking();
+      try {
+        initFileTracking();
+      } catch (trackErr) {
+        console.warn('ABLE: File tracking initialization failed:', trackErr);
+      }
     }
   }).catch(function (err) {
     console.warn('ABLE: Failed to inject dependencies:', err);

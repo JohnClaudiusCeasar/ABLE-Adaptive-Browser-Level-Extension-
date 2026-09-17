@@ -22,7 +22,7 @@ function buildDefaults() {
     "behavior.risk_threshold":
       typeof ABLE_RISK_THRESHOLD !== "undefined" ? ABLE_RISK_THRESHOLD : 90,
     "behavior.modal_short_cooldown_ms":
-      typeof ABLE_MODAL_SHORT_COOLDOWN_MS !== "undefined" ? ABLE_MODAL_SHORT_COOLDOWN_MS : 10000,
+      typeof ABLE_MODAL_SHORT_COOLDOWN_MS !== "undefined" ? ABLE_MODAL_SHORT_COOLDOWN_MS : 35000,
     "behavior.modal_stagger_cooldown_ms":
       typeof ABLE_MODAL_STAGGER_COOLDOWN_MS !== "undefined" ? ABLE_MODAL_STAGGER_COOLDOWN_MS : 300000,
     "behavior.session_consent_enabled":
@@ -53,6 +53,8 @@ function buildDefaults() {
       typeof ABLE_DAILY_EGRESS_CAP !== "undefined" ? ABLE_DAILY_EGRESS_CAP : 500,
     "logging.visit_debounce_ms":
       typeof ABLE_VISIT_DEBOUNCE_MS !== "undefined" ? ABLE_VISIT_DEBOUNCE_MS : 5000,
+    "logging.skip_search_results":
+      typeof ABLE_SKIP_SEARCH_RESULTS !== "undefined" ? ABLE_SKIP_SEARCH_RESULTS : true,
     "excluded_domains":
       typeof EXCLUDED_DOMAINS !== "undefined" ? EXCLUDED_DOMAINS : [],
   };
@@ -72,7 +74,8 @@ function sanitize(settings) {
 
     const expected = defaults[key];
     if (Array.isArray(expected)) {
-      result[key] = Array.isArray(value) ? value.filter((v) => typeof v === "string") : expected;
+      const filtered = Array.isArray(value) ? value.filter((v) => typeof v === "string") : expected;
+      result[key] = (key === "connection.allowed_origins" && filtered.length === 0) ? expected : filtered;
     } else if (typeof expected === "boolean") {
       result[key] = typeof value === "boolean" ? value : expected;
     } else if (typeof expected === "number") {

@@ -51,7 +51,7 @@ const TLS_PINS = {
  * TODO: Compute these at deploy time:
  *   npm run build
  */
-const EXPECTED_INJECT_HASH = "893eab168f282917f76a24f4476f5fa70d5cf4669b108e1613a98a8fac899487";
+const EXPECTED_INJECT_HASH = "6875b986eaa9a39ae23cc3cba365d1abdf81a70326ae4a4397bd36c36a895d0a";
 const EXPECTED_CONTENT_CSS_HASH = "cb03f6dd8c78fed3f2c2a9c28109f55db4f3e063e583178652a5ae3c1a172d1b";
 
 /**
@@ -84,7 +84,7 @@ const EXCLUDED_DOMAINS = [
  * payload is unavailable. These mirror the server-side schema defaults.
  */
 const ABLE_RISK_THRESHOLD = 90;
-const ABLE_MODAL_SHORT_COOLDOWN_MS = 10000;
+const ABLE_MODAL_SHORT_COOLDOWN_MS = 35000;
 const ABLE_MODAL_STAGGER_COOLDOWN_MS = 300000;
 const ABLE_SESSION_CONSENT_ENABLED = true;
 const ABLE_CACHE_TTL = 5 * 60 * 1000;
@@ -94,6 +94,103 @@ const ABLE_EGRESS_LOG_FLUSH_INTERVAL_MINUTES = 5;
 const ABLE_RATE_LIMIT_DEFAULT_BACKOFF_MS = 60000;
 const ABLE_DAILY_EGRESS_CAP = 500;
 const ABLE_VISIT_DEBOUNCE_MS = 5000;
+const ABLE_SKIP_SEARCH_RESULTS = true;
+
+/**
+ * Detect whether a given URL is a search engine listing / result page.
+ * Prevents search queries (e.g. Google Search, Yahoo Search, Bing) from bloating
+ * the domain visits audit table or showing intrusive site warnings.
+ */
+function isSearchResultUrl(url) {
+  if (!url || typeof url !== "string") return false;
+  try {
+    var u = new URL(url);
+    var host = u.hostname.toLowerCase().replace(/^www\./, "");
+    var path = u.pathname.toLowerCase();
+    var search = u.searchParams;
+
+    // Google Search (excludes docs, drive, mail, meet, maps, finance, etc.)
+    if (/^google\.(com?|org|[a-z]{2})(\.[a-z]{2})?$/.test(host)) {
+      var isSearchPath = path === "/" || path === "" || path === "/search" || path === "/webhp" || path === "/imghp";
+      if (isSearchPath) return true;
+      return false;
+    }
+
+    // Yahoo Search (excludes finance, mail, sports, news, etc.)
+    if (host === "search.yahoo.com" || host.endsWith(".search.yahoo.com") || /^search\.yahoo\.[a-z]{2,3}(\.[a-z]{2})?$/.test(host)) {
+      return true;
+    }
+    if (host === "yahoo.com" || /^([a-z]{2}\.)?yahoo\.(com?|[a-z]{2})$/.test(host)) {
+      if (path.startsWith("/search") || search.has("p")) {
+        return true;
+      }
+    }
+
+    // Bing
+    if (host === "bing.com" || /^([a-z]{2}\.)?bing\.com$/.test(host) || host === "cn.bing.com") {
+      if (path === "/" || path === "" || path.startsWith("/search") || search.has("q")) {
+        return true;
+      }
+    }
+
+    // DuckDuckGo
+    if (host === "duckduckgo.com" || host.endsWith(".duckduckgo.com")) {
+      return true;
+    }
+
+    // Baidu
+    if (host === "baidu.com" || host === "m.baidu.com") {
+      if (path === "/" || path === "" || path === "/s" || search.has("wd") || search.has("word")) {
+        return true;
+      }
+    }
+
+    // Yandex
+    if (/^yandex\.(com?|[a-z]{2})(\.[a-z]{2})?$/.test(host)) {
+      if (path === "/" || path === "" || path.startsWith("/search") || search.has("text")) {
+        return true;
+      }
+    }
+
+    // Brave Search
+    if (host === "search.brave.com") {
+      return true;
+    }
+
+    // Ecosia
+    if (host === "ecosia.org" || host.endsWith(".ecosia.org")) {
+      if (path === "/" || path === "" || path.startsWith("/search") || search.has("q")) {
+        return true;
+      }
+    }
+
+    // Ask.com
+    if (host === "ask.com" || host.endsWith(".ask.com")) {
+      if (path === "/" || path === "" || path.startsWith("/web") || search.has("q")) {
+        return true;
+      }
+    }
+
+    // Startpage
+    if (host === "startpage.com" || host.endsWith(".startpage.com")) {
+      return true;
+    }
+
+    // AOL Search
+    if (host === "search.aol.com") {
+      return true;
+    }
+
+    // Qwant
+    if (host === "qwant.com" || host.endsWith(".qwant.com")) {
+      return true;
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Generate status messages for domain classification.

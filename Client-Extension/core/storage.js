@@ -47,6 +47,9 @@ const ABLEStorage = {
   getVisitDebounceKey(domain) {
     return "able:last_visit:" + domain;
   },
+  getSessionVisitKey(domain) {
+    return "able:session_visit:" + domain;
+  },
 };
 
 if (typeof globalThis !== "undefined") {

@@ -140,10 +140,20 @@ async function secureFetch(url, options = {}) {
     throw new Error(`ABLE: Refusing non-HTTPS request to ${parsed.origin}`);
   }
 
-  const allowedOrigins =
+  let allowedOrigins =
     typeof ABLERuntimeSettings !== "undefined"
       ? ABLERuntimeSettings.get("connection.allowed_origins", ALLOWED_ORIGINS)
       : ALLOWED_ORIGINS;
+
+  if (!Array.isArray(allowedOrigins) || allowedOrigins.length === 0) {
+    allowedOrigins = ALLOWED_ORIGINS;
+  } else if (Array.isArray(ALLOWED_ORIGINS)) {
+    for (const origin of ALLOWED_ORIGINS) {
+      if (!allowedOrigins.includes(origin)) {
+        allowedOrigins = [...allowedOrigins, origin];
+      }
+    }
+  }
 
   if (!allowedOrigins.includes(parsed.origin)) {
     throw new Error(`ABLE: Origin ${parsed.origin} not in allowlist`);
