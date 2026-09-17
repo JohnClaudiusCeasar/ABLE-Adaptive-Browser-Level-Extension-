@@ -108,6 +108,7 @@ class EgressEventController extends Controller
             DomainVisit::create([
                 'domain_policy_id' => $policy->id,
                 'domain' => $validated['domain'],
+                'status' => $policy->domain_status ?? 'unlisted',
                 'user_id' => $validated['user_id'] ?? null,
                 'visited_at' => now(),
             ]);

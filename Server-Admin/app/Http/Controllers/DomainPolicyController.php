@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\DomainPolicy;
 use App\Models\DomainVisit;
+use App\Models\EgressEvent;
 use App\Services\AbleSettingsService;
 use App\Support\DomainBrandMap;
 use App\Support\HeuristicClassifier;
@@ -168,9 +169,12 @@ class DomainPolicyController extends Controller
             'last_source' => $source,
         ]);
 
+        $visitStatus = $policy->domain_status ?? $status ?? 'unlisted';
+
         DomainVisit::create([
             'domain_policy_id' => $policy->id,
             'domain' => $domain,
+            'status' => $visitStatus,
             'user_id' => $userId,
             'visited_at' => $visitTime,
         ]);
@@ -545,12 +549,32 @@ class DomainPolicyController extends Controller
 
         $visits = $query->paginate($perPage);
 
+        $activeWindow = now()->subMinutes(15);
+
+        $activeVisitUsers = DomainVisit::where('domain_policy_id', $domainPolicy->id)
+            ->where('visited_at', '>=', $activeWindow)
+            ->whereNotNull('user_id')
+            ->distinct('user_id')
+            ->pluck('user_id');
+
+        $activeEgressUsers = EgressEvent::where('domain', $domainPolicy->domain)
+            ->where('occurred_at', '>=', $activeWindow)
+            ->whereNotNull('user_id')
+            ->distinct('user_id')
+            ->pluck('user_id');
+
+        $activeUsers = $activeVisitUsers->merge($activeEgressUsers)->unique()->count();
+
+        $visitCount = max((int) ($domainPolicy->visit_count ?? 0), DomainVisit::where('domain_policy_id', $domainPolicy->id)->count());
+
         return response()->json([
             'visits' => $visits->items(),
             'total' => $visits->total(),
             'current_page' => $visits->currentPage(),
             'last_page' => $visits->lastPage(),
             'per_page' => $visits->perPage(),
+            'visit_count' => $visitCount,
+            'active_users' => $activeUsers,
         ]);
     }
 }

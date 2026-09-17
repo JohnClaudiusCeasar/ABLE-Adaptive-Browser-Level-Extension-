@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\DomainPolicy;
 use App\Models\DomainVisit;
+use App\Models\EgressEvent;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Tests\TestCase;
@@ -157,5 +158,142 @@ class DomainVisitLogTest extends TestCase
             $before->timestamp,
             $visit->visited_at->timestamp,
         );
+    }
+
+    public function test_domain_policy_change_does_not_mutate_historical_visit_status(): void
+    {
+        // 1. First visit logged when domain is unlisted
+        $this->logVisit('example.com');
+        $firstVisit = DomainVisit::where('domain', 'example.com')->first();
+        $this->assertNotNull($firstVisit);
+        $this->assertSame('unlisted', $firstVisit->status);
+        $this->assertSame('unlisted', $firstVisit->resolvedStatus());
+        $this->assertSame('glass-unlisted', $firstVisit->glassStatus());
+        $this->assertSame('Warned', $firstVisit->actionLabel());
+
+        // 2. Admin changes the domain status from unlisted to safe
+        $policy = DomainPolicy::where('domain', 'example.com')->first();
+        $policy->update([
+            'domain_status' => 'safe',
+            'policy' => 'whitelisted',
+        ]);
+
+        // 3. Verify the previous visit row remains unlisted despite policy change
+        $firstVisit->refresh();
+        $this->assertSame('unlisted', $firstVisit->status);
+        $this->assertSame('unlisted', $firstVisit->resolvedStatus());
+        $this->assertSame('glass-unlisted', $firstVisit->glassStatus());
+        $this->assertSame('Warned', $firstVisit->actionLabel());
+
+        // 4. Second visit arrives after debounce window, inherits the new safe policy
+        $this->travel(10)->seconds();
+        $this->logVisit('example.com');
+
+        $this->assertSame(2, DomainVisit::where('domain', 'example.com')->count());
+
+        $visits = DomainVisit::where('domain', 'example.com')->orderBy('visited_at', 'asc')->get();
+        $this->assertSame('unlisted', $visits[0]->status);
+        $this->assertSame('glass-unlisted', $visits[0]->glassStatus());
+        $this->assertSame('Warned', $visits[0]->actionLabel());
+
+        $this->assertSame('safe', $visits[1]->status);
+        $this->assertSame('glass-safe', $visits[1]->glassStatus());
+        $this->assertSame('Allowed', $visits[1]->actionLabel());
+    }
+
+    public function test_domain_visits_controller_renders_immutable_point_in_time_status(): void
+    {
+        $user = \App\Models\User::factory()->create();
+
+        // 1. Initial unlisted visit
+        $this->logVisit('testdomain.com');
+
+        // 2. Policy updated to safe
+        DomainPolicy::where('domain', 'testdomain.com')->first()->update([
+            'domain_status' => 'safe',
+        ]);
+
+        // 3. Subsequent visit inherits safe
+        $this->travel(10)->seconds();
+        $this->logVisit('testdomain.com');
+
+        // 4. Render domain-visits page and assert both statuses exist
+        $response = $this->actingAs($user)->get(route('domain-visits'));
+        $response->assertOk();
+
+        $response->assertInertia(function (\Inertia\Testing\AssertableInertia $page) {
+            $page->component('domain-visits')
+                ->has('domainVisits', 2)
+                ->where('domainVisits.0.status', 'glass-safe')
+                ->where('domainVisits.0.action', 'Allowed')
+                ->where('domainVisits.1.status', 'glass-unlisted')
+                ->where('domainVisits.1.action', 'Warned');
+        });
+    }
+
+    public function test_get_domain_visits_returns_visit_count_and_active_users_metrics(): void
+    {
+        $policy = DomainPolicy::create([
+            'domain' => 'metrictest.com',
+            'domain_status' => 'safe',
+            'policy' => 'whitelisted',
+            'risk_score' => 0,
+            'visit_count' => 10,
+        ]);
+
+        // user-Old: visited 25 minutes ago (outside the 15m active window)
+        DomainVisit::create([
+            'domain_policy_id' => $policy->id,
+            'domain' => 'metrictest.com',
+            'status' => 'safe',
+            'user_id' => 'user-Old',
+            'visited_at' => now()->subMinutes(25),
+        ]);
+
+        // user-A: visited 10 minutes ago and 5 minutes ago (inside the 15m active window)
+        DomainVisit::create([
+            'domain_policy_id' => $policy->id,
+            'domain' => 'metrictest.com',
+            'status' => 'safe',
+            'user_id' => 'user-A',
+            'visited_at' => now()->subMinutes(10),
+        ]);
+
+        DomainVisit::create([
+            'domain_policy_id' => $policy->id,
+            'domain' => 'metrictest.com',
+            'status' => 'safe',
+            'user_id' => 'user-A',
+            'visited_at' => now()->subMinutes(5),
+        ]);
+
+        // user-B: visited right now (inside the 15m active window)
+        DomainVisit::create([
+            'domain_policy_id' => $policy->id,
+            'domain' => 'metrictest.com',
+            'status' => 'safe',
+            'user_id' => 'user-B',
+            'visited_at' => now(),
+        ]);
+
+        // user-C: had an egress event 3 minutes ago (inside the 15m active window)
+        EgressEvent::create([
+            'domain' => 'metrictest.com',
+            'file_name' => 'confidential.pdf',
+            'file_size' => 1024,
+            'file_type' => 'application/pdf',
+            'risk_score' => 20,
+            'action' => 'proceeded',
+            'user_id' => 'user-C',
+            'occurred_at' => now()->subMinutes(3),
+        ]);
+
+        $response = $this->getJson("/api/domain-policies/{$policy->id}/visits");
+        $response->assertOk();
+        $response->assertJson([
+            'visit_count' => 10,
+            'active_users' => 3, // user-A, user-B, user-C (user-Old excluded because >15m)
+            'total' => 4,
+        ]);
     }
 }

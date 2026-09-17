@@ -10,6 +10,8 @@ import {
     Layers,
     Trash,
     Eye,
+    Globe,
+    Users,
 } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState, useMemo } from 'react';
@@ -411,7 +413,10 @@ export default function PolicyAlgorithm() {
         per_page: 10,
         total: 0,
     });
-    const [visitsSearch, setVisitsSearch] = useState('');
+    const [visitMetrics, setVisitMetrics] = useState({
+        visit_count: 0,
+        active_users: 0,
+    });
 
     // Scroll to the highlighted row and remove the glow after a few seconds.
     useEffect(() => {
@@ -607,7 +612,6 @@ export default function PolicyAlgorithm() {
     async function fetchDomainVisits(
         domainPolicyId: number,
         page: number = 1,
-        search: string = '',
     ) {
         setVisitsLoading(true);
 
@@ -618,7 +622,6 @@ export default function PolicyAlgorithm() {
                     query: {
                         page: page.toString(),
                         per_page: visitsPagination.per_page.toString(),
-                        ...(search ? { search } : {}),
                     },
                 },
             );
@@ -634,6 +637,14 @@ export default function PolicyAlgorithm() {
                     per_page: data.per_page,
                     total: data.total,
                 });
+                setVisitMetrics({
+                    visit_count:
+                        data.visit_count ??
+                        selectedDomain?.visit_count ??
+                        data.total ??
+                        0,
+                    active_users: data.active_users ?? 0,
+                });
             }
         } catch (error) {
             console.error('Failed to fetch domain visits:', error);
@@ -645,27 +656,26 @@ export default function PolicyAlgorithm() {
     function openDetailModal(domain: DomainPolicy) {
         setSelectedDomain(domain);
         setShowDetailModal(true);
-        setVisitsSearch('');
-        fetchDomainVisits(domain.id, 1, '');
+        setVisitMetrics({
+            visit_count: domain.visit_count || 0,
+            active_users: 0,
+        });
+        fetchDomainVisits(domain.id, 1);
     }
 
     function closeDetailModal() {
         setShowDetailModal(false);
         setSelectedDomain(null);
         setDomainVisits([]);
-    }
-
-    function handleVisitsSearch(search: string) {
-        setVisitsSearch(search);
-
-        if (selectedDomain) {
-            fetchDomainVisits(selectedDomain.id, 1, search);
-        }
+        setVisitMetrics({
+            visit_count: 0,
+            active_users: 0,
+        });
     }
 
     function handleVisitsPageChange(page: number) {
         if (selectedDomain) {
-            fetchDomainVisits(selectedDomain.id, page, visitsSearch);
+            fetchDomainVisits(selectedDomain.id, page);
         }
     }
 
@@ -1052,6 +1062,10 @@ export default function PolicyAlgorithm() {
                                     </label>
                                     <select
                                         value={form.domain_status}
+                                        disabled={
+                                            form.policy === 'whitelisted' ||
+                                            form.policy === 'blacklisted'
+                                        }
                                         onChange={(e) =>
                                             setForm({
                                                 ...form,
@@ -1059,7 +1073,12 @@ export default function PolicyAlgorithm() {
                                                     .value as FormData['domain_status'],
                                             })
                                         }
-                                        className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-foreground transition-colors outline-none focus:border-able-green dark:border-white/10"
+                                        className={`w-full rounded-lg border bg-transparent px-3 py-2 text-foreground transition-colors outline-none focus:border-able-green ${
+                                            form.policy === 'whitelisted' ||
+                                            form.policy === 'blacklisted'
+                                                ? 'cursor-not-allowed border-black/10 bg-black/5 opacity-60 dark:border-white/10 dark:bg-white/5'
+                                                : 'border-black/10 dark:border-white/10'
+                                        }`}
                                     >
                                         <option value="safe">Safe</option>
                                         <option value="unsafe">Unsafe</option>
@@ -1091,12 +1110,15 @@ export default function PolicyAlgorithm() {
                                                 domain_status:
                                                     statusMap[policy],
                                                 risk_score:
-                                                    policy === 'under_review'
-                                                        ? 70
+                                                    policy === 'blacklisted'
+                                                        ? 100
                                                         : policy ===
                                                             'whitelisted'
                                                           ? 0
-                                                          : form.risk_score,
+                                                          : policy ===
+                                                              'under_review'
+                                                            ? 70
+                                                            : form.risk_score,
                                             });
                                         }}
                                         className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-foreground transition-colors outline-none focus:border-able-green dark:border-white/10"
@@ -1318,23 +1340,41 @@ export default function PolicyAlgorithm() {
                             </div>
                         </div>
 
-                        {/* Search and Filters */}
+                        {/* 2x1 KPI Card Grid */}
                         <div className="border-b border-black/10 px-6 py-4 dark:border-white/10">
-                            <div className="flex items-center gap-3">
-                                <div className="relative flex-1">
-                                    <Search
-                                        size={16}
-                                        className="absolute top-1/2 left-3.5 -translate-y-1/2 text-muted-foreground"
-                                    />
-                                    <input
-                                        type="text"
-                                        placeholder="Search by User ID..."
-                                        value={visitsSearch}
-                                        onChange={(e) =>
-                                            handleVisitsSearch(e.target.value)
-                                        }
-                                        className="w-full rounded-lg border border-black/10 bg-black/5 py-2 pr-3 pl-10 text-sm text-foreground transition-colors outline-none placeholder:text-muted-foreground focus:border-able-green dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]"
-                                    />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="flex flex-col gap-1.5 rounded-lg border border-[rgba(34,197,94,0.3)] bg-[rgba(34,197,94,0.06)] p-4 dark:bg-white/5">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                                            Visit Count
+                                        </span>
+                                        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-able-green/10 text-able-green">
+                                            <Globe size={15} />
+                                        </div>
+                                    </div>
+                                    <p className="text-2xl font-bold tabular-nums text-foreground">
+                                        {visitMetrics.visit_count.toLocaleString()}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                        Counts the number of times this domain has been visited.
+                                    </p>
+                                </div>
+
+                                <div className="flex flex-col gap-1.5 rounded-lg border border-[rgba(34,197,94,0.3)] bg-[rgba(34,197,94,0.06)] p-4 dark:bg-white/5">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                                            Active Users
+                                        </span>
+                                        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-500">
+                                            <Users size={15} />
+                                        </div>
+                                    </div>
+                                    <p className="text-2xl font-bold tabular-nums text-foreground">
+                                        {visitMetrics.active_users.toLocaleString()}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                        Counts users currently active on this domain (last 15m).
+                                    </p>
                                 </div>
                             </div>
                         </div>

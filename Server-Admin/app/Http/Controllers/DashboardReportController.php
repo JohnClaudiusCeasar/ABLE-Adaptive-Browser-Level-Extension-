@@ -128,26 +128,14 @@ class DashboardReportController extends Controller
             ->orderByDesc('visited_at')
             ->limit(20)
             ->get()
-            ->map(function ($visit) {
-                $status = match ($visit->domainPolicy?->domain_status) {
-                    'safe' => 'glass-safe',
-                    'unsafe' => 'glass-unsafe',
-                    default => 'glass-unlisted',
-                };
-
-                $actionMap = [
-                    'glass-safe' => 'Allowed',
-                    'glass-unsafe' => 'Blocked',
-                    'glass-unlisted' => 'Warned',
-                ];
-
+            ->map(function (DomainVisit $visit) {
                 return [
                     'visited_at' => $visit->visited_at->toIso8601String(),
                     'url' => $visit->domain,
                     'domain' => $visit->domain,
-                    'status' => $status,
+                    'status' => $visit->glassStatus(),
                     'user' => $visit->user_id,
-                    'action' => $actionMap[$status],
+                    'action' => $visit->actionLabel(),
                 ];
             })->toArray();
 

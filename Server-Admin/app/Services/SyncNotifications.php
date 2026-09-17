@@ -93,7 +93,7 @@ class SyncNotifications
 
                 $isFirstVisit = $visit->domainPolicy !== null && $visit->domainPolicy->visit_count === 1;
                 $type = $isFirstVisit ? 'New Domain Detected' : 'New Domain Visit';
-                $status = $this->statusForDomainStatus($visit->domainPolicy?->domain_status);
+                $status = $this->statusForDomainStatus($visit->resolvedStatus());
                 $riskScore = $visit->domainPolicy->risk_score ?? 0;
 
                 Notification::create([
