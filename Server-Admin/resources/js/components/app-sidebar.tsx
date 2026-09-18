@@ -3,6 +3,7 @@ import {
     BarChart3,
     Bell,
     FileCode2,
+    Laptop,
     LayoutGrid,
     Menu,
     MessageSquareText,
@@ -11,6 +12,8 @@ import {
     ShieldCheck,
     TrendingUp,
     UserCircle,
+    Users,
+    UsersRound,
 } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
@@ -71,6 +74,23 @@ export const mainNavItems: NavItem[] = [
                 title: 'Policy Algorithm',
                 href: '/policy-algorithm',
                 icon: ShieldCheck,
+            },
+            {
+                title: 'Users',
+                href: '/users/client',
+                icon: Users,
+                items: [
+                    {
+                        title: 'Client',
+                        href: '/users/client',
+                        icon: Laptop,
+                    },
+                    {
+                        title: 'Team',
+                        href: '/users/team',
+                        icon: UsersRound,
+                    },
+                ],
             },
             {
                 title: 'Chat',
