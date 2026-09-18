@@ -59,17 +59,19 @@ class DashboardController extends Controller
             COALESCE(SUM(CASE WHEN action IN ('proceeded', 'allowed') THEN file_size ELSE 0 END), 0) as data_lost
         ")->first();
 
-        // 4. Nudge Success Rate
-        // Success = user cancelled upload (nudge prevented data loss)
-        // Failure = user proceeded with upload (data left the network)
-        /** @var object{success: int, failure: int} $nudgeStats */
+        // 4. Nudge Success Rate & Event Counts
+        // Cancelled = user cancelled upload (nudge prevented data loss)
+        // Proceeded = user proceeded with upload (data left the network)
+        /** @var object{cancelled: int, proceeded: int} $nudgeStats */
         $nudgeStats = NudgeInteraction::selectRaw("
-            SUM(CASE WHEN user_action = 'cancelled' THEN 1 ELSE 0 END) as success,
-            SUM(CASE WHEN user_action = 'proceeded' THEN 1 ELSE 0 END) as failure
+            COALESCE(SUM(CASE WHEN user_action = 'cancelled' THEN 1 ELSE 0 END), 0) as cancelled,
+            COALESCE(SUM(CASE WHEN user_action = 'proceeded' THEN 1 ELSE 0 END), 0) as proceeded
         ")->first();
-        $totalInteractions = (int) $nudgeStats->success + (int) $nudgeStats->failure;
+        $nudgeCancelled = (int) ($nudgeStats->cancelled ?? 0);
+        $nudgeProceeded = (int) ($nudgeStats->proceeded ?? 0);
+        $totalInteractions = $nudgeCancelled + $nudgeProceeded;
         $nudgeSuccessRate = $totalInteractions > 0
-            ? round(((int) $nudgeStats->success / $totalInteractions) * 100, 1)
+            ? round(($nudgeCancelled / $totalInteractions) * 100, 1)
             : 0;
 
         // 5. Domain Usage - single conditional aggregation
@@ -158,6 +160,8 @@ class DashboardController extends Controller
             'dataSaved' => $this->formatBytes((int) $dataStats->data_saved),
             'dataLost' => $this->formatBytes((int) $dataStats->data_lost),
             'nudgeSuccessRate' => $nudgeSuccessRate,
+            'nudgeCancelled' => $nudgeCancelled,
+            'nudgeProceeded' => $nudgeProceeded,
             'domainUsage' => $domainUsage,
             'recentEgressEvents' => $recentEgressEvents,
             'recentDomainVisits' => $recentDomainVisits,

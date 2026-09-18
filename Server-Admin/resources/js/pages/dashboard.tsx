@@ -62,6 +62,8 @@ interface DashboardProps {
     dataSaved: string;
     dataLost: string;
     nudgeSuccessRate: number;
+    nudgeCancelled?: number;
+    nudgeProceeded?: number;
     domainUsage: {
         safe: number;
         unsafe: number;
@@ -100,6 +102,8 @@ export default function Dashboard({
     dataSaved,
     dataLost,
     nudgeSuccessRate,
+    nudgeCancelled = 0,
+    nudgeProceeded = 0,
     domainUsage,
     recentEgressEvents,
     recentDomainVisits,
@@ -115,15 +119,11 @@ export default function Dashboard({
     const savedPct = totalBytes > 0 ? (savedBytes / totalBytes) * 100 : 0;
     const lostPct = totalBytes > 0 ? (lostBytes / totalBytes) * 100 : 0;
 
-    const totalInteractions = nudgeSuccessRate === 0 ? 0 : 1;
+    const totalNudgeInteractions = nudgeCancelled + nudgeProceeded;
 
     const nudgeSegments = [
-        { color: '#22c55e', value: nudgeSuccessRate, label: 'Success' },
-        {
-            color: '#ff3b3b',
-            value: Math.max(0, 100 - nudgeSuccessRate),
-            label: 'Failure',
-        },
+        { color: '#22c55e', value: nudgeCancelled, label: 'Cancelled' },
+        { color: '#ff3b3b', value: nudgeProceeded, label: 'Proceeded' },
     ];
 
     const domainSegments = [
@@ -288,7 +288,7 @@ export default function Dashboard({
                             segments={nudgeSegments}
                             centerLabel="Success Rate"
                             centerValue={`${nudgeSuccessRate}%`}
-                            noData={totalInteractions === 0}
+                            noData={totalNudgeInteractions === 0}
                         />
                     </PanelCard>
                     <PanelCard
