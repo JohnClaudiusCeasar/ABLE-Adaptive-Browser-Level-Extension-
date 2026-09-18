@@ -1,12 +1,11 @@
 <?php
 
 use App\Http\Controllers\SecurityController;
-use App\Http\Middleware\RequireFreshPasswordConfirmation;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('security', [SecurityController::class, 'edit'])
-        ->middleware(RequireFreshPasswordConfirmation::class)
+        ->middleware('password.confirm')
         ->name('security.edit');
 
     Route::put('security/password', [SecurityController::class, 'update'])

@@ -115,4 +115,41 @@ class SecurityTest extends TestCase
             ->assertSessionHasErrors('current_password')
             ->assertRedirect(route('security.edit'));
     }
+
+    public function test_reloading_security_page_preserves_confirmation()
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->withSession(['auth.password_confirmed_at' => time()])
+            ->get(route('security.edit'))
+            ->assertOk();
+
+        // Refresh/subsequent request to security page stays confirmed
+        $this->actingAs($user)
+            ->get(route('security.edit'))
+            ->assertOk();
+    }
+
+    public function test_navigating_away_resets_password_confirmation_requiring_reconfirmation_on_return()
+    {
+        $user = User::factory()->create();
+
+        // 1. Visit security page with active confirmation
+        $this->actingAs($user)
+            ->withSession(['auth.password_confirmed_at' => time()])
+            ->get(route('security.edit'))
+            ->assertOk();
+
+        // 2. Navigate away to Dashboard
+        $this->actingAs($user)
+            ->get(route('dashboard'))
+            ->assertOk();
+
+        // 3. Navigate back to security page -> must require password confirmation
+        $this->actingAs($user)
+            ->get(route('security.edit'))
+            ->assertRedirect(route('password.confirm'));
+    }
 }
+
