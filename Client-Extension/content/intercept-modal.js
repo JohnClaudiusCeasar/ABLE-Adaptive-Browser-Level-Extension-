@@ -121,7 +121,7 @@ function showInterceptModal(data) {
   });
 
   backdrop.querySelector("#ableCancelBtn").addEventListener("click", async function () {
-    sendDecision(data.requestId, "cancel");
+    sendDecision(data.requestId, "cancel", { fileName: data.fileName, fileSize: data.fileSize });
     await logEgressEvent({
       domain: data.domain,
       fileName: data.fileName,
@@ -140,7 +140,7 @@ function showInterceptModal(data) {
   backdrop.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {
       e.preventDefault();
-      sendDecision(data.requestId, "cancel");
+      sendDecision(data.requestId, "cancel", { fileName: data.fileName, fileSize: data.fileSize });
       logEgressEvent({
         domain: data.domain,
         fileName: data.fileName,
@@ -201,7 +201,7 @@ function showInterceptScoreDetails(data) {
   });
 
   document.querySelector("#ableDetailCancelBtn").addEventListener("click", async function () {
-    sendDecision(data.requestId, "cancel");
+    sendDecision(data.requestId, "cancel", { fileName: data.fileName, fileSize: data.fileSize });
     await logEgressEvent({
       domain: data.domain,
       fileName: data.fileName,

@@ -11,6 +11,55 @@
 
 var FILE_MATCH_WINDOW_MS = 30000;
 var trackedFiles = [];
+var trackedInputElements = new Set();
+var trackedObjectUrls = new Map();
+
+// ─── Object URL tracking & revocation ──────────────────────
+if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+  var originalCreateObjectURL = URL.createObjectURL;
+  var originalRevokeObjectURL = URL.revokeObjectURL;
+
+  URL.createObjectURL = function (obj) {
+    var url = originalCreateObjectURL.apply(URL, arguments);
+    if (obj instanceof File || obj instanceof Blob) {
+      trackedObjectUrls.set(url, {
+        name: obj.name || (obj.type ? 'blob.' + obj.type.split('/')[1] : 'blob'),
+        size: obj.size || 0,
+        timestamp: Date.now()
+      });
+    }
+    return url;
+  };
+
+  URL.revokeObjectURL = function (url) {
+    trackedObjectUrls.delete(url);
+    return originalRevokeObjectURL.apply(URL, arguments);
+  };
+}
+
+function revokeTrackedObjectUrls(targetNames) {
+  if (!targetNames || targetNames.length === 0) return;
+  var names = Array.isArray(targetNames) ? targetNames : [targetNames];
+
+  for (var entry of trackedObjectUrls.entries()) {
+    var url = entry[0];
+    var meta = entry[1];
+    if (names.includes(meta.name) || names.some(function (n) { return meta.name && meta.name.indexOf(n) !== -1; })) {
+      try {
+        var imgs = document.querySelectorAll('img[src="' + url + '"]');
+        for (var i = 0; i < imgs.length; i++) {
+          imgs[i].remove();
+        }
+        if (typeof originalRevokeObjectURL === 'function') {
+          originalRevokeObjectURL.call(URL, url);
+        }
+      } catch (e) {}
+      trackedObjectUrls.delete(url);
+    }
+  }
+}
+
+window.__ableRevokeObjectUrls = revokeTrackedObjectUrls;
 
 function computeQuickHash(file, callback) {
   var slice = file.slice(0, 4096);
@@ -199,10 +248,13 @@ function debounce(fn, delay) {
 }
 
 function initFileTracking() {
+  window.__ableTrackedInputs = trackedInputElements;
+
   // Track file selections from all file inputs
   document.addEventListener('change', function (event) {
     var target = event.target;
     if (target instanceof HTMLInputElement && target.type === 'file' && target.files) {
+      trackedInputElements.add(target);
       trackSelectedFiles(Array.from(target.files));
     }
   }, true);

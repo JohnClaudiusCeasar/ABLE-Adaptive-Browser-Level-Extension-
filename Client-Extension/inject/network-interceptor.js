@@ -143,8 +143,7 @@ window.fetch = function (input, init) {
       }
       return checkFn(infos).then(function (decision) {
         if (decision === 'cancel') {
-          var files = infos.map(function (info) { return info.file; }).filter(Boolean);
-          clearFileInputs(files);
+          clearFileInputs(infos);
           throw new DOMException('Upload cancelled by ABLE security extension', 'AbortError');
         }
         return originalFetch.call(window, input, init);
@@ -221,8 +220,7 @@ XMLHttpRequest.prototype.send = function (body) {
         if (decision === 'proceed') {
           originalSend.call(xhr, body);
         } else {
-          var files = fileInfos.map(function(info) { return info.file; }).filter(Boolean);
-          clearFileInputs(files);
+          clearFileInputs(fileInfos);
           try {
             Object.defineProperty(xhr, 'readyState', { value: 4, writable: true });
             Object.defineProperty(xhr, 'status', { value: 0, writable: true });
@@ -291,8 +289,7 @@ if (OriginalWebSocket) {
           originalWsSend.call(ws, data);
         } else {
           console.warn("ABLE: WebSocket upload cancelled by security extension");
-          var files = fileInfos.map(function(info) { return info.file; }).filter(Boolean);
-          clearFileInputs(files);
+          clearFileInputs(fileInfos);
         }
       });
       return;

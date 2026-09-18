@@ -117,6 +117,12 @@
     if (event.data.type === 'ABLE_DECISION') {
       var id = event.data.payload.requestId;
       var action = event.data.payload.action;
+      var details = event.data.payload.details;
+      if (action === 'cancel' && typeof clearFileInputs === 'function') {
+        try {
+          clearFileInputs(details || []);
+        } catch (e) {}
+      }
       var pending = pendingRequests.get(id);
       if (pending) {
         if (pending.timeout) clearTimeout(pending.timeout);

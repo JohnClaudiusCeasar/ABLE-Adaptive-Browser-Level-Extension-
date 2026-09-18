@@ -298,31 +298,240 @@ async function extractFilesAsync(body, context) {
 }
 
 function filesMatch(a, b) {
+  if (!a || !b) return false;
+  if (a === b) return true;
   return a.name === b.name &&
          a.size === b.size &&
-         a.lastModified === b.lastModified &&
          a.type === b.type;
 }
 
-function clearFileInputs(files) {
-  if (!files || files.length === 0) return;
+function normalizeFileTargets(items) {
+  var targetNames = [];
+  var targetFiles = [];
+  var targetSizes = [];
+
+  if (!items) return { targetNames: targetNames, targetFiles: targetFiles, targetSizes: targetSizes };
+
+  var list = Array.isArray(items) ? items : [items];
+  for (var i = 0; i < list.length; i++) {
+    var item = list[i];
+    if (!item) continue;
+    if (typeof item === 'string') {
+      if (item.trim()) targetNames.push(item.trim());
+    } else if (item instanceof File || item instanceof Blob) {
+      targetFiles.push(item);
+      if (item.name) targetNames.push(item.name.trim());
+      if (typeof item.size === 'number') targetSizes.push(item.size);
+    } else if (typeof item === 'object') {
+      if (item.file) {
+        targetFiles.push(item.file);
+        if (item.file.name) targetNames.push(item.file.name.trim());
+        if (typeof item.file.size === 'number') targetSizes.push(item.file.size);
+      }
+      if (item.fileName && typeof item.fileName === 'string') targetNames.push(item.fileName.trim());
+      if (item.name && typeof item.name === 'string') targetNames.push(item.name.trim());
+      if (typeof item.fileSize === 'number') targetSizes.push(item.fileSize);
+      if (typeof item.size === 'number') targetSizes.push(item.size);
+    }
+  }
+
+  // Deduplicate names
+  targetNames = Array.from(new Set(targetNames)).filter(Boolean);
+  return { targetNames: targetNames, targetFiles: targetFiles, targetSizes: targetSizes };
+}
+
+function resetNativeFileInput(input) {
+  if (!(input instanceof HTMLInputElement)) return;
+  try {
+    var descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+    if (descriptor && descriptor.set) {
+      descriptor.set.call(input, '');
+    } else {
+      input.value = '';
+    }
+  } catch (e) {
+    input.value = '';
+  }
+
+  try {
+    if (typeof DataTransfer !== 'undefined') {
+      input.files = new DataTransfer().files;
+    }
+  } catch (e) {}
+
+  try {
+    input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true, composed: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true, composed: true }));
+    input.dispatchEvent(new Event('cancel', { bubbles: true, cancelable: true, composed: true }));
+  } catch (e) {}
+}
+
+function purgeNativeFileInputs(targets) {
   var inputs = document.querySelectorAll('input[type="file"]');
   for (var i = 0; i < inputs.length; i++) {
     var input = inputs[i];
-    if (!input.files || input.files.length === 0) continue;
     var shouldClear = false;
-    for (var j = 0; j < files.length && !shouldClear; j++) {
+
+    if (!input.files || input.files.length === 0) {
+      // If the input has a value string matching one of the filenames
+      if (input.value && targets.targetNames.some(function (n) { return input.value.indexOf(n) !== -1; })) {
+        shouldClear = true;
+      }
+    } else {
       for (var k = 0; k < input.files.length; k++) {
-        if (input.files[k] === files[j] || filesMatch(input.files[k], files[j])) {
+        var f = input.files[k];
+        if (
+          targets.targetFiles.includes(f) ||
+          targets.targetNames.includes(f.name) ||
+          targets.targetSizes.includes(f.size)
+        ) {
           shouldClear = true;
           break;
         }
       }
     }
-    if (shouldClear) {
-      input.value = '';
+
+    if (shouldClear || (targets.targetNames.length === 0 && targets.targetFiles.length === 0)) {
+      resetNativeFileInput(input);
     }
   }
+}
+
+function purgeUploadLibraries(targetNames, targetFiles) {
+  // Dropzone.js instances
+  try {
+    var dzElements = document.querySelectorAll('.dropzone, [class*="dropzone"]');
+    dzElements.forEach(function (dzEl) {
+      var dz = dzEl.dropzone;
+      if (dz && Array.isArray(dz.files)) {
+        dz.files.slice().forEach(function (dzFile) {
+          if (targetNames.includes(dzFile.name) || targetFiles.some(function (f) { return filesMatch(f, dzFile); })) {
+            if (typeof dz.removeFile === 'function') {
+              dz.removeFile(dzFile);
+            }
+          }
+        });
+      }
+    });
+  } catch (e) {}
+
+  // FilePond instances
+  try {
+    if (typeof window !== 'undefined' && window.FilePond && typeof window.FilePond.getInstances === 'function') {
+      var ponds = window.FilePond.getInstances();
+      ponds.forEach(function (pond) {
+        var items = typeof pond.getFiles === 'function' ? pond.getFiles() : [];
+        items.forEach(function (item) {
+          var fName = item.filename || (item.file && item.file.name);
+          if (targetNames.includes(fName) && typeof pond.removeFile === 'function') {
+            pond.removeFile(item.id);
+          }
+        });
+      });
+    }
+  } catch (e) {}
+
+  // Uppy instances
+  try {
+    if (typeof window !== 'undefined' && window.Uppy) {
+      var uppyRoots = document.querySelectorAll('.uppy-Root, .uppy-Dashboard');
+      uppyRoots.forEach(function (root) {
+        var uppyInstance = root.__uppy || (window.__uppyInstances && window.__uppyInstances[0]);
+        if (uppyInstance && typeof uppyInstance.getFiles === 'function') {
+          uppyInstance.getFiles().forEach(function (uFile) {
+            if (targetNames.includes(uFile.name) && typeof uppyInstance.removeFile === 'function') {
+              uppyInstance.removeFile(uFile.id);
+            }
+          });
+        }
+      });
+    }
+  } catch (e) {}
+}
+
+function purgeSpaFilePreviews(targetNames) {
+  if (!targetNames || targetNames.length === 0) return;
+
+  targetNames.forEach(function (name) {
+    if (!name || typeof name !== 'string') return;
+    var trimmed = name.trim();
+    if (!trimmed) return;
+
+    var escaped = trimmed.replace(/["\\]/g, '\\$&');
+
+    // 1. Selector-based search for attributes matching filename
+    var candidates = Array.from(document.querySelectorAll(
+      '[title*="' + escaped + '"], [aria-label*="' + escaped + '"], [data-filename*="' + escaped + '"], [data-name*="' + escaped + '"], .dz-preview, .filepond--item, .uppy-Dashboard-Item, [class*="preview" i], [class*="attachment" i], [class*="file-chip" i], [class*="file-item" i], [class*="upload-item" i]'
+    ));
+
+    // 2. Text node search for leaf/small elements containing the filename
+    var textNodes = document.querySelectorAll('div, li, span, p, tr, td, a');
+    for (var i = 0; i < textNodes.length; i++) {
+      var node = textNodes[i];
+      if (node.children.length <= 4 && (node.textContent || '').indexOf(trimmed) !== -1) {
+        candidates.push(node);
+      }
+    }
+
+    candidates.forEach(function (el) {
+      var text = (el.textContent || '') + ' ' + (el.getAttribute('title') || '') + ' ' + (el.getAttribute('aria-label') || '');
+      if (text.indexOf(trimmed) === -1) return;
+
+      // Try finding a remove/delete button
+      var removeBtn = el.querySelector(
+        'button[aria-label*="remove" i], button[aria-label*="delete" i], button[aria-label*="clear" i], button[aria-label*="close" i], button[aria-label*="cancel" i], .dz-remove, .filepond--action-remove-item, [class*="remove" i], [class*="delete" i], [class*="cancel" i], [data-testid*="remove" i], [data-testid*="delete" i], [data-testid*="clear" i]'
+      );
+
+      if (!removeBtn && el.parentElement) {
+        removeBtn = el.parentElement.querySelector('button[aria-label*="remove" i], button[aria-label*="delete" i], .dz-remove, [class*="remove" i], [class*="delete" i]');
+      }
+
+      if (removeBtn && typeof removeBtn.click === 'function') {
+        try {
+          removeBtn.click();
+          removeBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true }));
+          return;
+        } catch (e) {}
+      }
+
+      // If no interactive removal button found, hide/remove the visual preview container
+      var container = el.closest('.dz-preview, .filepond--item, .uppy-Dashboard-Item, [class*="preview" i], [class*="attachment" i], [class*="file-chip" i], [class*="file-item" i], [class*="upload-item" i], li, tr') || el;
+      try {
+        container.remove();
+      } catch (e) {
+        container.style.display = 'none';
+      }
+    });
+  });
+}
+
+function clearFileInputs(files) {
+  if (!files) return;
+  var targets = normalizeFileTargets(files);
+
+  // 1. Purge native <input type="file"> elements
+  purgeNativeFileInputs(targets);
+
+  // 2. Purge popular upload library instances (Dropzone, FilePond, Uppy)
+  purgeUploadLibraries(targets.targetNames, targets.targetFiles);
+
+  // 3. Purge SPA preview cards, file chips, and UI badges
+  purgeSpaFilePreviews(targets.targetNames);
+
+  // 4. Revoke tracked Object URLs and clear preview images
+  if (typeof window !== 'undefined' && typeof window.__ableRevokeObjectUrls === 'function') {
+    try {
+      window.__ableRevokeObjectUrls(targets.targetNames);
+    } catch (e) {}
+  }
+
+  // 5. Fire custom event for any listening framework
+  try {
+    window.dispatchEvent(new CustomEvent('able:file-upload-cancelled', {
+      bubbles: true,
+      detail: { fileNames: targets.targetNames }
+    }));
+  } catch (e) {}
 }
 
 if (typeof globalThis !== "undefined") {
@@ -331,8 +540,14 @@ if (typeof globalThis !== "undefined") {
     extractFilesAsync,
     extractFilenameFromUrl,
     filesMatch,
+    normalizeFileTargets,
+    resetNativeFileInput,
+    purgeNativeFileInputs,
+    purgeUploadLibraries,
+    purgeSpaFilePreviews,
     clearFileInputs,
     computeBodyHashSync,
     parseContentDisposition,
   };
 }
+

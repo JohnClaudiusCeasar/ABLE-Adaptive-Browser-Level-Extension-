@@ -203,11 +203,11 @@ async function shouldShowRepeatVisitModal() {
 
 // ─── Decision communication ─────────────────────────────────
 
-function sendDecision(requestId, action) {
+function sendDecision(requestId, action, details) {
   window.postMessage({
     source: "ABLE_CONTENT",
     type: "ABLE_DECISION",
-    payload: { requestId: requestId, action: action }
+    payload: { requestId: requestId, action: action, details: details || null }
   }, "*");
 }
 
