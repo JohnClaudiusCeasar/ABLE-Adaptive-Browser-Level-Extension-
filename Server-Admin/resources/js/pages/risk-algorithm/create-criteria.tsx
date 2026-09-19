@@ -309,7 +309,7 @@ export default function CreateCriteriaPattern() {
                 {/* Page Header */}
                 <header className="mb-8">
                     <h1
-                        className="mb-3 text-[2.6rem] font-bold tracking-wide text-foreground"
+                        className="mb-3 text-[2.8rem] font-bold tracking-wide text-foreground"
                         style={{ fontFamily: "'Unbounded', sans-serif" }}
                     >
                         CREATE CRITERIA PATTERN

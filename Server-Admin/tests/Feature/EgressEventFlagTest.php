@@ -92,4 +92,51 @@ class EgressEventFlagTest extends TestCase
                 ->where('flagCounts.SSN - Standard Format', 2),
         );
     }
+
+    public function test_egress_logs_labels_unlisted_uploads_under_threshold_as_at_risk()
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        // Upload to unlisted site under 90 risk score without modal interaction -> "At Risk"
+        EgressEvent::create([
+            'domain' => 'unlisted-site.com',
+            'user_id' => 'user-1',
+            'file_name' => 'document.docx',
+            'risk_score' => 50,
+            'action' => 'proceeded',
+            'occurred_at' => now(),
+        ]);
+
+        // Upload exceeding 90 threshold where user proceeded via modal -> "Proceeded"
+        EgressEvent::create([
+            'domain' => 'unsafe-site.com',
+            'user_id' => 'user-2',
+            'file_name' => 'confidential.pdf',
+            'risk_score' => 95,
+            'action' => 'proceeded',
+            'occurred_at' => now()->subMinute(),
+        ]);
+
+        // Allowed upload to safe site -> "Allowed"
+        EgressEvent::create([
+            'domain' => 'trusted.com',
+            'user_id' => 'user-3',
+            'file_name' => 'notes.txt',
+            'risk_score' => 0,
+            'action' => 'allowed',
+            'occurred_at' => now()->subMinutes(2),
+        ]);
+
+        $response = $this->get(route('egress-logs'));
+        $response->assertOk();
+        $response->assertInertia(
+            fn ($page) => $page
+                ->component('egress-logs')
+                ->has('egressEvents', 3)
+                ->where('egressEvents.0.action', 'At Risk')
+                ->where('egressEvents.1.action', 'Proceeded')
+                ->where('egressEvents.2.action', 'Allowed')
+        );
+    }
 }

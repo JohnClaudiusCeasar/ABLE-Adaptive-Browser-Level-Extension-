@@ -44,12 +44,12 @@ export default function NudgeEffectiveness({
                         </Button>
                     </Link>
                     <h1
-                        className="mb-3 text-[2.6rem] font-bold tracking-wide"
+                        className="mb-3 text-[2.8rem] font-bold tracking-wide"
                         style={{ fontFamily: "'Unbounded', sans-serif" }}
                     >
                         NUDGE EFFECTIVENESS
                     </h1>
-                    <p className="max-w-[850px] text-base leading-relaxed text-muted-foreground">
+                    <p className="max-w-[850px] text-[1.05rem] leading-relaxed text-muted-foreground">
                         Displays the full nudge effectiveness data with file
                         upload modal interactions.
                     </p>

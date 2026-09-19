@@ -137,15 +137,15 @@ export default function Dashboard({
             <Head title="Dashboard" />
             <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-6 px-8 pt-12 pb-[22px]">
                 {/* Page Header */}
-                <header className="mb-2 flex flex-wrap items-end justify-between gap-4">
+                <header className="mb-2 flex flex-wrap items-start justify-between gap-4">
                     <div>
                         <h1
-                            className="mb-3 text-[2.6rem] leading-none font-bold tracking-wide uppercase"
+                            className="mb-2.5 text-[2.8rem] font-bold tracking-wide uppercase text-foreground"
                             style={{ fontFamily: "'Unbounded', sans-serif" }}
                         >
                             Security Overview
                         </h1>
-                        <p className="max-w-[720px] text-base leading-relaxed text-muted-foreground">
+                        <p className="max-w-[720px] text-[1.05rem] leading-relaxed text-muted-foreground">
                             Real-time monitoring of domain activity, data egress
                             attempts, and nudge effectiveness across the ABLE
                             extension network.

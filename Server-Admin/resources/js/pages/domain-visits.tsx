@@ -316,7 +316,7 @@ export default function DomainVisits() {
                 </header>
 
                 {/* Data Table */}
-                <div className={`${glassCard} px-10 py-8`}>
+                <div className={`${glassCard} p-6`}>
                     <div className="overflow-x-auto">
                         <table className="mb-5 w-full border-collapse text-[0.85rem]">
                             <thead>

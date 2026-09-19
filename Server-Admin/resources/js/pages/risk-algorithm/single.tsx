@@ -89,12 +89,12 @@ export default function SinglePatternConfiguration() {
                 {/* Header */}
                 <header className="mb-8">
                     <h1
-                        className="mb-3 text-[2.6rem] font-bold tracking-wide text-foreground"
+                        className="mb-3 text-[2.8rem] font-bold tracking-wide text-foreground"
                         style={{ fontFamily: "'Unbounded', sans-serif" }}
                     >
                         SINGLE PATTERN CONFIGURATION
                     </h1>
-                    <p className="mb-6 max-w-[800px] text-[0.95rem] leading-relaxed text-muted-foreground">
+                    <p className="mb-6 max-w-[800px] text-[1.05rem] leading-relaxed text-muted-foreground">
                         Risk Score Algorithm Management for Javascript Regex
                         Configuration. Helps ABLE determine and flag certain key
                         words for DOM file scanning.

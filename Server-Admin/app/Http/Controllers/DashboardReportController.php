@@ -113,13 +113,23 @@ class DashboardReportController extends Controller
                     $status = 'glass-unlisted';
                 }
 
+                if ($status !== 'glass-safe' && ($event->risk_score ?? 0) < 90 && $event->action === 'proceeded') {
+                    $action = 'At Risk';
+                } elseif ($event->action === 'allowed') {
+                    $action = 'Allowed';
+                } elseif ($event->action === 'denied') {
+                    $action = 'Denied';
+                } else {
+                    $action = ucfirst($event->action);
+                }
+
                 return [
                     'occurred_at' => $event->occurred_at->toIso8601String(),
                     'domain' => $event->domain,
                     'status' => $status,
                     'user' => $event->user_id,
                     'fileName' => $event->file_name,
-                    'action' => ucfirst($event->action),
+                    'action' => $action,
                 ];
             })->toArray();
 

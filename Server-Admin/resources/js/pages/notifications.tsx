@@ -162,7 +162,7 @@ export default function Notifications() {
                 {/* Page Header */}
                 <header className="mb-8">
                     <h1
-                        className="mb-2.5 text-[2.6rem] font-bold tracking-wide text-foreground uppercase"
+                        className="mb-2.5 text-[2.8rem] font-bold tracking-wide text-foreground uppercase"
                         style={{ fontFamily: "'Unbounded', sans-serif" }}
                     >
                         NOTIFICATIONS

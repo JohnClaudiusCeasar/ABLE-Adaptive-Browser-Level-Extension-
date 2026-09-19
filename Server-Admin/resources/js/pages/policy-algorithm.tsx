@@ -824,12 +824,12 @@ export default function PolicyAlgorithm() {
                 {/* Header */}
                 <header className="mb-8">
                     <h1
-                        className="mb-2 text-[2.6rem] font-bold tracking-wide text-foreground"
+                        className="mb-2 text-[2.8rem] font-bold tracking-wide text-foreground"
                         style={{ fontFamily: "'Unbounded', sans-serif" }}
                     >
                         POLICY ALGORITHM
                     </h1>
-                    <p className="mb-6 text-base text-muted-foreground">
+                    <p className="mb-6 text-[1.05rem] text-muted-foreground">
                         Domain Management for website security checking.
                     </p>
 

@@ -356,16 +356,16 @@ export default function CriteriaPatternConfiguration() {
     return (
         <>
             <Head title="Pattern Settings" />
-            <div className="mx-auto w-full max-w-[1200px] px-8 pt-12 pb-[22px]">
+            <div className="mx-auto w-full max-w-[1100px] px-8 pt-12 pb-[22px]">
                 {/* Header */}
                 <header className="mb-8">
                     <h1
-                        className="mb-3 text-[2.6rem] font-bold tracking-wide text-foreground"
+                        className="mb-3 text-[2.8rem] font-bold tracking-wide text-foreground"
                         style={{ fontFamily: "'Unbounded', sans-serif" }}
                     >
                         CRITERIA PATTERN CONFIGURATION
                     </h1>
-                    <p className="mb-6 max-w-[800px] text-[0.95rem] leading-relaxed text-muted-foreground">
+                    <p className="mb-6 max-w-[800px] text-[1.05rem] leading-relaxed text-muted-foreground">
                         Manage criteria-based risk patterns. Each criteria
                         pattern combines multiple regex items that ABLE
                         evaluates together when scanning DOM files.

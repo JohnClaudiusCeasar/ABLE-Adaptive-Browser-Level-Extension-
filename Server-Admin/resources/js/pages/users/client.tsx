@@ -134,12 +134,12 @@ export default function ClientUsersPage({ clients = [] }: ClientPageProps) {
                 {/* Header */}
                 <header className="mb-2">
                     <h1
-                        className="mb-3 text-[2.6rem] leading-none font-bold tracking-wide uppercase text-foreground"
+                        className="mb-2.5 text-[2.8rem] font-bold tracking-wide uppercase text-foreground"
                         style={{ fontFamily: "'Unbounded', sans-serif" }}
                     >
                         Client Users
                     </h1>
-                    <p className="max-w-[720px] text-base leading-relaxed text-muted-foreground">
+                    <p className="max-w-[720px] text-[1.05rem] leading-relaxed text-muted-foreground">
                         All sanitized User IDs registered via the ABLE browser extension.
                     </p>
                 </header>

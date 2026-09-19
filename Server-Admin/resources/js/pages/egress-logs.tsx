@@ -11,6 +11,7 @@ interface EgressEvent {
     occurred_at: string;
     domain: string;
     status: 'glass-safe' | 'glass-unsafe' | 'glass-unlisted';
+    risk_score: number;
     user: string;
     fileName: string;
     action: string;
@@ -23,7 +24,7 @@ interface PageProps {
 
 const ROWS_PER_PAGE = 5;
 
-type SortField = 'occurred_at' | 'domain' | 'status' | 'action';
+type SortField = 'occurred_at' | 'domain' | 'status' | 'risk_score' | 'action';
 type SortDir = 'asc' | 'desc';
 type GroupField = 'none' | 'status' | 'action';
 
@@ -32,6 +33,16 @@ const statusLabels: Record<string, string> = {
     'glass-unsafe': 'Unsafe',
     'glass-unlisted': 'Unlisted',
 };
+
+function getRiskScoreBadgeClass(score: number): string {
+    if (score >= 76) {
+        return 'border border-[#ff4d4d] bg-[rgba(255,77,77,0.2)] text-[#ff4d4d]';
+    }
+    if (score >= 41) {
+        return 'border border-[#f59e0b] bg-[rgba(245,158,11,0.2)] text-[#f59e0b]';
+    }
+    return 'border border-[#00ff66] bg-[rgba(0,255,102,0.2)] text-[#00ff66]';
+}
 
 function formatTimestamp(ts: string): { date: string; time: string } {
     const d = new Date(ts);
@@ -84,6 +95,9 @@ export default function EgressLogs() {
                     break;
                 case 'status':
                     cmp = a.status.localeCompare(b.status);
+                    break;
+                case 'risk_score':
+                    cmp = a.risk_score - b.risk_score;
                     break;
                 case 'action':
                     cmp = a.action.localeCompare(b.action);
@@ -157,6 +171,15 @@ export default function EgressLogs() {
                     </td>
                     <td className="py-3 pr-2.5">{row.user}</td>
                     <td className="py-3 pr-2.5">{row.fileName}</td>
+                    <td className="py-3 pr-2.5">
+                        <span
+                            className={`inline-flex items-center justify-center rounded-full px-2.5 py-0.5 text-xs font-semibold backdrop-blur-[10px] ${getRiskScoreBadgeClass(
+                                row.risk_score,
+                            )}`}
+                        >
+                            {row.risk_score}%
+                        </span>
+                    </td>
                     <td className="py-3">{row.action}</td>
                 </tr>
             );
@@ -174,7 +197,7 @@ export default function EgressLogs() {
             return (
                 <tr>
                     <td
-                        colSpan={7}
+                        colSpan={8}
                         className="py-10 text-center text-muted-foreground"
                     >
                         {searchQuery
@@ -189,7 +212,7 @@ export default function EgressLogs() {
             <tbody key={groupKey}>
                 <tr className="bg-[rgba(34,197,94,0.05)]">
                     <td
-                        colSpan={7}
+                        colSpan={8}
                         className="px-4 py-2 text-sm font-semibold tracking-wider text-able-green uppercase"
                     >
                         {groupKey} ({groupedEvents[groupKey].length})
@@ -206,7 +229,7 @@ export default function EgressLogs() {
                 <tbody>
                     <tr>
                         <td
-                            colSpan={7}
+                            colSpan={8}
                             className="py-10 text-center text-muted-foreground"
                         >
                             {searchQuery
@@ -283,6 +306,12 @@ export default function EgressLogs() {
                                 <option value="status__desc">
                                     Sort: Status (Z-A)
                                 </option>
+                                <option value="risk_score__desc">
+                                    Sort: Risk (High-Low)
+                                </option>
+                                <option value="risk_score__asc">
+                                    Sort: Risk (Low-High)
+                                </option>
                                 <option value="action__asc">
                                     Sort: Action (A-Z)
                                 </option>
@@ -318,7 +347,7 @@ export default function EgressLogs() {
                 </header>
 
                 {/* Data Table */}
-                <div className={`${glassCard} px-10 py-8`}>
+                <div className={`${glassCard} p-6`}>
                     <div className="overflow-x-auto">
                         <table className="mb-5 w-full border-collapse text-[0.85rem]">
                             <thead>
@@ -340,6 +369,9 @@ export default function EgressLogs() {
                                     </th>
                                     <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-5 text-left font-medium">
                                         File Name
+                                    </th>
+                                    <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-5 text-left font-medium">
+                                        Risk Score
                                     </th>
                                     <th className="border-b border-[rgba(34,197,94,0.7)] pb-5 text-left font-medium">
                                         Action Taken
