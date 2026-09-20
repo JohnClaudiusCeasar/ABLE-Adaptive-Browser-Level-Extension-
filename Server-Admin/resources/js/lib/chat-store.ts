@@ -15,6 +15,10 @@ type ChatStore = {
     activeConversation: ChatConversationData | null;
     activeMessages: ChatMessageData[];
     nextCursor: string | null;
+    /**
+     * The unread messages count indicator for quick chat.
+     */
+    unreadCount: number;
 };
 
 const initialState: ChatStore = {
@@ -22,6 +26,7 @@ const initialState: ChatStore = {
     activeConversation: null,
     activeMessages: [],
     nextCursor: null,
+    unreadCount: 0,
 };
 
 function loadInitialState(): ChatStore {
@@ -68,7 +73,7 @@ function setState(
 }
 
 /**
- * Open a conversation in the quick chat widget.
+ * Open a conversation in the quick chat widget and clear unread indicator.
  */
 export function openQuickChatConversation(
     conversation: ChatConversationData,
@@ -80,6 +85,7 @@ export function openQuickChatConversation(
         activeConversation: conversation,
         activeMessages: messages,
         nextCursor,
+        unreadCount: 0,
     });
 }
 
@@ -95,7 +101,44 @@ export function clearQuickChatConversation() {
 }
 
 export function setQuickChatOpen(open: boolean) {
-    setState({ quickChatOpen: open });
+    setState((prev) => ({
+        quickChatOpen: open,
+        // When quick chat window is opened, vanish the notification indicator
+        unreadCount: open ? 0 : prev.unreadCount,
+    }));
+}
+
+/**
+ * Clear/vanish the unread message notification indicator.
+ */
+export function clearUnreadCount() {
+    setState({ unreadCount: 0 });
+}
+
+/**
+ * Increment the unread count only when quick chat is closed.
+ * Fallback condition: does nothing if quick chat window is opened.
+ */
+export function incrementUnreadCount() {
+    setState((prev) => {
+        if (prev.quickChatOpen) {
+            return { unreadCount: 0 };
+        }
+        return { unreadCount: prev.unreadCount + 1 };
+    });
+}
+
+/**
+ * Set the unread count only when quick chat is closed.
+ * Fallback condition: keeps 0 if quick chat window is opened.
+ */
+export function setUnreadCount(count: number) {
+    setState((prev) => {
+        if (prev.quickChatOpen) {
+            return { unreadCount: 0 };
+        }
+        return { unreadCount: Math.max(0, count) };
+    });
 }
 
 /**

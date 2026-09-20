@@ -21,9 +21,9 @@ import { cn } from '@/lib/utils';
 import type { NavItem } from '@/types';
 
 const activeCardStyle =
-    'bg-white/5 border border-blue-500/60 shadow-[0_0_15px_rgba(59,130,246,0.6)] text-foreground';
+    'bg-white/5 border border-able-green/60 shadow-[0_0_15px_rgba(34,197,94,0.6)] text-foreground';
 const inactiveCardStyle =
-    'bg-transparent border-none shadow-none text-muted-foreground hover:text-foreground';
+    'bg-transparent border-none shadow-none text-muted-foreground hover:text-foreground active:border active:border-able-green/60 active:shadow-[0_0_15px_rgba(34,197,94,0.6)] active:bg-white/5';
 
 function NavItemContent({ item }: { item: NavItem }) {
     return (
@@ -35,7 +35,7 @@ function NavItemContent({ item }: { item: NavItem }) {
             <span
                 className={cn(
                     'h-1.5 w-1.5 shrink-0 rounded-full',
-                    item.isActive ? 'bg-able-green' : 'bg-[#1e3a5f]',
+                    item.isActive ? 'bg-able-green shadow-[0_0_6px_rgba(34,197,94,0.8)]' : 'bg-muted-foreground/30',
                 )}
             />
         </>

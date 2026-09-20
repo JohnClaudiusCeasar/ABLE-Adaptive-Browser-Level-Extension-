@@ -69,3 +69,29 @@ export function subscribeToConversation(
         instance.leaveChannel(`private-chat.${conversationId}`);
     };
 }
+
+/**
+ * Subscribe to the current user's private channel to receive real-time
+ * notifications of new messages across all conversations.
+ */
+export function subscribeToUser(
+    userId: number,
+    onMessage: (message: ChatMessageData) => void,
+): () => void {
+    const instance = getEcho();
+
+    if (!instance) {
+        return () => {};
+    }
+
+    const channel = instance.private(`user.${userId}`);
+    channel.listen('.message.sent', (payload: MessageSentPayload) => {
+        onMessage(payload.message);
+    });
+
+    return () => {
+        channel.stopListening('.message.sent');
+        instance.leaveChannel(`private-user.${userId}`);
+    };
+}
+

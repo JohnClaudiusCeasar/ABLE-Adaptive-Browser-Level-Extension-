@@ -1,14 +1,19 @@
 import { usePage } from '@inertiajs/react';
 import { MessageCircle, MessagesSquare, Minimize2, X } from 'lucide-react';
+import { useEffect } from 'react';
 import { ChatWindow } from '@/components/chat/chat-window';
 import { UserList } from '@/components/chat/user-list';
 import {
     clearQuickChatConversation,
+    clearUnreadCount,
+    incrementUnreadCount,
     openQuickChatConversation,
     setQuickChatOpen,
+    setUnreadCount,
     useChatStore,
 } from '@/lib/chat-store';
 import { getCsrfToken } from '@/lib/csrf';
+import { subscribeToUser } from '@/lib/echo';
 import type { ChatConversationData, ChatUser } from '@/types/chat';
 
 type QuickChatProps = {
@@ -27,13 +32,50 @@ export function QuickChat() {
     const { auth, chat } = usePage<PageProps>().props;
     const currentUserId = auth.user?.id;
     const users = chat?.users ?? [];
-    const unreadCount = chat?.unreadCount ?? 0;
 
-    const { quickChatOpen, activeConversation, activeMessages, nextCursor } =
-        useChatStore();
+    const {
+        quickChatOpen,
+        activeConversation,
+        activeMessages,
+        nextCursor,
+        unreadCount,
+    } = useChatStore();
+
+    // Sync initial unread count from server props when widget is closed
+    useEffect(() => {
+        if (!quickChatOpen && typeof chat?.unreadCount === 'number') {
+            setUnreadCount(chat.unreadCount);
+        }
+    }, [chat?.unreadCount, quickChatOpen]);
+
+    // Listen for incoming messages across all conversations in real-time
+    useEffect(() => {
+        if (!currentUserId) {
+            return;
+        }
+
+        const unsubscribe = subscribeToUser(currentUserId, (message) => {
+            // Only fire/increment notification indicator for messages from other users
+            if (message.sender_id !== currentUserId) {
+                incrementUnreadCount();
+            }
+        });
+
+        return unsubscribe;
+    }, [currentUserId]);
 
     if (!currentUserId) {
         return null;
+    }
+
+    function handleToggleQuickChat() {
+        if (!quickChatOpen) {
+            // Vanish / clear notification indicator immediately when opening quick chat
+            clearUnreadCount();
+            setQuickChatOpen(true);
+        } else {
+            setQuickChatOpen(false);
+        }
     }
 
     async function startConversation(user: ChatUser) {
@@ -129,7 +171,7 @@ export function QuickChat() {
             {/* Toggle bubble */}
             <button
                 type="button"
-                onClick={() => setQuickChatOpen(!quickChatOpen)}
+                onClick={handleToggleQuickChat}
                 aria-label={
                     quickChatOpen ? 'Close quick chat' : 'Open quick chat'
                 }
@@ -137,7 +179,7 @@ export function QuickChat() {
             >
                 {quickChatOpen ? <X size={22} /> : <MessageCircle size={22} />}
                 {unreadCount > 0 && !quickChatOpen && (
-                    <span className="absolute -top-1.5 -right-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[0.65rem] font-semibold text-white">
+                    <span className="absolute -top-1.5 -right-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[0.65rem] font-semibold text-white shadow-md animate-in fade-in zoom-in duration-200">
                         {unreadCount}
                     </span>
                 )}
