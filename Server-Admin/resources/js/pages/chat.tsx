@@ -1,5 +1,5 @@
 import { Head, router, usePage } from '@inertiajs/react';
-import { CheckSquare, MessageSquarePlus, MessagesSquare } from 'lucide-react';
+import { CheckSquare, MessageSquarePlus, MessagesSquare, X } from 'lucide-react';
 import { useState } from 'react';
 import { ChatWindow } from '@/components/chat/chat-window';
 import { ConversationList } from '@/components/chat/conversation-list';
@@ -218,18 +218,40 @@ export default function Chat() {
                 </div>
 
                 {/* Conversation window - takes up the remaining viewport */}
-                <main className="flex min-w-0 flex-1 flex-col p-2">
+                <main className="relative flex min-w-0 flex-1 flex-col p-2">
+                    {/* Floating New Message Overlay Layer */}
                     {showRecipientPicker && (
-                        <UserList
-                            users={users}
-                            picker
-                            onSelect={(user) => {
-                                setShowRecipientPicker(false);
-                                startConversation(user);
-                            }}
-                            placeholder="Enter a Name"
-                        />
+                        <div className="absolute top-4 left-4 z-40 w-[380px] sm:w-[420px] rounded-2xl border border-[rgba(34,197,94,0.45)] bg-white/95 p-3.5 shadow-[0_12px_40px_-5px_rgba(0,0,0,0.35)] backdrop-blur-xl dark:border-[rgba(34,197,94,0.6)] dark:bg-[#15342a]/95">
+                            <div className="flex items-center justify-between mb-2.5 px-1">
+                                <span
+                                    className="text-xs font-semibold tracking-wider text-foreground uppercase"
+                                    style={{
+                                        fontFamily: "'Unbounded', sans-serif",
+                                    }}
+                                >
+                                    New Message
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowRecipientPicker(false)}
+                                    aria-label="Close user picker"
+                                    className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
+                                >
+                                    <X size={15} />
+                                </button>
+                            </div>
+                            <UserList
+                                users={users}
+                                picker
+                                onSelect={(user) => {
+                                    setShowRecipientPicker(false);
+                                    startConversation(user);
+                                }}
+                                placeholder="Search user by name or email..."
+                            />
+                        </div>
                     )}
+
                     <div className="min-w-0 flex-1 overflow-hidden">
                         {activeConversation ? (
                             <ChatWindow
@@ -244,7 +266,7 @@ export default function Chat() {
                                 nextCursor={store.nextCursor}
                                 currentUserId={currentUserId}
                             />
-                        ) : showRecipientPicker ? null : (
+                        ) : (
                             <div className="flex h-full flex-col items-center justify-center gap-3 bg-white/50 text-muted-foreground backdrop-blur-[10px] dark:bg-[rgba(15,23,42,0.35)]">
                                 <MessagesSquare
                                     size={40}

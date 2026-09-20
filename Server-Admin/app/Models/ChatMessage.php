@@ -11,12 +11,16 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $conversation_id
  * @property int $sender_id
- * @property string $body
+ * @property string|null $body
+ * @property string|null $attachment_path
+ * @property string|null $attachment_name
+ * @property int|null $attachment_size
+ * @property string|null $attachment_type
  * @property Carbon|null $read_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['conversation_id', 'sender_id', 'body', 'read_at'])]
+#[Fillable(['conversation_id', 'sender_id', 'body', 'attachment_path', 'attachment_name', 'attachment_size', 'attachment_type', 'read_at'])]
 class ChatMessage extends Model
 {
     /**

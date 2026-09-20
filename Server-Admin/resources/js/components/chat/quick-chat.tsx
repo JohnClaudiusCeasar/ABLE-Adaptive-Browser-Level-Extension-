@@ -1,7 +1,6 @@
-import { router, usePage } from '@inertiajs/react';
+import { usePage } from '@inertiajs/react';
 import { MessageCircle, MessagesSquare, Minimize2, X } from 'lucide-react';
 import { ChatWindow } from '@/components/chat/chat-window';
-import { ConversationList } from '@/components/chat/conversation-list';
 import { UserList } from '@/components/chat/user-list';
 import {
     clearQuickChatConversation,
@@ -9,10 +8,11 @@ import {
     setQuickChatOpen,
     useChatStore,
 } from '@/lib/chat-store';
+import { getCsrfToken } from '@/lib/csrf';
 import type { ChatConversationData, ChatUser } from '@/types/chat';
 
 type QuickChatProps = {
-    conversations: ChatConversationData[];
+    conversations?: ChatConversationData[];
     users: ChatUser[];
     unreadCount: number;
 };
@@ -26,7 +26,6 @@ interface PageProps {
 export function QuickChat() {
     const { auth, chat } = usePage<PageProps>().props;
     const currentUserId = auth.user?.id;
-    const conversations = chat?.conversations ?? [];
     const users = chat?.users ?? [];
     const unreadCount = chat?.unreadCount ?? 0;
 
@@ -37,73 +36,39 @@ export function QuickChat() {
         return null;
     }
 
-    function openConversation(conversation: ChatConversationData) {
-        fetch(`/chat/${conversation.id}/messages`, {
-            headers: { Accept: 'application/json' },
-        })
-            .then((res) => (res.ok ? res.json() : Promise.reject()))
-            .then((data) => {
-                openQuickChatConversation(
-                    conversation,
-                    data.messages ?? [],
-                    data.next_cursor ?? null,
-                );
-            })
-            .catch(() => {
-                openQuickChatConversation(conversation, [], null);
+    async function startConversation(user: ChatUser) {
+        try {
+            const res = await fetch(`/chat/with/${user.id}`, {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': getCsrfToken(),
+                },
             });
-    }
 
-    function startConversation(user: ChatUser) {
-        router.post(`/chat/with/${user.id}`, {}, { preserveScroll: true });
-    }
+            if (!res.ok) {
+                throw new Error(`Failed to start conversation: ${res.status}`);
+            }
 
-    function openFullChat() {
-        router.visit('/chat');
+            const data = await res.json();
+            openQuickChatConversation(
+                data.conversation,
+                data.messages ?? [],
+                data.next_cursor ?? null,
+            );
+        } catch (error) {
+            console.error('Error starting quick chat conversation:', error);
+        }
     }
 
     return (
         <div className="fixed right-6 bottom-6 z-50 flex flex-col items-end gap-3">
             {quickChatOpen && (
-                <div className="w-[380px] overflow-hidden rounded-2xl border border-[rgba(34,197,94,0.45)] bg-white/90 shadow-[0_10px_40px_-5px_rgba(34,197,94,0.35)] backdrop-blur-[12px] dark:bg-[#1e4b3e]/95">
-                    {/* Header */}
-                    <div className="flex items-center justify-between border-b border-[rgba(34,197,94,0.3)] bg-[rgba(34,197,94,0.08)] px-4 py-3">
-                        <div className="flex items-center gap-2">
-                            <MessagesSquare
-                                size={17}
-                                className="text-able-green"
-                            />
-                            <span
-                                className="text-sm font-semibold tracking-wider text-foreground uppercase"
-                                style={{
-                                    fontFamily: "'Unbounded', sans-serif",
-                                }}
-                            >
-                                Quick Chat
-                            </span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <button
-                                type="button"
-                                onClick={openFullChat}
-                                className="rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-white/10 hover:text-able-green"
-                            >
-                                Open full chat
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setQuickChatOpen(false)}
-                                aria-label="Collapse quick chat"
-                                className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
-                            >
-                                <Minimize2 size={16} />
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Body */}
+                <>
                     {activeConversation ? (
-                        <div className="h-[420px] p-3">
+                        /* Dedicated message window without the outer Quick Chat wrapper */
+                        <div className="relative h-[480px] w-[380px] overflow-visible">
                             <ChatWindow
                                 conversation={activeConversation}
                                 initialMessages={activeMessages}
@@ -111,29 +76,54 @@ export function QuickChat() {
                                 currentUserId={currentUserId}
                                 compact
                                 onBack={clearQuickChatConversation}
+                                onClose={() => setQuickChatOpen(false)}
                             />
                         </div>
                     ) : (
-                        <div className="max-h-[420px] overflow-y-auto p-3">
-                            <div className="mb-2 px-1 text-[0.7rem] font-semibold tracking-[0.15em] text-muted-foreground uppercase">
-                                Conversations
+                        /* User selection modal */
+                        <div className="w-[380px] overflow-hidden rounded-2xl border border-[rgba(34,197,94,0.45)] bg-white/90 shadow-[0_10px_40px_-5px_rgba(34,197,94,0.35)] backdrop-blur-[12px] dark:bg-[#1e4b3e]/95">
+                            {/* Header */}
+                            <div className="flex items-center justify-between border-b border-[rgba(34,197,94,0.3)] bg-[rgba(34,197,94,0.08)] px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                    <MessagesSquare
+                                        size={17}
+                                        className="text-able-green"
+                                    />
+                                    <span
+                                        className="text-sm font-semibold tracking-wider text-foreground uppercase"
+                                        style={{
+                                            fontFamily:
+                                                "'Unbounded', sans-serif",
+                                        }}
+                                    >
+                                        Quick Chat
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => setQuickChatOpen(false)}
+                                        aria-label="Collapse quick chat"
+                                        className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
+                                    >
+                                        <Minimize2 size={16} />
+                                    </button>
+                                </div>
                             </div>
-                            <ConversationList
-                                conversations={conversations}
-                                activeId={null}
-                                onSelect={openConversation}
-                            />
-                            <div className="mx-auto my-3 w-4/5 border-t border-[rgba(34,197,94,0.3)]" />
-                            <div className="mb-2 px-1 text-[0.7rem] font-semibold tracking-[0.15em] text-muted-foreground uppercase">
-                                All Users
+
+                            {/* Body - All Users */}
+                            <div className="max-h-[420px] overflow-y-auto p-3">
+                                <div className="mb-2 px-1 text-[0.7rem] font-semibold tracking-[0.15em] text-muted-foreground uppercase">
+                                    All Users
+                                </div>
+                                <UserList
+                                    users={users}
+                                    onSelect={startConversation}
+                                />
                             </div>
-                            <UserList
-                                users={users}
-                                onSelect={startConversation}
-                            />
                         </div>
                     )}
-                </div>
+                </>
             )}
 
             {/* Toggle bubble */}

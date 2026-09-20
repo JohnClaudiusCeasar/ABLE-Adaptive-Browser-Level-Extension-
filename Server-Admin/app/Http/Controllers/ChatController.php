@@ -60,13 +60,25 @@ class ChatController extends Controller
     /**
      * Find or create the conversation with the given user.
      */
-    public function startConversation(User $user): RedirectResponse
+    public function startConversation(User $user, Request $request): RedirectResponse|JsonResponse
     {
         $currentUser = $this->authUser();
 
         abort_if($user->id === $currentUser->id, 422);
 
         $conversation = ChatConversation::forPair($currentUser, $user);
+
+        if ($request->wantsJson()) {
+            $this->markIncomingAsRead($conversation, $currentUser);
+            $page = $this->recentPage($conversation);
+
+            return response()->json([
+                'conversation' => $this->conversationData($conversation, $currentUser),
+                'messages' => $page['messages'],
+                'next_cursor' => $page['next_cursor'],
+                'total' => $conversation->messages()->count(),
+            ]);
+        }
 
         return redirect()->route('chat.show', $conversation);
     }
@@ -105,13 +117,36 @@ class ChatController extends Controller
         abort_unless($conversation->involves($user), 403);
 
         $validated = $request->validate([
-            'body' => ['required', 'string', 'max:2000'],
+            'body' => ['nullable', 'string', 'max:2000', 'required_without:attachment'],
+            'attachment' => [
+                'nullable',
+                'file',
+                'max:20480',
+                'mimes:jpg,jpeg,png,gif,webp,svg,bmp,tiff,ico,pdf,doc,docx,xls,xlsx,ppt,pptx,odt,ods,odp,rtf,txt,csv,json,md,log,xml,html,htm,yaml,yml',
+            ],
         ]);
+
+        $attachmentPath = null;
+        $attachmentName = null;
+        $attachmentSize = null;
+        $attachmentType = null;
+
+        if ($request->hasFile('attachment')) {
+            $file = $request->file('attachment');
+            $attachmentPath = $file->store('chat-attachments', 'public');
+            $attachmentName = $file->getClientOriginalName();
+            $attachmentSize = $file->getSize();
+            $attachmentType = $file->getClientMimeType() ?: $file->getMimeType();
+        }
 
         $message = ChatMessage::create([
             'conversation_id' => $conversation->id,
             'sender_id' => $user->id,
-            'body' => trim($validated['body']),
+            'body' => !empty($validated['body']) ? trim($validated['body']) : '',
+            'attachment_path' => $attachmentPath,
+            'attachment_name' => $attachmentName,
+            'attachment_size' => $attachmentSize,
+            'attachment_type' => $attachmentType,
         ]);
 
         $conversation->touchLastMessage();
@@ -295,11 +330,18 @@ class ChatController extends Controller
             ->whereNull('read_at')
             ->count();
 
+        $lastMessageText = null;
+        if ($lastMessage instanceof ChatMessage) {
+            $lastMessageText = !empty($lastMessage->body)
+                ? $lastMessage->body
+                : ($lastMessage->attachment_name ? '📎 '.$lastMessage->attachment_name : 'Attachment');
+        }
+
         return [
             'id' => $conversation->id,
             'path' => route('chat.show', $conversation),
             'other_user' => $otherUser !== null ? $this->userData($otherUser) : null,
-            'last_message' => $lastMessage instanceof ChatMessage ? $lastMessage->body : null,
+            'last_message' => $lastMessageText,
             'last_message_at' => $conversation->last_message_at?->toIso8601String(),
             'unread_count' => $unreadCount,
         ];
@@ -330,7 +372,11 @@ class ChatController extends Controller
             'id' => $message->id,
             'conversation_id' => $message->conversation_id,
             'sender_id' => $message->sender_id,
-            'body' => $message->body,
+            'body' => $message->body ?? '',
+            'attachment_url' => $message->attachment_path ? asset('storage/'.$message->attachment_path) : null,
+            'attachment_name' => $message->attachment_name,
+            'attachment_size' => $message->attachment_size,
+            'attachment_type' => $message->attachment_type,
             'created_at' => $message->created_at?->toIso8601String(),
             'read_at' => $message->read_at?->toIso8601String(),
         ];

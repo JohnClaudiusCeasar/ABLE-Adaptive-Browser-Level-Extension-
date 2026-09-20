@@ -188,4 +188,90 @@ class ChatTest extends TestCase
         $this->assertCount(25, $all);
         $this->assertSame(25, collect($all)->pluck('id')->unique()->count());
     }
+
+    public function test_users_can_start_a_conversation_via_json()
+    {
+        $user = User::factory()->create();
+        $other = User::factory()->create();
+        $this->actingAs($user);
+
+        $response = $this->postJson(route('chat.start', $other));
+
+        $response->assertOk();
+        $response->assertJsonStructure([
+            'conversation' => ['id', 'path', 'other_user', 'unread_count'],
+            'messages',
+            'next_cursor',
+            'total',
+        ]);
+        $this->assertSame($other->id, $response->json('conversation.other_user.id'));
+    }
+
+    public function test_users_can_send_a_message_with_attachment()
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+
+        $user = User::factory()->create();
+        $other = User::factory()->create();
+        $conversation = ChatConversation::forPair($user, $other);
+        $this->actingAs($user);
+
+        $file = \Illuminate\Http\UploadedFile::fake()->create('document.pdf', 1024, 'application/pdf');
+
+        $response = $this->post(route('chat.messages.store', $conversation), [
+            'body' => 'Here is the report',
+            'attachment' => $file,
+        ], ['Accept' => 'application/json']);
+
+        $response->assertStatus(201);
+        $this->assertSame(1, ChatMessage::count());
+        $message = ChatMessage::first();
+        $this->assertSame('Here is the report', $message->body);
+        $this->assertSame('document.pdf', $message->attachment_name);
+        $this->assertNotNull($message->attachment_path);
+        \Illuminate\Support\Facades\Storage::disk('public')->assertExists($message->attachment_path);
+    }
+
+    public function test_disallowed_file_types_are_rejected()
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+
+        $user = User::factory()->create();
+        $other = User::factory()->create();
+        $conversation = ChatConversation::forPair($user, $other);
+        $this->actingAs($user);
+
+        $file = \Illuminate\Http\UploadedFile::fake()->create('malicious.exe', 1024, 'application/x-msdownload');
+
+        $response = $this->post(route('chat.messages.store', $conversation), [
+            'body' => 'Run this',
+            'attachment' => $file,
+        ], ['Accept' => 'application/json']);
+
+        $response->assertStatus(422);
+        $this->assertArrayHasKey('attachment', $response->json('errors') ?? []);
+        $this->assertSame(0, ChatMessage::count());
+    }
+
+    public function test_image_attachments_are_accepted()
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+
+        $user = User::factory()->create();
+        $other = User::factory()->create();
+        $conversation = ChatConversation::forPair($user, $other);
+        $this->actingAs($user);
+
+        $file = \Illuminate\Http\UploadedFile::fake()->create('screenshot.png', 500, 'image/png');
+
+        $response = $this->post(route('chat.messages.store', $conversation), [
+            'body' => 'Look at this',
+            'attachment' => $file,
+        ], ['Accept' => 'application/json']);
+
+        $response->assertStatus(201);
+        $this->assertSame(1, ChatMessage::count());
+        $this->assertSame('screenshot.png', ChatMessage::first()->attachment_name);
+    }
 }
+

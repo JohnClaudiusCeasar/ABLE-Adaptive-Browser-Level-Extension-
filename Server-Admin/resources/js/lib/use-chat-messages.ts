@@ -95,22 +95,42 @@ export function useChatMessages({
     }, []);
 
     /**
-     * Send a message via plain fetch (no X-Inertia header) and echo the
-     * persisted copy back into the list.
+     * Send a message (and optional attachment) via plain fetch (no X-Inertia header)
+     * and echo the persisted copy back into the list.
      */
     const send = useCallback(
-        async (body: string) => {
+        async (body: string, attachment?: File | null) => {
             setSending(true);
 
             try {
-                const res = await fetch(`/chat/${conversationId}/messages`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': getCsrfToken(),
-                    },
-                    body: JSON.stringify({ body }),
-                });
+                let res: Response;
+
+                if (attachment) {
+                    const formData = new FormData();
+                    if (body.trim()) {
+                        formData.append('body', body.trim());
+                    }
+                    formData.append('attachment', attachment);
+
+                    res = await fetch(`/chat/${conversationId}/messages`, {
+                        method: 'POST',
+                        headers: {
+                            Accept: 'application/json',
+                            'X-CSRF-TOKEN': getCsrfToken(),
+                        },
+                        body: formData,
+                    });
+                } else {
+                    res = await fetch(`/chat/${conversationId}/messages`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Accept: 'application/json',
+                            'X-CSRF-TOKEN': getCsrfToken(),
+                        },
+                        body: JSON.stringify({ body }),
+                    });
+                }
 
                 if (!res.ok) {
                     throw new Error(`Send failed: ${res.status}`);
@@ -118,6 +138,7 @@ export function useChatMessages({
 
                 const data = (await res.json()) as { message: ChatMessageData };
                 upsertMessage(data.message);
+                return data.message;
             } finally {
                 setSending(false);
             }

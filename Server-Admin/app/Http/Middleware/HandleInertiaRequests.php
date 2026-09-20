@@ -137,11 +137,18 @@ class HandleInertiaRequests extends Middleware
             ->whereNull('read_at')
             ->count();
 
+        $lastMessageText = null;
+        if ($lastMessage instanceof ChatMessage) {
+            $lastMessageText = !empty($lastMessage->body)
+                ? $lastMessage->body
+                : ($lastMessage->attachment_name ? '📎 '.$lastMessage->attachment_name : 'Attachment');
+        }
+
         return [
             'id' => $conversation->id,
             'path' => route('chat.show', $conversation),
             'other_user' => $otherUser !== null ? $this->userData($otherUser) : null,
-            'last_message' => $lastMessage instanceof ChatMessage ? $lastMessage->body : null,
+            'last_message' => $lastMessageText,
             'last_message_at' => $conversation->last_message_at?->diffForHumans(),
             'unread_count' => $unreadCount,
         ];

@@ -10,6 +10,10 @@ export type ChatMessageData = {
     conversation_id: number;
     sender_id: number;
     body: string;
+    attachment_url?: string | null;
+    attachment_name?: string | null;
+    attachment_size?: number | null;
+    attachment_type?: string | null;
     created_at: string;
     read_at: string | null;
 };
