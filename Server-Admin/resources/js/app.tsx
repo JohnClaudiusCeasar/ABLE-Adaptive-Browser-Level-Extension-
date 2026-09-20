@@ -6,10 +6,10 @@ import AppLayout from '@/layouts/app-layout';
 import AuthLayout from '@/layouts/auth-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 
-const appName = import.meta.env.VITE_APP_NAME || 'ABLE';
+const appTitle = 'ABLE - Shadow IT Prevention and Egress Data Monitoring';
 
 createInertiaApp({
-    title: (title) => (title ? `${title} - ${appName}` : appName),
+    title: () => appTitle,
     layout: (name) => {
         switch (true) {
             case name === 'welcome':
