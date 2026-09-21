@@ -75,6 +75,21 @@ class HeuristicClassifierTest extends TestCase
         $this->assertSame('Email', $result['category']);
     }
 
+    public function test_ai_signals_classify_as_ai(): void
+    {
+        $result = HeuristicClassifier::classify('ai-assistant.example', [
+            'url' => 'https://ai-assistant.example/chat',
+            'title' => 'AI Chatbot & LLM Assistant',
+            'meta' => ['description' => 'Generative AI platform with deep learning models and prompt engineering'],
+            'headings' => ['Select an LLM model'],
+            'excerpt' => 'Our generative AI and machine learning tools help you with prompt engineering and text generation.',
+        ]);
+
+        $this->assertSame('AI', $result['category']);
+        $this->assertGreaterThanOrEqual(0.3, $result['confidence']);
+        $this->assertSame(50, $result['risk_score']);
+    }
+
     public function test_ut1_mapper_maps_known_categories(): void
     {
         $this->assertSame('Adult', Ut1CategoryMapper::map('adult')['category']);
@@ -90,6 +105,8 @@ class HeuristicClassifierTest extends TestCase
         $this->assertSame('Streaming', $brands['youtube.com']);
         $this->assertSame('Email', $brands['mail.google.com']);
         $this->assertSame('Developer Tools', $brands['github.com']);
+        $this->assertSame('AI', $brands['chatgpt.com']);
+        $this->assertSame('AI', $brands['claude.ai']);
         $this->assertGreaterThan(200, count($brands));
     }
 }

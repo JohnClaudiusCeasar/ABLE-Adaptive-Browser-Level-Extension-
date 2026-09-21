@@ -122,7 +122,11 @@ const CATEGORY_OPTIONS: { name: string; detail: string }[] = [
     },
     {
         name: 'Technology',
-        detail: 'Software, hardware, AI, gadgets, and tech news.',
+        detail: 'Software, hardware, gadgets, IT infrastructure, and tech news.',
+    },
+    {
+        name: 'AI',
+        detail: 'Artificial intelligence platforms, LLMs, AI assistants, and generative tools.',
     },
     {
         name: 'Entertainment',

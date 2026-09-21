@@ -5,12 +5,7 @@
  */
 
 function showRepeatVisitModal(data) {
-  removeModal();
-
-  const backdrop = document.createElement("div");
-  backdrop.className = "able-modal-backdrop";
-
-  backdrop.innerHTML = `
+  var html = `
     <div class="able-modal-card">
       <div class="able-banner-edge"></div>
       <div class="able-modal-content">
@@ -38,8 +33,18 @@ function showRepeatVisitModal(data) {
     </div>
   `;
 
-  document.documentElement.appendChild(backdrop);
-  applyZoomCompensation(backdrop);
+  var mounted = (typeof ABLEModalContainer !== "undefined")
+    ? ABLEModalContainer.renderModalIntoShadow(html)
+    : null;
+
+  var backdrop = mounted ? mounted.backdrop : null;
+  if (!backdrop) {
+    removeModal();
+    backdrop = document.createElement("div");
+    backdrop.className = "able-modal-backdrop";
+    backdrop.innerHTML = html;
+    (document.documentElement || document.body).appendChild(backdrop);
+  }
 
   backdrop.querySelector("#ableRepeatDismiss").addEventListener("click", async () => {
     await setLastModalShownTime();
@@ -47,14 +52,18 @@ function showRepeatVisitModal(data) {
     removeModal();
   });
 
-  backdrop.addEventListener("keydown", (e) => {
+  var handleKeydown = (e) => {
     if (e.key === "Escape") {
       e.preventDefault();
       setLastModalShownTime();
       incrementInteractionCount();
       removeModal();
+      window.removeEventListener("keydown", handleKeydown);
     }
-  });
+  };
+
+  backdrop.addEventListener("keydown", handleKeydown);
+  window.addEventListener("keydown", handleKeydown);
 }
 
 if (typeof globalThis !== "undefined") {

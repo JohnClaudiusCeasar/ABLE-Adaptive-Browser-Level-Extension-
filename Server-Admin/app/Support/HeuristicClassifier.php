@@ -42,6 +42,7 @@ class HeuristicClassifier
         'Adult',
         'Shopping',
         'Reference',
+        'AI',
     ];
 
     private const URL_WEIGHT = 3.0;
@@ -74,7 +75,8 @@ class HeuristicClassifier
         'Education' => ['university', 'college', 'school', 'course', 'curriculum', 'syllabus', 'lms', 'enroll', 'tuition', 'scholarship', 'lecture', 'homework'],
         'Government' => ['government', 'municipal', 'embassy', 'ministry', 'public service', 'tax filing'],
         'Health' => ['hospital', 'clinic', 'doctor', 'pharmacy', 'medical', 'health', 'symptoms', 'diagnosis', 'appointment', 'patient'],
-        'Technology' => ['software', 'hardware', 'ai ', 'artificial intelligence', 'gadget', 'smartphone', 'laptop'],
+        'Technology' => ['software', 'hardware', 'gadget', 'smartphone', 'laptop'],
+        'AI' => ['artificial intelligence', 'machine learning', 'llm', 'large language model', 'chatgpt', 'openai', 'anthropic', 'claude', 'gemini', 'copilot', 'midjourney', 'generative ai', 'prompt engineering', 'deepseek', 'perplexity', 'hugging face', 'mistral', 'neural network', 'deep learning', 'chatbot', 'ai assistant', 'text generation', 'image generation', 'diffusion model'],
         'Entertainment' => ['movie', 'movies', 'music', 'celebrity', 'concert', 'tv show', 'anime', 'manga'],
         'Gaming' => ['game', 'gaming', 'playstation', 'xbox', 'nintendo', 'steam', 'esports', 'walkthrough'],
         'Sports' => ['sports', 'football', 'basketball', 'soccer', 'tennis', 'olympics', 'score', 'match highlights', 'league'],
@@ -115,6 +117,7 @@ class HeuristicClassifier
         'Reference' => ['encyclopedia', 'dictionary', 'wiki', 'docs', 'manual'],
         'Social Media' => ['profilepage', 'socialmediaposting', 'profile', 'timeline', 'feed'],
         'Productivity' => ['todo', 'calendar', 'notes', 'drive', 'docs', 'sheets'],
+        'AI' => ['aiassistant', 'chatbot', 'llm', 'agent', 'model', 'aiprovider'],
     ];
 
     private const CATEGORY_POLICY = [
@@ -129,6 +132,7 @@ class HeuristicClassifier
         'E-commerce' => 55,
         'Health' => 55,
         'Shopping' => 50,
+        'AI' => 50,
         'Government' => 10,
         'Education' => 15,
         'Search Engine' => 10,

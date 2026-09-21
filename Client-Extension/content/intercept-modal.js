@@ -39,11 +39,6 @@ function getPieColor(label, index) {
 }
 
 function showInterceptModal(data) {
-  removeModal();
-
-  var backdrop = document.createElement("div");
-  backdrop.className = "able-modal-backdrop";
-
   var statusLabel = data.status === "unsafe" ? "Unsafe" : "Unlisted";
   var totalWeight = data.flaggedItems.reduce(function (sum, item) { return sum + item.weight; }, 0);
 
@@ -67,7 +62,7 @@ function showInterceptModal(data) {
     ", var(--dark-gray) " + currentAngle + "deg " + gapEnd + "deg, " +
     "var(--track-gray) " + gapEnd + "deg 360deg)";
 
-  backdrop.innerHTML =
+  var html =
     '<div class="able-modal-card">' +
       '<div class="able-banner-edge"></div>' +
       '<div class="able-modal-content">' +
@@ -99,8 +94,18 @@ function showInterceptModal(data) {
       '<div class="able-banner-edge"></div>' +
     '</div>';
 
-  document.documentElement.appendChild(backdrop);
-  applyZoomCompensation(backdrop);
+  var mounted = (typeof ABLEModalContainer !== "undefined")
+    ? ABLEModalContainer.renderModalIntoShadow(html)
+    : null;
+
+  var backdrop = mounted ? mounted.backdrop : null;
+  if (!backdrop) {
+    removeModal();
+    backdrop = document.createElement("div");
+    backdrop.className = "able-modal-backdrop";
+    backdrop.innerHTML = html;
+    (document.documentElement || document.body).appendChild(backdrop);
+  }
 
   backdrop.querySelector("#ableProceedBtn").addEventListener("click", async function () {
     await setSessionConsent();
@@ -137,7 +142,7 @@ function showInterceptModal(data) {
     removeModal();
   });
 
-  backdrop.addEventListener("keydown", function (e) {
+  var handleKeydown = function (e) {
     if (e.key === "Escape") {
       e.preventDefault();
       sendDecision(data.requestId, "cancel", { fileName: data.fileName, fileSize: data.fileSize });
@@ -154,8 +159,12 @@ function showInterceptModal(data) {
         flaggedItems: data.flaggedItems,
       });
       removeModal();
+      window.removeEventListener("keydown", handleKeydown);
     }
-  });
+  };
+
+  backdrop.addEventListener("keydown", handleKeydown);
+  window.addEventListener("keydown", handleKeydown);
 
   backdrop.querySelector(".able-score-ring-wrapper").addEventListener("click", function () {
     showInterceptScoreDetails(data);
@@ -163,7 +172,10 @@ function showInterceptModal(data) {
 }
 
 function showInterceptScoreDetails(data) {
-  var modalCard = document.querySelector(".able-modal-card");
+  var shadow = (typeof ABLEModalContainer !== "undefined")
+    ? ABLEModalContainer.getModalShadowRoot()
+    : null;
+  var modalCard = (shadow && shadow.querySelector(".able-modal-card")) || document.querySelector(".able-modal-card");
   if (!modalCard) return;
 
   var totalWeight = data.flaggedItems.reduce(function (sum, item) { return sum + item.weight; }, 0);
@@ -196,11 +208,11 @@ function showInterceptScoreDetails(data) {
     '</div>' +
     '<div class="able-banner-edge"></div>';
 
-  document.querySelector("#ableDetailBackBtn").addEventListener("click", function () {
+  modalCard.querySelector("#ableDetailBackBtn").addEventListener("click", function () {
     showInterceptModal(data);
   });
 
-  document.querySelector("#ableDetailCancelBtn").addEventListener("click", async function () {
+  modalCard.querySelector("#ableDetailCancelBtn").addEventListener("click", async function () {
     sendDecision(data.requestId, "cancel", { fileName: data.fileName, fileSize: data.fileSize });
     await logEgressEvent({
       domain: data.domain,

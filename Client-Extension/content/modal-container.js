@@ -1,5 +1,19 @@
-:host,
-:root {
+/**
+ * ABLE Extension - Modal Container
+ *
+ * Encapsulates all modals inside an isolated Shadow DOM container
+ * to prevent host page CSS bleed and rem font scaling issues across domains.
+ */
+
+var ABLE_MODAL_HOST_ID = "able-modal-root";
+
+var MODAL_STYLES = `
+:host {
+  all: initial;
+}
+
+:root,
+.able-modal-backdrop {
   --brand-green: #00FF44;
   --score-orange: #FFB900;
   --track-gray: #E2E2E2;
@@ -368,4 +382,56 @@
 .able-intercept-footer .able-btn-proceed,
 .able-intercept-footer .able-btn-cancel {
   width: 50%;
+}
+`;
+
+function getModalShadowRoot() {
+  var host = document.getElementById(ABLE_MODAL_HOST_ID);
+  if (!host) {
+    host = document.createElement("div");
+    host.id = ABLE_MODAL_HOST_ID;
+    host.style.cssText = "all: initial; position: fixed; inset: 0; z-index: 2147483647; pointer-events: none;";
+    (document.documentElement || document.body).appendChild(host);
+  }
+  if (!host.shadowRoot) {
+    var shadow = host.attachShadow({ mode: "open" });
+    var styleEl = document.createElement("style");
+    styleEl.textContent = MODAL_STYLES;
+    shadow.appendChild(styleEl);
+  }
+  return host.shadowRoot;
+}
+
+function renderModalIntoShadow(htmlContent) {
+  removeModal();
+  var shadow = getModalShadowRoot();
+  var host = document.getElementById(ABLE_MODAL_HOST_ID);
+  if (host) host.style.pointerEvents = "auto";
+
+  var backdrop = document.createElement("div");
+  backdrop.className = "able-modal-backdrop";
+  backdrop.innerHTML = htmlContent;
+  shadow.appendChild(backdrop);
+  return { shadowRoot: shadow, backdrop: backdrop };
+}
+
+function removeModal() {
+  var host = document.getElementById(ABLE_MODAL_HOST_ID);
+  if (host) {
+    host.remove();
+  }
+  var legacy = document.querySelector(".able-modal-backdrop");
+  if (legacy) {
+    legacy.remove();
+  }
+}
+
+if (typeof globalThis !== "undefined") {
+  globalThis.ABLEModalContainer = {
+    getModalShadowRoot: getModalShadowRoot,
+    renderModalIntoShadow: renderModalIntoShadow,
+    removeModal: removeModal,
+    MODAL_STYLES: MODAL_STYLES,
+  };
+  globalThis.removeModal = removeModal;
 }

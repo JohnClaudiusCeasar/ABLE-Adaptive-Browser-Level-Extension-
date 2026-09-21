@@ -485,6 +485,7 @@ class DomainPolicyController extends Controller
             'E-commerce' => 55,
             'Health' => 55,
             'Shopping' => 50,
+            'AI' => 50,
             'Government' => 10,
             'Education' => 15,
             'Search Engine' => 10,

@@ -8,10 +8,12 @@ import {
     X,
     Trash,
     Copy,
+    Info,
 } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useState, Fragment, useMemo } from 'react';
 import AlertError from '@/components/alert-error';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { PatternItemsModal } from './pattern-items-modal';
 
 const glassCard =
@@ -61,12 +63,23 @@ const emptyCriteriaForm: CriteriaFormData = {
     criteria_pattern_items: [],
 };
 
+function sumSubItemsScore(subItems?: CriteriaPatternItem[]): number {
+    if (!subItems || subItems.length === 0) return 0;
+
+    return subItems.reduce(
+        (total, sub) => total + (Number(sub.score) || 0),
+        0,
+    );
+}
+
 // Recursive helper: sum all item scores (top-level + all nested sub-items).
 function sumAllItemScores(items: CriteriaPatternItem[]): number {
     return items.reduce((total, item) => {
-        const subScore = item.sub_items ? sumAllItemScores(item.sub_items) : 0;
+        if (item.sub_items && item.sub_items.length > 0) {
+            return total + sumSubItemsScore(item.sub_items);
+        }
 
-        return total + (item.score || 0) + subScore;
+        return total + (Number(item.score) || 0);
     }, 0);
 }
 
@@ -86,11 +99,16 @@ export default function CriteriaPatternConfiguration() {
     const [editingId, setEditingId] = useState<number | null>(null);
     const [criteriaForm, setCriteriaForm] =
         useState<CriteriaFormData>(emptyCriteriaForm);
+    const [initialCriteriaForm, setInitialCriteriaForm] =
+        useState<CriteriaFormData>(emptyCriteriaForm);
     const [formErrors, setFormErrors] = useState<Record<string, string>>({});
     const [compositeScoreManual, setCompositeScoreManual] = useState(false);
+    const [matchPolicy, setMatchPolicy] = useState<'all' | 'any'>('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
     const [deleteAllConfirm, setDeleteAllConfirm] = useState(false);
+    const [confirmSave, setConfirmSave] = useState(false);
+    const [confirmCancel, setConfirmCancel] = useState(false);
     const [showExistingPicker, setShowExistingPicker] = useState<number | null>(
         null,
     );
@@ -164,14 +182,33 @@ export default function CriteriaPatternConfiguration() {
         ? criteriaForm.score
         : autoCompositeScore;
 
+    const isDirty = useMemo(() => {
+        return (
+            criteriaForm.title !== initialCriteriaForm.title ||
+            criteriaForm.score !== initialCriteriaForm.score ||
+            criteriaForm.priority !== initialCriteriaForm.priority ||
+            JSON.stringify(criteriaForm.criteria_pattern_items) !==
+                JSON.stringify(initialCriteriaForm.criteria_pattern_items)
+        );
+    }, [criteriaForm, initialCriteriaForm]);
+
+    const totalPatternRows = useMemo(() => {
+        return criteriaForm.criteria_pattern_items.reduce(
+            (acc, item) => acc + 1 + (item.sub_items?.length || 0),
+            0,
+        );
+    }, [criteriaForm.criteria_pattern_items]);
+
     function openEditModal(pattern: RiskPattern) {
-        setEditingId(pattern.id);
-        setCriteriaForm({
+        const initialData: CriteriaFormData = {
             title: pattern.title,
             score: pattern.score,
             priority: pattern.priority,
             criteria_pattern_items: pattern.criteria_pattern_items || [],
-        });
+        };
+        setEditingId(pattern.id);
+        setCriteriaForm(initialData);
+        setInitialCriteriaForm(initialData);
         setFormErrors({});
         // Existing patterns carry their saved composite score — treat it as
         // manually set unless it's zero (in which case fall through to auto).
@@ -183,15 +220,27 @@ export default function CriteriaPatternConfiguration() {
         setShowModal(false);
         setEditingId(null);
         setCriteriaForm(emptyCriteriaForm);
+        setInitialCriteriaForm(emptyCriteriaForm);
         setFormErrors({});
         setCompositeScoreManual(false);
         setShowExistingPicker(null);
         setExistingSearch('');
     }
 
+    function handleModalClose() {
+        if (isDirty) {
+            setConfirmCancel(true);
+        } else {
+            closeModal();
+        }
+    }
+
     function handleSubmit(e: FormEvent) {
         e.preventDefault();
+        setConfirmSave(true);
+    }
 
+    function submitForm() {
         const data = {
             ...criteriaForm,
             score: effectiveScore,
@@ -259,6 +308,7 @@ export default function CriteriaPatternConfiguration() {
                 risk_weight: 'medium',
             },
         ];
+        parentItem.score = sumSubItemsScore(parentItem.sub_items);
         updatedItems[parentIndex] = parentItem;
         setCriteriaForm({
             ...criteriaForm,
@@ -282,6 +332,9 @@ export default function CriteriaPatternConfiguration() {
         if (parentItem.sub_items) {
             parentItem.sub_items = [...parentItem.sub_items];
             parentItem.sub_items.splice(subIndex, 1);
+            if (parentItem.sub_items.length > 0) {
+                parentItem.score = sumSubItemsScore(parentItem.sub_items);
+            }
             updatedItems[parentIndex] = parentItem;
             setCriteriaForm({
                 ...criteriaForm,
@@ -322,6 +375,9 @@ export default function CriteriaPatternConfiguration() {
                 [field]: value,
             };
             parentItem.sub_items = updatedSubItems;
+            if (field === 'score') {
+                parentItem.score = sumSubItemsScore(updatedSubItems);
+            }
             updatedItems[parentIndex] = parentItem;
             setCriteriaForm({
                 ...criteriaForm,
@@ -331,14 +387,16 @@ export default function CriteriaPatternConfiguration() {
     }
 
     function addExistingPattern(pattern: RiskPattern) {
+        const subItems = pattern.criteria_pattern_items || [];
+        const hasSub = subItems.length > 0;
         const newItem: CriteriaPatternItem = {
             id: nextTempId(),
             title: pattern.title,
             regex: pattern.regex || '',
-            score: pattern.score,
+            score: hasSub ? sumSubItemsScore(subItems) : pattern.score,
             operator: 'and',
             risk_weight: pattern.priority,
-            sub_items: pattern.criteria_pattern_items || [],
+            sub_items: subItems,
         };
 
         setCriteriaForm({
@@ -435,7 +493,7 @@ export default function CriteriaPatternConfiguration() {
                                             >
                                                 {pattern.title}
                                             </h3>
-                                            <div className="mt-2 flex items-center gap-2">
+                                            <div className="mt-2 flex flex-wrap items-center gap-2">
                                                 <span
                                                     className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
                                                         pattern.priority ===
@@ -454,6 +512,41 @@ export default function CriteriaPatternConfiguration() {
                                                           ? 'Medium'
                                                           : 'Low'}
                                                 </span>
+                                                {(() => {
+                                                    const hasReq =
+                                                        pattern.criteria_pattern_items?.some(
+                                                            (i) =>
+                                                                (i.operator ||
+                                                                    'and') ===
+                                                                'and',
+                                                        );
+                                                    const hasFlex =
+                                                        pattern.criteria_pattern_items?.some(
+                                                            (i) =>
+                                                                i.operator ===
+                                                                'or',
+                                                        );
+
+                                                    if (hasReq && hasFlex) {
+                                                        return (
+                                                            <span className="rounded-full border border-[#a855f7]/30 bg-[rgba(168,85,247,0.15)] px-2 py-0.5 text-xs font-semibold text-[#a855f7]">
+                                                                Mixed Rules
+                                                            </span>
+                                                        );
+                                                    }
+                                                    if (hasFlex) {
+                                                        return (
+                                                            <span className="rounded-full border border-[#36cfc9]/30 bg-[rgba(54,207,201,0.15)] px-2 py-0.5 text-xs font-semibold text-[#36cfc9]">
+                                                                All Flexible (OR)
+                                                            </span>
+                                                        );
+                                                    }
+                                                    return (
+                                                        <span className="rounded-full border border-able-green/30 bg-[rgba(34,197,94,0.15)] px-2 py-0.5 text-xs font-semibold text-able-green">
+                                                            All Required (AND)
+                                                        </span>
+                                                    );
+                                                })()}
                                                 <span className="text-xs text-muted-foreground">
                                                     {
                                                         pattern
@@ -572,8 +665,9 @@ export default function CriteriaPatternConfiguration() {
                                     : 'Add Criteria Pattern'}
                             </h3>
                             <button
-                                onClick={closeModal}
-                                className="rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
+                                type="button"
+                                onClick={handleModalClose}
+                                className="cursor-pointer rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
                             >
                                 <X size={20} />
                             </button>
@@ -692,13 +786,18 @@ export default function CriteriaPatternConfiguration() {
                                 </div>
                             </div>
 
-                            {/* Pattern Items Table */}
+                            {/* Pattern Items Section */}
                             <div>
-                                <div className="mb-2 flex items-center justify-between">
-                                    <label className="block text-sm font-medium text-muted-foreground">
-                                        Pattern Items
-                                    </label>
-                                    <div className="flex gap-2">
+                                <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                    <div>
+                                        <label className="block text-sm font-medium text-foreground">
+                                            Pattern Items
+                                        </label>
+                                        <p className="mt-0.5 text-xs text-muted-foreground">
+                                            Define the patterns and trigger policy condition for this criteria.
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
                                         <button
                                             type="button"
                                             onClick={() =>
@@ -923,396 +1022,406 @@ export default function CriteriaPatternConfiguration() {
                                     </div>
                                 )}
 
+                                {/* Option 2: Pattern Classification Guide */}
+                                <div className="mb-4 rounded-xl border border-black/10 bg-black/[0.02] p-4 text-xs text-muted-foreground dark:border-white/10 dark:bg-white/[0.02]">
+                                    <div className="mb-2 flex items-center gap-2 font-semibold text-foreground">
+                                        <Info size={15} className="shrink-0 text-able-green" />
+                                        <span>Pattern Classification Guide</span>
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                        <div className="flex items-start gap-2 rounded-lg border border-black/5 bg-white/50 p-2.5 dark:border-white/5 dark:bg-white/5">
+                                            <span className="mt-0.5 inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-able-green" />
+                                            <div>
+                                                <span className="font-semibold text-foreground">Required (Strict — AND)</span>
+                                                <p className="mt-0.5 text-muted-foreground">All required patterns must be detected together in the content.</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-start gap-2 rounded-lg border border-black/5 bg-white/50 p-2.5 dark:border-white/5 dark:bg-white/5">
+                                            <span className="mt-0.5 inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-[#36cfc9]" />
+                                            <div>
+                                                <span className="font-semibold text-foreground">Flexible (Alternative — OR)</span>
+                                                <p className="mt-0.5 text-muted-foreground">Any one or more flexible patterns will trigger this criteria rule.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 {criteriaForm.criteria_pattern_items.length >
                                 0 ? (
-                                    <div className="overflow-hidden rounded-lg border border-black/10 dark:border-white/10">
+                                    <div
+                                        className={`rounded-lg border border-black/10 dark:border-white/10 ${
+                                            totalPatternRows > 4
+                                                ? 'max-h-[260px] overflow-y-auto'
+                                                : 'overflow-hidden'
+                                        }`}
+                                    >
                                         <table className="w-full text-sm">
-                                            <thead>
-                                                <tr className="bg-black/5 dark:bg-white/5">
+                                            <thead className="sticky top-0 z-10 bg-[#f8fafc] dark:bg-[#0f172a]">
+                                                <tr className="border-b border-black/10 bg-black/5 dark:border-white/10 dark:bg-white/5">
                                                     <th className="px-3 py-2 text-left font-normal text-muted-foreground">
                                                         Title
                                                     </th>
-                                                    <th className="w-16 px-3 py-2 text-left font-normal text-muted-foreground">
-                                                        Logic
+                                                    <th className="w-40 px-3 py-2 text-left font-normal text-muted-foreground">
+                                                        Requirement
                                                     </th>
                                                     <th className="px-3 py-2 text-left font-normal text-muted-foreground">
-                                                        Regex
+                                                        Regex Pattern
                                                     </th>
                                                     <th className="w-20 px-3 py-2 text-left font-normal text-muted-foreground">
                                                         Score
-                                                    </th>
-                                                    <th className="w-28 px-3 py-2 text-left font-normal text-muted-foreground">
-                                                        Risk Weight
                                                     </th>
                                                     <th className="w-20 px-3 py-2"></th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {criteriaForm.criteria_pattern_items.map(
-                                                    (item, idx) => (
-                                                        <Fragment key={item.id}>
-                                                            <tr className="border-t border-black/5 dark:border-white/5">
-                                                                <td className="px-2 py-2">
-                                                                    <input
-                                                                        type="text"
-                                                                        required
-                                                                        value={
-                                                                            item.title
-                                                                        }
-                                                                        onChange={(
-                                                                            e,
-                                                                        ) =>
-                                                                            updateCriteriaItem(
-                                                                                idx,
-                                                                                'title',
-                                                                                e
-                                                                                    .target
-                                                                                    .value,
-                                                                            )
-                                                                        }
-                                                                        placeholder="Title"
-                                                                        className="w-full rounded border border-black/10 bg-transparent px-2 py-1 text-sm text-foreground transition-colors outline-none focus:border-able-green dark:border-white/10"
-                                                                    />
-                                                                </td>
-                                                                <td className="px-2 py-2">
-                                                                    <div className="flex overflow-hidden rounded-md border border-black/10 dark:border-white/10">
-                                                                        {(
-                                                                            [
-                                                                                'and',
-                                                                                'or',
-                                                                            ] as const
-                                                                        ).map(
-                                                                            (
-                                                                                op,
-                                                                            ) => (
-                                                                                <button
-                                                                                    key={
-                                                                                        op
-                                                                                    }
-                                                                                    type="button"
-                                                                                    onClick={() =>
-                                                                                        updateCriteriaItem(
-                                                                                            idx,
-                                                                                            'operator',
-                                                                                            op,
-                                                                                        )
-                                                                                    }
-                                                                                    title={`Require ${op === 'and' ? 'all' : 'any'} sibling item to match`}
-                                                                                    className={`px-2 py-1 text-xs font-semibold uppercase transition-colors ${
-                                                                                        (item.operator ||
-                                                                                            'and') ===
-                                                                                        op
-                                                                                            ? 'bg-able-green text-white'
-                                                                                            : 'text-muted-foreground hover:text-foreground'
-                                                                                    }`}
-                                                                                >
-                                                                                    {
-                                                                                        op
-                                                                                    }
-                                                                                </button>
-                                                                            ),
-                                                                        )}
-                                                                    </div>
-                                                                </td>
-                                                                <td className="px-2 py-2">
-                                                                    <input
-                                                                        type="text"
-                                                                        required={
-                                                                            item.sub_items ===
-                                                                                undefined ||
-                                                                            item
-                                                                                .sub_items
-                                                                                .length ===
-                                                                                0
-                                                                        }
-                                                                        value={
-                                                                            item.regex
-                                                                        }
-                                                                        onChange={(
-                                                                            e,
-                                                                        ) =>
-                                                                            updateCriteriaItem(
-                                                                                idx,
-                                                                                'regex',
-                                                                                e
-                                                                                    .target
-                                                                                    .value,
-                                                                            )
-                                                                        }
-                                                                        placeholder={
-                                                                            item.sub_items &&
-                                                                            item
-                                                                                .sub_items
-                                                                                .length >
-                                                                                0 &&
-                                                                            item.regex ===
-                                                                                ''
-                                                                                ? 'Group — matches via sub-items'
-                                                                                : 'Regex'
-                                                                        }
-                                                                        className="w-full rounded border border-black/10 bg-transparent px-2 py-1 font-mono text-sm text-foreground transition-colors outline-none focus:border-able-green dark:border-white/10"
-                                                                    />
-                                                                </td>
-                                                                <td className="px-2 py-2">
-                                                                    <input
-                                                                        type="text"
-                                                                        inputMode="numeric"
-                                                                        required
-                                                                        value={
-                                                                            item.score
-                                                                        }
-                                                                        onChange={(
-                                                                            e,
-                                                                        ) =>
-                                                                            updateCriteriaItem(
-                                                                                idx,
-                                                                                'score',
-                                                                                parseInt(
+                                                    (item, idx) => {
+                                                        const hasSubItems =
+                                                            Boolean(
+                                                                item.sub_items &&
+                                                                    item
+                                                                        .sub_items
+                                                                        .length >
+                                                                        0,
+                                                            );
+
+                                                        return (
+                                                            <Fragment
+                                                                key={item.id}
+                                                            >
+                                                                <tr className="border-t border-black/5 dark:border-white/5">
+                                                                    <td className="px-2 py-2">
+                                                                        <input
+                                                                            type="text"
+                                                                            required
+                                                                            value={
+                                                                                item.title
+                                                                            }
+                                                                            onChange={(
+                                                                                e,
+                                                                            ) =>
+                                                                                updateCriteriaItem(
+                                                                                    idx,
+                                                                                    'title',
                                                                                     e
                                                                                         .target
                                                                                         .value,
-                                                                                ) ||
-                                                                                    0,
-                                                                            )
-                                                                        }
-                                                                        className="w-full rounded border border-black/10 bg-transparent px-2 py-1 text-sm text-foreground transition-colors outline-none focus:border-able-green dark:border-white/10"
-                                                                    />
-                                                                </td>
-                                                                <td className="px-2 py-2">
-                                                                    <span
-                                                                        className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                                                                            (item.risk_weight ||
-                                                                                'medium') ===
-                                                                            'high'
-                                                                                ? 'bg-[rgba(248,113,113,0.2)] text-[#f87171]'
-                                                                                : (item.risk_weight ||
-                                                                                        'medium') ===
-                                                                                    'medium'
-                                                                                  ? 'bg-[rgba(245,158,11,0.2)] text-[#f59e0b]'
-                                                                                  : 'bg-[rgba(34,197,94,0.2)] text-[#22c55e]'
-                                                                        }`}
-                                                                    >
-                                                                        {(item.risk_weight ||
-                                                                            'medium') ===
-                                                                        'high'
-                                                                            ? 'High'
-                                                                            : (item.risk_weight ||
-                                                                                    'medium') ===
-                                                                                'medium'
-                                                                              ? 'Medium'
-                                                                              : 'Low'}
-                                                                    </span>
-                                                                </td>
-                                                                <td className="px-2 py-2">
-                                                                    <div className="flex gap-1">
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() =>
-                                                                                addSubCriteriaItem(
-                                                                                    idx,
                                                                                 )
                                                                             }
-                                                                            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-[rgba(34,197,94,0.1)] hover:text-able-green"
-                                                                            title="Add Sub-Item"
-                                                                        >
-                                                                            <Plus
-                                                                                size={
-                                                                                    14
+                                                                            placeholder="Title"
+                                                                            className="w-full rounded border border-black/10 bg-transparent px-2 py-1 text-sm text-foreground transition-colors outline-none focus:border-able-green dark:border-white/10"
+                                                                        />
+                                                                    </td>
+                                                                    <td className="px-2 py-2">
+                                                                        <div className="flex w-full overflow-hidden rounded-md border border-black/10 text-xs font-semibold dark:border-white/10">
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() =>
+                                                                                    updateCriteriaItem(
+                                                                                        idx,
+                                                                                        'operator',
+                                                                                        'and',
+                                                                                    )
                                                                                 }
-                                                                            />
-                                                                        </button>
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() =>
-                                                                                removeCriteriaItem(
+                                                                                title="Required: Must be detected along with all other required patterns (AND)"
+                                                                                className={`flex-1 cursor-pointer py-1.5 text-center transition-colors ${
+                                                                                    (item.operator ||
+                                                                                        'and') ===
+                                                                                    'and'
+                                                                                        ? 'bg-able-green text-white'
+                                                                                        : 'text-muted-foreground hover:bg-black/5 hover:text-foreground dark:hover:bg-white/5'
+                                                                                }`}
+                                                                            >
+                                                                                Required
+                                                                            </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() =>
+                                                                                    updateCriteriaItem(
+                                                                                        idx,
+                                                                                        'operator',
+                                                                                        'or',
+                                                                                    )
+                                                                                }
+                                                                                title="Flexible: Any one or more flexible patterns will trigger (OR)"
+                                                                                className={`flex-1 cursor-pointer py-1.5 text-center transition-colors ${
+                                                                                    item.operator ===
+                                                                                    'or'
+                                                                                        ? 'bg-[#36cfc9] text-white'
+                                                                                        : 'text-muted-foreground hover:bg-black/5 hover:text-foreground dark:hover:bg-white/5'
+                                                                                }`}
+                                                                            >
+                                                                                Flexible
+                                                                            </button>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="px-2 py-2">
+                                                                        <input
+                                                                            type="text"
+                                                                            required={
+                                                                                !hasSubItems
+                                                                            }
+                                                                            readOnly={
+                                                                                hasSubItems
+                                                                            }
+                                                                            disabled={
+                                                                                hasSubItems
+                                                                            }
+                                                                            value={
+                                                                                hasSubItems
+                                                                                    ? ''
+                                                                                    : item.regex
+                                                                            }
+                                                                            onChange={(
+                                                                                e,
+                                                                            ) =>
+                                                                                updateCriteriaItem(
                                                                                     idx,
+                                                                                    'regex',
+                                                                                    e
+                                                                                        .target
+                                                                                        .value,
                                                                                 )
                                                                             }
-                                                                            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-[rgba(248,113,113,0.1)] hover:text-[#f87171]"
-                                                                        >
-                                                                            <X
-                                                                                size={
-                                                                                    14
-                                                                                }
-                                                                            />
-                                                                        </button>
-                                                                    </div>
-                                                                </td>
-                                                            </tr>
-                                                            {/* Sub-items */}
-                                                            {item.sub_items &&
-                                                                item.sub_items.map(
-                                                                    (
-                                                                        subItem,
-                                                                        subIdx,
-                                                                    ) => (
-                                                                        <tr
-                                                                            key={
-                                                                                subItem.id
+                                                                            placeholder={
+                                                                                hasSubItems
+                                                                                    ? 'Group — evaluated via sub-patterns'
+                                                                                    : 'Regex'
                                                                             }
-                                                                            className="border-t border-black/5 bg-black/[0.02] dark:border-white/5 dark:bg-white/[0.02]"
-                                                                        >
-                                                                            <td className="px-2 py-2 pl-6">
-                                                                                <input
-                                                                                    type="text"
-                                                                                    required
-                                                                                    value={
-                                                                                        subItem.title
+                                                                            className={`w-full rounded border px-2 py-1 font-mono text-sm transition-colors outline-none ${
+                                                                                hasSubItems
+                                                                                    ? 'cursor-not-allowed border-black/5 bg-black/5 text-muted-foreground placeholder:italic dark:border-white/5 dark:bg-white/5'
+                                                                                    : 'border-black/10 bg-transparent text-foreground focus:border-able-green dark:border-white/10'
+                                                                            }`}
+                                                                        />
+                                                                    </td>
+                                                                    <td className="px-2 py-2">
+                                                                        <input
+                                                                            type="text"
+                                                                            inputMode="numeric"
+                                                                            required
+                                                                            readOnly={
+                                                                                hasSubItems
+                                                                            }
+                                                                            value={
+                                                                                item.score
+                                                                            }
+                                                                            onChange={(
+                                                                                e,
+                                                                            ) =>
+                                                                                updateCriteriaItem(
+                                                                                    idx,
+                                                                                    'score',
+                                                                                    parseInt(
+                                                                                        e
+                                                                                            .target
+                                                                                            .value,
+                                                                                    ) ||
+                                                                                        0,
+                                                                                )
+                                                                            }
+                                                                            title={
+                                                                                hasSubItems
+                                                                                    ? 'Summed automatically from sub-patterns'
+                                                                                    : undefined
+                                                                            }
+                                                                            className={`w-full rounded border px-2 py-1 text-sm transition-colors outline-none ${
+                                                                                hasSubItems
+                                                                                    ? 'cursor-not-allowed border-black/5 bg-black/5 font-semibold text-foreground dark:border-white/5 dark:bg-white/5'
+                                                                                    : 'border-black/10 bg-transparent text-foreground focus:border-able-green dark:border-white/10'
+                                                                            }`}
+                                                                        />
+                                                                    </td>
+                                                                    <td className="px-2 py-2">
+                                                                        <div className="flex gap-1">
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() =>
+                                                                                    addSubCriteriaItem(
+                                                                                        idx,
+                                                                                    )
+                                                                                }
+                                                                                className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-[rgba(34,197,94,0.1)] hover:text-able-green"
+                                                                                title="Add Sub-Item"
+                                                                            >
+                                                                                <Plus
+                                                                                    size={
+                                                                                        14
                                                                                     }
-                                                                                    onChange={(
-                                                                                        e,
-                                                                                    ) =>
-                                                                                        updateSubCriteriaItem(
-                                                                                            idx,
-                                                                                            subIdx,
-                                                                                            'title',
-                                                                                            e
-                                                                                                .target
-                                                                                                .value,
-                                                                                        )
-                                                                                    }
-                                                                                    placeholder="Sub-item title"
-                                                                                    className="w-full rounded border border-black/10 bg-transparent px-2 py-1 text-sm text-foreground transition-colors outline-none focus:border-able-green dark:border-white/10"
                                                                                 />
-                                                                            </td>
-                                                                            <td className="px-2 py-2">
-                                                                                <div className="flex overflow-hidden rounded-md border border-black/10 dark:border-white/10">
-                                                                                    {(
-                                                                                        [
-                                                                                            'and',
-                                                                                            'or',
-                                                                                        ] as const
-                                                                                    ).map(
-                                                                                        (
-                                                                                            op,
-                                                                                        ) => (
-                                                                                            <button
-                                                                                                key={
-                                                                                                    op
-                                                                                                }
-                                                                                                type="button"
-                                                                                                onClick={() =>
-                                                                                                    updateSubCriteriaItem(
-                                                                                                        idx,
-                                                                                                        subIdx,
-                                                                                                        'operator',
-                                                                                                        op,
-                                                                                                    )
-                                                                                                }
-                                                                                                title={`Require ${op === 'and' ? 'all' : 'any'} sibling sub-item to match`}
-                                                                                                className={`px-2 py-1 text-xs font-semibold uppercase transition-colors ${
-                                                                                                    (subItem.operator ||
-                                                                                                        'and') ===
-                                                                                                    op
-                                                                                                        ? 'bg-able-green text-white'
-                                                                                                        : 'text-muted-foreground hover:text-foreground'
-                                                                                                }`}
-                                                                                            >
-                                                                                                {
-                                                                                                    op
-                                                                                                }
-                                                                                            </button>
-                                                                                        ),
-                                                                                    )}
-                                                                                </div>
-                                                                            </td>
-                                                                            <td className="px-2 py-2">
-                                                                                <input
-                                                                                    type="text"
-                                                                                    required
-                                                                                    value={
-                                                                                        subItem.regex
+                                                                            </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() =>
+                                                                                    removeCriteriaItem(
+                                                                                        idx,
+                                                                                    )
+                                                                                }
+                                                                                className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-[rgba(248,113,113,0.1)] hover:text-[#f87171]"
+                                                                            >
+                                                                                <X
+                                                                                    size={
+                                                                                        14
                                                                                     }
-                                                                                    onChange={(
-                                                                                        e,
-                                                                                    ) =>
-                                                                                        updateSubCriteriaItem(
-                                                                                            idx,
-                                                                                            subIdx,
-                                                                                            'regex',
-                                                                                            e
-                                                                                                .target
-                                                                                                .value,
-                                                                                        )
-                                                                                    }
-                                                                                    placeholder="Sub-item regex"
-                                                                                    className="w-full rounded border border-black/10 bg-transparent px-2 py-1 font-mono text-sm text-foreground transition-colors outline-none focus:border-able-green dark:border-white/10"
                                                                                 />
-                                                                            </td>
-                                                                            <td className="px-2 py-2">
-                                                                                <input
-                                                                                    type="text"
-                                                                                    inputMode="numeric"
-                                                                                    required
-                                                                                    value={
-                                                                                        subItem.score
-                                                                                    }
-                                                                                    onChange={(
-                                                                                        e,
-                                                                                    ) =>
-                                                                                        updateSubCriteriaItem(
-                                                                                            idx,
-                                                                                            subIdx,
-                                                                                            'score',
-                                                                                            parseInt(
+                                                                            </button>
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                                {/* Sub-items */}
+                                                                {item.sub_items &&
+                                                                    item.sub_items.map(
+                                                                        (
+                                                                            subItem,
+                                                                            subIdx,
+                                                                        ) => (
+                                                                            <tr
+                                                                                key={
+                                                                                    subItem.id
+                                                                                }
+                                                                                className="border-t border-black/5 bg-black/[0.02] dark:border-white/5 dark:bg-white/[0.02]"
+                                                                            >
+                                                                                <td className="px-2 py-2 pl-6">
+                                                                                    <input
+                                                                                        type="text"
+                                                                                        required
+                                                                                        value={
+                                                                                            subItem.title
+                                                                                        }
+                                                                                        onChange={(
+                                                                                            e,
+                                                                                        ) =>
+                                                                                            updateSubCriteriaItem(
+                                                                                                idx,
+                                                                                                subIdx,
+                                                                                                'title',
                                                                                                 e
                                                                                                     .target
                                                                                                     .value,
-                                                                                            ) ||
-                                                                                                0,
-                                                                                        )
-                                                                                    }
-                                                                                    className="w-full rounded border border-black/10 bg-transparent px-2 py-1 text-sm text-foreground transition-colors outline-none focus:border-able-green dark:border-white/10"
-                                                                                />
-                                                                            </td>
-                                                                            <td className="px-2 py-2">
-                                                                                <span
-                                                                                    className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                                                                                        (subItem.risk_weight ||
-                                                                                            'medium') ===
-                                                                                        'high'
-                                                                                            ? 'bg-[rgba(248,113,113,0.2)] text-[#f87171]'
-                                                                                            : (subItem.risk_weight ||
-                                                                                                    'medium') ===
-                                                                                                'medium'
-                                                                                              ? 'bg-[rgba(245,158,11,0.2)] text-[#f59e0b]'
-                                                                                              : 'bg-[rgba(34,197,94,0.2)] text-[#22c55e]'
-                                                                                    }`}
-                                                                                >
-                                                                                    {(subItem.risk_weight ||
-                                                                                        'medium') ===
-                                                                                    'high'
-                                                                                        ? 'High'
-                                                                                        : (subItem.risk_weight ||
-                                                                                                'medium') ===
-                                                                                            'medium'
-                                                                                          ? 'Medium'
-                                                                                          : 'Low'}
-                                                                                </span>
-                                                                            </td>
-                                                                            <td className="px-2 py-2">
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() =>
-                                                                                        removeSubCriteriaItem(
-                                                                                            idx,
-                                                                                            subIdx,
-                                                                                        )
-                                                                                    }
-                                                                                    className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-[rgba(248,113,113,0.1)] hover:text-[#f87171]"
-                                                                                >
-                                                                                    <X
-                                                                                        size={
-                                                                                            14
+                                                                                            )
                                                                                         }
+                                                                                        placeholder="Sub-item title"
+                                                                                        className="w-full rounded border border-black/10 bg-transparent px-2 py-1 text-sm text-foreground transition-colors outline-none focus:border-able-green dark:border-white/10"
                                                                                     />
-                                                                                </button>
-                                                                            </td>
-                                                                        </tr>
-                                                                    ),
-                                                                )}
-                                                        </Fragment>
-                                                    ),
+                                                                                </td>
+                                                                                <td className="px-2 py-2">
+                                                                                    <div className="flex w-full overflow-hidden rounded-md border border-black/10 text-xs font-semibold dark:border-white/10">
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={() =>
+                                                                                                updateSubCriteriaItem(
+                                                                                                    idx,
+                                                                                                    subIdx,
+                                                                                                    'operator',
+                                                                                                    'and',
+                                                                                                )
+                                                                                            }
+                                                                                            title="Required: Must be detected along with other sub-patterns (AND)"
+                                                                                            className={`flex-1 cursor-pointer py-1.5 text-center transition-colors ${
+                                                                                                (subItem.operator ||
+                                                                                                    'and') ===
+                                                                                                'and'
+                                                                                                    ? 'bg-able-green text-white'
+                                                                                                    : 'text-muted-foreground hover:bg-black/5 hover:text-foreground dark:hover:bg-white/5'
+                                                                                            }`}
+                                                                                        >
+                                                                                            Required
+                                                                                        </button>
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={() =>
+                                                                                                updateSubCriteriaItem(
+                                                                                                    idx,
+                                                                                                    subIdx,
+                                                                                                    'operator',
+                                                                                                    'or',
+                                                                                                )
+                                                                                            }
+                                                                                            title="Flexible: Any flexible sub-pattern will trigger (OR)"
+                                                                                            className={`flex-1 cursor-pointer py-1.5 text-center transition-colors ${
+                                                                                                subItem.operator ===
+                                                                                                'or'
+                                                                                                    ? 'bg-[#36cfc9] text-white'
+                                                                                                    : 'text-muted-foreground hover:bg-black/5 hover:text-foreground dark:hover:bg-white/5'
+                                                                                            }`}
+                                                                                        >
+                                                                                            Flexible
+                                                                                        </button>
+                                                                                    </div>
+                                                                                </td>
+                                                                                <td className="px-2 py-2">
+                                                                                    <input
+                                                                                        type="text"
+                                                                                        required
+                                                                                        value={
+                                                                                            subItem.regex
+                                                                                        }
+                                                                                        onChange={(
+                                                                                            e,
+                                                                                        ) =>
+                                                                                            updateSubCriteriaItem(
+                                                                                                idx,
+                                                                                                subIdx,
+                                                                                                'regex',
+                                                                                                e
+                                                                                                    .target
+                                                                                                    .value,
+                                                                                            )
+                                                                                        }
+                                                                                        placeholder="Sub-item regex"
+                                                                                        className="w-full rounded border border-black/10 bg-transparent px-2 py-1 font-mono text-sm text-foreground transition-colors outline-none focus:border-able-green dark:border-white/10"
+                                                                                    />
+                                                                                </td>
+                                                                                <td className="px-2 py-2">
+                                                                                    <input
+                                                                                        type="text"
+                                                                                        inputMode="numeric"
+                                                                                        required
+                                                                                        value={
+                                                                                            subItem.score
+                                                                                        }
+                                                                                        onChange={(
+                                                                                            e,
+                                                                                        ) =>
+                                                                                            updateSubCriteriaItem(
+                                                                                                idx,
+                                                                                                subIdx,
+                                                                                                'score',
+                                                                                                parseInt(
+                                                                                                    e
+                                                                                                        .target
+                                                                                                        .value,
+                                                                                                ) ||
+                                                                                                    0,
+                                                                                            )
+                                                                                        }
+                                                                                        className="w-full rounded border border-black/10 bg-transparent px-2 py-1 text-sm text-foreground transition-colors outline-none focus:border-able-green dark:border-white/10"
+                                                                                    />
+                                                                                </td>
+                                                                                <td className="px-2 py-2">
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() =>
+                                                                                            removeSubCriteriaItem(
+                                                                                                idx,
+                                                                                                subIdx,
+                                                                                            )
+                                                                                        }
+                                                                                        className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-[rgba(248,113,113,0.1)] hover:text-[#f87171]"
+                                                                                    >
+                                                                                        <X
+                                                                                            size={
+                                                                                                14
+                                                                                            }
+                                                                                        />
+                                                                                    </button>
+                                                                                </td>
+                                                                            </tr>
+                                                                        ),
+                                                                    )}
+                                                            </Fragment>
+                                                        );
+                                                    },
                                                 )}
                                             </tbody>
                                         </table>
@@ -1328,14 +1437,14 @@ export default function CriteriaPatternConfiguration() {
                             <div className="flex justify-end gap-3 pt-2">
                                 <button
                                     type="button"
-                                    onClick={closeModal}
-                                    className="rounded-lg border border-black/10 px-4 py-2 text-muted-foreground transition-colors hover:text-foreground dark:border-white/10"
+                                    onClick={handleModalClose}
+                                    className="cursor-pointer rounded-lg border border-black/10 px-4 py-2 text-muted-foreground transition-colors hover:text-foreground dark:border-white/10"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
-                                    className="rounded-lg bg-able-green px-4 py-2 font-semibold text-white transition-colors hover:bg-[#1a9e4b]"
+                                    className="cursor-pointer rounded-lg bg-able-green px-4 py-2 font-semibold text-white transition-colors hover:bg-[#1a9e4b]"
                                 >
                                     {editingId ? 'Update' : 'Create'}
                                 </button>
@@ -1344,6 +1453,40 @@ export default function CriteriaPatternConfiguration() {
                     </div>
                 </div>
             )}
+
+            {/* Confirm Update / Create Dialog */}
+            <ConfirmDialog
+                open={confirmSave}
+                onOpenChange={setConfirmSave}
+                title={
+                    editingId
+                        ? 'Update criteria pattern?'
+                        : 'Create criteria pattern?'
+                }
+                description={`Are you sure you want to ${
+                    editingId ? 'update' : 'create'
+                } "${criteriaForm.title || 'Untitled pattern'}" with ${
+                    criteriaForm.criteria_pattern_items.length
+                } pattern item(s) and a composite score of ${effectiveScore}?`}
+                confirmLabel={
+                    editingId ? 'Update Pattern' : 'Create Pattern'
+                }
+                cancelLabel="Keep Editing"
+                variant="default"
+                onConfirm={submitForm}
+            />
+
+            {/* Confirm Cancel / Discard Dialog */}
+            <ConfirmDialog
+                open={confirmCancel}
+                onOpenChange={setConfirmCancel}
+                title="Discard changes?"
+                description="Are you sure you want to cancel? Any unsaved changes to this criteria pattern will be lost."
+                confirmLabel="Discard"
+                cancelLabel="Keep Editing"
+                variant="destructive"
+                onConfirm={closeModal}
+            />
 
             {/* Delete Single Confirmation Modal */}
             {deleteConfirmId !== null && (

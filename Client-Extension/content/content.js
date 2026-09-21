@@ -489,6 +489,12 @@ function setupInterceptionListener() {
 // ─── Modal management ──────────────────────────────────────
 
 function removeModal() {
+  if (typeof ABLEModalContainer !== "undefined" && ABLEModalContainer.removeModal) {
+    ABLEModalContainer.removeModal();
+    return;
+  }
+  var host = document.getElementById("able-modal-root");
+  if (host) host.remove();
   var existing = document.querySelector(".able-modal-backdrop");
   if (existing) existing.remove();
 }
@@ -617,7 +623,7 @@ async function evaluateAndShowModal(visitResult) {
 }
 
 async function handleSPANavigation() {
-  if (document.querySelector(".able-modal-backdrop")) return;
+  if (document.getElementById("able-modal-root") || document.querySelector(".able-modal-backdrop")) return;
 
   classifyReady = classifyCurrentDomain();
   await classifyReady;
@@ -772,7 +778,7 @@ function scheduleHydrationRecheck() {
   var run = async function () {
     try {
       if (!domainStatus || !domainStatus.domain) return;
-      if (document.querySelector(".able-modal-backdrop")) return;
+      if (document.getElementById("able-modal-root") || document.querySelector(".able-modal-backdrop")) return;
       if (typeof ABLEPageSignals === "undefined" || !ABLEPageSignals.contentHash) return;
       var current = ABLEPageSignals.contentHash();
       if (!current || current === initialContentHash) return;

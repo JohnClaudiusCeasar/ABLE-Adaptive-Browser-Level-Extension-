@@ -35,6 +35,7 @@
         "content/zoom.js",
         "content/risk-scoring.js",
         "content/file-scanner.js",
+        "content/modal-container.js",
         "content/intercept-modal.js",
         "content/text-warning-modal.js",
         "content/site-warning-modal.js",
@@ -48,6 +49,7 @@
   "web_accessible_resources": [
     {
       "resources": [
+        "content.css",
         "inject/inject.js",
         "inject/file-extractor.js",
         "inject/network-interceptor.js",

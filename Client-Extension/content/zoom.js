@@ -1,38 +1,25 @@
 /**
  * ABLE Extension - Zoom Compensation
  *
- * Detects browser zoom level and applies counter-scaling to modals
- * so they remain visually static regardless of zoom.
+ * Keeps modals visually consistent across browser zoom and window sizing.
  */
 
 function getZoomLevel() {
-  if (window.visualViewport && window.visualViewport.scale) {
-    return window.visualViewport.scale;
-  }
-  if (window.outerWidth && window.innerWidth) {
-    return window.outerWidth / window.innerWidth;
-  }
   return 1;
 }
 
 function applyZoomCompensation(backdrop) {
-  const zoom = getZoomLevel();
-  const counterScale = 1 / zoom;
-  backdrop.style.transform = `scale(${counterScale})`;
+  if (backdrop && backdrop.style) {
+    backdrop.style.transform = '';
+  }
 }
 
 function updateActiveModalZoom() {
-  const backdrop = document.querySelector('.able-modal-backdrop');
-  if (backdrop) {
-    applyZoomCompensation(backdrop);
-  }
+  // No-op: Modal layout is stably governed by CSS and Shadow DOM.
 }
 
 function initZoomListener() {
-  window.addEventListener('resize', updateActiveModalZoom);
-  if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', updateActiveModalZoom);
-  }
+  // Maintained for interface compatibility.
 }
 
 if (typeof globalThis !== "undefined") {

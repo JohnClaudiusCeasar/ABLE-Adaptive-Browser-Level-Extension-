@@ -157,4 +157,45 @@ class ClassifyDomainTest extends TestCase
 
         $response->assertOk()->assertJsonPath('category', 'Email');
     }
+
+    public function test_post_classify_auto_categorizes_ai_domain(): void
+    {
+        $response = $this->postJson('/api/classify-domain', [
+            'url' => 'https://genai-chat-tool.io/models',
+            'signals' => [
+                'title' => 'GenAI Chat - LLM & AI Assistant',
+                'meta' => ['description' => 'Access state of the art generative AI models and chatbots'],
+                'headings' => ['Generative AI Models & Prompt Engineering'],
+                'excerpt' => 'Our AI assistant provides large language model capabilities and generative AI text completion.',
+            ],
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('status', 'unlisted')
+            ->assertJsonPath('domain', 'genai-chat-tool.io')
+            ->assertJsonPath('category', 'AI')
+            ->assertJsonPath('source', 'heuristic')
+            ->assertJsonPath('classification_source', 'heuristic')
+            ->assertJsonPath('risk_score', 50);
+
+        $this->assertSame('AI', DomainPolicy::where('domain', 'genai-chat-tool.io')->value('category'));
+        $this->assertSame('heuristic', DomainPolicy::where('domain', 'genai-chat-tool.io')->value('classification_source'));
+    }
+
+    public function test_brand_map_resolves_ai_domain(): void
+    {
+        $response = $this->postJson('/api/classify-domain', [
+            'url' => 'https://chatgpt.com/',
+            'signals' => ['title' => 'ChatGPT'],
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('domain', 'chatgpt.com')
+            ->assertJsonPath('category', 'AI')
+            ->assertJsonPath('source', 'brand')
+            ->assertJsonPath('classification_source', 'brand')
+            ->assertJsonPath('risk_score', 50);
+
+        $this->assertSame('AI', DomainPolicy::where('domain', 'chatgpt.com')->value('category'));
+    }
 }

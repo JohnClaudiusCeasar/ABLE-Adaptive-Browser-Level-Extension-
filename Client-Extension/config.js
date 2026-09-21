@@ -52,7 +52,7 @@ const TLS_PINS = {
  *   npm run build
  */
 const EXPECTED_INJECT_HASH = "37d986766c48ac99db7953ea990bfd0c6c5a8d2092903b8d0c249836a0add92a";
-const EXPECTED_CONTENT_CSS_HASH = "cb03f6dd8c78fed3f2c2a9c28109f55db4f3e063e583178652a5ae3c1a172d1b";
+const EXPECTED_CONTENT_CSS_HASH = "ff40049c1b93db8275ee1170910b8477aa1a0dac8bab3f9f3306f80b9438c31b";
 
 /**
  * Origins the extension is allowed to make requests to.
@@ -197,25 +197,27 @@ function isSearchResultUrl(url) {
  * These are template messages, not data - they use the classification result from the server/cache.
  */
 function getStatusMessage(status, domain, category, alternatives) {
+  const statusUpper = (status || "unlisted").toUpperCase();
+  const statusLower = (status || "unlisted").toLowerCase();
   const messages = {
     safe: {
-      title: "The site you are entering is SAFE",
-      message: `${domain} has been reviewed, and analyzed by the ${COMPANY_NAME} IT security department and thus declared safe to use and operate.\n\nFeel free to use the website to your heart\u2019s content,\n\nHave a nice day :)`,
+      title: 'The site you are entering is <span class="able-highlight-text">SAFE</span>',
+      message: `<span class="able-highlight-text">${domain}</span> has been reviewed, and analyzed by the ${COMPANY_NAME} IT security department and thus declared <span class="able-highlight-text">safe</span> to use and operate.\n\nFeel free to use the website to your heart\u2019s content,\n\nHave a nice day :)`,
       suggestion: ""
     },
     unsafe: {
-      title: "The site you are entering is UNSAFE",
-      message: `${domain} has been reviewed, and analyzed by the ${COMPANY_NAME} IT security department and thus declared to be unsafe to use.\nPlease refrain from sending sensitive institutional data to this website.${category && alternatives.length ? `\n\nSince you are entering a ${category} website, to make your internet experience safe, please consider the following alternatives: ${alternatives.join(", ")}.` : ""}`,
+      title: 'The site you are entering is <span class="able-highlight-text">UNSAFE</span>',
+      message: `<span class="able-highlight-text">${domain}</span> has been reviewed, and analyzed by the ${COMPANY_NAME} IT security department and thus declared to be <span class="able-highlight-text">unsafe</span> to use.\nPlease refrain from sending sensitive institutional data to this website.${category && alternatives && alternatives.length ? `\n\nSince you are entering a ${category} website, to make your internet experience safe, please consider the following alternatives: ${alternatives.join(", ")}.` : ""}`,
       suggestion: ""
     },
     unlisted: {
-      title: "The site you are entering is UNLISTED",
-      message: `${domain} is an unlisted service that has not been reviewed, and analyzed by the ${COMPANY_NAME} IT security department. While the service is not labeled unsafe by our security team, please refrain from sending any sensitive institutional data from this website until it is properly reviewed.`,
+      title: 'The site you are entering is <span class="able-highlight-text">UNLISTED</span>',
+      message: `<span class="able-highlight-text">${domain}</span> is an <span class="able-highlight-text">unlisted</span> service that has not been reviewed, and analyzed by the ${COMPANY_NAME} IT security department. While the service is not labeled unsafe by our security team, please refrain from sending any sensitive institutional data from this website until it is properly reviewed.`,
       suggestion: ""
     }
   };
 
-  return messages[status] || messages.unlisted;
+  return messages[statusLower] || messages.unlisted;
 }
 
 /**
