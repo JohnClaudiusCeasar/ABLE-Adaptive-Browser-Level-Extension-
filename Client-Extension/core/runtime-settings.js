@@ -20,7 +20,7 @@ const RUNTIME_SETTINGS_REFRESH_INTERVAL = 30 * 60 * 1000; // 30 minutes
 function buildDefaults() {
   return {
     "behavior.risk_threshold":
-      typeof ABLE_RISK_THRESHOLD !== "undefined" ? ABLE_RISK_THRESHOLD : 90,
+      typeof ABLE_RISK_THRESHOLD !== "undefined" ? ABLE_RISK_THRESHOLD : 85,
     "behavior.modal_short_cooldown_ms":
       typeof ABLE_MODAL_SHORT_COOLDOWN_MS !== "undefined" ? ABLE_MODAL_SHORT_COOLDOWN_MS : 35000,
     "behavior.modal_stagger_cooldown_ms":

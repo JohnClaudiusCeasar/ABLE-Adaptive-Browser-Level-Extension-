@@ -263,12 +263,12 @@ async function handleInterceptedFiles(fileInfos, requestId) {
   }
 
   var consent = await hasSessionConsent();
-  var riskThreshold = ABLERuntimeSettings.get("behavior.risk_threshold", 90);
+  var riskThreshold = ABLERuntimeSettings.get("behavior.risk_threshold", 85);
   var patternScore = highestRisk ? (highestRisk.score - (domainStatus?.risk_score || 0)) : 0;
-  var isExtremeRisk = highestRisk && highestRisk.score >= 90;
+  var isExtremeRisk = highestRisk && highestRisk.score >= 85;
   var isFlagged = highestRisk && (
     highestRisk.score > riskThreshold ||
-    (patternScore >= 40 && highestRisk.flaggedItems.length > 0)
+    (patternScore >= 31 && highestRisk.flaggedItems.length > 0)
   );
   var shouldShowModal = isFlagged && (!consent || isExtremeRisk);
 
@@ -344,7 +344,7 @@ async function handleTextCheck(checkId, text, inputType, url) {
     var result = await calculateRiskScore(text);
     var domainRiskScore = domainStatus?.risk_score || 0;
     var totalScore = Math.min(100, domainRiskScore + result.score);
-    var riskThreshold = ABLERuntimeSettings.get("behavior.risk_threshold", 90);
+    var riskThreshold = ABLERuntimeSettings.get("behavior.risk_threshold", 85);
 
     console.debug("ABLE Text Scan:", {
       inputType: inputType,

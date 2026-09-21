@@ -135,12 +135,18 @@ class DomainPolicyController extends Controller
             ? Carbon::createFromTimestampMs($visitedAt)
             : now();
 
+        $defaultRiskScore = match ($status) {
+            'unsafe' => 70,
+            'unlisted' => (int) app(AbleSettingsService::class)->value('server', 'algorithm.default_risk_score', 60),
+            default => 0,
+        };
+
         $policy = DomainPolicy::firstOrCreate(
             ['domain' => $domain],
             [
                 'domain_status' => $status,
-                'policy' => 'under_review',
-                'risk_score' => $status === 'unlisted' ? 70 : 0,
+                'policy' => $status === 'unsafe' ? 'blacklisted' : 'under_review',
+                'risk_score' => $defaultRiskScore,
                 'visit_count' => 0,
                 'last_visited_at' => now(),
                 'last_source' => $source,
@@ -390,12 +396,12 @@ class DomainPolicyController extends Controller
                     'category' => null,
                     'confidence' => null,
                     'policy' => (string) app(AbleSettingsService::class)->value('server', 'algorithm.fallback_policy', 'under_review'),
-                    'risk_score' => (int) app(AbleSettingsService::class)->value('server', 'algorithm.default_risk_score', 70),
+                    'risk_score' => (int) app(AbleSettingsService::class)->value('server', 'algorithm.default_risk_score', 60),
                 ], 'pending');
             }
 
             // Not found in database
-            $defaultRiskScore = (int) app(AbleSettingsService::class)->value('server', 'algorithm.default_risk_score', 70);
+            $defaultRiskScore = (int) app(AbleSettingsService::class)->value('server', 'algorithm.default_risk_score', 60);
             $fallbackPolicy = (string) app(AbleSettingsService::class)->value('server', 'algorithm.fallback_policy', 'under_review');
 
             return response()->json([
@@ -415,7 +421,7 @@ class DomainPolicyController extends Controller
                 'domain' => 'unknown',
                 'category' => null,
                 'policy' => 'under_review',
-                'risk_score' => 70,
+                'risk_score' => 60,
                 'source' => 'error',
                 'error' => $e->getMessage(),
             ], 500);
@@ -443,7 +449,7 @@ class DomainPolicyController extends Controller
                 'category' => $brandCategory,
                 'classification_source' => 'brand',
                 'confidence' => 1.0,
-                'risk_score' => $policy->risk_score === 70 || $policy->risk_score === 0 ? $this->riskForCategory($brandCategory) : $policy->risk_score,
+                'risk_score' => $policy->risk_score === 60 || $policy->risk_score === 70 || $policy->risk_score === 0 ? $this->riskForCategory($brandCategory) : $policy->risk_score,
             ]);
 
             return $policy->refresh();
@@ -465,7 +471,7 @@ class DomainPolicyController extends Controller
             'category' => $heuristic['category'],
             'classification_source' => 'heuristic',
             'confidence' => $heuristic['confidence'],
-            'risk_score' => $policy->risk_score === 70 || $policy->risk_score === 0 ? $heuristic['risk_score'] : $policy->risk_score,
+            'risk_score' => $policy->risk_score === 60 || $policy->risk_score === 70 || $policy->risk_score === 0 ? $heuristic['risk_score'] : $policy->risk_score,
         ]);
 
         return $policy->refresh();
@@ -490,7 +496,7 @@ class DomainPolicyController extends Controller
             'Education' => 15,
             'Search Engine' => 10,
             'Reference' => 20,
-            default => 70,
+            default => 60,
         };
     }
 
@@ -522,7 +528,7 @@ class DomainPolicyController extends Controller
                 'category' => $result['category'],
                 'classification_source' => $source,
                 'confidence' => $result['confidence'],
-                'risk_score' => $policy->risk_score === 70 || $policy->risk_score === 0 ? $result['risk_score'] : $policy->risk_score,
+                'risk_score' => $policy->risk_score === 60 || $policy->risk_score === 70 || $policy->risk_score === 0 ? $result['risk_score'] : $policy->risk_score,
             ]);
             $policy->refresh();
         }

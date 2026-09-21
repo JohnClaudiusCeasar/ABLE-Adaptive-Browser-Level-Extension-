@@ -235,4 +235,43 @@ class NotificationSyncTest extends TestCase
         $this->assertSame($countAfterFirstSync, $countAfterSecondSync,
             'Sync is idempotent — no duplicate notifications');
     }
+
+    public function test_status_for_risk_maps_correctly_to_glass_status(): void
+    {
+        $user = $this->createUser();
+        $this->actingAs($user);
+
+        EgressEvent::create([
+            'domain' => 'safe.com',
+            'user_id' => 'u1',
+            'file_name' => 'f1.pdf',
+            'risk_score' => 25,
+            'action' => 'proceeded',
+            'occurred_at' => now(),
+        ]);
+
+        EgressEvent::create([
+            'domain' => 'unlisted.com',
+            'user_id' => 'u2',
+            'file_name' => 'f2.pdf',
+            'risk_score' => 60,
+            'action' => 'proceeded',
+            'occurred_at' => now(),
+        ]);
+
+        EgressEvent::create([
+            'domain' => 'unsafe.com',
+            'user_id' => 'u3',
+            'file_name' => 'f3.pdf',
+            'risk_score' => 85,
+            'action' => 'proceeded',
+            'occurred_at' => now(),
+        ]);
+
+        $this->get(route('notifications'))->assertOk();
+
+        $this->assertSame('glass-safe', Notification::where('risk_score', 25)->first()->status);
+        $this->assertSame('glass-unlisted', Notification::where('risk_score', 60)->first()->status);
+        $this->assertSame('glass-unsafe', Notification::where('risk_score', 85)->first()->status);
+    }
 }

@@ -60,7 +60,7 @@ const emptyForm: FormData = {
     category: '',
     classification_source: '',
     confidence: null,
-    risk_score: 70,
+    risk_score: 60,
 };
 
 const ROWS_PER_PAGE = 5;
@@ -1167,13 +1167,13 @@ export default function PolicyAlgorithm() {
                                                     statusMap[policy],
                                                 risk_score:
                                                     policy === 'blacklisted'
-                                                        ? 100
+                                                        ? 70
                                                         : policy ===
                                                             'whitelisted'
                                                           ? 0
                                                           : policy ===
                                                               'under_review'
-                                                            ? 70
+                                                            ? 60
                                                             : form.risk_score,
                                             });
                                         }}

@@ -83,9 +83,9 @@ class RiskPatternController extends Controller
 
         $totalEvents = EgressEvent::where('occurred_at', '>=', $since)->count();
 
-        $bucketLow = EgressEvent::where('occurred_at', '>=', $since)->where('risk_score', '<', 41)->count();
-        $bucketMedium = EgressEvent::where('occurred_at', '>=', $since)->whereBetween('risk_score', [41, 75])->count();
-        $bucketHigh = EgressEvent::where('occurred_at', '>=', $since)->where('risk_score', '>=', 76)->count();
+        $bucketLow = EgressEvent::where('occurred_at', '>=', $since)->where('risk_score', '<=', 30)->count();
+        $bucketMedium = EgressEvent::where('occurred_at', '>=', $since)->whereBetween('risk_score', [31, 84])->count();
+        $bucketHigh = EgressEvent::where('occurred_at', '>=', $since)->where('risk_score', '>=', 85)->count();
 
         $byAction = EgressEvent::where('occurred_at', '>=', $since)
             ->selectRaw('action, COUNT(*) as count')

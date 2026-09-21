@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\CriteriaPatternItem;
+use App\Models\EgressEvent;
 use App\Models\RiskPattern;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -497,5 +498,53 @@ class RiskPatternTest extends TestCase
         )->get();
         $this->assertCount(1, $linkedSingles);
         $this->assertSame('Nested Item', $linkedSingles->first()->title);
+    }
+
+    public function test_egress_stats_groups_events_by_new_risk_buckets()
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        // Low: 0-30
+        EgressEvent::create([
+            'domain' => 'safe.com',
+            'user_id' => 'user-1',
+            'file_name' => 'doc1.pdf',
+            'risk_score' => 25,
+            'action' => 'proceeded',
+            'occurred_at' => now(),
+        ]);
+
+        // Medium: 31-84
+        EgressEvent::create([
+            'domain' => 'unlisted.com',
+            'user_id' => 'user-2',
+            'file_name' => 'doc2.pdf',
+            'risk_score' => 60,
+            'action' => 'proceeded',
+            'occurred_at' => now(),
+        ]);
+
+        // High: 85+
+        EgressEvent::create([
+            'domain' => 'unsafe.com',
+            'user_id' => 'user-3',
+            'file_name' => 'doc3.pdf',
+            'risk_score' => 88,
+            'action' => 'proceeded',
+            'occurred_at' => now(),
+        ]);
+
+        $response = $this->get(route('risk-algorithm.view', 'single'));
+        $response->assertOk();
+
+        $response->assertInertia(
+            fn ($page) => $page
+                ->component('risk-algorithm/single')
+                ->where('egressStats.bucketLow', 1)
+                ->where('egressStats.bucketMedium', 1)
+                ->where('egressStats.bucketHigh', 1)
+                ->where('egressStats.totalEvents24h', 3),
+        );
     }
 }

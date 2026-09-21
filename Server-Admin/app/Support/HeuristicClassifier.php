@@ -227,7 +227,7 @@ class HeuristicClassifier
                 'category' => $top,
                 'confidence' => $confidence,
                 'policy' => self::CATEGORY_POLICY[$top] ?? 'under_review',
-                'risk_score' => self::CATEGORY_RISK[$top] ?? 70,
+                'risk_score' => self::CATEGORY_RISK[$top] ?? 60,
             ];
         }
 
@@ -235,7 +235,7 @@ class HeuristicClassifier
             'category' => $top,
             'confidence' => $confidence,
             'policy' => self::CATEGORY_POLICY[$top] ?? 'under_review',
-            'risk_score' => self::CATEGORY_RISK[$top] ?? 70,
+            'risk_score' => self::CATEGORY_RISK[$top] ?? 60,
         ];
     }
 

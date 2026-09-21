@@ -83,7 +83,7 @@ const EXCLUDED_DOMAINS = [
  * Fallback runtime values used by runtime-settings.js when the signed server
  * payload is unavailable. These mirror the server-side schema defaults.
  */
-const ABLE_RISK_THRESHOLD = 90;
+const ABLE_RISK_THRESHOLD = 85;
 const ABLE_MODAL_SHORT_COOLDOWN_MS = 35000;
 const ABLE_MODAL_STAGGER_COOLDOWN_MS = 300000;
 const ABLE_SESSION_CONSENT_ENABLED = true;
@@ -230,6 +230,6 @@ function getDefaultClassification(domain) {
     category: null,
     alternatives: [],
     policy: "under_review",
-    risk_score: 70,
+    risk_score: 60,
   };
 }

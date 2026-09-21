@@ -25,7 +25,7 @@ class DomainBrandSeeder extends Seeder
                     'category' => $category,
                     'classification_source' => 'seed',
                     'confidence' => 1.0,
-                    'risk_score' => 70,
+                    'risk_score' => 60,
                     'visit_count' => 0,
                 ]
             );

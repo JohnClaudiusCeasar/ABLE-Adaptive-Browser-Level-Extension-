@@ -118,7 +118,7 @@ async function scanFile(file) {
   }
   flaggedItems.push(...result.flaggedItems);
 
-  const riskThreshold = ABLERuntimeSettings.get("behavior.risk_threshold", 90);
+  const riskThreshold = ABLERuntimeSettings.get("behavior.risk_threshold", 85);
   const contentHash = await computeContentHash(file);
   const scanDurationMs = Date.now() - scanStartTime;
 

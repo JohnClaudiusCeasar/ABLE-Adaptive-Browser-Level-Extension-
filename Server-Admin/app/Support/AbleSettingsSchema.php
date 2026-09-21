@@ -80,7 +80,7 @@ class AbleSettingsSchema
         return [
             'behavior.risk_threshold' => [
                 'type' => 'integer',
-                'default' => 90,
+                'default' => 85,
                 'rule' => 'required|integer|min:0|max:100',
                 'description' => 'Upload intercept threshold. A file triggers the modal when its risk score exceeds this value.',
             ],
@@ -179,13 +179,13 @@ class AbleSettingsSchema
         return [
             'algorithm.default_risk_threshold' => [
                 'type' => 'integer',
-                'default' => 90,
+                'default' => 85,
                 'rule' => 'required|integer|min:0|max:100',
                 'description' => 'Fallback threshold used by server-side classification.',
             ],
             'algorithm.default_risk_score' => [
                 'type' => 'integer',
-                'default' => 70,
+                'default' => 60,
                 'rule' => 'required|integer|min:0|max:100',
                 'description' => 'Risk score assigned to unlisted domains.',
             ],

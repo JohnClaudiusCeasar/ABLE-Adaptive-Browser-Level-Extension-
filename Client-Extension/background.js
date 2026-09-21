@@ -220,7 +220,7 @@ async function handleClassifyDomain(url, sendResponse, signals) {
         category: null,
         alternatives: [],
         policy: "under_review",
-        risk_score: 70,
+        risk_score: 60,
         title: messages3.title,
         message: messages3.message,
         source: "error",
