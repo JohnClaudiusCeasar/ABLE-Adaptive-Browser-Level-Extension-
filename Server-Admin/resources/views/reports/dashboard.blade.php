@@ -238,10 +238,10 @@
                 <tr>
                     <th>Date</th>
                     <th>Domain</th>
-                    <th>Status</th>
+                    <th>Domain Status</th>
                     <th>User ID</th>
                     <th>File Name</th>
-                    <th>Action</th>
+                    <th>Action Taken</th>
                 </tr>
             </thead>
             <tbody>
@@ -273,18 +273,16 @@
             <thead>
                 <tr>
                     <th>Date</th>
-                    <th>URL</th>
                     <th>Domain</th>
-                    <th>Status</th>
+                    <th>Domain Status</th>
                     <th>User ID</th>
-                    <th>Action</th>
+                    <th>Action Taken</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach($recentDomainVisits as $visit)
                 <tr>
                     <td>{{ \Carbon\Carbon::parse($visit['visited_at'])->format('M j, Y g:i:s A') }}</td>
-                    <td>{{ Str::limit($visit['url'], 30) }}</td>
                     <td>{{ $visit['domain'] }}</td>
                     <td>
                         <span class="status-badge status-{{ str_replace('glass-', '', $visit['status']) }}">

@@ -255,7 +255,7 @@ export default function EgressLogs() {
                                                 Domain Name
                                             </th>
                                             <th className="w-[12%] py-3 pr-2.5 text-left font-medium">
-                                                Status
+                                                Domain Status
                                             </th>
                                             <th className="w-[12%] py-3 pr-2.5 text-left font-medium">
                                                 User ID
@@ -435,7 +435,7 @@ export default function EgressLogs() {
                                             Domain Name
                                         </th>
                                         <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-5 text-left font-medium">
-                                            Status
+                                            Domain Status
                                         </th>
                                         <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-5 text-left font-medium">
                                             User ID

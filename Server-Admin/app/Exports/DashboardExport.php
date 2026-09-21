@@ -50,7 +50,7 @@ class DashboardExport
 
             // Egress Events Section
             fputcsv($handle, ['RECENT EGRESS EVENTS']);
-            fputcsv($handle, ['Date', 'Domain', 'Status', 'User ID', 'File Name', 'Action']);
+            fputcsv($handle, ['Date', 'Domain', 'Domain Status', 'User ID', 'File Name', 'Action Taken']);
             foreach ($this->recentEgressEvents as $event) {
                 fputcsv($handle, [
                     $event['occurred_at'],
@@ -65,11 +65,10 @@ class DashboardExport
 
             // Domain Visits Section
             fputcsv($handle, ['RECENT DOMAIN VISITS']);
-            fputcsv($handle, ['Date', 'URL', 'Domain', 'Status', 'User ID', 'Action']);
+            fputcsv($handle, ['Date', 'Domain', 'Domain Status', 'User ID', 'Action Taken']);
             foreach ($this->recentDomainVisits as $visit) {
                 fputcsv($handle, [
                     $visit['visited_at'],
-                    $visit['url'],
                     $visit['domain'],
                     strtoupper(str_replace('glass-', '', $visit['status'])),
                     $visit['user'] ?? '—',

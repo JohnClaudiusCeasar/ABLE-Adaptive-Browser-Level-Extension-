@@ -244,7 +244,7 @@ export default function ShadowFootprints({
                                                 Active Users
                                             </th>
                                             <th className="w-[10%] py-3 font-medium">
-                                                Status
+                                                Domain Status
                                             </th>
                                             <th className="w-[8%] py-3 pr-4 text-center font-medium">
                                                 Action
@@ -429,7 +429,7 @@ export default function ShadowFootprints({
                                             'Category',
                                             'Risk Weight',
                                             'Active Users',
-                                            'Status',
+                                            'Domain Status',
                                             'Action',
                                         ].map((h) => (
                                             <th

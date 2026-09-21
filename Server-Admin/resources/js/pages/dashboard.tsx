@@ -140,7 +140,7 @@ export default function Dashboard({
                 <header className="mb-2 flex flex-wrap items-start justify-between gap-4">
                     <div>
                         <h1
-                            className="mb-2.5 text-[2.8rem] font-bold tracking-wide uppercase text-foreground"
+                            className="mb-2.5 text-[2.8rem] font-bold tracking-wide text-foreground uppercase"
                             style={{ fontFamily: "'Unbounded', sans-serif" }}
                         >
                             Security Overview
@@ -350,7 +350,7 @@ export default function Dashboard({
                                         Domain Name
                                     </th>
                                     <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
-                                        Status
+                                        Domain Status
                                     </th>
                                     <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
                                         User ID
@@ -446,19 +446,16 @@ export default function Dashboard({
                                         Time
                                     </th>
                                     <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
-                                        URL
-                                    </th>
-                                    <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
                                         Domain Name
                                     </th>
                                     <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
-                                        Status
+                                        Domain Status
                                     </th>
                                     <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
                                         User ID
                                     </th>
                                     <th className="border-b border-[rgba(34,197,94,0.7)] pb-4 text-left font-medium">
-                                        Action
+                                        Action Taken
                                     </th>
                                 </tr>
                             </thead>
@@ -466,7 +463,7 @@ export default function Dashboard({
                                 {recentDomainVisits.length === 0 ? (
                                     <tr>
                                         <td
-                                            colSpan={7}
+                                            colSpan={6}
                                             className="py-10 text-center text-muted-foreground"
                                         >
                                             No domain visits recorded yet.
@@ -488,9 +485,6 @@ export default function Dashboard({
                                                 </td>
                                                 <td className="py-3 pr-2.5">
                                                     {time}
-                                                </td>
-                                                <td className="py-3 pr-2.5">
-                                                    {row.url}
                                                 </td>
                                                 <td className="py-3 pr-2.5">
                                                     {row.domain}
