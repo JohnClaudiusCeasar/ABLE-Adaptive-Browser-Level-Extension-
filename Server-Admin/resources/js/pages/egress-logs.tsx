@@ -152,7 +152,7 @@ export default function EgressLogs() {
         return processedEvents.slice(start, start + ROWS_PER_PAGE);
     }, [processedEvents, safePage, groupField]);
 
-    function renderTableRows(items: EgressEvent[]) {
+    function renderTableRows(items: EgressEvent[], isGrouped = false) {
         return items.map((row, i) => {
             const { date, time } = formatTimestamp(row.occurred_at);
 
@@ -161,17 +161,31 @@ export default function EgressLogs() {
                     key={i}
                     className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0"
                 >
-                    <td className="py-3 pr-2.5">{date}</td>
-                    <td className="py-3 pr-2.5">{time}</td>
-                    <td className="py-3 pr-2.5">{row.domain}</td>
-                    <td className="py-3 pr-2.5">
+                    <td className={`py-3 pr-2.5 ${isGrouped ? 'w-[12%] pl-4' : ''}`}>
+                        {date}
+                    </td>
+                    <td className={`py-3 pr-2.5 ${isGrouped ? 'w-[10%]' : ''}`}>
+                        {time}
+                    </td>
+                    <td
+                        className={`py-3 pr-2.5 ${isGrouped ? 'w-[20%] truncate' : ''}`}
+                    >
+                        {row.domain}
+                    </td>
+                    <td className={`py-3 pr-2.5 ${isGrouped ? 'w-[12%]' : ''}`}>
                         <Badge variant={row.status}>
                             {row.status.replace('glass-', '').toUpperCase()}
                         </Badge>
                     </td>
-                    <td className="py-3 pr-2.5">{row.user}</td>
-                    <td className="py-3 pr-2.5">{row.fileName}</td>
-                    <td className="py-3 pr-2.5">
+                    <td className={`py-3 pr-2.5 ${isGrouped ? 'w-[12%]' : ''}`}>
+                        {row.user}
+                    </td>
+                    <td
+                        className={`py-3 pr-2.5 ${isGrouped ? 'w-[14%] truncate' : ''}`}
+                    >
+                        {row.fileName}
+                    </td>
+                    <td className={`py-3 pr-2.5 ${isGrouped ? 'w-[10%]' : ''}`}>
                         <span
                             className={`inline-flex items-center justify-center rounded-full px-2.5 py-0.5 text-xs font-semibold backdrop-blur-[10px] ${getRiskScoreBadgeClass(
                                 row.risk_score,
@@ -180,7 +194,9 @@ export default function EgressLogs() {
                             {row.risk_score}%
                         </span>
                     </td>
-                    <td className="py-3">{row.action}</td>
+                    <td className={`py-3 ${isGrouped ? 'w-[10%] pr-4' : ''}`}>
+                        {row.action}
+                    </td>
                 </tr>
             );
         });
@@ -195,32 +211,86 @@ export default function EgressLogs() {
 
         if (groupKeys.length === 0) {
             return (
-                <tr>
-                    <td
-                        colSpan={8}
-                        className="py-10 text-center text-muted-foreground"
-                    >
-                        {searchQuery
-                            ? 'No events match your search.'
-                            : 'No egress events recorded yet.'}
-                    </td>
-                </tr>
+                <div className="py-10 text-center text-muted-foreground">
+                    {searchQuery
+                        ? 'No events match your search.'
+                        : 'No egress events recorded yet.'}
+                </div>
             );
         }
 
-        return groupKeys.map((groupKey) => (
-            <tbody key={groupKey}>
-                <tr className="bg-[rgba(34,197,94,0.05)]">
-                    <td
-                        colSpan={8}
-                        className="px-4 py-2 text-sm font-semibold tracking-wider text-able-green uppercase"
-                    >
-                        {groupKey} ({groupedEvents[groupKey].length})
-                    </td>
-                </tr>
-                {renderTableRows(groupedEvents[groupKey])}
-            </tbody>
-        ));
+        return (
+            <div className="flex flex-col gap-6">
+                {groupKeys.map((groupKey) => {
+                    const items = groupedEvents[groupKey];
+                    const isScrollable = items.length > 5;
+
+                    return (
+                        <div
+                            key={groupKey}
+                            className="overflow-hidden rounded-lg border border-[rgba(34,197,94,0.3)] bg-black/[0.02] shadow-xs dark:bg-white/[0.02]"
+                        >
+                            {/* Group Header Banner */}
+                            <div className="flex items-center justify-between border-b border-[rgba(34,197,94,0.3)] bg-[rgba(34,197,94,0.08)] px-5 py-3">
+                                <span className="text-sm font-bold tracking-wider text-able-green uppercase">
+                                    {groupKey}
+                                </span>
+                                <span className="rounded-full bg-able-green/15 px-2.5 py-0.5 text-xs font-semibold text-able-green">
+                                    {items.length} {items.length === 1 ? 'Event' : 'Events'}
+                                </span>
+                            </div>
+
+                            {/* Static Column Headers (Blends with Card Gradient Background) */}
+                            <div className="border-b border-[rgba(34,197,94,0.3)] bg-transparent">
+                                <table className="w-full table-fixed border-collapse text-[0.85rem]">
+                                    <thead>
+                                        <tr className="text-muted-foreground">
+                                            <th className="w-[12%] py-3 pr-2.5 pl-4 text-left font-medium">
+                                                Date
+                                            </th>
+                                            <th className="w-[10%] py-3 pr-2.5 text-left font-medium">
+                                                Time
+                                            </th>
+                                            <th className="w-[20%] py-3 pr-2.5 text-left font-medium">
+                                                Domain Name
+                                            </th>
+                                            <th className="w-[12%] py-3 pr-2.5 text-left font-medium">
+                                                Status
+                                            </th>
+                                            <th className="w-[12%] py-3 pr-2.5 text-left font-medium">
+                                                User ID
+                                            </th>
+                                            <th className="w-[14%] py-3 pr-2.5 text-left font-medium">
+                                                File Name
+                                            </th>
+                                            <th className="w-[10%] py-3 pr-2.5 text-left font-medium">
+                                                Risk Score
+                                            </th>
+                                            <th className="w-[10%] py-3 pr-4 text-left font-medium">
+                                                Action Taken
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                </table>
+                            </div>
+
+                            {/* Scrollable Body Rows (Scrollbar starts below column header area) */}
+                            <div
+                                className={`overflow-x-auto ${
+                                    isScrollable
+                                        ? 'max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-[rgba(34,197,94,0.4)] scrollbar-track-transparent'
+                                        : ''
+                                }`}
+                            >
+                                <table className="w-full table-fixed border-collapse text-[0.85rem]">
+                                    <tbody>{renderTableRows(items, true)}</tbody>
+                                </table>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        );
     }
 
     function renderUngroupedContent() {
@@ -348,41 +418,43 @@ export default function EgressLogs() {
 
                 {/* Data Table */}
                 <div className={`${glassCard} p-6`}>
-                    <div className="overflow-x-auto">
-                        <table className="mb-5 w-full border-collapse text-[0.85rem]">
-                            <thead>
-                                <tr className="text-muted-foreground">
-                                    <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-5 text-left font-medium">
-                                        Date
-                                    </th>
-                                    <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-5 text-left font-medium">
-                                        Time
-                                    </th>
-                                    <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-5 text-left font-medium">
-                                        Domain Name
-                                    </th>
-                                    <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-5 text-left font-medium">
-                                        Status
-                                    </th>
-                                    <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-5 text-left font-medium">
-                                        User ID
-                                    </th>
-                                    <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-5 text-left font-medium">
-                                        File Name
-                                    </th>
-                                    <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-5 text-left font-medium">
-                                        Risk Score
-                                    </th>
-                                    <th className="border-b border-[rgba(34,197,94,0.7)] pb-5 text-left font-medium">
-                                        Action Taken
-                                    </th>
-                                </tr>
-                            </thead>
-                            {groupField !== 'none'
-                                ? renderGroupedContent()
-                                : renderUngroupedContent()}
-                        </table>
-                    </div>
+                    {groupField !== 'none' ? (
+                        renderGroupedContent()
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="mb-5 w-full border-collapse text-[0.85rem]">
+                                <thead>
+                                    <tr className="text-muted-foreground">
+                                        <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-5 text-left font-medium">
+                                            Date
+                                        </th>
+                                        <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-5 text-left font-medium">
+                                            Time
+                                        </th>
+                                        <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-5 text-left font-medium">
+                                            Domain Name
+                                        </th>
+                                        <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-5 text-left font-medium">
+                                            Status
+                                        </th>
+                                        <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-5 text-left font-medium">
+                                            User ID
+                                        </th>
+                                        <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-5 text-left font-medium">
+                                            File Name
+                                        </th>
+                                        <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-5 text-left font-medium">
+                                            Risk Score
+                                        </th>
+                                        <th className="border-b border-[rgba(34,197,94,0.7)] pb-5 text-left font-medium">
+                                            Action Taken
+                                        </th>
+                                    </tr>
+                                </thead>
+                                {renderUngroupedContent()}
+                            </table>
+                        </div>
+                    )}
 
                     {/* Pagination (only when not grouped) */}
                     {groupField === 'none' && totalPages > 1 && (

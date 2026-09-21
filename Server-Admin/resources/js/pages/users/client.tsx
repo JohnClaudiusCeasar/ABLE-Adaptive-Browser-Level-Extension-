@@ -7,6 +7,7 @@ import {
     Eye,
     Globe,
     Laptop,
+    Layers,
     Search,
     ShieldAlert,
     X,
@@ -45,6 +46,7 @@ interface ClientPageProps {
 const ROWS_PER_PAGE = 8;
 type SortField = 'id' | 'client_name' | 'registered_at' | 'status';
 type SortDir = 'asc' | 'desc';
+type GroupField = 'none' | 'status' | 'version';
 
 function formatTimestamp(ts: string | null): string {
     if (!ts) return '—';
@@ -66,6 +68,7 @@ export default function ClientUsersPage({ clients = [] }: ClientPageProps) {
     const [currentPage, setCurrentPage] = useState(1);
     const [sortField, setSortField] = useState<SortField>('id');
     const [sortDir, setSortDir] = useState<SortDir>('asc');
+    const [groupField, setGroupField] = useState<GroupField>('none');
     const [selectedClient, setSelectedClient] = useState<ClientUser | null>(null);
     const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -105,20 +108,36 @@ export default function ClientUsersPage({ clients = [] }: ClientPageProps) {
         return items;
     }, [clients, searchQuery, sortField, sortDir]);
 
-    const totalPages = Math.max(1, Math.ceil(processedClients.length / ROWS_PER_PAGE));
-    const paginatedClients = useMemo(() => {
-        const start = (currentPage - 1) * ROWS_PER_PAGE;
-        return processedClients.slice(start, start + ROWS_PER_PAGE);
-    }, [processedClients, currentPage]);
-
-    const handleSort = (field: SortField) => {
-        if (sortField === field) {
-            setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-        } else {
-            setSortField(field);
-            setSortDir('asc');
+    // Grouping logic
+    const groupedClients = useMemo(() => {
+        if (groupField === 'none') {
+            return null;
         }
-    };
+
+        const groups: Record<string, ClientUser[]> = {};
+
+        for (const item of processedClients) {
+            const key =
+                groupField === 'status'
+                    ? item.status.toUpperCase()
+                    : `Version ${item.version || 'Unknown'}`;
+
+            if (!groups[key]) {
+                groups[key] = [];
+            }
+
+            groups[key].push(item);
+        }
+
+        return groups;
+    }, [processedClients, groupField]);
+
+    const totalPages = Math.max(1, Math.ceil(processedClients.length / ROWS_PER_PAGE));
+    const safePage = Math.min(currentPage, totalPages);
+    const paginatedClients = useMemo(() => {
+        const start = (safePage - 1) * ROWS_PER_PAGE;
+        return processedClients.slice(start, start + ROWS_PER_PAGE);
+    }, [processedClients, safePage]);
 
     const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text);
@@ -126,161 +145,290 @@ export default function ClientUsersPage({ clients = [] }: ClientPageProps) {
         setTimeout(() => setCopiedId(null), 2000);
     };
 
+    function renderTableRows(items: ClientUser[], isGrouped = false) {
+        return items.map((client) => (
+            <tr
+                key={client.user_id}
+                className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0"
+            >
+                {/* ID Auto Increment */}
+                <td
+                    className={`py-3 pr-2.5 font-semibold text-muted-foreground tabular-nums ${
+                        isGrouped ? 'w-[15%] pl-4' : ''
+                    }`}
+                >
+                    #{client.id}
+                </td>
+
+                {/* Client Name (Sanitized ID) */}
+                <td
+                    className={`py-3 pr-2.5 font-mono text-foreground ${
+                        isGrouped ? 'w-[45%]' : ''
+                    }`}
+                >
+                    <div className="flex items-center gap-2">
+                        <span className="truncate max-w-[280px]">
+                            {client.client_name}
+                        </span>
+                        <button
+                            onClick={() => copyToClipboard(client.user_id)}
+                            title="Copy sanitized ID"
+                            className="text-muted-foreground hover:text-foreground transition-colors p-1"
+                        >
+                            {copiedId === client.user_id ? (
+                                <Check size={14} className="text-able-green" />
+                            ) : (
+                                <Copy size={14} />
+                            )}
+                        </button>
+                    </div>
+                </td>
+
+                {/* ID Registered Timestamp */}
+                <td
+                    className={`py-3 pr-2.5 tabular-nums text-muted-foreground ${
+                        isGrouped ? 'w-[25%]' : ''
+                    }`}
+                >
+                    {formatTimestamp(client.registered_at)}
+                </td>
+
+                {/* Action (View) */}
+                <td
+                    className={`py-3 text-right ${
+                        isGrouped ? 'w-[15%] pr-4' : ''
+                    }`}
+                >
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedClient(client)}
+                        className="gap-1.5 border-[rgba(34,197,94,0.7)] hover:bg-[rgba(34,197,94,0.1)] text-xs h-8"
+                    >
+                        <Eye size={14} />
+                        View
+                    </Button>
+                </td>
+            </tr>
+        ));
+    }
+
+    function renderGroupedContent() {
+        if (!groupedClients) return null;
+        const groupKeys = Object.keys(groupedClients);
+
+        if (groupKeys.length === 0) {
+            return (
+                <div className="py-10 text-center text-muted-foreground">
+                    {searchQuery
+                        ? 'No client users match your search.'
+                        : 'No client users found.'}
+                </div>
+            );
+        }
+
+        return (
+            <div className="flex flex-col gap-6">
+                {groupKeys.map((groupKey) => {
+                    const items = groupedClients[groupKey];
+                    const isScrollable = items.length > 5;
+
+                    return (
+                        <div
+                            key={groupKey}
+                            className="overflow-hidden rounded-lg border border-[rgba(34,197,94,0.3)] bg-black/[0.02] shadow-xs dark:bg-white/[0.02]"
+                        >
+                            {/* Group Header Banner */}
+                            <div className="flex items-center justify-between border-b border-[rgba(34,197,94,0.3)] bg-[rgba(34,197,94,0.08)] px-5 py-3">
+                                <span className="text-sm font-bold tracking-wider text-able-green uppercase">
+                                    {groupKey}
+                                </span>
+                                <span className="rounded-full bg-able-green/15 px-2.5 py-0.5 text-xs font-semibold text-able-green">
+                                    {items.length} {items.length === 1 ? 'Client' : 'Clients'}
+                                </span>
+                            </div>
+
+                            {/* Static Column Headers (Blends with Card Gradient Background) */}
+                            <div className="border-b border-[rgba(34,197,94,0.3)] bg-transparent">
+                                <table className="w-full table-fixed border-collapse text-[0.85rem]">
+                                    <thead>
+                                        <tr className="text-muted-foreground">
+                                            <th className="w-[15%] py-3 pr-2.5 pl-4 text-left font-medium">
+                                                ID
+                                            </th>
+                                            <th className="w-[45%] py-3 pr-2.5 text-left font-medium">
+                                                Client Name
+                                            </th>
+                                            <th className="w-[25%] py-3 pr-2.5 text-left font-medium">
+                                                ID Registered
+                                            </th>
+                                            <th className="w-[15%] py-3 pr-4 text-right font-medium">
+                                                Action
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                </table>
+                            </div>
+
+                            {/* Scrollable Body Rows (Scrollbar starts below column header area) */}
+                            <div
+                                className={`overflow-x-auto ${
+                                    isScrollable
+                                        ? 'max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-[rgba(34,197,94,0.4)] scrollbar-track-transparent'
+                                        : ''
+                                }`}
+                            >
+                                <table className="w-full table-fixed border-collapse text-[0.85rem]">
+                                    <tbody>{renderTableRows(items, true)}</tbody>
+                                </table>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        );
+    }
+
+    function renderUngroupedContent() {
+        if (paginatedClients.length === 0) {
+            return (
+                <tbody>
+                    <tr>
+                        <td
+                            colSpan={4}
+                            className="py-10 text-center text-muted-foreground"
+                        >
+                            {searchQuery
+                                ? 'No client users match your search.'
+                                : 'No client users found.'}
+                        </td>
+                    </tr>
+                </tbody>
+            );
+        }
+
+        return <tbody>{renderTableRows(paginatedClients)}</tbody>;
+    }
+
     return (
         <>
-            <Head title="Client Users" />
+            <Head title="Able clients" />
 
-            <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-6 px-8 pt-12 pb-[22px]">
+            <div className="mx-auto w-full max-w-[1100px] px-8 pt-12 pb-[22px]">
                 {/* Header */}
-                <header className="mb-2">
+                <header className="mb-8">
                     <h1
                         className="mb-2.5 text-[2.8rem] font-bold tracking-wide uppercase text-foreground"
                         style={{ fontFamily: "'Unbounded', sans-serif" }}
                     >
-                        Client Users
+                        Able clients
                     </h1>
-                    <p className="max-w-[720px] text-[1.05rem] leading-relaxed text-muted-foreground">
+                    <p className="mb-6 text-[1.05rem] text-muted-foreground">
                         All sanitized User IDs registered via the ABLE browser extension.
                     </p>
-                </header>
 
-                {/* Table Card */}
-                <div className={glassCard}>
-                    {/* Filter and Search Bar */}
-                    <div className="flex flex-wrap items-center justify-between gap-4 p-6 pb-4">
-                        <div className="relative w-full max-w-sm">
+                    {/* Search + Sort + Group row */}
+                    <div className="flex flex-wrap items-center gap-3">
+                        <div className="relative w-[260px]">
                             <Search
                                 size={16}
-                                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                                className="absolute top-1/2 left-3.5 -translate-y-1/2 text-muted-foreground"
                             />
                             <input
                                 type="text"
-                                placeholder="Search sanitized user ID or version..."
+                                placeholder="Search"
                                 value={searchQuery}
                                 onChange={(e) => {
                                     setSearchQuery(e.target.value);
                                     setCurrentPage(1);
                                 }}
-                                className="w-full rounded-md border border-[rgba(34,197,94,0.4)] bg-black/5 py-1.5 pr-3 pl-9 text-sm placeholder:text-muted-foreground focus:border-able-green focus:outline-none dark:bg-white/5"
+                                className="w-full rounded-full border border-black/10 bg-black/5 py-2.5 pr-3.5 pl-11 text-[0.9rem] text-foreground outline-none placeholder:text-muted-foreground dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]"
                             />
                         </div>
 
-                        <div className="text-xs text-muted-foreground">
-                            Showing <strong className="text-foreground">{processedClients.length}</strong> registered clients
+                        {/* Sort Dropdown */}
+                        <div className="relative">
+                            <select
+                                value={`${sortField}__${sortDir}`}
+                                onChange={(e) => {
+                                    const parts = e.target.value.split('__');
+                                    setSortField(parts[0] as SortField);
+                                    setSortDir(parts[1] as SortDir);
+                                    setCurrentPage(1);
+                                }}
+                                className="cursor-pointer appearance-none rounded-full border border-black/10 bg-black/5 py-2.5 pr-8 pl-9 text-[0.85rem] text-foreground transition-all duration-200 outline-none hover:border-able-green/50 hover:bg-black/10 focus:border-able-green focus:ring-1 focus:ring-able-green/30 dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)] dark:hover:bg-white/5"
+                            >
+                                <option value="id__asc">Sort: ID (Ascending)</option>
+                                <option value="id__desc">Sort: ID (Descending)</option>
+                                <option value="client_name__asc">Sort: Client Name (A-Z)</option>
+                                <option value="client_name__desc">Sort: Client Name (Z-A)</option>
+                                <option value="registered_at__desc">Sort: Date (Newest)</option>
+                                <option value="registered_at__asc">Sort: Date (Oldest)</option>
+                                <option value="status__asc">Sort: Status (A-Z)</option>
+                                <option value="status__desc">Sort: Status (Z-A)</option>
+                            </select>
+                            <ArrowUpDown
+                                size={16}
+                                className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
+                            />
+                        </div>
+
+                        {/* Group Dropdown */}
+                        <div className="relative">
+                            <select
+                                value={groupField}
+                                onChange={(e) =>
+                                    setGroupField(e.target.value as GroupField)
+                                }
+                                className="cursor-pointer appearance-none rounded-full border border-black/10 bg-black/5 py-2.5 pr-8 pl-9 text-[0.85rem] text-foreground transition-all duration-200 outline-none hover:border-able-green/50 hover:bg-black/10 focus:border-able-green focus:ring-1 focus:ring-able-green/30 dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)] dark:hover:bg-white/5"
+                            >
+                                <option value="none">Group: None</option>
+                                <option value="status">Group: Status</option>
+                                <option value="version">Group: Version</option>
+                            </select>
+                            <Layers
+                                size={16}
+                                className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
+                            />
                         </div>
                     </div>
+                </header>
 
-                    {/* Live Data Table */}
-                    <div className="overflow-x-auto px-6 pb-4">
-                        <table className="w-full border-collapse text-[0.85rem]">
-                            <thead>
-                                <tr className="text-muted-foreground border-b border-[rgba(34,197,94,0.4)]">
-                                    <th
-                                        onClick={() => handleSort('id')}
-                                        className="cursor-pointer py-3 pr-4 text-left font-medium hover:text-foreground select-none"
-                                    >
-                                        <div className="flex items-center gap-1.5">
-                                            <span>ID</span>
-                                            <ArrowUpDown size={13} />
-                                        </div>
-                                    </th>
-                                    <th
-                                        onClick={() => handleSort('client_name')}
-                                        className="cursor-pointer py-3 pr-4 text-left font-medium hover:text-foreground select-none"
-                                    >
-                                        <div className="flex items-center gap-1.5">
-                                            <span>Client Name</span>
-                                            <ArrowUpDown size={13} />
-                                        </div>
-                                    </th>
-                                    <th
-                                        onClick={() => handleSort('registered_at')}
-                                        className="cursor-pointer py-3 pr-4 text-left font-medium hover:text-foreground select-none"
-                                    >
-                                        <div className="flex items-center gap-1.5">
-                                            <span>ID Registered</span>
-                                            <ArrowUpDown size={13} />
-                                        </div>
-                                    </th>
-                                    <th className="py-3 text-right font-medium">
-                                        Action
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {paginatedClients.length === 0 ? (
-                                    <tr>
-                                        <td
-                                            colSpan={4}
-                                            className="py-12 text-center text-sm font-medium italic text-muted-foreground"
-                                        >
-                                            No client users found.
-                                        </td>
+                {/* Data Table */}
+                <div className={`${glassCard} p-6`}>
+                    {groupField !== 'none' ? (
+                        renderGroupedContent()
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="mb-5 w-full border-collapse text-[0.85rem]">
+                                <thead>
+                                    <tr className="text-muted-foreground">
+                                        <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-5 text-left font-medium">
+                                            ID
+                                        </th>
+                                        <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-5 text-left font-medium">
+                                            Client Name
+                                        </th>
+                                        <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-5 text-left font-medium">
+                                            ID Registered
+                                        </th>
+                                        <th className="border-b border-[rgba(34,197,94,0.7)] pb-5 text-right font-medium">
+                                            Action
+                                        </th>
                                     </tr>
-                                ) : (
-                                    paginatedClients.map((client) => (
-                                        <tr
-                                            key={client.user_id}
-                                            className="border-b border-black/5 transition-colors hover:bg-black/[0.02] dark:border-white/5 dark:hover:bg-white/[0.02]"
-                                        >
-                                            {/* ID Auto Increment */}
-                                            <td className="py-3.5 pr-4 font-semibold text-muted-foreground tabular-nums">
-                                                #{client.id}
-                                            </td>
-
-                                            {/* Client Name (Sanitized ID) */}
-                                            <td className="py-3.5 pr-4 font-mono text-sm text-foreground">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="truncate max-w-[280px]">
-                                                        {client.client_name}
-                                                    </span>
-                                                    <button
-                                                        onClick={() => copyToClipboard(client.user_id)}
-                                                        title="Copy sanitized ID"
-                                                        className="text-muted-foreground hover:text-foreground transition-colors p-1"
-                                                    >
-                                                        {copiedId === client.user_id ? (
-                                                            <Check size={14} className="text-able-green" />
-                                                        ) : (
-                                                            <Copy size={14} />
-                                                        )}
-                                                    </button>
-                                                </div>
-                                            </td>
-
-                                            {/* ID Registered Timestamp */}
-                                            <td className="py-3.5 pr-4 tabular-nums text-muted-foreground">
-                                                {formatTimestamp(client.registered_at)}
-                                            </td>
-
-                                            {/* Action (View) */}
-                                            <td className="py-3.5 text-right">
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => setSelectedClient(client)}
-                                                    className="gap-1.5 border-[rgba(34,197,94,0.5)] hover:bg-[rgba(34,197,94,0.1)] text-xs h-8"
-                                                >
-                                                    <Eye size={14} />
-                                                    View
-                                                </Button>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* Pagination */}
-                    {totalPages > 1 && (
-                        <div className="border-t border-black/5 p-4 dark:border-white/5">
-                            <TablePagination
-                                currentPage={currentPage}
-                                totalPages={totalPages}
-                                onPageChange={setCurrentPage}
-                            />
+                                </thead>
+                                {renderUngroupedContent()}
+                            </table>
                         </div>
+                    )}
+
+                    {/* Pagination (only when not grouped) */}
+                    {groupField === 'none' && totalPages > 1 && (
+                        <TablePagination
+                            currentPage={safePage}
+                            totalPages={totalPages}
+                            onPageChange={setCurrentPage}
+                        />
                     )}
                 </div>
             </div>

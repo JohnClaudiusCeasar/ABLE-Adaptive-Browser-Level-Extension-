@@ -122,13 +122,6 @@ export function GroupedBarChart({ data, className }: GroupedBarChartProps) {
                                     (d.egress / maxValue) * chartHeight,
                                     d.egress > 0 ? 6 : 0,
                                 );
-                                const dayRate =
-                                    d.visits > 0
-                                        ? ((d.egress / d.visits) * 100).toFixed(
-                                              1,
-                                          )
-                                        : '0.0';
-
                                 return (
                                     <div
                                         key={d.date}
@@ -140,7 +133,7 @@ export function GroupedBarChart({ data, className }: GroupedBarChartProps) {
                                         {/* Hover Tooltip Card */}
                                         {isHovered && (
                                             <div
-                                                className="pointer-events-none absolute -top-20 z-30 flex flex-col items-center animate-in fade-in zoom-in-95 duration-150"
+                                                className="pointer-events-none absolute -top-16 z-30 flex flex-col items-center animate-in fade-in zoom-in-95 duration-150"
                                             >
                                                 <div className="flex min-w-[135px] flex-col gap-1 rounded-md border border-black/10 bg-popover/95 px-3 py-2 text-xs text-popover-foreground shadow-lg backdrop-blur-md dark:border-white/15">
                                                     <div className="flex items-center justify-between gap-3 border-b border-border/50 pb-1 font-semibold">
@@ -165,20 +158,6 @@ export function GroupedBarChart({ data, className }: GroupedBarChartProps) {
                                                         </div>
                                                         <span className="font-semibold tabular-nums text-foreground">
                                                             {d.egress.toLocaleString()}
-                                                        </span>
-                                                    </div>
-
-                                                    {/* Gray Divider beneath Egress */}
-                                                    <div className="my-0.5 border-t border-black/10 dark:border-white/10" />
-
-                                                    {/* Yellow-colored Risk Label & Rate */}
-                                                    <div className="flex items-center justify-between gap-3 text-[11px]">
-                                                        <div className="flex items-center gap-1.5 font-medium text-amber-500 dark:text-yellow-400">
-                                                            <span className="h-2 w-2 rounded-full bg-amber-500 dark:bg-yellow-400" />
-                                                            <span>Risk:</span>
-                                                        </div>
-                                                        <span className="font-semibold tabular-nums text-amber-500 dark:text-yellow-400">
-                                                            {dayRate}%
                                                         </span>
                                                     </div>
                                                 </div>

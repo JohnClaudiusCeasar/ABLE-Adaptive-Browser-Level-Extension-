@@ -360,10 +360,10 @@ export default function CriteriaPatternConfiguration() {
                 {/* Header */}
                 <header className="mb-8">
                     <h1
-                        className="mb-3 text-[2.8rem] font-bold tracking-wide text-foreground"
+                        className="mb-3 text-[2.8rem] font-bold tracking-wide uppercase text-foreground"
                         style={{ fontFamily: "'Unbounded', sans-serif" }}
                     >
-                        CRITERIA PATTERN CONFIGURATION
+                        Risk Policy
                     </h1>
                     <p className="mb-6 max-w-[800px] text-[1.05rem] leading-relaxed text-muted-foreground">
                         Manage criteria-based risk patterns. Each criteria

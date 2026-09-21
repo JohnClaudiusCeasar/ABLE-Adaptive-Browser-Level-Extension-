@@ -58,6 +58,25 @@ class ChatController extends Controller
     }
 
     /**
+     * Mark all incoming messages across all conversations as read for the current user.
+     */
+    public function markAllAsRead(): JsonResponse
+    {
+        $user = $this->authUser();
+
+        ChatMessage::query()
+            ->whereHas('conversation', function ($query) use ($user) {
+                $query->where('user_one_id', $user->id)
+                    ->orWhere('user_two_id', $user->id);
+            })
+            ->where('sender_id', '!=', $user->id)
+            ->whereNull('read_at')
+            ->update(['read_at' => now()]);
+
+        return response()->json(['success' => true]);
+    }
+
+    /**
      * Find or create the conversation with the given user.
      */
     public function startConversation(User $user, Request $request): RedirectResponse|JsonResponse

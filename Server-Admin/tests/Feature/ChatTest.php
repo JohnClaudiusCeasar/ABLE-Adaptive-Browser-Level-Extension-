@@ -273,5 +273,31 @@ class ChatTest extends TestCase
         $this->assertSame(1, ChatMessage::count());
         $this->assertSame('screenshot.png', ChatMessage::first()->attachment_name);
     }
+
+    public function test_users_can_mark_all_incoming_messages_as_read()
+    {
+        $user = User::factory()->create();
+        $other = User::factory()->create();
+        $conversation = ChatConversation::forPair($user, $other);
+
+        ChatMessage::create([
+            'conversation_id' => $conversation->id,
+            'sender_id' => $other->id,
+            'body' => 'Unread message 1',
+        ]);
+        ChatMessage::create([
+            'conversation_id' => $conversation->id,
+            'sender_id' => $other->id,
+            'body' => 'Unread message 2',
+        ]);
+
+        $this->actingAs($user);
+
+        $response = $this->postJson(route('chat.read-all'));
+        $response->assertOk();
+        $response->assertJson(['success' => true]);
+
+        $this->assertSame(0, ChatMessage::whereNull('read_at')->count());
+    }
 }
 

@@ -7,6 +7,7 @@ import {
     Edit3,
     Eye,
     KeyRound,
+    Layers,
     Mail,
     MoreVertical,
     Search,
@@ -61,6 +62,7 @@ interface TeamPageProps {
 const ROWS_PER_PAGE = 8;
 type SortField = 'id' | 'name' | 'email' | 'role' | 'status';
 type SortDir = 'asc' | 'desc';
+type GroupField = 'none' | 'role' | 'status';
 
 function formatTimestamp(ts: string | null): string {
     if (!ts) return '—';
@@ -82,6 +84,7 @@ export default function TeamUsersPage({ team = [] }: TeamPageProps) {
     const [currentPage, setCurrentPage] = useState(1);
     const [sortField, setSortField] = useState<SortField>('id');
     const [sortDir, setSortDir] = useState<SortDir>('asc');
+    const [groupField, setGroupField] = useState<GroupField>('none');
 
     // Modals
     const [viewingUser, setViewingUser] = useState<TeamUser | null>(null);
@@ -165,232 +168,380 @@ export default function TeamUsersPage({ team = [] }: TeamPageProps) {
         return items;
     }, [team, searchQuery, sortField, sortDir]);
 
-    const totalPages = Math.max(1, Math.ceil(processedTeam.length / ROWS_PER_PAGE));
-    const paginatedTeam = useMemo(() => {
-        const start = (currentPage - 1) * ROWS_PER_PAGE;
-        return processedTeam.slice(start, start + ROWS_PER_PAGE);
-    }, [processedTeam, currentPage]);
-
-    const handleSort = (field: SortField) => {
-        if (sortField === field) {
-            setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-        } else {
-            setSortField(field);
-            setSortDir('asc');
+    // Grouping
+    const groupedTeam = useMemo(() => {
+        if (groupField === 'none') {
+            return null;
         }
-    };
+
+        const groups: Record<string, TeamUser[]> = {};
+
+        for (const item of processedTeam) {
+            const key =
+                groupField === 'status'
+                    ? item.is_blocked
+                        ? 'BLOCKED'
+                        : 'ACTIVE'
+                    : item.role
+                      ? item.role.toUpperCase()
+                      : 'NO ROLE';
+
+            if (!groups[key]) {
+                groups[key] = [];
+            }
+
+            groups[key].push(item);
+        }
+
+        return groups;
+    }, [processedTeam, groupField]);
+
+    const totalPages = Math.max(1, Math.ceil(processedTeam.length / ROWS_PER_PAGE));
+    const safePage = Math.min(currentPage, totalPages);
+    const paginatedTeam = useMemo(() => {
+        const start = (safePage - 1) * ROWS_PER_PAGE;
+        return processedTeam.slice(start, start + ROWS_PER_PAGE);
+    }, [processedTeam, safePage]);
+
+    function renderTableRows(items: TeamUser[], isGrouped = false) {
+        return items.map((member) => (
+            <tr
+                key={member.id}
+                className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0"
+            >
+                {/* ID Auto increment */}
+                <td
+                    className={`py-3 pr-2.5 font-semibold text-muted-foreground tabular-nums ${
+                        isGrouped ? 'w-[15%] pl-4' : ''
+                    }`}
+                >
+                    #{member.id}
+                </td>
+
+                {/* Name */}
+                <td
+                    className={`py-3 pr-2.5 font-medium text-foreground ${
+                        isGrouped ? 'w-[28%]' : ''
+                    }`}
+                >
+                    <div className="flex items-center gap-2">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-able-green/15 text-xs font-bold text-able-green">
+                            {member.name.charAt(0).toUpperCase()}
+                        </div>
+                        <span>{member.name}</span>
+                        {member.is_blocked && (
+                            <span className="rounded bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-rose-500">
+                                Blocked
+                            </span>
+                        )}
+                    </div>
+                </td>
+
+                {/* Email */}
+                <td
+                    className={`py-3 pr-2.5 font-mono text-muted-foreground ${
+                        isGrouped ? 'w-[28%]' : ''
+                    }`}
+                >
+                    {member.email}
+                </td>
+
+                {/* Role */}
+                <td className={`py-3 pr-2.5 ${isGrouped ? 'w-[15%]' : ''}`}>
+                    {member.role ? (
+                        <span className="rounded-full bg-sky-500/10 px-2.5 py-0.5 text-xs font-medium text-sky-500 dark:bg-sky-500/20 dark:text-sky-400">
+                            {member.role}
+                        </span>
+                    ) : (
+                        <span className="text-xs text-muted-foreground/60 italic">
+                            —
+                        </span>
+                    )}
+                </td>
+
+                {/* Action Dropdown */}
+                <td
+                    className={`py-3 text-right ${
+                        isGrouped ? 'w-[14%] pr-4' : ''
+                    }`}
+                >
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                            >
+                                <MoreVertical size={16} />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-40">
+                            <DropdownMenuItem
+                                onClick={() => setViewingUser(member)}
+                                className="cursor-pointer gap-2"
+                            >
+                                <Eye size={14} />
+                                <span>View Details</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                onClick={() => openEditModal(member)}
+                                className="cursor-pointer gap-2"
+                            >
+                                <Edit3 size={14} />
+                                <span>Edit Member</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                                onClick={() => setBlockingUser(member)}
+                                className={
+                                    member.is_blocked
+                                        ? 'cursor-pointer gap-2 text-able-green focus:text-able-green'
+                                        : 'cursor-pointer gap-2 text-rose-500 focus:text-rose-500'
+                                }
+                            >
+                                {member.is_blocked ? (
+                                    <>
+                                        <Unlock size={14} />
+                                        <span>Unblock</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Ban size={14} />
+                                        <span>Block User</span>
+                                    </>
+                                )}
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </td>
+            </tr>
+        ));
+    }
+
+    function renderGroupedContent() {
+        if (!groupedTeam) return null;
+        const groupKeys = Object.keys(groupedTeam);
+
+        if (groupKeys.length === 0) {
+            return (
+                <div className="py-10 text-center text-muted-foreground">
+                    {searchQuery
+                        ? 'No team members match your search.'
+                        : 'No team users found.'}
+                </div>
+            );
+        }
+
+        return (
+            <div className="flex flex-col gap-6">
+                {groupKeys.map((groupKey) => {
+                    const items = groupedTeam[groupKey];
+                    const isScrollable = items.length > 5;
+
+                    return (
+                        <div
+                            key={groupKey}
+                            className="overflow-hidden rounded-lg border border-[rgba(34,197,94,0.3)] bg-black/[0.02] shadow-xs dark:bg-white/[0.02]"
+                        >
+                            {/* Group Header Banner */}
+                            <div className="flex items-center justify-between border-b border-[rgba(34,197,94,0.3)] bg-[rgba(34,197,94,0.08)] px-5 py-3">
+                                <span className="text-sm font-bold tracking-wider text-able-green uppercase">
+                                    {groupKey}
+                                </span>
+                                <span className="rounded-full bg-able-green/15 px-2.5 py-0.5 text-xs font-semibold text-able-green">
+                                    {items.length} {items.length === 1 ? 'Member' : 'Members'}
+                                </span>
+                            </div>
+
+                            {/* Static Column Headers (Blends with Card Gradient Background) */}
+                            <div className="border-b border-[rgba(34,197,94,0.3)] bg-transparent">
+                                <table className="w-full table-fixed border-collapse text-[0.85rem]">
+                                    <thead>
+                                        <tr className="text-muted-foreground">
+                                            <th className="w-[15%] py-3 pr-2.5 pl-4 text-left font-medium">
+                                                ID
+                                            </th>
+                                            <th className="w-[28%] py-3 pr-2.5 text-left font-medium">
+                                                Name
+                                            </th>
+                                            <th className="w-[28%] py-3 pr-2.5 text-left font-medium">
+                                                Email
+                                            </th>
+                                            <th className="w-[15%] py-3 pr-2.5 text-left font-medium">
+                                                Role
+                                            </th>
+                                            <th className="w-[14%] py-3 pr-4 text-right font-medium">
+                                                Action
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                </table>
+                            </div>
+
+                            {/* Scrollable Body Rows (Scrollbar starts below column header area) */}
+                            <div
+                                className={`overflow-x-auto ${
+                                    isScrollable
+                                        ? 'max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-[rgba(34,197,94,0.4)] scrollbar-track-transparent'
+                                        : ''
+                                }`}
+                            >
+                                <table className="w-full table-fixed border-collapse text-[0.85rem]">
+                                    <tbody>{renderTableRows(items, true)}</tbody>
+                                </table>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        );
+    }
+
+    function renderUngroupedContent() {
+        if (paginatedTeam.length === 0) {
+            return (
+                <tbody>
+                    <tr>
+                        <td
+                            colSpan={5}
+                            className="py-10 text-center text-muted-foreground"
+                        >
+                            {searchQuery
+                                ? 'No team members match your search.'
+                                : 'No team users found.'}
+                        </td>
+                    </tr>
+                </tbody>
+            );
+        }
+
+        return <tbody>{renderTableRows(paginatedTeam)}</tbody>;
+    }
 
     return (
         <>
-            <Head title="Team Users" />
+            <Head title="Able Teams" />
 
-            <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-6 px-8 pt-12 pb-[22px]">
+            <div className="mx-auto w-full max-w-[1100px] px-8 pt-12 pb-[22px]">
                 {/* Header */}
-                <header className="mb-2">
+                <header className="mb-8">
                     <h1
                         className="mb-2.5 text-[2.8rem] font-bold tracking-wide uppercase text-foreground"
                         style={{ fontFamily: "'Unbounded', sans-serif" }}
                     >
-                        Team Users
+                        Able Teams
                     </h1>
-                    <p className="max-w-[720px] text-[1.05rem] leading-relaxed text-muted-foreground">
+                    <p className="mb-6 text-[1.05rem] text-muted-foreground">
                         All registered administrative accounts and staff members of the server website.
                     </p>
-                </header>
 
-                {/* Table Card */}
-                <div className={glassCard}>
-                    {/* Search and summary */}
-                    <div className="flex flex-wrap items-center justify-between gap-4 p-6 pb-4">
-                        <div className="relative w-full max-w-sm">
+                    {/* Search + Sort + Group row */}
+                    <div className="flex flex-wrap items-center gap-3">
+                        <div className="relative w-[260px]">
                             <Search
                                 size={16}
-                                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                                className="absolute top-1/2 left-3.5 -translate-y-1/2 text-muted-foreground"
                             />
                             <input
                                 type="text"
-                                placeholder="Search name, email, or role..."
+                                placeholder="Search"
                                 value={searchQuery}
                                 onChange={(e) => {
                                     setSearchQuery(e.target.value);
                                     setCurrentPage(1);
                                 }}
-                                className="w-full rounded-md border border-[rgba(34,197,94,0.4)] bg-black/5 py-1.5 pr-3 pl-9 text-sm placeholder:text-muted-foreground focus:border-able-green focus:outline-none dark:bg-white/5"
+                                className="w-full rounded-full border border-black/10 bg-black/5 py-2.5 pr-3.5 pl-11 text-[0.9rem] text-foreground outline-none placeholder:text-muted-foreground dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]"
                             />
                         </div>
 
-                        <div className="text-xs text-muted-foreground">
-                            Showing <strong className="text-foreground">{processedTeam.length}</strong> team members
+                        {/* Sort Dropdown */}
+                        <div className="relative">
+                            <select
+                                value={`${sortField}__${sortDir}`}
+                                onChange={(e) => {
+                                    const parts = e.target.value.split('__');
+                                    setSortField(parts[0] as SortField);
+                                    setSortDir(parts[1] as SortDir);
+                                    setCurrentPage(1);
+                                }}
+                                className="cursor-pointer appearance-none rounded-full border border-black/10 bg-black/5 py-2.5 pr-8 pl-9 text-[0.85rem] text-foreground transition-all duration-200 outline-none hover:border-able-green/50 hover:bg-black/10 focus:border-able-green focus:ring-1 focus:ring-able-green/30 dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)] dark:hover:bg-white/5"
+                            >
+                                <option value="id__asc">Sort: ID (Ascending)</option>
+                                <option value="id__desc">Sort: ID (Descending)</option>
+                                <option value="name__asc">Sort: Name (A-Z)</option>
+                                <option value="name__desc">Sort: Name (Z-A)</option>
+                                <option value="email__asc">Sort: Email (A-Z)</option>
+                                <option value="email__desc">Sort: Email (Z-A)</option>
+                                <option value="role__asc">Sort: Role (A-Z)</option>
+                                <option value="role__desc">Sort: Role (Z-A)</option>
+                                <option value="status__asc">Sort: Status (Active First)</option>
+                                <option value="status__desc">Sort: Status (Blocked First)</option>
+                            </select>
+                            <ArrowUpDown
+                                size={16}
+                                className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
+                            />
+                        </div>
+
+                        {/* Group Dropdown */}
+                        <div className="relative">
+                            <select
+                                value={groupField}
+                                onChange={(e) =>
+                                    setGroupField(e.target.value as GroupField)
+                                }
+                                className="cursor-pointer appearance-none rounded-full border border-black/10 bg-black/5 py-2.5 pr-8 pl-9 text-[0.85rem] text-foreground transition-all duration-200 outline-none hover:border-able-green/50 hover:bg-black/10 focus:border-able-green focus:ring-1 focus:ring-able-green/30 dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)] dark:hover:bg-white/5"
+                            >
+                                <option value="none">Group: None</option>
+                                <option value="role">Group: Role</option>
+                                <option value="status">Group: Status</option>
+                            </select>
+                            <Layers
+                                size={16}
+                                className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
+                            />
                         </div>
                     </div>
+                </header>
 
-                    {/* Live Table */}
-                    <div className="overflow-x-auto px-6 pb-4">
-                        <table className="w-full border-collapse text-[0.85rem]">
-                            <thead>
-                                <tr className="text-muted-foreground border-b border-[rgba(34,197,94,0.4)]">
-                                    <th
-                                        onClick={() => handleSort('id')}
-                                        className="cursor-pointer py-3 pr-4 text-left font-medium hover:text-foreground select-none"
-                                    >
-                                        <div className="flex items-center gap-1.5">
-                                            <span>ID</span>
-                                            <ArrowUpDown size={13} />
-                                        </div>
-                                    </th>
-                                    <th
-                                        onClick={() => handleSort('name')}
-                                        className="cursor-pointer py-3 pr-4 text-left font-medium hover:text-foreground select-none"
-                                    >
-                                        <div className="flex items-center gap-1.5">
-                                            <span>Name</span>
-                                            <ArrowUpDown size={13} />
-                                        </div>
-                                    </th>
-                                    <th
-                                        onClick={() => handleSort('email')}
-                                        className="cursor-pointer py-3 pr-4 text-left font-medium hover:text-foreground select-none"
-                                    >
-                                        <div className="flex items-center gap-1.5">
-                                            <span>Email</span>
-                                            <ArrowUpDown size={13} />
-                                        </div>
-                                    </th>
-                                    <th
-                                        onClick={() => handleSort('role')}
-                                        className="cursor-pointer py-3 pr-4 text-left font-medium hover:text-foreground select-none"
-                                    >
-                                        <div className="flex items-center gap-1.5">
-                                            <span>Role</span>
-                                            <ArrowUpDown size={13} />
-                                        </div>
-                                    </th>
-                                    <th className="py-3 text-right font-medium">
-                                        Action
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {paginatedTeam.length === 0 ? (
-                                    <tr>
-                                        <td
-                                            colSpan={5}
-                                            className="py-12 text-center text-sm font-medium italic text-muted-foreground"
-                                        >
-                                            No team users found.
-                                        </td>
+                {/* Data Table */}
+                <div className={`${glassCard} p-6`}>
+                    {groupField !== 'none' ? (
+                        renderGroupedContent()
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="mb-5 w-full border-collapse text-[0.85rem]">
+                                <thead>
+                                    <tr className="text-muted-foreground">
+                                        <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-5 text-left font-medium">
+                                            ID
+                                        </th>
+                                        <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-5 text-left font-medium">
+                                            Name
+                                        </th>
+                                        <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-5 text-left font-medium">
+                                            Email
+                                        </th>
+                                        <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-5 text-left font-medium">
+                                            Role
+                                        </th>
+                                        <th className="border-b border-[rgba(34,197,94,0.7)] pb-5 text-right font-medium">
+                                            Action
+                                        </th>
                                     </tr>
-                                ) : (
-                                    paginatedTeam.map((member) => (
-                                        <tr
-                                            key={member.id}
-                                            className="border-b border-black/5 transition-colors hover:bg-black/[0.02] dark:border-white/5 dark:hover:bg-white/[0.02]"
-                                        >
-                                            {/* ID Auto increment */}
-                                            <td className="py-3.5 pr-4 font-semibold text-muted-foreground tabular-nums">
-                                                #{member.id}
-                                            </td>
-
-                                            {/* Name */}
-                                            <td className="py-3.5 pr-4 font-medium text-foreground">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-able-green/15 text-xs font-bold text-able-green">
-                                                        {member.name.charAt(0).toUpperCase()}
-                                                    </div>
-                                                    <span>{member.name}</span>
-                                                    {member.is_blocked && (
-                                                        <span className="rounded bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-rose-500">
-                                                            Blocked
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </td>
-
-                                            {/* Email */}
-                                            <td className="py-3.5 pr-4 font-mono text-sm text-muted-foreground">
-                                                {member.email}
-                                            </td>
-
-                                            {/* Role (Nullable) */}
-                                            <td className="py-3.5 pr-4">
-                                                {member.role ? (
-                                                    <span className="rounded-full bg-sky-500/10 px-2.5 py-0.5 text-xs font-medium text-sky-500 dark:bg-sky-500/20 dark:text-sky-400">
-                                                        {member.role}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-xs text-muted-foreground/60 italic">
-                                                        —
-                                                    </span>
-                                                )}
-                                            </td>
-
-                                            {/* Action Dropdown / Buttons (View/Edit/Block) */}
-                                            <td className="py-3.5 text-right">
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-8 w-8 p-0"
-                                                        >
-                                                            <MoreVertical size={16} />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end" className="w-40">
-                                                        <DropdownMenuItem
-                                                            onClick={() => setViewingUser(member)}
-                                                            className="cursor-pointer gap-2"
-                                                        >
-                                                            <Eye size={14} />
-                                                            <span>View Details</span>
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem
-                                                            onClick={() => openEditModal(member)}
-                                                            className="cursor-pointer gap-2"
-                                                        >
-                                                            <Edit3 size={14} />
-                                                            <span>Edit Member</span>
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuSeparator />
-                                                        <DropdownMenuItem
-                                                            onClick={() => setBlockingUser(member)}
-                                                            className={
-                                                                member.is_blocked
-                                                                    ? 'cursor-pointer gap-2 text-able-green focus:text-able-green'
-                                                                    : 'cursor-pointer gap-2 text-rose-500 focus:text-rose-500'
-                                                            }
-                                                        >
-                                                            {member.is_blocked ? (
-                                                                <>
-                                                                    <Unlock size={14} />
-                                                                    <span>Unblock</span>
-                                                                </>
-                                                            ) : (
-                                                                <>
-                                                                    <Ban size={14} />
-                                                                    <span>Block User</span>
-                                                                </>
-                                                            )}
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* Pagination */}
-                    {totalPages > 1 && (
-                        <div className="border-t border-black/5 p-4 dark:border-white/5">
-                            <TablePagination
-                                currentPage={currentPage}
-                                totalPages={totalPages}
-                                onPageChange={setCurrentPage}
-                            />
+                                </thead>
+                                {renderUngroupedContent()}
+                            </table>
                         </div>
+                    )}
+
+                    {/* Pagination (only when not grouped) */}
+                    {groupField === 'none' && totalPages > 1 && (
+                        <TablePagination
+                            currentPage={safePage}
+                            totalPages={totalPages}
+                            onPageChange={setCurrentPage}
+                        />
                     )}
                 </div>
             </div>

@@ -54,6 +54,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('chat', [ChatController::class, 'index'])->name('chat.index');
     Route::get('chat/unread-count', [ChatController::class, 'unreadCount'])->name('chat.unread-count');
+    Route::post('chat/read-all', [ChatController::class, 'markAllAsRead'])->name('chat.read-all');
     Route::get('chat/{conversation}', [ChatController::class, 'show'])->name('chat.show');
     Route::get('chat/{conversation}/messages', [ChatController::class, 'indexMessages'])->name('chat.messages.index');
     Route::post('chat/{conversation}/messages', [ChatController::class, 'store'])->name('chat.messages.store');

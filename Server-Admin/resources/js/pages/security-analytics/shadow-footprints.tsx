@@ -133,16 +133,24 @@ export default function ShadowFootprints({
         return processedData.slice(start, start + ITEMS_PER_PAGE);
     }, [processedData, currentPage, groupField]);
 
-    function renderTableRows(items: ShadowFootprint[]) {
+    function renderTableRows(items: ShadowFootprint[], isGrouped = false) {
         return items.map((row) => (
             <tr
                 key={row.id}
                 className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0"
             >
-                <td className="py-3.5">{row.app}</td>
-                <td className="py-3.5">{row.domain}</td>
-                <td className="py-3.5">{row.category}</td>
-                <td className="py-3.5">
+                <td className={`py-3.5 ${isGrouped ? 'w-[18%] pl-4' : ''}`}>
+                    {row.app}
+                </td>
+                <td
+                    className={`py-3.5 ${isGrouped ? 'w-[22%] truncate' : ''}`}
+                >
+                    {row.domain}
+                </td>
+                <td className={`py-3.5 ${isGrouped ? 'w-[16%]' : ''}`}>
+                    {row.category}
+                </td>
+                <td className={`py-3.5 ${isGrouped ? 'w-[14%]' : ''}`}>
                     <span
                         className={`rounded px-2.5 py-0.5 text-[12px] font-bold ${
                             row.risk === 'high'
@@ -153,9 +161,15 @@ export default function ShadowFootprints({
                         {row.risk.toUpperCase()}
                     </span>
                 </td>
-                <td className="py-3.5">{row.users}</td>
-                <td className="py-3.5">{row.status}</td>
-                <td className="py-3.5 text-center">
+                <td className={`py-3.5 ${isGrouped ? 'w-[12%]' : ''}`}>
+                    {row.users}
+                </td>
+                <td className={`py-3.5 ${isGrouped ? 'w-[10%]' : ''}`}>
+                    {row.status}
+                </td>
+                <td
+                    className={`py-3.5 text-center ${isGrouped ? 'w-[8%] pr-4' : ''}`}
+                >
                     <Link
                         href={`/policy-algorithm?highlight=${encodeURIComponent(row.domain)}`}
                     >
@@ -180,34 +194,83 @@ export default function ShadowFootprints({
 
         if (groupKeys.length === 0) {
             return (
-                <tbody>
-                    <tr>
-                        <td
-                            colSpan={7}
-                            className="py-10 text-center text-muted-foreground"
-                        >
-                            {searchQuery
-                                ? 'No shadow footprints match your search.'
-                                : 'No shadow footprints detected yet.'}
-                        </td>
-                    </tr>
-                </tbody>
+                <div className="py-10 text-center text-muted-foreground">
+                    {searchQuery
+                        ? 'No shadow footprints match your search.'
+                        : 'No shadow footprints detected yet.'}
+                </div>
             );
         }
 
-        return groupKeys.map((groupKey) => (
-            <tbody key={groupKey}>
-                <tr className="bg-[rgba(34,197,94,0.05)]">
-                    <td
-                        colSpan={7}
-                        className="px-4 py-2 text-sm font-semibold tracking-wider text-able-green uppercase"
-                    >
-                        {groupKey} ({groupedData[groupKey].length})
-                    </td>
-                </tr>
-                {renderTableRows(groupedData[groupKey])}
-            </tbody>
-        ));
+        return (
+            <div className="flex flex-col gap-6">
+                {groupKeys.map((groupKey) => {
+                    const items = groupedData[groupKey];
+                    const isScrollable = items.length > 5;
+
+                    return (
+                        <div
+                            key={groupKey}
+                            className="overflow-hidden rounded-lg border border-[rgba(34,197,94,0.3)] bg-black/[0.02] shadow-xs dark:bg-white/[0.02]"
+                        >
+                            {/* Group Header Banner */}
+                            <div className="flex items-center justify-between border-b border-[rgba(34,197,94,0.3)] bg-[rgba(34,197,94,0.08)] px-5 py-3">
+                                <span className="text-sm font-bold tracking-wider text-able-green uppercase">
+                                    {groupKey}
+                                </span>
+                                <span className="rounded-full bg-able-green/15 px-2.5 py-0.5 text-xs font-semibold text-able-green">
+                                    {items.length} {items.length === 1 ? 'Footprint' : 'Footprints'}
+                                </span>
+                            </div>
+
+                            {/* Static Column Headers (Blends with Card Gradient Background) */}
+                            <div className="border-b border-[rgba(34,197,94,0.3)] bg-transparent">
+                                <table className="w-full table-fixed border-collapse text-left text-[0.9rem]">
+                                    <thead>
+                                        <tr className="text-muted-foreground">
+                                            <th className="w-[18%] py-3 pl-4 font-medium">
+                                                App Name
+                                            </th>
+                                            <th className="w-[22%] py-3 font-medium">
+                                                Domain URL
+                                            </th>
+                                            <th className="w-[16%] py-3 font-medium">
+                                                Category
+                                            </th>
+                                            <th className="w-[14%] py-3 font-medium">
+                                                Risk Weight
+                                            </th>
+                                            <th className="w-[12%] py-3 font-medium">
+                                                Active Users
+                                            </th>
+                                            <th className="w-[10%] py-3 font-medium">
+                                                Status
+                                            </th>
+                                            <th className="w-[8%] py-3 pr-4 text-center font-medium">
+                                                Action
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                </table>
+                            </div>
+
+                            {/* Scrollable Body Rows (Scrollbar starts below column header area) */}
+                            <div
+                                className={`overflow-x-auto ${
+                                    isScrollable
+                                        ? 'max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-[rgba(34,197,94,0.4)] scrollbar-track-transparent'
+                                        : ''
+                                }`}
+                            >
+                                <table className="w-full table-fixed border-collapse text-left text-[0.9rem]">
+                                    <tbody>{renderTableRows(items, true)}</tbody>
+                                </table>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        );
     }
 
     function renderUngroupedContent() {
@@ -353,33 +416,35 @@ export default function ShadowFootprints({
 
                 {/* Shadow Footprint Table */}
                 <div className={`${glassCard} p-6`}>
-                    <div className="overflow-x-auto">
-                        <table className="w-full border-collapse text-left text-[0.9rem]">
-                            <thead>
-                                <tr>
-                                    {[
-                                        'App Name',
-                                        'Domain URL',
-                                        'Category',
-                                        'Risk Weight',
-                                        'Active Users',
-                                        'Status',
-                                        'Action',
-                                    ].map((h) => (
-                                        <th
-                                            key={h}
-                                            className={`pb-5 font-medium text-muted-foreground ${h === 'Action' ? 'text-center' : ''} border-b border-[rgba(34,197,94,0.7)]`}
-                                        >
-                                            {h}
-                                        </th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            {groupField !== 'none'
-                                ? renderGroupedContent()
-                                : renderUngroupedContent()}
-                        </table>
-                    </div>
+                    {groupField !== 'none' ? (
+                        renderGroupedContent()
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full border-collapse text-left text-[0.9rem]">
+                                <thead>
+                                    <tr>
+                                        {[
+                                            'App Name',
+                                            'Domain URL',
+                                            'Category',
+                                            'Risk Weight',
+                                            'Active Users',
+                                            'Status',
+                                            'Action',
+                                        ].map((h) => (
+                                            <th
+                                                key={h}
+                                                className={`pb-5 font-medium text-muted-foreground ${h === 'Action' ? 'text-center' : ''} border-b border-[rgba(34,197,94,0.7)]`}
+                                            >
+                                                {h}
+                                            </th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                {renderUngroupedContent()}
+                            </table>
+                        </div>
+                    )}
 
                     {/* Pagination (only when not grouped) */}
                     {groupField === 'none' && totalPages > 1 && (

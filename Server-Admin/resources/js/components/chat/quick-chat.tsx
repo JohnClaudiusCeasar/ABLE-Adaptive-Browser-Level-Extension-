@@ -1,6 +1,6 @@
 import { usePage } from '@inertiajs/react';
 import { MessageCircle, MessagesSquare, Minimize2, X } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { ChatWindow } from '@/components/chat/chat-window';
 import { UserList } from '@/components/chat/user-list';
 import {
@@ -41,10 +41,15 @@ export function QuickChat() {
         unreadCount,
     } = useChatStore();
 
-    // Sync initial unread count from server props when widget is closed
+    const initialSyncedRef = useRef(false);
+
+    // Sync initial unread count once on mount from server props (if quick chat is closed)
     useEffect(() => {
-        if (!quickChatOpen && typeof chat?.unreadCount === 'number') {
-            setUnreadCount(chat.unreadCount);
+        if (!initialSyncedRef.current) {
+            initialSyncedRef.current = true;
+            if (!quickChatOpen && typeof chat?.unreadCount === 'number' && chat.unreadCount > 0) {
+                setUnreadCount(chat.unreadCount);
+            }
         }
     }, [chat?.unreadCount, quickChatOpen]);
 
@@ -56,6 +61,7 @@ export function QuickChat() {
 
         const unsubscribe = subscribeToUser(currentUserId, (message) => {
             // Only fire/increment notification indicator for messages from other users
+            // Fallback condition: only fires when quick chat is closed (handled in incrementUnreadCount)
             if (message.sender_id !== currentUserId) {
                 incrementUnreadCount();
             }
@@ -73,6 +79,16 @@ export function QuickChat() {
             // Vanish / clear notification indicator immediately when opening quick chat
             clearUnreadCount();
             setQuickChatOpen(true);
+
+            // Persist read status to backend so server props also stay 0
+            fetch('/chat/read-all', {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': getCsrfToken(),
+                },
+            }).catch(() => {});
         } else {
             setQuickChatOpen(false);
         }
@@ -138,7 +154,7 @@ export function QuickChat() {
                                                 "'Unbounded', sans-serif",
                                         }}
                                     >
-                                        Quick Chat
+                                        Conversations
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-1">

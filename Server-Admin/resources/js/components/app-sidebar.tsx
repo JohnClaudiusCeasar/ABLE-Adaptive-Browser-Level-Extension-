@@ -71,7 +71,7 @@ export const mainNavItems: NavItem[] = [
                 ],
             },
             {
-                title: 'Policy Algorithm',
+                title: 'Domain Policy',
                 href: '/policy-algorithm',
                 icon: ShieldCheck,
             },

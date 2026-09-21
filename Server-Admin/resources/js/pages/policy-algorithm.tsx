@@ -679,7 +679,7 @@ export default function PolicyAlgorithm() {
         }
     }
 
-    function renderTableRows(items: DomainPolicy[]) {
+    function renderTableRows(items: DomainPolicy[], isGrouped = false) {
         return items.map((d) => (
             <tr
                 key={d.id}
@@ -690,39 +690,39 @@ export default function PolicyAlgorithm() {
                         : ''
                 }`}
             >
-                <td className="px-4 py-5">
+                <td className={`px-4 py-4 ${isGrouped ? 'w-[28%]' : ''}`}>
                     <a
                         href={formatDomainUrl(d.domain)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1.5 font-semibold text-foreground transition-colors hover:text-able-green"
                     >
-                        {d.domain}
+                        <span className="truncate max-w-[200px]">{d.domain}</span>
                         <ExternalLink
                             size={14}
-                            className="text-muted-foreground"
+                            className="shrink-0 text-muted-foreground"
                         />
                     </a>
                 </td>
-                <td className="px-4 py-5">
+                <td className={`px-4 py-4 ${isGrouped ? 'w-[16%]' : ''}`}>
                     <Badge variant={statusBadgeVariant[d.domain_status]}>
                         {statusLabels[d.domain_status]}
                     </Badge>
                 </td>
-                <td className="px-4 py-5">
+                <td className={`px-4 py-4 ${isGrouped ? 'w-[16%]' : ''}`}>
                     <Badge variant={policyBadgeVariant[d.policy]}>
                         {policyLabels[d.policy]}
                     </Badge>
                 </td>
-                <td className="px-4 py-5 text-muted-foreground">
+                <td className={`px-4 py-4 text-muted-foreground ${isGrouped ? 'w-[16%] truncate' : ''}`}>
                     {d.category || '—'}
                 </td>
                 <td
-                    className={`px-4 py-5 ${d.risk_score > 0 ? 'font-semibold text-[#f87171]' : 'text-muted-foreground'}`}
+                    className={`px-4 py-4 ${isGrouped ? 'w-[12%]' : ''} ${d.risk_score > 0 ? 'font-semibold text-[#f87171]' : 'text-muted-foreground'}`}
                 >
                     {d.risk_score}
                 </td>
-                <td className="px-4 py-5">
+                <td className={`px-4 py-4 ${isGrouped ? 'w-[12%]' : ''}`}>
                     <div className="flex items-center gap-2">
                         <button
                             onClick={() => openDetailModal(d)}
@@ -760,32 +760,80 @@ export default function PolicyAlgorithm() {
 
         if (groupKeys.length === 0) {
             return (
-                <tr>
-                    <td
-                        colSpan={6}
-                        className="py-10 text-center text-muted-foreground"
-                    >
-                        {searchQuery
-                            ? 'No domains match your search.'
-                            : 'No domain policies yet. Click "Add Domain" to create one.'}
-                    </td>
-                </tr>
+                <div className="py-10 text-center text-muted-foreground">
+                    {searchQuery
+                        ? 'No domains match your search.'
+                        : 'No domain policies yet. Click "Add Domain" to create one.'}
+                </div>
             );
         }
 
-        return groupKeys.map((groupKey) => (
-            <tbody key={groupKey}>
-                <tr className="bg-[rgba(34,197,94,0.05)]">
-                    <td
-                        colSpan={6}
-                        className="px-4 py-2 text-sm font-semibold tracking-wider text-able-green uppercase"
-                    >
-                        {groupKey} ({groupedPolicies[groupKey].length})
-                    </td>
-                </tr>
-                {renderTableRows(groupedPolicies[groupKey])}
-            </tbody>
-        ));
+        return (
+            <div className="flex flex-col gap-6">
+                {groupKeys.map((groupKey) => {
+                    const items = groupedPolicies[groupKey];
+                    const isScrollable = items.length > 5;
+
+                    return (
+                        <div
+                            key={groupKey}
+                            className="overflow-hidden rounded-lg border border-[rgba(34,197,94,0.3)] bg-black/[0.02] shadow-xs dark:bg-white/[0.02]"
+                        >
+                            {/* Group Header Banner */}
+                            <div className="flex items-center justify-between border-b border-[rgba(34,197,94,0.3)] bg-[rgba(34,197,94,0.08)] px-5 py-3">
+                                <span className="text-sm font-bold tracking-wider text-able-green uppercase">
+                                    {groupKey}
+                                </span>
+                                <span className="rounded-full bg-able-green/15 px-2.5 py-0.5 text-xs font-semibold text-able-green">
+                                    {items.length} {items.length === 1 ? 'Domain' : 'Domains'}
+                                </span>
+                            </div>
+
+                            {/* Static Column Headers (Blends with Card Gradient Background) */}
+                            <div className="border-b border-[rgba(34,197,94,0.3)] bg-transparent">
+                                <table className="w-full table-fixed border-collapse text-left text-[0.95rem]">
+                                    <thead>
+                                        <tr>
+                                            <th className="w-[28%] px-4 py-3 text-xs font-medium tracking-wider text-muted-foreground uppercase">
+                                                Domain Name
+                                            </th>
+                                            <th className="w-[16%] px-4 py-3 text-xs font-medium tracking-wider text-muted-foreground uppercase">
+                                                Domain Status
+                                            </th>
+                                            <th className="w-[16%] px-4 py-3 text-xs font-medium tracking-wider text-muted-foreground uppercase">
+                                                Policy
+                                            </th>
+                                            <th className="w-[16%] px-4 py-3 text-xs font-medium tracking-wider text-muted-foreground uppercase">
+                                                Category
+                                            </th>
+                                            <th className="w-[12%] px-4 py-3 text-xs font-medium tracking-wider text-muted-foreground uppercase">
+                                                Risk Score
+                                            </th>
+                                            <th className="w-[12%] px-4 py-3 text-xs font-medium tracking-wider text-muted-foreground uppercase">
+                                                Actions
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                </table>
+                            </div>
+
+                            {/* Scrollable Body Rows (Scrollbar starts below column header area) */}
+                            <div
+                                className={`overflow-x-auto ${
+                                    isScrollable
+                                        ? 'max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-[rgba(34,197,94,0.4)] scrollbar-track-transparent'
+                                        : ''
+                                }`}
+                            >
+                                <table className="w-full table-fixed border-collapse text-left text-[0.95rem]">
+                                    <tbody>{renderTableRows(items, true)}</tbody>
+                                </table>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        );
     }
 
     function renderUngroupedContent() {
@@ -811,7 +859,7 @@ export default function PolicyAlgorithm() {
 
     return (
         <>
-            <Head title="Policy Algorithm" />
+            <Head title="Domain Policy" />
             <style>{`
 @keyframes pulse-glow {
     0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
@@ -824,10 +872,10 @@ export default function PolicyAlgorithm() {
                 {/* Header */}
                 <header className="mb-8">
                     <h1
-                        className="mb-2 text-[2.8rem] font-bold tracking-wide text-foreground"
+                        className="mb-2 text-[2.8rem] font-bold tracking-wide uppercase text-foreground"
                         style={{ fontFamily: "'Unbounded', sans-serif" }}
                     >
-                        POLICY ALGORITHM
+                        Domain Policy
                     </h1>
                     <p className="mb-6 text-[1.05rem] text-muted-foreground">
                         Domain Management for website security checking.
@@ -967,40 +1015,44 @@ export default function PolicyAlgorithm() {
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto">
-                        <table className="w-full border-collapse text-left text-[0.95rem]">
-                            <thead>
-                                <tr>
-                                    {[
-                                        'Domain Name',
-                                        'Domain Status',
-                                        'Policy',
-                                        'Category',
-                                        'Risk Score',
-                                        'Actions',
-                                    ].map((h) => (
-                                        <th
-                                            key={h}
-                                            className="border-b border-[rgba(34,197,94,0.7)] px-4 py-3 font-normal text-muted-foreground"
-                                        >
-                                            {h}
-                                        </th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            {groupField !== 'none'
-                                ? renderGroupedContent()
-                                : renderUngroupedContent()}
-                        </table>
-                    </div>
+                    {groupField !== 'none' ? (
+                        renderGroupedContent()
+                    ) : (
+                        <>
+                            <div className="overflow-x-auto">
+                                <table className="w-full border-collapse text-left text-[0.95rem]">
+                                    <thead>
+                                        <tr>
+                                            {[
+                                                'Domain Name',
+                                                'Domain Status',
+                                                'Policy',
+                                                'Category',
+                                                'Risk Score',
+                                                'Actions',
+                                            ].map((h) => (
+                                                <th
+                                                    key={h}
+                                                    className="border-b border-[rgba(34,197,94,0.7)] px-4 py-3 font-normal text-muted-foreground"
+                                                >
+                                                    {h}
+                                                </th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    {renderUngroupedContent()}
+                                </table>
+                            </div>
 
-                    {/* Pagination (only when not grouped) */}
-                    {groupField === 'none' && totalPages > 1 && (
-                        <TablePagination
-                            currentPage={safePage}
-                            totalPages={totalPages}
-                            onPageChange={setCurrentPage}
-                        />
+                            {/* Pagination (only when not grouped) */}
+                            {totalPages > 1 && (
+                                <TablePagination
+                                    currentPage={safePage}
+                                    totalPages={totalPages}
+                                    onPageChange={setCurrentPage}
+                                />
+                            )}
+                        </>
                     )}
                 </div>
             </div>
@@ -1456,5 +1508,5 @@ export default function PolicyAlgorithm() {
 }
 
 PolicyAlgorithm.layout = {
-    breadcrumbs: [{ title: 'Policy Algorithm', href: '/policy-algorithm' }],
+    breadcrumbs: [{ title: 'Domain Policy', href: '/policy-algorithm' }],
 };
