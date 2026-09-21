@@ -5,8 +5,10 @@ namespace Tests\Feature;
 use App\Models\DomainPolicy;
 use App\Models\DomainVisit;
 use App\Models\EgressEvent;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
 
 class DomainVisitLogTest extends TestCase
@@ -203,7 +205,7 @@ class DomainVisitLogTest extends TestCase
 
     public function test_domain_visits_controller_renders_immutable_point_in_time_status(): void
     {
-        $user = \App\Models\User::factory()->create();
+        $user = User::factory()->create();
 
         // 1. Initial unlisted visit
         $this->logVisit('testdomain.com');
@@ -221,7 +223,7 @@ class DomainVisitLogTest extends TestCase
         $response = $this->actingAs($user)->get(route('domain-visits'));
         $response->assertOk();
 
-        $response->assertInertia(function (\Inertia\Testing\AssertableInertia $page) {
+        $response->assertInertia(function (AssertableInertia $page) {
             $page->component('domain-visits')
                 ->has('domainVisits', 2)
                 ->where('domainVisits.0.status', 'glass-safe')

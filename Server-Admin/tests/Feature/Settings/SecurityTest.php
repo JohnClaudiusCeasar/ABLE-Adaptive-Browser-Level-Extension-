@@ -152,4 +152,3 @@ class SecurityTest extends TestCase
             ->assertRedirect(route('password.confirm'));
     }
 }
-

@@ -7,7 +7,6 @@ use App\Models\DomainVisit;
 use App\Models\EgressEvent;
 use App\Models\ExtensionLifecycle;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 

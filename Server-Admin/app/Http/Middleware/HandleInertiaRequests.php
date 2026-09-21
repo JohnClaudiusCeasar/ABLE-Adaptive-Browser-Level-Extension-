@@ -90,7 +90,7 @@ class HandleInertiaRequests extends Middleware
             ->where('user_one_id', $user->id)
             ->orWhere('user_two_id', $user->id)
             ->orderByDesc('last_message_at')
-            ->with(['messages' => fn ($query) => $query->orderByDesc('created_at')])
+            ->with(['userOne', 'userTwo', 'messages' => fn ($query) => $query->orderByDesc('created_at')])
             ->get()
             ->map(fn (ChatConversation $conversation) => $this->conversationData($conversation, $user))
             ->values()
@@ -128,6 +128,7 @@ class HandleInertiaRequests extends Middleware
      */
     private function conversationData(ChatConversation $conversation, User $user): array
     {
+        $conversation->loadMissing(['userOne', 'userTwo']);
         $otherUser = $conversation->otherUser($user);
 
         $messages = $conversation->messages;
@@ -139,7 +140,7 @@ class HandleInertiaRequests extends Middleware
 
         $lastMessageText = null;
         if ($lastMessage instanceof ChatMessage) {
-            $lastMessageText = !empty($lastMessage->body)
+            $lastMessageText = ! empty($lastMessage->body)
                 ? $lastMessage->body
                 : ($lastMessage->attachment_name ? '📎 '.$lastMessage->attachment_name : 'Attachment');
         }

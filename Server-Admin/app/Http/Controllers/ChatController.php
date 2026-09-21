@@ -161,7 +161,7 @@ class ChatController extends Controller
         $message = ChatMessage::create([
             'conversation_id' => $conversation->id,
             'sender_id' => $user->id,
-            'body' => !empty($validated['body']) ? trim($validated['body']) : '',
+            'body' => ! empty($validated['body']) ? trim($validated['body']) : '',
             'attachment_path' => $attachmentPath,
             'attachment_name' => $attachmentName,
             'attachment_size' => $attachmentSize,
@@ -248,7 +248,7 @@ class ChatController extends Controller
             ->where('user_one_id', $user->id)
             ->orWhere('user_two_id', $user->id)
             ->orderByDesc('last_message_at')
-            ->with(['messages' => fn ($query) => $query->orderByDesc('created_at')])
+            ->with(['userOne', 'userTwo', 'messages' => fn ($query) => $query->orderByDesc('created_at')])
             ->get()
             ->map(fn (ChatConversation $conversation) => $this->conversationData($conversation, $user))
             ->values()
@@ -337,6 +337,7 @@ class ChatController extends Controller
      */
     private function conversationData(ChatConversation $conversation, User $user): array
     {
+        $conversation->loadMissing(['userOne', 'userTwo']);
         $otherUser = $conversation->otherUser($user);
 
         $messages = $conversation->relationLoaded('messages')
@@ -351,7 +352,7 @@ class ChatController extends Controller
 
         $lastMessageText = null;
         if ($lastMessage instanceof ChatMessage) {
-            $lastMessageText = !empty($lastMessage->body)
+            $lastMessageText = ! empty($lastMessage->body)
                 ? $lastMessage->body
                 : ($lastMessage->attachment_name ? '📎 '.$lastMessage->attachment_name : 'Attachment');
         }

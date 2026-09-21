@@ -4,7 +4,6 @@ namespace Tests\Feature\Users;
 
 use App\Models\DomainPolicy;
 use App\Models\DomainVisit;
-use App\Models\EgressEvent;
 use App\Models\ExtensionLifecycle;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;

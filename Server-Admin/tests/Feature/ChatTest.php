@@ -6,6 +6,8 @@ use App\Models\ChatConversation;
 use App\Models\ChatMessage;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class ChatTest extends TestCase
@@ -209,14 +211,14 @@ class ChatTest extends TestCase
 
     public function test_users_can_send_a_message_with_attachment()
     {
-        \Illuminate\Support\Facades\Storage::fake('public');
+        Storage::fake('public');
 
         $user = User::factory()->create();
         $other = User::factory()->create();
         $conversation = ChatConversation::forPair($user, $other);
         $this->actingAs($user);
 
-        $file = \Illuminate\Http\UploadedFile::fake()->create('document.pdf', 1024, 'application/pdf');
+        $file = UploadedFile::fake()->create('document.pdf', 1024, 'application/pdf');
 
         $response = $this->post(route('chat.messages.store', $conversation), [
             'body' => 'Here is the report',
@@ -229,19 +231,19 @@ class ChatTest extends TestCase
         $this->assertSame('Here is the report', $message->body);
         $this->assertSame('document.pdf', $message->attachment_name);
         $this->assertNotNull($message->attachment_path);
-        \Illuminate\Support\Facades\Storage::disk('public')->assertExists($message->attachment_path);
+        Storage::disk('public')->assertExists($message->attachment_path);
     }
 
     public function test_disallowed_file_types_are_rejected()
     {
-        \Illuminate\Support\Facades\Storage::fake('public');
+        Storage::fake('public');
 
         $user = User::factory()->create();
         $other = User::factory()->create();
         $conversation = ChatConversation::forPair($user, $other);
         $this->actingAs($user);
 
-        $file = \Illuminate\Http\UploadedFile::fake()->create('malicious.exe', 1024, 'application/x-msdownload');
+        $file = UploadedFile::fake()->create('malicious.exe', 1024, 'application/x-msdownload');
 
         $response = $this->post(route('chat.messages.store', $conversation), [
             'body' => 'Run this',
@@ -255,14 +257,14 @@ class ChatTest extends TestCase
 
     public function test_image_attachments_are_accepted()
     {
-        \Illuminate\Support\Facades\Storage::fake('public');
+        Storage::fake('public');
 
         $user = User::factory()->create();
         $other = User::factory()->create();
         $conversation = ChatConversation::forPair($user, $other);
         $this->actingAs($user);
 
-        $file = \Illuminate\Http\UploadedFile::fake()->create('screenshot.png', 500, 'image/png');
+        $file = UploadedFile::fake()->create('screenshot.png', 500, 'image/png');
 
         $response = $this->post(route('chat.messages.store', $conversation), [
             'body' => 'Look at this',
@@ -300,4 +302,3 @@ class ChatTest extends TestCase
         $this->assertSame(0, ChatMessage::whereNull('read_at')->count());
     }
 }
-

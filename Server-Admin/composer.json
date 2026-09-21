@@ -56,7 +56,7 @@
         ],
         "dev": [
             "Composer\\Config::disableProcessTimeout",
-            "npx concurrently --names=server,queue,reverb,vite --kill-others \"php artisan serve --host=localhost\" \"php artisan queue:listen --tries=1 --timeout=0\" \"php artisan reverb:start\" \"pnpm run dev\""
+            "npx concurrently --names=server,queue,reverb,vite --kill-others \"php artisan serve --host=localhost\" \"php artisan queue:work --sleep=3 --tries=1\" \"php artisan reverb:start\" \"pnpm run dev\""
         ],
         "lint": [
             "pint --parallel"

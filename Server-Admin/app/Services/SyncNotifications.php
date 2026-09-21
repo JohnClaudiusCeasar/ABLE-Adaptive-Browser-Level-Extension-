@@ -3,14 +3,12 @@
 namespace App\Services;
 
 use App\Models\AuditLog;
-use App\Models\ChatConversation;
 use App\Models\ChatMessage;
 use App\Models\DomainVisit;
 use App\Models\EgressEvent;
 use App\Models\ExtensionLifecycle;
 use App\Models\Notification;
 use App\Models\NudgeInteraction;
-use App\Models\User;
 use Illuminate\Support\Str;
 
 class SyncNotifications
@@ -34,6 +32,11 @@ class SyncNotifications
 
     private function syncEgressEvents(): void
     {
+        $existing = Notification::withTrashed()
+            ->where('source', 'egress')
+            ->pluck('message')
+            ->flip();
+
         // Grab only the nudge outcome per egress event in one query.
         $nudgeActions = NudgeInteraction::query()
             ->select('egress_event_id', 'user_action')
@@ -43,13 +46,9 @@ class SyncNotifications
         EgressEvent::query()
             ->orderBy('occurred_at')
             ->get()
-            ->each(function (EgressEvent $event) use ($nudgeActions) {
-                $alreadySynced = Notification::withTrashed()
-                    ->where('source', 'egress')
-                    ->where('message', 'egress-event-'.$event->id)
-                    ->exists();
-
-                if ($alreadySynced) {
+            ->each(function (EgressEvent $event) use ($existing, $nudgeActions) {
+                $messageKey = 'egress-event-'.$event->id;
+                if (isset($existing[$messageKey])) {
                     return;
                 }
 
@@ -68,7 +67,7 @@ class SyncNotifications
                     'ip_address' => null,
                     'risk_score' => $event->risk_score,
                     'status' => $status,
-                    'message' => 'egress-event-'.$event->id,
+                    'message' => $messageKey,
                     'occurred_at' => $event->occurred_at,
                     'read_at' => null,
                 ]);
@@ -77,17 +76,18 @@ class SyncNotifications
 
     private function syncDomainVisits(): void
     {
+        $existing = Notification::withTrashed()
+            ->where('source', 'domain')
+            ->pluck('message')
+            ->flip();
+
         DomainVisit::query()
             ->with('domainPolicy')
             ->orderBy('visited_at')
             ->get()
-            ->each(function (DomainVisit $visit) {
-                $alreadySynced = Notification::withTrashed()
-                    ->where('source', 'domain')
-                    ->where('message', 'domain-visit-'.$visit->id)
-                    ->exists();
-
-                if ($alreadySynced) {
+            ->each(function (DomainVisit $visit) use ($existing) {
+                $messageKey = 'domain-visit-'.$visit->id;
+                if (isset($existing[$messageKey])) {
                     return;
                 }
 
@@ -108,7 +108,7 @@ class SyncNotifications
                     'ip_address' => null,
                     'risk_score' => $riskScore,
                     'status' => $status,
-                    'message' => 'domain-visit-'.$visit->id,
+                    'message' => $messageKey,
                     'occurred_at' => $visit->visited_at,
                     'read_at' => null,
                 ]);
@@ -117,16 +117,17 @@ class SyncNotifications
 
     private function syncAuditLogs(): void
     {
+        $existing = Notification::withTrashed()
+            ->where('source', 'audit')
+            ->pluck('message')
+            ->flip();
+
         AuditLog::query()
             ->orderBy('occurred_at')
             ->get()
-            ->each(function (AuditLog $log) {
-                $alreadySynced = Notification::withTrashed()
-                    ->where('source', 'audit')
-                    ->where('message', 'audit-log-'.$log->id)
-                    ->exists();
-
-                if ($alreadySynced) {
+            ->each(function (AuditLog $log) use ($existing) {
+                $messageKey = 'audit-log-'.$log->id;
+                if (isset($existing[$messageKey])) {
                     return;
                 }
 
@@ -143,7 +144,7 @@ class SyncNotifications
                     'ip_address' => null,
                     'risk_score' => null,
                     'status' => 'glass-unlisted',
-                    'message' => 'audit-log-'.$log->id,
+                    'message' => $messageKey,
                     'occurred_at' => $log->occurred_at,
                     'read_at' => null,
                 ]);
@@ -152,16 +153,17 @@ class SyncNotifications
 
     private function syncExtensionLifecycles(): void
     {
+        $existing = Notification::withTrashed()
+            ->where('source', 'extension')
+            ->pluck('message')
+            ->flip();
+
         ExtensionLifecycle::query()
             ->orderBy('occurred_at')
             ->get()
-            ->each(function (ExtensionLifecycle $lifecycle) {
-                $alreadySynced = Notification::withTrashed()
-                    ->where('source', 'extension')
-                    ->where('message', 'extension-lifecycle-'.$lifecycle->id)
-                    ->exists();
-
-                if ($alreadySynced) {
+            ->each(function (ExtensionLifecycle $lifecycle) use ($existing) {
+                $messageKey = 'extension-lifecycle-'.$lifecycle->id;
+                if (isset($existing[$messageKey])) {
                     return;
                 }
 
@@ -179,15 +181,15 @@ class SyncNotifications
 
                 Notification::create([
                     'source' => 'extension',
-                    'type' => $typeMap[$lifecycle->event],
+                    'type' => $typeMap[$lifecycle->event] ?? 'Extension Event',
                     'description' => "Extension {$lifecycle->extension_id} {$lifecycle->event} by user {$lifecycle->user_id}",
                     'domain' => null,
                     'user_id' => $lifecycle->user_id,
                     'email' => null,
                     'ip_address' => null,
                     'risk_score' => null,
-                    'status' => $statusMap[$lifecycle->event],
-                    'message' => 'extension-lifecycle-'.$lifecycle->id,
+                    'status' => $statusMap[$lifecycle->event] ?? 'glass-unlisted',
+                    'message' => $messageKey,
                     'occurred_at' => $lifecycle->occurred_at,
                     'read_at' => null,
                 ]);
@@ -196,29 +198,30 @@ class SyncNotifications
 
     private function syncChatMessages(): void
     {
+        $existing = Notification::withTrashed()
+            ->where('source', 'chat')
+            ->pluck('message')
+            ->flip();
+
         ChatMessage::query()
+            ->with(['conversation.userOne', 'conversation.userTwo', 'sender'])
             ->orderBy('created_at')
             ->get()
-            ->each(function (ChatMessage $message) {
-                $alreadySynced = Notification::withTrashed()
-                    ->where('source', 'chat')
-                    ->where('message', 'chat-message-'.$message->id)
-                    ->exists();
-
-                if ($alreadySynced) {
+            ->each(function (ChatMessage $message) use ($existing) {
+                $messageKey = 'chat-message-'.$message->id;
+                if (isset($existing[$messageKey])) {
                     return;
                 }
 
-                $conversation = ChatConversation::find($message->conversation_id);
-                $recipientId = $conversation
-                    ? ($conversation->user_one_id === $message->sender_id
-                        ? $conversation->user_two_id
-                        : $conversation->user_one_id)
-                    : null;
-                $recipient = $recipientId ? User::find($recipientId) : null;
-                $sender = User::find($message->sender_id);
-                $senderName = $sender->name ?? 'Unknown';
-                $bodyExcerpt = Str::limit($message->body, 60);
+                $conversation = $message->conversation;
+                $recipient = null;
+                if ($conversation) {
+                    $recipient = $conversation->user_one_id === $message->sender_id
+                        ? $conversation->userTwo
+                        : $conversation->userOne;
+                }
+                $senderName = $message->sender?->name ?? 'Unknown';
+                $bodyExcerpt = Str::limit($message->body ?? '', 60);
 
                 Notification::create([
                     'source' => 'chat',
@@ -230,7 +233,7 @@ class SyncNotifications
                     'ip_address' => null,
                     'risk_score' => null,
                     'status' => 'glass-unlisted',
-                    'message' => 'chat-message-'.$message->id,
+                    'message' => $messageKey,
                     'occurred_at' => $message->created_at ?? now(),
                     'read_at' => null,
                 ]);

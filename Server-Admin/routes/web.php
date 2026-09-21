@@ -9,6 +9,8 @@ use App\Http\Controllers\EgressEventController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\RiskPatternController;
 use App\Http\Controllers\SecurityAnalyticsController;
+use App\Http\Controllers\Users\ClientUserController;
+use App\Http\Controllers\Users\TeamUserController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -62,11 +64,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('chat/{conversation}', [ChatController::class, 'destroy'])->name('chat.destroy');
     Route::delete('chat-all', [ChatController::class, 'destroyAll'])->name('chat.destroyAll');
 
-    Route::get('users/client', [\App\Http\Controllers\Users\ClientUserController::class, 'index'])->name('users.client.index');
-    Route::get('users/client/{userId}', [\App\Http\Controllers\Users\ClientUserController::class, 'show'])->name('users.client.show');
-    Route::get('users/team', [\App\Http\Controllers\Users\TeamUserController::class, 'index'])->name('users.team.index');
-    Route::patch('users/team/{user}', [\App\Http\Controllers\Users\TeamUserController::class, 'update'])->name('users.team.update');
-    Route::patch('users/team/{user}/toggle-block', [\App\Http\Controllers\Users\TeamUserController::class, 'toggleBlock'])->name('users.team.toggle-block');
+    Route::get('users/client', [ClientUserController::class, 'index'])->name('users.client.index');
+    Route::get('users/client/{userId}', [ClientUserController::class, 'show'])->name('users.client.show');
+    Route::get('users/team', [TeamUserController::class, 'index'])->name('users.team.index');
+    Route::patch('users/team/{user}', [TeamUserController::class, 'update'])->name('users.team.update');
+    Route::patch('users/team/{user}/toggle-block', [TeamUserController::class, 'toggleBlock'])->name('users.team.toggle-block');
 });
 
 require __DIR__.'/settings.php';

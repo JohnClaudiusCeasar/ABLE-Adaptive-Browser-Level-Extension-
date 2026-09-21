@@ -197,7 +197,8 @@ class EgressEventController extends Controller
             $query->where('action', $request->input('action'));
         }
 
-        $events = $query->orderByDesc('occurred_at')
+        $events = $query->with('nudgeInteractions')
+            ->orderByDesc('occurred_at')
             ->limit($request->input('limit', 100))
             ->get()
             ->map(function ($event) {
