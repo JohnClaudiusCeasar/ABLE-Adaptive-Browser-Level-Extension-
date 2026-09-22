@@ -74,26 +74,26 @@ export const mainNavItems: NavItem[] = [
                 ],
             },
             {
-                title: 'Risk Policy',
+                title: 'Policy Administration',
                 href: '/risk-algorithm/criteria',
                 icon: Shield,
                 items: [
                     {
-                        title: 'Pattern Settings',
+                        title: 'Risk Policy',
                         href: '/risk-algorithm/criteria',
-                        icon: LayoutGrid,
+                        icon: ShieldAlert,
                     },
                     {
                         title: 'All Patterns',
                         href: '/risk-algorithm/single',
                         icon: FileCode2,
                     },
+                    {
+                        title: 'Domain Policy',
+                        href: '/policy-algorithm',
+                        icon: ShieldCheck,
+                    },
                 ],
-            },
-            {
-                title: 'Domain Policy',
-                href: '/policy-algorithm',
-                icon: ShieldCheck,
             },
             {
                 title: 'Users',

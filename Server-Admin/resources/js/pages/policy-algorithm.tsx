@@ -1512,5 +1512,8 @@ export default function PolicyAlgorithm() {
 }
 
 PolicyAlgorithm.layout = {
-    breadcrumbs: [{ title: 'Domain Policy', href: '/policy-algorithm' }],
+    breadcrumbs: [
+        { title: 'Policy Administration', href: '/risk-algorithm/criteria' },
+        { title: 'Domain Policy', href: '/policy-algorithm' },
+    ],
 };

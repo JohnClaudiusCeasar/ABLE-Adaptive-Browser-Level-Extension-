@@ -225,7 +225,7 @@ export default function SinglePatternConfiguration() {
 
 SinglePatternConfiguration.layout = {
     breadcrumbs: [
-        { title: 'Risk Algorithm', href: '/risk-algorithm/criteria' },
+        { title: 'Policy Administration', href: '/risk-algorithm/criteria' },
         {
             title: 'All Patterns',
             href: '/risk-algorithm/single',
