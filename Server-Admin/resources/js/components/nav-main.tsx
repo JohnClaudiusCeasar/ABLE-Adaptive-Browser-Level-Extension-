@@ -54,7 +54,11 @@ function CollapsibleNavItem({
     // href may be a wayfinder UrlMethodPair, so normalize to the URL string.
     const href = typeof item.href === 'string' ? item.href : item.href.url;
     const groupRoot = href.split('/').slice(0, 2).join('/');
-    const groupActive = isCurrentUrl(groupRoot, undefined, true);
+    const hasActiveChild = item.items?.some((child) => {
+        const childHref = typeof child.href === 'string' ? child.href : child.href.url;
+        return isCurrentUrl(childHref);
+    });
+    const groupActive = isCurrentUrl(groupRoot, undefined, true) || !!hasActiveChild;
 
     const [open, setOpen] = useState(groupActive);
     const [syncedGroupActive, setSyncedGroupActive] = useState(groupActive);

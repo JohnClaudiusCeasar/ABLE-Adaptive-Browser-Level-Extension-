@@ -128,15 +128,15 @@ class EgressEventFlagTest extends TestCase
             'occurred_at' => now()->subMinutes(2),
         ]);
 
-        $response = $this->get(route('egress-logs'));
+        $response = $this->get(route('security-analytics.egress-incidents'));
         $response->assertOk();
         $response->assertInertia(
             fn ($page) => $page
-                ->component('egress-logs')
-                ->has('egressEvents', 3)
-                ->where('egressEvents.0.action', 'At Risk')
-                ->where('egressEvents.1.action', 'Proceeded')
-                ->where('egressEvents.2.action', 'Allowed')
+                ->component('security-analytics/egress-incidents')
+                ->has('recentShadowEgress', 3)
+                ->where('recentShadowEgress.0.action', 'Proceeded')
+                ->where('recentShadowEgress.1.action', 'Proceeded')
+                ->where('recentShadowEgress.2.action', 'Allowed')
         );
     }
 }

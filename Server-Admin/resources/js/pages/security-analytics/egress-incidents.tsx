@@ -2,62 +2,92 @@ import { Head, Link } from '@inertiajs/react';
 import { ArrowLeft, Search, ArrowUpDown } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { TablePagination } from '@/components/pagination';
-import { formatMetricNumber } from '@/lib/utils';
+import { cn, truncateFileName, formatMetricNumber } from '@/lib/utils';
 
 const glassCard =
     'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
 
-interface NudgeEffectivenessRow {
-    date: string;
-    proceeded: number;
-    cancelled: number;
+interface RecentShadowEgressItem {
+    id: number;
+    occurred_at: string;
+    domain: string;
+    user: string;
+    fileName: string;
+    fileSize: string;
+    risk_score: number;
+    action: string;
 }
 
-interface NudgeEffectivenessProps {
-    nudgeEffectiveness: NudgeEffectivenessRow[];
+interface EgressIncidentsProps {
+    recentShadowEgress: RecentShadowEgressItem[];
+}
+
+function getRiskScoreBadgeClass(score: number): string {
+    if (score >= 76) {
+        return 'border border-[#ff4d4d] bg-[rgba(255,77,77,0.2)] text-[#ff4d4d]';
+    }
+    if (score >= 41) {
+        return 'border border-[#f59e0b] bg-[rgba(245,158,11,0.2)] text-[#f59e0b]';
+    }
+    return 'border border-[#00ff66] bg-[rgba(0,255,102,0.2)] text-[#00ff66]';
+}
+
+function formatTimestamp(ts: string): { date: string; time: string } {
+    const d = new Date(ts);
+    return {
+        date: d.toLocaleDateString(undefined, {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+        }),
+        time: d.toLocaleTimeString(undefined, {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true,
+        }),
+    };
 }
 
 const ROWS_PER_PAGE = 10;
 
-export default function NudgeEffectiveness({
-    nudgeEffectiveness,
-}: NudgeEffectivenessProps) {
+export default function EgressIncidents({ recentShadowEgress }: EgressIncidentsProps) {
     const [searchQuery, setSearchQuery] = useState('');
-    const [sortOption, setSortOption] = useState<'date_desc' | 'date_asc' | 'rate_desc' | 'rate_asc' | 'cancelled_desc'>('date_desc');
+    const [sortOption, setSortOption] = useState<'date_desc' | 'date_asc' | 'risk_desc' | 'risk_asc' | 'domain_asc'>('date_desc');
     const [currentPage, setCurrentPage] = useState(1);
 
     const processedItems = useMemo(() => {
-        let items = [...nudgeEffectiveness];
-
+        let items = [...recentShadowEgress];
         if (searchQuery) {
-            const query = searchQuery.toLowerCase();
-            items = items.filter((row) => row.date.toLowerCase().includes(query));
+            const q = searchQuery.toLowerCase();
+            items = items.filter(
+                (item) =>
+                    item.domain.toLowerCase().includes(q) ||
+                    item.user.toLowerCase().includes(q) ||
+                    item.fileName.toLowerCase().includes(q) ||
+                    item.action.toLowerCase().includes(q),
+            );
         }
 
         items.sort((a, b) => {
-            const totalA = a.proceeded + a.cancelled;
-            const rateA = totalA > 0 ? (a.cancelled / totalA) * 100 : 0;
-            const totalB = b.proceeded + b.cancelled;
-            const rateB = totalB > 0 ? (b.cancelled / totalB) * 100 : 0;
-
             switch (sortOption) {
                 case 'date_desc':
-                    return b.date.localeCompare(a.date);
+                    return b.occurred_at.localeCompare(a.occurred_at);
                 case 'date_asc':
-                    return a.date.localeCompare(b.date);
-                case 'rate_desc':
-                    return rateB - rateA;
-                case 'rate_asc':
-                    return rateA - rateB;
-                case 'cancelled_desc':
-                    return b.cancelled - a.cancelled;
+                    return a.occurred_at.localeCompare(b.occurred_at);
+                case 'risk_desc':
+                    return b.risk_score - a.risk_score;
+                case 'risk_asc':
+                    return a.risk_score - b.risk_score;
+                case 'domain_asc':
+                    return a.domain.localeCompare(b.domain);
                 default:
                     return 0;
             }
         });
 
         return items;
-    }, [nudgeEffectiveness, searchQuery, sortOption]);
+    }, [recentShadowEgress, searchQuery, sortOption]);
 
     const totalPages = Math.max(1, Math.ceil(processedItems.length / ROWS_PER_PAGE));
     const safePage = Math.min(currentPage, totalPages);
@@ -68,7 +98,7 @@ export default function NudgeEffectiveness({
 
     return (
         <>
-            <Head title="Shadow Containment" />
+            <Head title="Shadow Incidents" />
             <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-8 px-8 pt-12 pb-[22px]">
                 {/* Header */}
                 <header>
@@ -85,10 +115,11 @@ export default function NudgeEffectiveness({
                                 className="mb-2.5 text-[2.8rem] font-bold tracking-wide text-foreground uppercase"
                                 style={{ fontFamily: "'Unbounded', sans-serif" }}
                             >
-                                SHADOW CONTAINMENT
+                                SHADOW INCIDENTS
                             </h1>
                             <p className="max-w-[760px] text-[1.05rem] leading-relaxed text-muted-foreground">
-                                Detailed interaction telemetry and employee compliance outcomes upon receiving data upload warnings.
+                                Global telemetry stream of intercepted file uploads and data exfiltration
+                                events intercepted by the ABLE browser extension.
                             </p>
                         </div>
                     </div>
@@ -96,27 +127,26 @@ export default function NudgeEffectiveness({
 
                 {/* Main Table Card */}
                 <div className={`${glassCard} p-6`}>
-                    {/* Card Header Toolbar */}
                     <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
                         <div className="flex items-center gap-2">
                             <span className="text-sm font-semibold text-foreground">
-                                Total Records:
+                                Total Incidents:
                             </span>
-                            <span className="rounded-full bg-able-green/15 px-2.5 py-0.5 text-xs font-semibold text-able-green">
-                                {formatMetricNumber(processedItems.length)} Days Tracked
+                            <span className="rounded-full bg-rose-500/15 px-2.5 py-0.5 text-xs font-semibold text-rose-500">
+                                {formatMetricNumber(processedItems.length)} Records
                             </span>
                         </div>
 
                         {/* Search & Sort Controls */}
                         <div className="flex flex-wrap items-center gap-3">
-                            <div className="relative w-[220px]">
+                            <div className="relative w-[240px]">
                                 <Search
                                     size={14}
                                     className="absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
                                 />
                                 <input
                                     type="text"
-                                    placeholder="Search by date..."
+                                    placeholder="Search incidents..."
                                     value={searchQuery}
                                     onChange={(e) => {
                                         setSearchQuery(e.target.value);
@@ -137,9 +167,9 @@ export default function NudgeEffectiveness({
                                 >
                                     <option value="date_desc">Sort: Date (Newest)</option>
                                     <option value="date_asc">Sort: Date (Oldest)</option>
-                                    <option value="rate_desc">Sort: Success (High-Low)</option>
-                                    <option value="rate_asc">Sort: Success (Low-High)</option>
-                                    <option value="cancelled_desc">Sort: Prevented (Most)</option>
+                                    <option value="risk_desc">Sort: Risk (High-Low)</option>
+                                    <option value="risk_asc">Sort: Risk (Low-High)</option>
+                                    <option value="domain_asc">Sort: Domain (A-Z)</option>
                                 </select>
                                 <ArrowUpDown
                                     size={13}
@@ -155,19 +185,25 @@ export default function NudgeEffectiveness({
                             <thead>
                                 <tr className="text-muted-foreground">
                                     <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
-                                        Date
+                                        Date & Time
                                     </th>
                                     <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
-                                        Prevented (Cancelled)
+                                        User ID
                                     </th>
                                     <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
-                                        Overridden (Proceeded)
+                                        Target Domain
                                     </th>
                                     <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
-                                        Total Nudges
+                                        File Name
+                                    </th>
+                                    <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
+                                        Payload Size
+                                    </th>
+                                    <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
+                                        Risk Score
                                     </th>
                                     <th className="border-b border-[rgba(34,197,94,0.7)] pb-4 text-left font-medium">
-                                        Containment Rate
+                                        Interception Action
                                     </th>
                                 </tr>
                             </thead>
@@ -175,59 +211,64 @@ export default function NudgeEffectiveness({
                                 {paginatedItems.length === 0 ? (
                                     <tr>
                                         <td
-                                            colSpan={5}
+                                            colSpan={7}
                                             className="py-10 text-center text-muted-foreground"
                                         >
-                                            {searchQuery
-                                                ? 'No records match your search criteria.'
-                                                : 'No containment telemetry recorded yet.'}
+                                            No egress incidents recorded matching search.
                                         </td>
                                     </tr>
                                 ) : (
-                                    paginatedItems.map((row, i) => {
-                                        const total = row.proceeded + row.cancelled;
-                                        const successRate =
-                                            total > 0
-                                                ? Math.round((row.cancelled / total) * 100)
-                                                : 0;
-
+                                    paginatedItems.map((row) => {
+                                        const { date, time } = formatTimestamp(row.occurred_at);
                                         return (
                                             <tr
-                                                key={i}
+                                                key={row.id}
                                                 className="border-b border-[rgba(34,197,94,0.3)] transition-colors hover:bg-black/5 last:border-b-0 dark:hover:bg-white/5"
                                             >
-                                                <td className="py-3.5 pr-2.5 font-medium text-foreground">
-                                                    {row.date}
+                                                <td className="py-3.5 pr-2.5">
+                                                    <div className="flex flex-col">
+                                                        <span>{date}</span>
+                                                        <span className="text-xs text-muted-foreground">
+                                                            {time}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td className="py-3.5 pr-2.5 font-mono text-xs">
+                                                    {row.user}
+                                                </td>
+                                                <td className="py-3.5 pr-2.5 font-mono text-xs text-foreground">
+                                                    {row.domain}
                                                 </td>
                                                 <td
-                                                    className="py-3.5 pr-2.5 font-semibold text-emerald-500 tabular-nums"
-                                                    title={row.cancelled.toLocaleString()}
+                                                    className="py-3.5 pr-2.5 max-w-[200px] truncate"
+                                                    title={row.fileName}
                                                 >
-                                                    {formatMetricNumber(row.cancelled)}
+                                                    {truncateFileName(row.fileName)}
                                                 </td>
-                                                <td
-                                                    className="py-3.5 pr-2.5 font-semibold text-rose-500 tabular-nums"
-                                                    title={row.proceeded.toLocaleString()}
-                                                >
-                                                    {formatMetricNumber(row.proceeded)}
+                                                <td className="py-3.5 pr-2.5 tabular-nums">
+                                                    {row.fileSize}
                                                 </td>
-                                                <td
-                                                    className="py-3.5 pr-2.5 text-foreground tabular-nums"
-                                                    title={total.toLocaleString()}
-                                                >
-                                                    {formatMetricNumber(total)}
+                                                <td className="py-3.5 pr-2.5">
+                                                    <span
+                                                        className={`inline-flex items-center justify-center rounded-full px-2.5 py-0.5 text-xs font-semibold backdrop-blur-[10px] ${getRiskScoreBadgeClass(
+                                                            row.risk_score,
+                                                        )}`}
+                                                    >
+                                                        {row.risk_score}%
+                                                    </span>
                                                 </td>
                                                 <td className="py-3.5">
                                                     <span
-                                                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                                                            successRate >= 70
-                                                                ? 'border border-[#00ff66] bg-[rgba(0,255,102,0.15)] text-[#00ff66]'
-                                                                : successRate >= 40
-                                                                  ? 'border border-[#f59e0b] bg-[rgba(245,158,11,0.15)] text-[#f59e0b]'
-                                                                  : 'border border-[#ff4d4d] bg-[rgba(255,77,77,0.15)] text-[#ff4d4d]'
-                                                        }`}
+                                                        className={cn(
+                                                            'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                                                            row.action === 'Denied'
+                                                                ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30'
+                                                                : row.action === 'Proceeded'
+                                                                  ? 'bg-rose-500/15 text-rose-500 border border-rose-500/30'
+                                                                  : 'bg-sky-500/15 text-sky-500 border border-sky-500/30',
+                                                        )}
                                                     >
-                                                        {successRate}% Contained
+                                                        {row.action}
                                                     </span>
                                                 </td>
                                             </tr>
@@ -252,12 +293,15 @@ export default function NudgeEffectiveness({
     );
 }
 
-NudgeEffectiveness.layout = {
+EgressIncidents.layout = {
     breadcrumbs: [
-        { title: 'Shadow Analytics', href: '/security-analytics' },
         {
-            title: 'Shadow Containment',
-            href: '/security-analytics/nudge-effectiveness',
+            title: 'Shadow Analytics',
+            href: '/security-analytics',
+        },
+        {
+            title: 'Shadow Incidents',
+            href: '/security-analytics/egress-incidents',
         },
     ],
 };

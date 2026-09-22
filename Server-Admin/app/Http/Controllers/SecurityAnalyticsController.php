@@ -13,134 +13,226 @@ use Inertia\Response;
 class SecurityAnalyticsController extends Controller
 {
     /**
-     * Display the Security Analytics page with live data.
+     * Display the Shadow Analytics page with live data.
      */
     public function index(): Response
     {
-        // 1. Detected Domains - count unique domains from domain_visits
-        $uniqueDomains = DomainVisit::distinct('domain')->count();
+        // 1. Discovered Shadow Apps - unique domains classified as unsafe/unlisted or blacklisted/under_review
+        $shadowDomainsQuery = DomainPolicy::where(function ($q) {
+            $q->whereIn('policy', ['blacklisted', 'under_review'])
+                ->orWhereIn('domain_status', ['unsafe', 'unlisted']);
+        });
+        $shadowDomainList = $shadowDomainsQuery->pluck('domain');
+        $discoveredShadowApps = $shadowDomainList->count();
+        if ($discoveredShadowApps === 0) {
+            $discoveredShadowApps = DomainPolicy::count();
+        }
 
-        // 2. Domain Usage - single conditional aggregation instead of 3 separate counts
-        /** @var object{safe: int, unsafe: int, unlisted: int} $statusCounts */
-        $statusCounts = DomainPolicy::selectRaw("
-            SUM(CASE WHEN domain_status = 'safe' THEN 1 ELSE 0 END) as safe,
-            SUM(CASE WHEN domain_status = 'unsafe' THEN 1 ELSE 0 END) as unsafe,
-            SUM(CASE WHEN domain_status = 'unlisted' THEN 1 ELSE 0 END) as unlisted
-        ")->first();
-        $domainUsage = [
-            'safe' => (int) $statusCounts->safe,
-            'unsafe' => (int) $statusCounts->unsafe,
-            'unlisted' => (int) $statusCounts->unlisted,
-        ];
+        // 2. Shadow Adopters - unique installed extension users accessing shadow domains
+        $shadowVisitUsers = DomainVisit::where(function ($q) use ($shadowDomainList) {
+            $q->whereIn('domain', $shadowDomainList)
+                ->orWhereIn('status', ['unsafe', 'unlisted']);
+        })
+            ->whereNotNull('user_id')
+            ->distinct('user_id')
+            ->pluck('user_id');
 
-        // 3. Total Nudges Deployed - count egress events
-        $totalNudgesDeployed = EgressEvent::count();
+        $shadowEgressUsers = EgressEvent::whereIn('domain', $shadowDomainList)
+            ->whereNotNull('user_id')
+            ->distinct('user_id')
+            ->pluck('user_id');
 
-        // 4. Nudge Effectiveness - count interactions grouped by date and action
-        $nudgeEffectiveness = NudgeInteraction::select(
-            DB::raw('DATE(interacted_at) as date'),
-            DB::raw("SUM(CASE WHEN user_action = 'proceeded' THEN 1 ELSE 0 END) as proceeded"),
-            DB::raw("SUM(CASE WHEN user_action = 'cancelled' THEN 1 ELSE 0 END) as cancelled")
-        )
-            ->groupBy(DB::raw('DATE(interacted_at)'))
-            ->orderByDesc('date')
-            ->limit(10)
-            ->get()
-            ->map(function ($row) {
-                /** @var object{date: string, proceeded: int, cancelled: int} $row */
-                return [
-                    'date' => $row->date,
-                    'proceeded' => (int) $row->proceeded,
-                    'cancelled' => (int) $row->cancelled,
-                ];
-            });
+        $shadowAdopters = $shadowVisitUsers->merge($shadowEgressUsers)->unique()->count();
 
-        // 5. Average Success Rate - compute from nudge effectiveness data
-        $totalProceeded = $nudgeEffectiveness->sum('proceeded');
-        $totalCancelled = $nudgeEffectiveness->sum('cancelled');
-        $totalInteractions = $totalProceeded + $totalCancelled;
-        $avgSuccessRate = $totalInteractions > 0
-            ? round(($totalProceeded / $totalInteractions) * 100, 1)
-            : 0;
+        // 3. Shadow Egress Attempts
+        $shadowEgressAttempts = EgressEvent::count();
+        $criticalEgressAttempts = EgressEvent::where('risk_score', '>=', 76)->count();
 
-        // 6 & 7. Data Saved/Lost - single conditional aggregation instead of 2 separate sums
+        // 4. Data Protection Volume
         /** @var object{data_saved: int, data_lost: int} $dataStats */
         $dataStats = EgressEvent::selectRaw("
             COALESCE(SUM(CASE WHEN action = 'denied' THEN file_size ELSE 0 END), 0) as data_saved,
             COALESCE(SUM(CASE WHEN action IN ('proceeded', 'allowed') THEN file_size ELSE 0 END), 0) as data_lost
         ")->first();
 
-        // 8. Top Domains - LEFT JOIN instead of correlated subqueries
-        $topDomains = DomainPolicy::select(
-            'domain_policies.domain',
-            'domain_policies.visit_count as totalVisits',
-            DB::raw('COUNT(DISTINCT domain_visits.user_id) as activeUsers')
+        // 5. Nudge Interactions & Containment Rate
+        /** @var object{cancelled: int, proceeded: int} $nudgeStats */
+        $nudgeStats = NudgeInteraction::selectRaw("
+            COALESCE(SUM(CASE WHEN user_action = 'cancelled' THEN 1 ELSE 0 END), 0) as cancelled,
+            COALESCE(SUM(CASE WHEN user_action = 'proceeded' THEN 1 ELSE 0 END), 0) as proceeded
+        ")->first();
+        $nudgeCancelled = (int) ($nudgeStats->cancelled ?? 0);
+        $nudgeProceeded = (int) ($nudgeStats->proceeded ?? 0);
+        $totalNudgeInteractions = $nudgeCancelled + $nudgeProceeded;
+        $shadowContainmentRate = $totalNudgeInteractions > 0
+            ? round(($nudgeCancelled / $totalNudgeInteractions) * 100, 1)
+            : 0;
+
+        // 6. Section 2 Chart 1: Shadow Activity Velocity (Last 7 Days)
+        $sevenDaysAgo = now()->subDays(6)->startOfDay();
+        $dailyVisits = DomainVisit::selectRaw('DATE(visited_at) as date, COUNT(*) as count')
+            ->where('visited_at', '>=', $sevenDaysAgo)
+            ->groupBy('date')
+            ->pluck('count', 'date');
+
+        $dailyEgress = EgressEvent::selectRaw('DATE(occurred_at) as date, COUNT(*) as count')
+            ->where('occurred_at', '>=', $sevenDaysAgo)
+            ->groupBy('date')
+            ->pluck('count', 'date');
+
+        $velocityActivity = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $date = now()->subDays($i)->format('Y-m-d');
+            $velocityActivity[] = [
+                'date' => $date,
+                'day' => now()->subDays($i)->format('D'),
+                'visits' => (int) ($dailyVisits[$date] ?? 0),
+                'egress' => (int) ($dailyEgress[$date] ?? 0),
+            ];
+        }
+
+        // 7. Section 2 Chart 2: Shadow Category Risk Distribution
+        $totalPolicies = DomainPolicy::count();
+        $categoriesRaw = DomainPolicy::select(
+            DB::raw("COALESCE(NULLIF(category, ''), 'General Cloud') as category_name"),
+            DB::raw('COUNT(*) as count'),
+            DB::raw('ROUND(AVG(risk_score)) as avg_risk')
         )
-            ->leftJoin('domain_visits', 'domain_visits.domain', '=', 'domain_policies.domain')
-            ->groupBy('domain_policies.id', 'domain_policies.domain', 'domain_policies.visit_count')
-            ->orderByRaw('(domain_policies.visit_count + COUNT(DISTINCT domain_visits.user_id)) / 2 DESC')
-            ->limit(5)
-            ->get()
-            ->map(function ($row) {
-                /** @var object{domain: string, totalVisits: int, activeUsers: int} $row */
-                return [
-                    'domain' => $row->domain,
-                    'totalVisits' => (int) $row->totalVisits,
-                    'activeUsers' => (int) $row->activeUsers,
-                ];
-            });
+            ->groupBy('category_name')
+            ->orderByDesc('count')
+            ->limit(6)
+            ->get();
+
+        $categoryDistribution = $categoriesRaw->map(function ($row) use ($totalPolicies) {
+            return [
+                'category' => $row->category_name,
+                'count' => (int) $row->count,
+                'percentage' => $totalPolicies > 0 ? round(((int) $row->count / $totalPolicies) * 100) : 0,
+                'avgRisk' => (int) $row->avg_risk,
+            ];
+        });
+
+        // 8. Section 2 Chart 3: Policy Stance
+        /** @var object{unapproved: int, under_review: int, sanctioned: int} $policyCounts */
+        $policyCounts = DomainPolicy::selectRaw("
+            COALESCE(SUM(CASE WHEN policy = 'blacklisted' OR domain_status = 'unsafe' THEN 1 ELSE 0 END), 0) as unapproved,
+            COALESCE(SUM(CASE WHEN policy = 'under_review' OR domain_status = 'unlisted' THEN 1 ELSE 0 END), 0) as under_review,
+            COALESCE(SUM(CASE WHEN policy = 'whitelisted' OR domain_status = 'safe' THEN 1 ELSE 0 END), 0) as sanctioned
+        ")->first();
+        $policyStance = [
+            'unapproved' => (int) ($policyCounts->unapproved ?? 0),
+            'underReview' => (int) ($policyCounts->under_review ?? 0),
+            'sanctioned' => (int) ($policyCounts->sanctioned ?? 0),
+            'total' => (int) (($policyCounts->unapproved ?? 0) + ($policyCounts->under_review ?? 0) + ($policyCounts->sanctioned ?? 0)),
+        ];
+
+        // 9. Section 2 Chart 4: Nudge Containment Efficacy
+        $nudgeEfficacy = [
+            'cancelled' => $nudgeCancelled,
+            'proceeded' => $nudgeProceeded,
+            'total' => $totalNudgeInteractions,
+            'rate' => $shadowContainmentRate,
+        ];
 
         return Inertia::render('security-analytics', [
-            'uniqueDomains' => $uniqueDomains,
-            'domainUsage' => $domainUsage,
-            'totalNudgesDeployed' => $totalNudgesDeployed,
-            'nudgeEffectiveness' => $nudgeEffectiveness,
-            'avgSuccessRate' => $avgSuccessRate,
-            'dataSaved' => $this->formatBytes((int) $dataStats->data_saved),
-            'dataLost' => $this->formatBytes((int) $dataStats->data_lost),
-            'topDomains' => $topDomains,
+            'kpi' => [
+                'discoveredShadowApps' => $discoveredShadowApps,
+                'shadowAdopters' => $shadowAdopters,
+                'shadowEgressAttempts' => $shadowEgressAttempts,
+                'criticalEgressAttempts' => $criticalEgressAttempts,
+                'dataSaved' => $this->formatBytes((int) $dataStats->data_saved),
+                'dataLost' => $this->formatBytes((int) $dataStats->data_lost),
+                'shadowContainmentRate' => $shadowContainmentRate,
+            ],
+            'velocityActivity' => $velocityActivity,
+            'categoryDistribution' => $categoryDistribution,
+            'policyStance' => $policyStance,
+            'nudgeEfficacy' => $nudgeEfficacy,
         ]);
     }
 
     /**
-     * Display the Shadow Footprint Catalog page with live data.
+     * Display the standalone Discovered Shadow Applications catalog subpage.
      */
-    public function shadowFootprints(): Response
+    public function shadowApps(): Response
     {
-        $shadowFootprints = DomainPolicy::select(
-            'domain_policies.id', 'domain_policies.domain', 'domain_policies.category', 'domain_policies.risk_score', 'domain_policies.policy',
+        $shadowCatalog = DomainPolicy::select(
+            'domain_policies.id',
+            'domain_policies.domain',
+            'domain_policies.category',
+            'domain_policies.risk_score',
+            'domain_policies.domain_status',
+            'domain_policies.policy',
+            'domain_policies.visit_count',
             DB::raw('COUNT(DISTINCT domain_visits.user_id) as active_users')
         )
             ->leftJoin('domain_visits', 'domain_visits.domain', '=', 'domain_policies.domain')
-            ->groupBy('domain_policies.id', 'domain_policies.domain', 'domain_policies.category', 'domain_policies.risk_score', 'domain_policies.policy')
+            ->groupBy(
+                'domain_policies.id',
+                'domain_policies.domain',
+                'domain_policies.category',
+                'domain_policies.risk_score',
+                'domain_policies.domain_status',
+                'domain_policies.policy',
+                'domain_policies.visit_count'
+            )
             ->orderByDesc('domain_policies.risk_score')
             ->get()
             ->map(function ($row) {
-                /** @var object{id: int, domain: string, category: string|null, risk_score: int, policy: string, active_users: int} $row */
-                $domainName = explode('.', $row->domain)[0];
-                $appName = ucfirst($domainName);
+                /** @var object{id: int, domain: string, category: string|null, risk_score: int, domain_status: string, policy: string, visit_count: int, active_users: int} $row */
+                $domainParts = explode('.', $row->domain);
+                $appName = ucfirst($domainParts[0]);
 
                 $statusMap = [
-                    'whitelisted' => 'Approved',
+                    'whitelisted' => 'Sanctioned',
                     'blacklisted' => 'Unapproved',
-                    'under_review' => 'Pending',
+                    'under_review' => 'Under Review',
                 ];
 
                 return [
                     'id' => $row->id,
                     'app' => $appName,
                     'domain' => $row->domain,
-                    'category' => $row->category ?? '—',
-                    'risk' => $row->risk_score > 50 ? 'high' : 'low',
+                    'category' => $row->category ?: 'General Cloud',
+                    'risk_score' => (int) $row->risk_score,
                     'users' => (int) $row->active_users,
-                    'status' => $statusMap[$row->policy],
+                    'visit_count' => (int) ($row->visit_count ?: $row->active_users),
+                    'status' => $statusMap[$row->policy] ?? 'Under Review',
+                    'policy' => $row->policy,
+                    'domain_status' => $row->domain_status,
                 ];
             });
 
-        return Inertia::render('security-analytics/shadow-footprints', [
-            'shadowFootprints' => $shadowFootprints,
+        return Inertia::render('security-analytics/shadow-apps', [
+            'shadowCatalog' => $shadowCatalog,
         ]);
     }
+
+    /**
+     * Display the standalone Shadow Egress Incidents subpage.
+     */
+    public function egressIncidents(): Response
+    {
+        $recentShadowEgress = EgressEvent::orderByDesc('occurred_at')
+            ->get()
+            ->map(function ($event) {
+                return [
+                    'id' => $event->id,
+                    'occurred_at' => $event->occurred_at->toIso8601String(),
+                    'domain' => $event->domain,
+                    'user' => $event->user_id ?? 'Unknown',
+                    'fileName' => $event->file_name ?? '—',
+                    'fileSize' => $event->file_size ? $this->formatBytes($event->file_size) : '—',
+                    'risk_score' => (int) $event->risk_score,
+                    'action' => ucfirst($event->action),
+                ];
+            });
+
+        return Inertia::render('security-analytics/egress-incidents', [
+            'recentShadowEgress' => $recentShadowEgress,
+        ]);
+    }
+
 
     /**
      * Display the Nudge Effectiveness subpage with full data.

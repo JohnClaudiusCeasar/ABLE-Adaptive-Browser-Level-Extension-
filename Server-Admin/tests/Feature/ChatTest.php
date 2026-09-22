@@ -24,9 +24,19 @@ class ChatTest extends TestCase
     public function test_authenticated_users_can_visit_the_chat_page()
     {
         $user = User::factory()->create();
-        $this->actingAs($user);
 
-        $response = $this->get(route('chat.index'));
+        $response = $this->actingAs($user)->get(route('chat.index'));
+
+        $response->assertOk();
+    }
+
+    public function test_authenticated_users_can_visit_the_chat_show_page()
+    {
+        $user = User::factory()->create();
+        $other = User::factory()->create();
+        $conversation = ChatConversation::forPair($user, $other);
+
+        $response = $this->actingAs($user)->get(route('chat.show', $conversation));
 
         $response->assertOk();
     }
@@ -273,6 +283,7 @@ class ChatTest extends TestCase
 
         $response->assertStatus(201);
         $this->assertSame(1, ChatMessage::count());
+        $message = ChatMessage::first();
         $this->assertSame('screenshot.png', ChatMessage::first()->attachment_name);
     }
 

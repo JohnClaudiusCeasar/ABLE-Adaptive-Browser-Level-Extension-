@@ -193,13 +193,13 @@
             </div>
             <div class="metric-card">
                 <div class="value">{{ $nudgeSuccessRate }}%</div>
-                <div class="label">Nudge Success</div>
+                <div class="label">Nudge Containment</div>
             </div>
         </div>
     </div>
 
     <div class="section">
-        <div class="section-title">Domain Usage</div>
+        <div class="section-title">Policy Control</div>
         <div class="metrics-grid">
             <div class="metric-card">
                 <div class="value">{{ number_format($domainUsage['safe']) }}</div>

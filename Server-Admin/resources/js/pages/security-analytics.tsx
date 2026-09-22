@@ -1,396 +1,356 @@
 import { Head, Link } from '@inertiajs/react';
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+    Ghost,
+    Users,
+    ShieldAlert,
+    ArrowUpFromLine,
+    CheckCircle2,
+} from 'lucide-react';
+import { useMemo } from 'react';
+import { DonutGauge } from '@/components/dashboard/donut-gauge';
+import { GroupedBarChart } from '@/components/dashboard/grouped-bar-chart';
+import { PanelCard } from '@/components/dashboard/panel-card';
+import { StatCard } from '@/components/dashboard/stat-card';
+import { Button } from '@/components/ui/button';
+import { cn, formatMetricNumber } from '@/lib/utils';
 
-const glassCard =
-    'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
-
-function ProgressBar({
-    label,
-    value,
-    total,
-    color,
-}: {
-    label: string;
-    value: number;
-    total: number;
-    color: string;
-}) {
-    return (
-        <div className="flex items-center justify-between text-[0.85rem]">
-            <span className="w-[70px] font-medium">{label}</span>
-            <div className="mx-4 h-3 flex-1 overflow-hidden rounded-md bg-black/5 dark:bg-white/10">
-                <div
-                    className="h-full rounded-md"
-                    style={{
-                        width: `${total > 0 ? (value / total) * 100 : 0}%`,
-                        backgroundColor: color,
-                    }}
-                />
-            </div>
-            <span className="w-[30px] text-right">{value}</span>
-        </div>
-    );
-}
-
-interface NudgeEffectivenessRow {
-    date: string;
-    proceeded: number;
-    cancelled: number;
-}
-
-interface TopDomainRow {
-    domain: string;
-    totalVisits: number;
-    activeUsers: number;
-}
-
-interface SecurityAnalyticsProps {
-    uniqueDomains: number;
-    domainUsage: {
-        safe: number;
-        unsafe: number;
-        unlisted: number;
-    };
-    totalNudgesDeployed: number;
-    nudgeEffectiveness: NudgeEffectivenessRow[];
-    avgSuccessRate: number;
+interface KPIData {
+    discoveredShadowApps: number;
+    shadowAdopters: number;
+    shadowEgressAttempts: number;
+    criticalEgressAttempts: number;
     dataSaved: string;
     dataLost: string;
-    topDomains: TopDomainRow[];
+    shadowContainmentRate: number;
 }
 
-export default function SecurityAnalytics({
-    uniqueDomains,
-    domainUsage,
-    totalNudgesDeployed,
-    nudgeEffectiveness,
-    avgSuccessRate,
-    dataSaved,
-    dataLost,
-    topDomains,
-}: SecurityAnalyticsProps) {
-    const [timeFilter, setTimeFilter] = useState('daily');
+interface DailyVelocity {
+    date: string;
+    day: string;
+    visits: number;
+    egress: number;
+}
 
-    const totalDomains =
-        domainUsage.safe + domainUsage.unsafe + domainUsage.unlisted;
+interface CategoryDistItem {
+    category: string;
+    count: number;
+    percentage: number;
+    avgRisk: number;
+}
+
+interface PolicyStanceData {
+    unapproved: number;
+    underReview: number;
+    sanctioned: number;
+    total: number;
+}
+
+interface NudgeEfficacyData {
+    cancelled: number;
+    proceeded: number;
+    total: number;
+    rate: number;
+}
+
+interface ShadowAnalyticsProps {
+    kpi: KPIData;
+    velocityActivity: DailyVelocity[];
+    categoryDistribution: CategoryDistItem[];
+    policyStance: PolicyStanceData;
+    nudgeEfficacy: NudgeEfficacyData;
+}
+
+function getRiskScoreBadgeClass(score: number): string {
+    if (score >= 76) {
+        return 'border border-[#ff4d4d] bg-[rgba(255,77,77,0.2)] text-[#ff4d4d]';
+    }
+    if (score >= 41) {
+        return 'border border-[#f59e0b] bg-[rgba(245,158,11,0.2)] text-[#f59e0b]';
+    }
+    return 'border border-[#00ff66] bg-[rgba(0,255,102,0.2)] text-[#00ff66]';
+}
+
+export default function ShadowAnalytics({
+    kpi,
+    velocityActivity,
+    categoryDistribution,
+    policyStance,
+    nudgeEfficacy,
+}: ShadowAnalyticsProps) {
+    // Donut Segments
+    const policySegments = useMemo(
+        () => [
+            {
+                color: '#ff3b3b',
+                value: policyStance.unapproved,
+                label: 'Unapproved',
+            },
+            {
+                color: '#f59e0b',
+                value: policyStance.underReview,
+                label: 'Under Review',
+            },
+            {
+                color: '#22c55e',
+                value: policyStance.sanctioned,
+                label: 'Sanctioned',
+            },
+        ],
+        [policyStance],
+    );
+
+    const nudgeSegments = useMemo(
+        () => [
+            {
+                color: '#22c55e',
+                value: nudgeEfficacy.cancelled,
+                label: 'Prevented (Cancelled)',
+            },
+            {
+                color: '#ff3b3b',
+                value: nudgeEfficacy.proceeded,
+                label: 'Overridden (Proceeded)',
+            },
+        ],
+        [nudgeEfficacy],
+    );
 
     return (
         <>
-            <Head title="Security Analytics" />
-            <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-6 px-8 pt-12 pb-[22px]">
-                {/* Header */}
-                <header>
-                    <h1
-                        className="mb-3 text-[2.8rem] font-bold tracking-wide"
-                        style={{ fontFamily: "'Unbounded', sans-serif" }}
-                    >
-                        SECURITY ANALYTICS
-                    </h1>
-                    <p className="max-w-[850px] text-[1.05rem] leading-relaxed text-muted-foreground">
-                        Monitors and Displays Domain Information and Nudge
-                        Success Percentage extracted from the Browser Extension
-                        for Admin Review and Approval.
-                    </p>
+            <Head title="Shadow Overview" />
+            <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-8 px-8 pt-12 pb-[22px]">
+                {/* Header Row */}
+                <header className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                        <h1
+                            className="mb-2.5 text-[2.8rem] font-bold tracking-wide text-foreground uppercase"
+                            style={{ fontFamily: "'Unbounded', sans-serif" }}
+                        >
+                            SHADOW OVERVIEW
+                        </h1>
+                        <p className="max-w-[760px] text-[1.05rem] leading-relaxed text-muted-foreground">
+                            Continuous discovery, telemetry classification, and
+                            egress mitigation across unsanctioned applications
+                            intercepted by the ABLE extension network.
+                        </p>
+                    </div>
                 </header>
 
-                {/* Data Transfer Summary - Unified Card */}
-                <div className={`${glassCard} p-6`}>
-                    <h3
-                        className="mb-6 text-[1.1rem] font-semibold"
-                        style={{ fontFamily: "'Unbounded', sans-serif" }}
+                {/* ========================================================================= */}
+                {/* SECTION 1: KPI METRICS (5 Cards Row)                                      */}
+                {/* ========================================================================= */}
+                <section>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                        <StatCard
+                            label="Shadow Apps"
+                            value={kpi.discoveredShadowApps}
+                            icon={Ghost}
+                            accent="text-[#a855f7]"
+                            underline="bg-[#a855f7]"
+                            subtitle="Unapproved & unlisted"
+                        />
+                        <StatCard
+                            label="Shadow Adopters"
+                            value={kpi.shadowAdopters}
+                            icon={Users}
+                            accent="text-[#f59e0b]"
+                            underline="bg-[#f59e0b]"
+                            subtitle="Extension users"
+                        />
+                        <StatCard
+                            label="Egress Attempts"
+                            value={kpi.shadowEgressAttempts}
+                            icon={ShieldAlert}
+                            accent="text-[#ff4d4d]"
+                            underline="bg-[#ff4d4d]"
+                            subtitle={`${formatMetricNumber(kpi.criticalEgressAttempts)} high-risk`}
+                        />
+                        <StatCard
+                            label="Data Protected"
+                            value={kpi.dataSaved}
+                            icon={ArrowUpFromLine}
+                            accent="text-[#00ff66]"
+                            underline="bg-[#00ff66]"
+                            subtitle={`${kpi.dataLost} lost`}
+                        />
+                        <StatCard
+                            label="Containment"
+                            value={`${kpi.shadowContainmentRate}%`}
+                            icon={CheckCircle2}
+                            accent="text-able-green"
+                            underline="bg-able-green"
+                            subtitle="Nudge defense rate"
+                        />
+                    </div>
+                </section>
+
+                {/* Divider */}
+                <div className="flex items-center gap-3">
+                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[rgba(34,197,94,0.4)] to-transparent" />
+                    <div className="relative">
+                        <div className="h-2 w-2 rounded-full bg-able-green" />
+                        <div className="absolute inset-0 h-2 w-2 animate-ping rounded-full bg-able-green opacity-40" />
+                    </div>
+                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[rgba(34,197,94,0.4)] to-transparent" />
+                </div>
+
+                {/* ========================================================================= */}
+                {/* SECTION 2: CHART CARDS (2x2 Grid)                                         */}
+                {/* ========================================================================= */}
+                <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                    {/* Chart 1: Shadow Activity Velocity */}
+                    <PanelCard
+                        title="Activity Velocity"
+                        subtitle="Daily domain visits vs. egress upload attempts over the last 7 days"
+                        action={
+                            <Link href="/security-analytics/egress-incidents">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 px-2.5 text-xs border-[rgba(34,197,94,0.5)] hover:bg-[rgba(34,197,94,0.1)]"
+                                >
+                                    View Incidents
+                                </Button>
+                            </Link>
+                        }
                     >
-                        Data Transfer Summary
-                    </h3>
-                    <div className="grid grid-cols-2 gap-8">
-                        <div className="flex flex-col items-center text-center">
-                            <p className="mb-2 text-sm text-muted-foreground">
-                                Data Saved
-                            </p>
-                            <p className="text-[2.5rem] font-bold text-[#00ff66]">
-                                {dataSaved}
-                            </p>
-                        </div>
-                        <div className="flex flex-col items-center text-center">
-                            <p className="mb-2 text-sm text-muted-foreground">
-                                Data Loss
-                            </p>
-                            <p className="text-[2.5rem] font-bold text-[#ff4d4d]">
-                                {dataLost}
-                            </p>
-                        </div>
-                    </div>
-                </div>
+                        <GroupedBarChart data={velocityActivity} />
+                    </PanelCard>
 
-                {/* Row: Detected Domains + Domain Usage */}
-                <div className="grid grid-cols-[3fr_7fr] gap-6">
-                    <div
-                        className={`${glassCard} flex flex-col items-center justify-center p-6 text-center`}
+                    {/* Chart 2: Shadow Category Risk Distribution */}
+                    <PanelCard
+                        title="Category Breakdown"
+                        subtitle="Discovered applications grouped by risk category & average threat weight"
+                        action={
+                            <Link href="/security-analytics/shadow-apps">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 px-2.5 text-xs border-[rgba(34,197,94,0.5)] hover:bg-[rgba(34,197,94,0.1)]"
+                                >
+                                    View Catalog
+                                </Button>
+                            </Link>
+                        }
                     >
-                        <h3
-                            className="mb-4 text-[1.1rem] font-semibold"
-                            style={{ fontFamily: "'Unbounded', sans-serif" }}
-                        >
-                            Detected Domains
-                        </h3>
-                        <div className="mt-2.5 text-[4rem] font-bold">
-                            {uniqueDomains}
-                        </div>
-                    </div>
-                    <div className={`${glassCard} p-6`}>
-                        <div className="mb-5 flex items-center justify-between">
-                            <h3
-                                className="text-[1.1rem] font-semibold"
-                                style={{
-                                    fontFamily: "'Unbounded', sans-serif",
-                                }}
-                            >
-                                Domain Usage Over time
-                            </h3>
-                            <Select
-                                value={timeFilter}
-                                onValueChange={setTimeFilter}
-                            >
-                                <SelectTrigger className="w-[120px] border border-[rgba(34,197,94,0.7)] bg-black/5 dark:bg-white/10">
-                                    <SelectValue placeholder="Daily" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="daily">Daily</SelectItem>
-                                    <SelectItem value="weekly">
-                                        Weekly
-                                    </SelectItem>
-                                    <SelectItem value="monthly">
-                                        Monthly
-                                    </SelectItem>
-                                    <SelectItem value="yearly">
-                                        Yearly
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="flex flex-col gap-4">
-                            <ProgressBar
-                                label="SAFE"
-                                value={domainUsage.safe}
-                                total={totalDomains}
-                                color="#00ff66"
-                            />
-                            <ProgressBar
-                                label="UNSAFE"
-                                value={domainUsage.unsafe}
-                                total={totalDomains}
-                                color="#ff4d4d"
-                            />
-                            <ProgressBar
-                                label="UNLISTED"
-                                value={domainUsage.unlisted}
-                                total={totalDomains}
-                                color="#f066ff"
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                {/* Shadow Footprint Catalog - Header + View All */}
-                <div className={`${glassCard} p-6 py-12`}>
-                    <div className="mb-2 flex flex-row items-center justify-between">
-                        <h3
-                            className="text-[1.92rem] font-semibold"
-                            style={{ fontFamily: "'Unbounded', sans-serif" }}
-                        >
-                            Shadow Footprint Catalog
-                        </h3>
-                        <Link href="/security-analytics/shadow-footprints">
-                            <Button
-                                variant="outline"
-                                className="border-[rgba(34,197,94,0.7)] hover:bg-[rgba(34,197,94,0.1)]"
-                            >
-                                View All
-                            </Button>
-                        </Link>
-                    </div>
-                    <p className="text-[1.3rem] text-muted-foreground italic">
-                        Monitor and manage shadow application footprints
-                    </p>
-                </div>
-
-                {/* Metrics Row: Total Nudges + Success Rate */}
-                <div className="grid grid-cols-2 gap-6">
-                    {[
-                        {
-                            label: 'Total Nudges Deployed',
-                            value: totalNudgesDeployed.toLocaleString(),
-                        },
-                        {
-                            label: 'Avg. Success Rate',
-                            value: `${avgSuccessRate}%`,
-                            highlight: true,
-                        },
-                    ].map((m) => (
-                        <div
-                            key={m.label}
-                            className={`${glassCard} flex flex-col items-center justify-center p-6 text-center`}
-                        >
-                            <h4
-                                className="mb-5 text-[1.2rem] font-medium"
-                                style={{
-                                    fontFamily: "'Unbounded', sans-serif",
-                                }}
-                            >
-                                {m.label}
-                            </h4>
-                            <div
-                                className={`text-[3.5rem] font-bold ${m.highlight ? 'text-[#f1c40f]' : ''}`}
-                            >
-                                {m.value}
+                        {categoryDistribution.length === 0 ? (
+                            <div className="flex h-[240px] items-center justify-center text-sm text-muted-foreground italic">
+                                No categorized applications found yet.
                             </div>
-                        </div>
-                    ))}
-                </div>
+                        ) : (
+                            <div className="flex flex-col gap-3.5 py-1">
+                                {categoryDistribution.map((item) => (
+                                    <div
+                                        key={item.category}
+                                        className="flex flex-col gap-1.5 rounded-lg border border-black/5 bg-black/[0.02] p-2.5 dark:border-white/5 dark:bg-white/[0.02]"
+                                    >
+                                        <div className="flex items-center justify-between text-xs">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-semibold text-foreground">
+                                                    {item.category}
+                                                </span>
+                                                <span className="rounded-full bg-black/5 px-2 py-0.5 text-[10px] text-muted-foreground dark:bg-white/10">
+                                                    {item.count}{' '}
+                                                    {item.count === 1
+                                                        ? 'app'
+                                                        : 'apps'}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span
+                                                    className={cn(
+                                                        'rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                                                        getRiskScoreBadgeClass(
+                                                            item.avgRisk,
+                                                        ),
+                                                    )}
+                                                >
+                                                    Avg Risk: {item.avgRisk}%
+                                                </span>
+                                                <span className="font-medium text-muted-foreground tabular-nums">
+                                                    {item.percentage}%
+                                                </span>
+                                            </div>
+                                        </div>
+                                        {/* Progress Bar Track */}
+                                        <div className="h-2 w-full overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
+                                            <div
+                                                className="h-full rounded-full transition-all duration-500"
+                                                style={{
+                                                    width: `${Math.max(item.percentage, 5)}%`,
+                                                    backgroundColor:
+                                                        item.avgRisk >= 76
+                                                            ? '#ff4d4d'
+                                                            : item.avgRisk >= 41
+                                                              ? '#f59e0b'
+                                                              : '#00ff66',
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </PanelCard>
 
-                {/* Bottom Tables Row */}
-                <div className="grid grid-cols-2 gap-6">
-                    {/* Nudge Effectiveness */}
-                    <div className={`${glassCard} p-6`}>
-                        <div className="mb-4 flex items-center justify-between">
-                            <h3
-                                className="text-[1.1rem] font-semibold"
-                                style={{
-                                    fontFamily: "'Unbounded', sans-serif",
-                                }}
-                            >
-                                Nudge Effectiveness
-                            </h3>
+                    {/* Chart 3: Policy Control */}
+                    <PanelCard
+                        title="Policy Control"
+                        subtitle="Classification ratio of monitored shadow applications"
+                        action={
+                            <Link href="/policy-algorithm">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 px-2.5 text-xs border-[rgba(34,197,94,0.5)] hover:bg-[rgba(34,197,94,0.1)]"
+                                >
+                                    Policy Rules
+                                </Button>
+                            </Link>
+                        }
+                    >
+                        <DonutGauge
+                            segments={policySegments}
+                            centerLabel="Total Monitored"
+                            centerValue={policyStance.total.toLocaleString()}
+                            noData={policyStance.total === 0}
+                        />
+                    </PanelCard>
+
+                    {/* Chart 4: Nudge Containment */}
+                    <PanelCard
+                        title="Nudge Containment"
+                        subtitle="Employee compliance responses when presented with upload warnings"
+                        action={
                             <Link href="/security-analytics/nudge-effectiveness">
                                 <Button
                                     variant="outline"
-                                    className="border-[rgba(34,197,94,0.7)] text-sm hover:bg-[rgba(34,197,94,0.1)]"
+                                    size="sm"
+                                    className="h-7 px-2.5 text-xs border-[rgba(34,197,94,0.5)] hover:bg-[rgba(34,197,94,0.1)]"
                                 >
-                                    View All
+                                    Full Telemetry
                                 </Button>
                             </Link>
-                        </div>
-                        <table className="w-full border-collapse text-left text-[0.9rem]">
-                            <thead>
-                                <tr>
-                                    <th className="w-[35%] border-b border-[rgba(34,197,94,0.7)] pb-5 font-medium text-muted-foreground">
-                                        Date
-                                    </th>
-                                    <th className="w-[20%] border-b border-[rgba(34,197,94,0.7)] pb-5 font-medium text-muted-foreground">
-                                        Proceeded
-                                    </th>
-                                    <th className="w-[20%] border-b border-[rgba(34,197,94,0.7)] pb-5 font-medium text-muted-foreground">
-                                        Cancelled
-                                    </th>
-                                    <th className="w-[25%] border-b border-[rgba(34,197,94,0.7)] pb-5 font-medium text-muted-foreground">
-                                        Success
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {nudgeEffectiveness
-                                    .slice(0, 5)
-                                    .map((row, i) => {
-                                        const total =
-                                            row.proceeded + row.cancelled;
-                                        const success =
-                                            total > 0
-                                                ? (
-                                                      (row.proceeded / total) *
-                                                      100
-                                                  ).toFixed(1) + '%'
-                                                : '0%';
-
-                                        return (
-                                            <tr
-                                                key={i}
-                                                className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0"
-                                            >
-                                                <td className="py-3.5">
-                                                    {row.date}
-                                                </td>
-                                                <td className="py-3.5">
-                                                    {row.proceeded}
-                                                </td>
-                                                <td className="py-3.5">
-                                                    {row.cancelled}
-                                                </td>
-                                                <td className="py-3.5">
-                                                    <span
-                                                        className={`inline-block rounded-[10px] px-2 py-0.5 text-[12px] font-bold ${
-                                                            parseFloat(
-                                                                success,
-                                                            ) >= 50
-                                                                ? 'bg-[#00ff66] text-[#15382e]'
-                                                                : 'bg-[#f39c12] text-white'
-                                                        }`}
-                                                    >
-                                                        {success}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* Top Domains */}
-                    <div className={`${glassCard} p-6`}>
-                        <h3
-                            className="mb-4 text-[1.1rem] font-semibold"
-                            style={{ fontFamily: "'Unbounded', sans-serif" }}
-                        >
-                            Top Domains
-                        </h3>
-                        <table className="w-full border-collapse text-left text-[0.9rem]">
-                            <thead>
-                                <tr>
-                                    {[
-                                        'Domain Name',
-                                        'Total Visit',
-                                        'Active Users',
-                                    ].map((h) => (
-                                        <th
-                                            key={h}
-                                            className="border-b border-[rgba(34,197,94,0.7)] pb-5 font-medium text-muted-foreground"
-                                        >
-                                            {h}
-                                        </th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {topDomains.map((row, i) => (
-                                    <tr
-                                        key={i}
-                                        className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0"
-                                    >
-                                        <td className="py-3.5">{row.domain}</td>
-                                        <td className="py-3.5">
-                                            {row.totalVisits.toLocaleString()}
-                                        </td>
-                                        <td className="py-3.5">
-                                            {row.activeUsers}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                        }
+                    >
+                        <DonutGauge
+                            segments={nudgeSegments}
+                            centerLabel="Containment Rate"
+                            centerValue={`${nudgeEfficacy.rate}%`}
+                            noData={nudgeEfficacy.total === 0}
+                        />
+                    </PanelCard>
+                </section>
             </div>
         </>
     );
 }
 
-SecurityAnalytics.layout = {
-    breadcrumbs: [{ title: 'Security Analytics', href: '/security-analytics' }],
+ShadowAnalytics.layout = {
+    breadcrumbs: [
+        {
+            title: 'Shadow Analytics',
+            href: '/security-analytics',
+        },
+    ],
 };

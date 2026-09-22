@@ -1,8 +1,9 @@
-import { Head, usePage } from '@inertiajs/react';
-import { Search, ArrowUpDown, Layers } from 'lucide-react';
+import { Head, Link, usePage } from '@inertiajs/react';
+import { ArrowLeft, Search, ArrowUpDown, Layers } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { TablePagination } from '@/components/pagination';
 import { Badge } from '@/components/ui/badge';
+import { formatMetricNumber } from '@/lib/utils';
 
 const glassCard =
     'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
@@ -20,7 +21,7 @@ interface PageProps {
     [key: string]: unknown;
 }
 
-const ROWS_PER_PAGE = 5;
+const ROWS_PER_PAGE = 10;
 
 type SortField = 'visited_at' | 'domain' | 'status' | 'action';
 type SortDir = 'asc' | 'desc';
@@ -59,14 +60,18 @@ export default function DomainVisits() {
     const [sortDir, setSortDir] = useState<SortDir>('desc');
     const [groupField, setGroupField] = useState<GroupField>('none');
 
-    // Filter, sort logic
+    // Filter & Sort logic
     const processedVisits = useMemo(() => {
         let items = [...domainVisits];
 
         // Filter by search
         if (searchQuery) {
-            items = items.filter((v) =>
-                v.domain.toLowerCase().includes(searchQuery.toLowerCase()),
+            const query = searchQuery.toLowerCase();
+            items = items.filter(
+                (v) =>
+                    v.domain.toLowerCase().includes(query) ||
+                    (v.user && v.user.toLowerCase().includes(query)) ||
+                    v.action.toLowerCase().includes(query),
             );
         }
 
@@ -124,8 +129,6 @@ export default function DomainVisits() {
         1,
         Math.ceil(processedVisits.length / ROWS_PER_PAGE),
     );
-    // Clamp to a valid page when filters change, so the current page
-    // naturally resets if it falls past the last page.
     const safePage = Math.min(currentPage, totalPages);
     const paginatedItems = useMemo(() => {
         if (groupField !== 'none') {
@@ -144,26 +147,26 @@ export default function DomainVisits() {
             return (
                 <tr
                     key={i}
-                    className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0"
+                    className="border-b border-[rgba(34,197,94,0.3)] transition-colors hover:bg-black/5 last:border-b-0 dark:hover:bg-white/5"
                 >
-                    <td className={`py-3 pr-2.5 ${isGrouped ? 'w-[16%] pl-4' : ''}`}>
+                    <td className={`py-3.5 pr-2.5 ${isGrouped ? 'w-[16%] pl-4' : ''}`}>
                         {date}
                     </td>
-                    <td className={`py-3 pr-2.5 ${isGrouped ? 'w-[14%]' : ''}`}>
+                    <td className={`py-3.5 pr-2.5 ${isGrouped ? 'w-[14%]' : ''}`}>
                         {time}
                     </td>
-                    <td className={`py-3 pr-2.5 ${isGrouped ? 'w-[28%] truncate' : ''}`}>
+                    <td className={`py-3.5 pr-2.5 ${isGrouped ? 'w-[28%] truncate' : ''}`}>
                         {row.domain}
                     </td>
-                    <td className={`py-3 pr-2.5 ${isGrouped ? 'w-[14%]' : ''}`}>
+                    <td className={`py-3.5 pr-2.5 ${isGrouped ? 'w-[14%]' : ''}`}>
                         <Badge variant={row.status}>
                             {row.status.replace('glass-', '').toUpperCase()}
                         </Badge>
                     </td>
-                    <td className={`py-3 pr-2.5 ${isGrouped ? 'w-[14%]' : ''}`}>
+                    <td className={`py-3.5 pr-2.5 ${isGrouped ? 'w-[14%]' : ''}`}>
                         {row.user ?? '—'}
                     </td>
-                    <td className={`py-3 ${isGrouped ? 'w-[14%] pr-4' : ''}`}>
+                    <td className={`py-3.5 ${isGrouped ? 'w-[14%] pr-4' : ''}`}>
                         {row.action}
                     </td>
                 </tr>
@@ -189,47 +192,48 @@ export default function DomainVisits() {
         }
 
         return (
-            <div className="flex flex-col gap-6">
-                {groupKeys.map((groupKey) => {
-                    const items = groupedVisits[groupKey];
+            <div className="space-y-4">
+                {groupKeys.map((groupName) => {
+                    const items = groupedVisits[groupName];
                     const isScrollable = items.length > 5;
 
                     return (
                         <div
-                            key={groupKey}
-                            className="overflow-hidden rounded-lg border border-[rgba(34,197,94,0.3)] bg-black/[0.02] shadow-xs dark:bg-white/[0.02]"
+                            key={groupName}
+                            className="rounded border border-[rgba(34,197,94,0.3)] bg-black/5 dark:bg-[rgba(15,23,42,0.4)]"
                         >
                             {/* Group Header Banner */}
-                            <div className="flex items-center justify-between border-b border-[rgba(34,197,94,0.3)] bg-[rgba(34,197,94,0.08)] px-5 py-3">
-                                <span className="text-sm font-bold tracking-wider text-able-green uppercase">
-                                    {groupKey}
+                            <div className="flex items-center justify-between border-b border-[rgba(34,197,94,0.3)] px-4 py-2">
+                                <span className="font-semibold text-foreground">
+                                    {groupName}
                                 </span>
-                                <span className="rounded-full bg-able-green/15 px-2.5 py-0.5 text-xs font-semibold text-able-green">
-                                    {items.length} {items.length === 1 ? 'Visit' : 'Visits'}
+                                <span className="text-xs text-muted-foreground">
+                                    {items.length}{' '}
+                                    {items.length === 1 ? 'visit' : 'visits'}
                                 </span>
                             </div>
 
-                            {/* Static Column Headers (Blends with Card Gradient Background) */}
-                            <div className="border-b border-[rgba(34,197,94,0.3)] bg-transparent">
+                            {/* Column Header (Fixed) */}
+                            <div className="overflow-x-auto">
                                 <table className="w-full table-fixed border-collapse text-[0.85rem]">
                                     <thead>
                                         <tr className="text-muted-foreground">
-                                            <th className="w-[16%] py-3 pr-2.5 pl-4 text-left font-medium">
+                                            <th className="w-[16%] border-b border-[rgba(34,197,94,0.7)] py-2.5 pr-2.5 pl-4 text-left font-medium">
                                                 Date
                                             </th>
-                                            <th className="w-[14%] py-3 pr-2.5 text-left font-medium">
+                                            <th className="w-[14%] border-b border-[rgba(34,197,94,0.7)] py-2.5 pr-2.5 text-left font-medium">
                                                 Time
                                             </th>
-                                            <th className="w-[28%] py-3 pr-2.5 text-left font-medium">
+                                            <th className="w-[28%] border-b border-[rgba(34,197,94,0.7)] py-2.5 pr-2.5 text-left font-medium">
                                                 Domain Name
                                             </th>
-                                            <th className="w-[14%] py-3 pr-2.5 text-left font-medium">
+                                            <th className="w-[14%] border-b border-[rgba(34,197,94,0.7)] py-2.5 pr-2.5 text-left font-medium">
                                                 Domain Status
                                             </th>
-                                            <th className="w-[14%] py-3 pr-2.5 text-left font-medium">
+                                            <th className="w-[14%] border-b border-[rgba(34,197,94,0.7)] py-2.5 pr-2.5 text-left font-medium">
                                                 User ID
                                             </th>
-                                            <th className="w-[14%] py-3 pr-4 text-left font-medium">
+                                            <th className="w-[14%] border-b border-[rgba(34,197,94,0.7)] py-2.5 pr-4 text-left font-medium">
                                                 Action Taken
                                             </th>
                                         </tr>
@@ -237,7 +241,7 @@ export default function DomainVisits() {
                                 </table>
                             </div>
 
-                            {/* Scrollable Body Rows (Scrollbar starts below column header area) */}
+                            {/* Scrollable Body Rows */}
                             <div
                                 className={`overflow-x-auto ${
                                     isScrollable
@@ -279,126 +283,148 @@ export default function DomainVisits() {
 
     return (
         <>
-            <Head title="Domain Visits" />
-            <div className="mx-auto w-full max-w-[1100px] px-8 pt-12 pb-[22px]">
+            <Head title="Shadow Visits" />
+            <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-8 px-8 pt-12 pb-[22px]">
                 {/* Page Header */}
-                <header className="mb-8">
-                    <h1
-                        className="mb-2.5 text-[2.8rem] font-bold tracking-wide text-foreground uppercase"
-                        style={{ fontFamily: "'Unbounded', sans-serif" }}
+                <header>
+                    <Link
+                        href="/security-analytics"
+                        className="mb-4 inline-flex items-center gap-1.5 text-xs font-semibold text-able-green transition-colors hover:text-able-green-muted"
                     >
-                        DOMAIN VISITS
-                    </h1>
-                    <p className="mb-6 text-[1.05rem] text-muted-foreground">
-                        Displays all domain visits recorded by the ABLE browser
-                        extension.
-                    </p>
-
-                    {/* Search + Sort + Group row */}
-                    <div className="flex flex-wrap items-center gap-3">
-                        <div className="relative w-[260px]">
-                            <Search
-                                size={16}
-                                className="absolute top-1/2 left-3.5 -translate-y-1/2 text-muted-foreground"
-                            />
-                            <input
-                                type="text"
-                                placeholder="Search"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full rounded-full border border-black/10 bg-black/5 py-2.5 pr-3.5 pl-11 text-[0.9rem] text-foreground outline-none placeholder:text-muted-foreground dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]"
-                            />
-                        </div>
-
-                        {/* Sort Dropdown */}
-                        <div className="relative">
-                            <select
-                                value={`${sortField}__${sortDir}`}
-                                onChange={(e) => {
-                                    const parts = e.target.value.split('__');
-                                    setSortField(parts[0] as SortField);
-                                    setSortDir(parts[1] as SortDir);
-                                }}
-                                className="cursor-pointer appearance-none rounded-full border border-black/10 bg-black/5 py-2.5 pr-8 pl-9 text-[0.85rem] text-foreground transition-all duration-200 outline-none hover:border-able-green/50 hover:bg-black/10 focus:border-able-green focus:ring-1 focus:ring-able-green/30 dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)] dark:hover:bg-white/5"
+                        <ArrowLeft size={14} />
+                        Back to Shadow Overview
+                    </Link>
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                            <h1
+                                className="mb-2.5 text-[2.8rem] font-bold tracking-wide text-foreground uppercase"
+                                style={{ fontFamily: "'Unbounded', sans-serif" }}
                             >
-                                <option value="visited_at__desc">
-                                    Sort: Date (Newest)
-                                </option>
-                                <option value="visited_at__asc">
-                                    Sort: Date (Oldest)
-                                </option>
-                                <option value="domain__asc">
-                                    Sort: Domain (A-Z)
-                                </option>
-                                <option value="domain__desc">
-                                    Sort: Domain (Z-A)
-                                </option>
-                                <option value="status__asc">
-                                    Sort: Status (A-Z)
-                                </option>
-                                <option value="status__desc">
-                                    Sort: Status (Z-A)
-                                </option>
-                                <option value="action__asc">
-                                    Sort: Action (A-Z)
-                                </option>
-                                <option value="action__desc">
-                                    Sort: Action (Z-A)
-                                </option>
-                            </select>
-                            <ArrowUpDown
-                                size={16}
-                                className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
-                            />
-                        </div>
-
-                        {/* Group Dropdown */}
-                        <div className="relative">
-                            <select
-                                value={groupField}
-                                onChange={(e) =>
-                                    setGroupField(e.target.value as GroupField)
-                                }
-                                className="cursor-pointer appearance-none rounded-full border border-black/10 bg-black/5 py-2.5 pr-8 pl-9 text-[0.85rem] text-foreground transition-all duration-200 outline-none hover:border-able-green/50 hover:bg-black/10 focus:border-able-green focus:ring-1 focus:ring-able-green/30 dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)] dark:hover:bg-white/5"
-                            >
-                                <option value="none">Group: None</option>
-                                <option value="status">Group: Status</option>
-                                <option value="action">Group: Action</option>
-                            </select>
-                            <Layers
-                                size={16}
-                                className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
-                            />
+                                SHADOW VISITS
+                            </h1>
+                            <p className="max-w-[760px] text-[1.05rem] leading-relaxed text-muted-foreground">
+                                Complete timeline of domain interactions and shadow activity recorded by the ABLE browser extension.
+                            </p>
                         </div>
                     </div>
                 </header>
 
-                {/* Data Table */}
+                {/* Main Table Card */}
                 <div className={`${glassCard} p-6`}>
+                    {/* Card Header Toolbar */}
+                    <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-foreground">
+                                Total Visits:
+                            </span>
+                            <span className="rounded-full bg-cyan-500/15 px-2.5 py-0.5 text-xs font-semibold text-cyan-400">
+                                {formatMetricNumber(processedVisits.length)} Sessions
+                            </span>
+                        </div>
+
+                        {/* Search & Sort & Group Controls */}
+                        <div className="flex flex-wrap items-center gap-3">
+                            <div className="relative w-[220px]">
+                                <Search
+                                    size={14}
+                                    className="absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
+                                />
+                                <input
+                                    type="text"
+                                    placeholder="Search visits..."
+                                    value={searchQuery}
+                                    onChange={(e) => {
+                                        setSearchQuery(e.target.value);
+                                        setCurrentPage(1);
+                                    }}
+                                    className="w-full rounded-full border border-black/10 bg-black/5 py-1.5 pr-3 pl-9 text-xs text-foreground outline-none placeholder:text-muted-foreground dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]"
+                                />
+                            </div>
+
+                            {/* Sort Dropdown */}
+                            <div className="relative">
+                                <select
+                                    value={`${sortField}__${sortDir}`}
+                                    onChange={(e) => {
+                                        const parts = e.target.value.split('__');
+                                        setSortField(parts[0] as SortField);
+                                        setSortDir(parts[1] as SortDir);
+                                        setCurrentPage(1);
+                                    }}
+                                    className="cursor-pointer appearance-none rounded-full border border-black/10 bg-black/5 py-1.5 pr-7 pl-8 text-xs text-foreground outline-none hover:border-able-green/50 dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]"
+                                >
+                                    <option value="visited_at__desc">
+                                        Sort: Date (Newest)
+                                    </option>
+                                    <option value="visited_at__asc">
+                                        Sort: Date (Oldest)
+                                    </option>
+                                    <option value="domain__asc">
+                                        Sort: Domain (A-Z)
+                                    </option>
+                                    <option value="domain__desc">
+                                        Sort: Domain (Z-A)
+                                    </option>
+                                    <option value="status__asc">
+                                        Sort: Status (A-Z)
+                                    </option>
+                                    <option value="action__asc">
+                                        Sort: Action (A-Z)
+                                    </option>
+                                </select>
+                                <ArrowUpDown
+                                    size={13}
+                                    className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-muted-foreground"
+                                />
+                            </div>
+
+                            {/* Group Dropdown */}
+                            <div className="relative">
+                                <select
+                                    value={groupField}
+                                    onChange={(e) => {
+                                        setGroupField(e.target.value as GroupField);
+                                        setCurrentPage(1);
+                                    }}
+                                    className="cursor-pointer appearance-none rounded-full border border-black/10 bg-black/5 py-1.5 pr-7 pl-8 text-xs text-foreground outline-none hover:border-able-green/50 dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]"
+                                >
+                                    <option value="none">Group: None</option>
+                                    <option value="status">Group: Status</option>
+                                    <option value="action">Group: Action</option>
+                                </select>
+                                <Layers
+                                    size={13}
+                                    className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-muted-foreground"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Data Table Content */}
                     {groupField !== 'none' ? (
                         renderGroupedContent()
                     ) : (
                         <>
                             <div className="overflow-x-auto">
-                                <table className="mb-5 w-full border-collapse text-[0.85rem]">
+                                <table className="mb-4 w-full border-collapse text-[0.85rem]">
                                     <thead>
                                         <tr className="text-muted-foreground">
-                                            <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-5 text-left font-medium">
+                                            <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
                                                 Date
                                             </th>
-                                            <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-5 text-left font-medium">
+                                            <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
                                                 Time
                                             </th>
-                                            <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-5 text-left font-medium">
+                                            <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
                                                 Domain Name
                                             </th>
-                                            <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-5 text-left font-medium">
+                                            <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
                                                 Domain Status
                                             </th>
-                                            <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-5 text-left font-medium">
+                                            <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
                                                 User ID
                                             </th>
-                                            <th className="border-b border-[rgba(34,197,94,0.7)] pb-5 text-left font-medium">
+                                            <th className="border-b border-[rgba(34,197,94,0.7)] pb-4 text-left font-medium">
                                                 Action Taken
                                             </th>
                                         </tr>
@@ -424,5 +450,8 @@ export default function DomainVisits() {
 }
 
 DomainVisits.layout = {
-    breadcrumbs: [{ title: 'Domain Visits', href: '/domain-visits' }],
+    breadcrumbs: [
+        { title: 'Shadow Analytics', href: '/security-analytics' },
+        { title: 'Shadow Visits', href: '/domain-visits' },
+    ],
 };

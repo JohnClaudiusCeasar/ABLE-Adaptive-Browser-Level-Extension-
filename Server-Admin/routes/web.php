@@ -26,13 +26,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('dashboard/report/pdf', [DashboardReportController::class, 'pdf'])->name('dashboard.report.pdf');
     Route::get('dashboard/report/excel', [DashboardReportController::class, 'excel'])->name('dashboard.report.excel');
-    Route::get('egress-logs', [EgressEventController::class, 'index'])->name('egress-logs');
+    Route::get('egress-logs', fn () => redirect()->route('security-analytics.egress-incidents'))->name('egress-logs');
     Route::get('domain-visits', [DomainVisitController::class, 'index'])->name('domain-visits');
     Route::get('security-analytics', [SecurityAnalyticsController::class, 'index'])->name('security-analytics');
+    Route::get('shadow-analytics', [SecurityAnalyticsController::class, 'index'])->name('shadow-analytics');
     Route::get('security-analytics/nudge-effectiveness', [SecurityAnalyticsController::class, 'nudgeEffectiveness'])
         ->name('security-analytics.nudge-effectiveness');
-    Route::get('security-analytics/shadow-footprints', [SecurityAnalyticsController::class, 'shadowFootprints'])
-        ->name('security-analytics.shadow-footprints');
+    Route::get('shadow-analytics/nudge-effectiveness', [SecurityAnalyticsController::class, 'nudgeEffectiveness'])
+        ->name('shadow-analytics.nudge-effectiveness');
+    Route::get('security-analytics/shadow-apps', [SecurityAnalyticsController::class, 'shadowApps'])
+        ->name('security-analytics.shadow-apps');
+    Route::get('shadow-analytics/shadow-apps', [SecurityAnalyticsController::class, 'shadowApps'])
+        ->name('shadow-analytics.shadow-apps');
+    Route::get('security-analytics/egress-incidents', [SecurityAnalyticsController::class, 'egressIncidents'])
+        ->name('security-analytics.egress-incidents');
+    Route::get('shadow-analytics/egress-incidents', [SecurityAnalyticsController::class, 'egressIncidents'])
+        ->name('shadow-analytics.egress-incidents');
     Route::get('risk-algorithm/{view}', [RiskPatternController::class, 'index'])
         ->whereIn('view', ['single', 'criteria'])
         ->name('risk-algorithm.view');

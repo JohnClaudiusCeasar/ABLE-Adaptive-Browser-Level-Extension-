@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatMetricNumber } from '@/lib/utils';
 
 interface UserStatCardProps {
     label: string;
@@ -22,6 +22,7 @@ export function UserStatCard({
     const strokeWidth = 3;
     const radius = (ringSize - strokeWidth) / 2;
     const circumference = 2 * Math.PI * radius;
+    const formattedValue = formatMetricNumber(value);
 
     return (
         <div
@@ -75,8 +76,9 @@ export function UserStatCard({
                         'text-4xl leading-none font-bold tracking-tight tabular-nums',
                         accent,
                     )}
+                    title={value.toLocaleString()}
                 >
-                    {value}
+                    {formattedValue}
                 </p>
                 <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-foreground">

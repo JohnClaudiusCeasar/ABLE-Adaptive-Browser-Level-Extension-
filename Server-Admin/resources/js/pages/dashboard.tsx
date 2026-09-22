@@ -25,7 +25,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { truncateFileName } from '@/lib/utils';
+import { truncateFileName, formatMetricNumber } from '@/lib/utils';
 import { dashboard } from '@/routes';
 
 interface RecentEgressEvent {
@@ -251,28 +251,28 @@ export default function Dashboard({
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <StatCard
                         label="Total Egress Count"
-                        value={totalEgressCount.toLocaleString()}
+                        value={totalEgressCount}
                         icon={ArrowUpFromLine}
                         accent="text-blue-400"
                         underline="bg-blue-400"
                     />
                     <StatCard
                         label="Critical Egress Count"
-                        value={criticalEgressCount.toLocaleString()}
+                        value={criticalEgressCount}
                         icon={ShieldAlert}
                         accent="text-[#ff4d4d]"
                         underline="bg-[#ff4d4d]"
                     />
                     <StatCard
                         label="Domain Visits"
-                        value={totalDomainVisits.toLocaleString()}
+                        value={totalDomainVisits}
                         icon={Globe}
                         accent="text-blue-400"
                         underline="bg-blue-400"
                     />
                     <StatCard
                         label="Active Shadow Apps"
-                        value={activeShadowApps.toLocaleString()}
+                        value={activeShadowApps}
                         icon={Ghost}
                         accent="text-[#a855f7]"
                         underline="bg-[#a855f7]"
@@ -282,7 +282,7 @@ export default function Dashboard({
                 {/* Charts Row */}
                 <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
                     <PanelCard
-                        title="Nudge Success"
+                        title="Nudge Containment"
                         subtitle="Share of nudges that prevented data loss"
                     >
                         <DonutGauge
@@ -293,13 +293,13 @@ export default function Dashboard({
                         />
                     </PanelCard>
                     <PanelCard
-                        title="Domain Usage"
+                        title="Policy Control"
                         subtitle="Classification of monitored domains"
                     >
                         <DonutGauge
                             segments={domainSegments}
                             centerLabel="Total Domains"
-                            centerValue={totalDomains.toLocaleString()}
+                            centerValue={formatMetricNumber(totalDomains)}
                             noData={totalDomains === 0}
                         />
                     </PanelCard>

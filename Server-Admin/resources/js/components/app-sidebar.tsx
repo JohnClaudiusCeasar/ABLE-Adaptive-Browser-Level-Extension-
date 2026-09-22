@@ -2,13 +2,16 @@ import { router } from '@inertiajs/react';
 import {
     BarChart3,
     Bell,
+    CheckCircle2,
     FileCode2,
+    Ghost,
     Laptop,
     LayoutGrid,
     Menu,
     MessageSquareText,
     MousePointerClick,
     Shield,
+    ShieldAlert,
     ShieldCheck,
     TrendingUp,
     UserCircle,
@@ -39,19 +42,36 @@ export const mainNavItems: NavItem[] = [
                 icon: LayoutGrid,
             },
             {
-                title: 'Egress Logs',
-                href: '/egress-logs',
-                icon: BarChart3,
-            },
-            {
-                title: 'Domain Visits',
-                href: '/domain-visits',
-                icon: MousePointerClick,
-            },
-            {
                 title: 'Shadow Analytics',
                 href: '/security-analytics',
                 icon: TrendingUp,
+                items: [
+                    {
+                        title: 'Shadow Overview',
+                        href: '/security-analytics',
+                        icon: LayoutGrid,
+                    },
+                    {
+                        title: 'Shadow Catalog',
+                        href: '/security-analytics/shadow-apps',
+                        icon: Ghost,
+                    },
+                    {
+                        title: 'Shadow Visits',
+                        href: '/domain-visits',
+                        icon: MousePointerClick,
+                    },
+                    {
+                        title: 'Shadow Incidents',
+                        href: '/security-analytics/egress-incidents',
+                        icon: ShieldAlert,
+                    },
+                    {
+                        title: 'Shadow Containment',
+                        href: '/security-analytics/nudge-effectiveness',
+                        icon: CheckCircle2,
+                    },
+                ],
             },
             {
                 title: 'Risk Policy',
