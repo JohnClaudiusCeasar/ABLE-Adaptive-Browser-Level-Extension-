@@ -214,7 +214,7 @@ function renderChildren(item: NavItem, isCurrentUrl: IsCurrentUrlFn) {
             {item.items!.map((child) => {
                 const childActive = isCurrentUrl(child.href);
 
-                // A child with its own children (e.g. Risk Algorithm) renders as
+                // A child with its own children (e.g. Risk Policy) renders as
                 // a nested collapsible instead of a flat link.
                 if (child.items?.length) {
                     return (

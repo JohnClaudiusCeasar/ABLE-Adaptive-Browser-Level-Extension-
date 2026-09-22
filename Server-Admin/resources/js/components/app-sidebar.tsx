@@ -49,12 +49,12 @@ export const mainNavItems: NavItem[] = [
                 icon: MousePointerClick,
             },
             {
-                title: 'Security Analytics',
+                title: 'Shadow Analytics',
                 href: '/security-analytics',
                 icon: TrendingUp,
             },
             {
-                title: 'Risk Algorithm',
+                title: 'Risk Policy',
                 href: '/risk-algorithm/criteria',
                 icon: Shield,
                 items: [
