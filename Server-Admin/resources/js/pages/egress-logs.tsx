@@ -3,6 +3,7 @@ import { Search, ArrowUpDown, Layers } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { TablePagination } from '@/components/pagination';
 import { Badge } from '@/components/ui/badge';
+import { truncateFileName } from '@/lib/utils';
 
 const glassCard =
     'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
@@ -182,8 +183,9 @@ export default function EgressLogs() {
                     </td>
                     <td
                         className={`py-3 pr-2.5 ${isGrouped ? 'w-[14%] truncate' : ''}`}
+                        title={row.fileName}
                     >
-                        {row.fileName}
+                        {truncateFileName(row.fileName)}
                     </td>
                     <td className={`py-3 pr-2.5 ${isGrouped ? 'w-[10%]' : ''}`}>
                         <span

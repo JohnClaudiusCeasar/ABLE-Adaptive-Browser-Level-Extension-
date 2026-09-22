@@ -25,6 +25,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { truncateFileName } from '@/lib/utils';
 import { dashboard } from '@/routes';
 
 interface RecentEgressEvent {
@@ -406,8 +407,11 @@ export default function Dashboard({
                                                 <td className="py-3 pr-2.5">
                                                     {row.user ?? '—'}
                                                 </td>
-                                                <td className="py-3 pr-2.5">
-                                                    {row.fileName ?? '—'}
+                                                <td
+                                                    className="py-3 pr-2.5"
+                                                    title={row.fileName ?? undefined}
+                                                >
+                                                    {row.fileName ? truncateFileName(row.fileName) : '—'}
                                                 </td>
                                                 <td className="py-3">
                                                     {row.action}
