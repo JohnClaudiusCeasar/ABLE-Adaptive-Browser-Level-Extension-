@@ -4,12 +4,11 @@ import {
     UserMinus,
     Globe,
     ShieldAlert,
+    Ghost,
+    ArrowUpFromLine,
     Printer,
     FileSpreadsheet,
     FileText,
-    ChevronDown,
-    Ghost,
-    ArrowUpFromLine,
 } from 'lucide-react';
 import { DonutGauge } from '@/components/dashboard/donut-gauge';
 import { GroupedBarChart } from '@/components/dashboard/grouped-bar-chart';
@@ -138,52 +137,18 @@ export default function Dashboard({
             <Head title="Dashboard" />
             <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-6 px-8 pt-12 pb-[22px]">
                 {/* Page Header */}
-                <header className="mb-2 flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                        <h1
-                            className="mb-2.5 text-[2.8rem] font-bold tracking-wide text-foreground uppercase"
-                            style={{ fontFamily: "'Unbounded', sans-serif" }}
-                        >
-                            Security Overview
-                        </h1>
-                        <p className="max-w-[720px] text-[1.05rem] leading-relaxed text-muted-foreground">
-                            Real-time monitoring of domain activity, data egress
-                            attempts, and nudge effectiveness across the ABLE
-                            extension network.
-                        </p>
-                    </div>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button
-                                variant="outline"
-                                className="gap-2 border-[rgba(34,197,94,0.7)] hover:bg-[rgba(34,197,94,0.1)]"
-                            >
-                                <Printer size={16} />
-                                Print Report
-                                <ChevronDown size={14} />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                            <DropdownMenuItem asChild>
-                                <a
-                                    href="/dashboard/report/pdf"
-                                    className="cursor-pointer gap-2"
-                                >
-                                    <FileText size={16} />
-                                    Download PDF
-                                </a>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                                <a
-                                    href="/dashboard/report/excel"
-                                    className="cursor-pointer gap-2"
-                                >
-                                    <FileSpreadsheet size={16} />
-                                    Download CSV
-                                </a>
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                <header className="mb-2">
+                    <h1
+                        className="mb-2.5 text-[2.8rem] font-bold tracking-wide text-foreground uppercase"
+                        style={{ fontFamily: "'Unbounded', sans-serif" }}
+                    >
+                        Security Overview
+                    </h1>
+                    <p className="max-w-[720px] text-[1.05rem] leading-relaxed text-muted-foreground">
+                        Real-time monitoring of domain activity, data egress
+                        attempts, and nudge effectiveness across the ABLE
+                        extension network.
+                    </p>
                 </header>
 
                 {/* User Stats Row */}
@@ -517,6 +482,49 @@ export default function Dashboard({
                         </table>
                     </div>
                 </PanelCard>
+            </div>
+
+            {/* Subtly glowing blue chip 'Print Report' floating on top of the quick message widget */}
+            <div className="fixed right-6 bottom-[92px] z-40">
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <button
+                            type="button"
+                            aria-label="Print Dashboard Report"
+                            title="Print Dashboard Report"
+                            className="group relative flex h-14 w-14 items-center justify-center rounded-2xl border border-blue-500/50 bg-[#0a1f33]/90 text-blue-400 shadow-[0_0_20px_rgba(59,130,246,0.4)] backdrop-blur-xl transition-all duration-200 hover:scale-105 hover:border-blue-400 hover:bg-[#0d2a45] hover:text-blue-300 hover:shadow-[0_0_25px_rgba(59,130,246,0.65)] active:scale-95"
+                        >
+                            <Printer size={22} className="transition-transform group-hover:rotate-6" />
+                            {/* Ambient subtle blue pulse glow */}
+                            <span className="absolute inset-0 -z-10 rounded-2xl bg-blue-500/20 blur-md transition-opacity group-hover:opacity-100" />
+                        </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                        align="end"
+                        side="left"
+                        sideOffset={12}
+                        className="z-50 min-w-[170px] rounded-xl border border-blue-500/40 bg-[#081b2d]/95 p-1 text-foreground shadow-2xl backdrop-blur-xl"
+                    >
+                        <DropdownMenuItem asChild>
+                            <a
+                                href="/dashboard/report/pdf"
+                                className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-slate-200 transition-colors hover:bg-blue-500/20 hover:text-white"
+                            >
+                                <FileText size={15} className="text-blue-400" />
+                                <span>Download PDF</span>
+                            </a>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                            <a
+                                href="/dashboard/report/excel"
+                                className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-slate-200 transition-colors hover:bg-blue-500/20 hover:text-white"
+                            >
+                                <FileSpreadsheet size={15} className="text-blue-400" />
+                                <span>Download CSV</span>
+                            </a>
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
         </>
     );

@@ -102,7 +102,7 @@ function CollapsibleNavItem({
                     </SidebarMenuButton>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                    <SidebarMenuSub className="mx-0 gap-1.5 border-l-0 pl-3">
+                    <SidebarMenuSub className="mx-0 my-1 ml-3.5 gap-1.5 border-l border-[rgba(34,197,94,0.25)] pl-2.5">
                         {item.items!.map((child) => {
                             const childActive = isCurrentUrl(child.href);
 
