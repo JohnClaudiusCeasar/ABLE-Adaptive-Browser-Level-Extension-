@@ -261,3 +261,169 @@ select option:checked {
 .animate-status-pulse {
     animation: statusPulse 2s ease-in-out infinite;
 }
+
+/* ==========================================================================
+   Print Optimization for Report Preview & Native Browser Print
+   ========================================================================== */
+@media print {
+    @page {
+        size: auto;
+        margin: 6mm 8mm;
+    }
+
+    *,
+    *::before,
+    *::after {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+        box-shadow: none !important;
+        text-shadow: none !important;
+    }
+
+    /* Completely wipe out the sidebar, header, navigation, mobile sheets, modals, tooltips, and chat widgets */
+    [data-slot="sidebar"],
+    [data-slot="sidebar-gap"],
+    [data-slot="sidebar-wrapper"] > div:first-child,
+    [data-sidebar],
+    .app-sidebar,
+    .app-sidebar-header,
+    .group.peer,
+    .peer,
+    header,
+    nav,
+    aside,
+    .no-print,
+    .fixed,
+    [data-quick-chat],
+    [data-sonner-toaster],
+    [data-radix-popper-content-wrapper],
+    [role="tooltip"],
+    [role="dialog"] {
+        display: none !important;
+        visibility: hidden !important;
+        position: absolute !important;
+        top: -99999px !important;
+        left: -99999px !important;
+        width: 0 !important;
+        height: 0 !important;
+        min-width: 0 !important;
+        min-height: 0 !important;
+        max-width: 0 !important;
+        max-height: 0 !important;
+        overflow: hidden !important;
+        opacity: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        background: transparent !important;
+        pointer-events: none !important;
+        transform: none !important;
+    }
+
+    :root,
+    .dark,
+    html,
+    html.dark,
+    body,
+    .dark body,
+    #app,
+    .dark #app {
+        background: #ffffff !important;
+        background-color: #ffffff !important;
+        background-image: none !important;
+        color: #0f172a !important;
+        font-size: 9pt !important;
+        overflow: visible !important;
+        height: auto !important;
+        min-height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        box-shadow: none !important;
+    }
+
+    /* Reset all root app wrappers so height/overflow/grid restrictions don't clip pagination */
+    [data-slot="sidebar-wrapper"],
+    [data-slot="sidebar-inset"],
+    main,
+    .app-shell,
+    .app-content,
+    .report-preview-container,
+    .grid,
+    .lg\:col-span-7,
+    .report-preview-desk {
+        display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        height: auto !important;
+        min-height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+        position: static !important;
+        background: transparent !important;
+        background-color: transparent !important;
+        background-image: none !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    #printable-paper-sheet {
+        display: block !important;
+        position: static !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        background: transparent !important;
+        color: #0f172a !important;
+        transform: none !important; /* Disregard interactive UI zoom during print */
+    }
+
+    .printable-sheet {
+        position: relative !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-height: 260mm !important;
+        margin: 0 !important;
+        padding: 8mm 10mm !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 4px !important;
+        box-shadow: none !important;
+        background-color: #ffffff !important;
+        background-image: none !important;
+        color: #0f172a !important;
+        transform: none !important;
+        page-break-after: always !important;
+        break-after: page !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+
+    .printable-sheet:last-child {
+        page-break-after: auto !important;
+        break-after: auto !important;
+        margin-bottom: 0 !important;
+    }
+
+    /* Prevent page break inside cards and sections */
+    .paper-section {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        border-color: #e2e8f0 !important;
+        background-color: rgba(248, 250, 252, 0.7) !important;
+        color: #0f172a !important;
+        box-shadow: none !important;
+    }
+}
+

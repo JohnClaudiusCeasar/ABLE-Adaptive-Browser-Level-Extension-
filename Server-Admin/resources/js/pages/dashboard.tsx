@@ -7,8 +7,6 @@ import {
     Ghost,
     ArrowUpFromLine,
     Printer,
-    FileSpreadsheet,
-    FileText,
 } from 'lucide-react';
 import { DonutGauge } from '@/components/dashboard/donut-gauge';
 import { GroupedBarChart } from '@/components/dashboard/grouped-bar-chart';
@@ -18,12 +16,6 @@ import { StatCard } from '@/components/dashboard/stat-card';
 import { UserStatCard } from '@/components/dashboard/user-stat-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { truncateFileName, formatMetricNumber } from '@/lib/utils';
 import { dashboard } from '@/routes';
 
@@ -486,45 +478,16 @@ export default function Dashboard({
 
             {/* Subtly glowing blue chip 'Print Report' floating on top of the quick message widget */}
             <div className="fixed right-6 bottom-[92px] z-40">
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <button
-                            type="button"
-                            aria-label="Print Dashboard Report"
-                            title="Print Dashboard Report"
-                            className="group relative flex h-14 w-14 items-center justify-center rounded-2xl border border-blue-500/50 bg-[#0a1f33]/90 text-blue-400 shadow-[0_0_20px_rgba(59,130,246,0.4)] backdrop-blur-xl transition-all duration-200 hover:scale-105 hover:border-blue-400 hover:bg-[#0d2a45] hover:text-blue-300 hover:shadow-[0_0_25px_rgba(59,130,246,0.65)] active:scale-95"
-                        >
-                            <Printer size={22} className="transition-transform group-hover:rotate-6" />
-                            {/* Ambient subtle blue pulse glow */}
-                            <span className="absolute inset-0 -z-10 rounded-2xl bg-blue-500/20 blur-md transition-opacity group-hover:opacity-100" />
-                        </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                        align="end"
-                        side="left"
-                        sideOffset={12}
-                        className="z-50 min-w-[170px] rounded-xl border border-blue-500/40 bg-[#081b2d]/95 p-1 text-foreground shadow-2xl backdrop-blur-xl"
-                    >
-                        <DropdownMenuItem asChild>
-                            <a
-                                href="/dashboard/report/pdf"
-                                className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-slate-200 transition-colors hover:bg-blue-500/20 hover:text-white"
-                            >
-                                <FileText size={15} className="text-blue-400" />
-                                <span>Download PDF</span>
-                            </a>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                            <a
-                                href="/dashboard/report/excel"
-                                className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-slate-200 transition-colors hover:bg-blue-500/20 hover:text-white"
-                            >
-                                <FileSpreadsheet size={15} className="text-blue-400" />
-                                <span>Download CSV</span>
-                            </a>
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                <Link
+                    href="/reports/preview"
+                    aria-label="Print Report & Preview"
+                    title="Print Report & Preview"
+                    className="group relative flex h-14 w-14 items-center justify-center rounded-2xl border border-blue-500/50 bg-[#0a1f33]/90 text-blue-400 shadow-[0_0_20px_rgba(59,130,246,0.4)] backdrop-blur-xl transition-all duration-200 hover:scale-105 hover:border-blue-400 hover:bg-[#0d2a45] hover:text-blue-300 hover:shadow-[0_0_25px_rgba(59,130,246,0.65)] active:scale-95"
+                >
+                    <Printer size={22} className="transition-transform group-hover:rotate-6" />
+                    {/* Ambient subtle blue pulse glow */}
+                    <span className="absolute inset-0 -z-10 rounded-2xl bg-blue-500/20 blur-md transition-opacity group-hover:opacity-100" />
+                </Link>
             </div>
         </>
     );

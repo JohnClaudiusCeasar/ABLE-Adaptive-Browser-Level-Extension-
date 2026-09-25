@@ -24,6 +24,8 @@ Route::get('/', function () {
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('reports/preview', [DashboardReportController::class, 'preview'])->name('reports.preview');
+    Route::get('dashboard/report-preview', [DashboardReportController::class, 'preview'])->name('dashboard.report-preview');
     Route::get('dashboard/report/pdf', [DashboardReportController::class, 'pdf'])->name('dashboard.report.pdf');
     Route::get('dashboard/report/excel', [DashboardReportController::class, 'excel'])->name('dashboard.report.excel');
     Route::get('egress-logs', fn () => redirect()->route('security-analytics.egress-incidents'))->name('egress-logs');
