@@ -78,6 +78,7 @@ export default function Chat() {
 
         if (!password) {
             setPasswordError('Please enter your password.');
+
             return;
         }
 
@@ -408,6 +409,7 @@ export default function Chat() {
                                             value={password}
                                             onChange={(e) => {
                                                 setPassword(e.target.value);
+
                                                 if (passwordError) {
                                                     setPasswordError(null);
                                                 }

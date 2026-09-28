@@ -64,9 +64,11 @@ function getRiskScoreBadgeClass(score: number): string {
     if (score >= 76) {
         return 'border border-[#ff4d4d] bg-[rgba(255,77,77,0.2)] text-[#ff4d4d]';
     }
+
     if (score >= 41) {
         return 'border border-[#f59e0b] bg-[rgba(245,158,11,0.2)] text-[#f59e0b]';
     }
+
     return 'border border-[#00ff66] bg-[rgba(0,255,102,0.2)] text-[#00ff66]';
 }
 

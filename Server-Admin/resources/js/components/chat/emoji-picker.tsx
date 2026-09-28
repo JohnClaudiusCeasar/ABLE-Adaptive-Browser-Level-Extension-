@@ -756,6 +756,7 @@ export function EmojiPicker({
         }
 
         document.addEventListener('mousedown', handleClickOutside);
+
         return () =>
             document.removeEventListener('mousedown', handleClickOutside);
     }, [onClose]);
@@ -763,9 +764,13 @@ export function EmojiPicker({
     // Filter emojis based on search
     const searchResults = useMemo(() => {
         const query = search.toLowerCase().trim();
-        if (!query) return null;
+
+        if (!query) {
+return null;
+}
 
         const results: { emoji: string; name: string }[] = [];
+
         for (const cat of EMOJI_CATEGORIES) {
             for (const item of cat.emojis) {
                 if (item.name.toLowerCase().includes(query)) {
@@ -773,6 +778,7 @@ export function EmojiPicker({
                 }
             }
         }
+
         return results;
     }, [search]);
 

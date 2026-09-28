@@ -49,9 +49,15 @@ type SortDir = 'asc' | 'desc';
 type GroupField = 'none' | 'status' | 'version';
 
 function formatTimestamp(ts: string | null): string {
-    if (!ts) return '—';
+    if (!ts) {
+return '—';
+}
+
     const d = new Date(ts);
-    if (isNaN(d.getTime())) return ts;
+
+    if (isNaN(d.getTime())) {
+return ts;
+}
 
     return d.toLocaleString(undefined, {
         year: 'numeric',
@@ -88,6 +94,7 @@ export default function ClientUsersPage({ clients = [] }: ClientPageProps) {
 
         items.sort((a, b) => {
             let cmp = 0;
+
             switch (sortField) {
                 case 'id':
                     cmp = a.id - b.id;
@@ -102,6 +109,7 @@ export default function ClientUsersPage({ clients = [] }: ClientPageProps) {
                     cmp = a.status.localeCompare(b.status);
                     break;
             }
+
             return sortDir === 'asc' ? cmp : -cmp;
         });
 
@@ -136,6 +144,7 @@ export default function ClientUsersPage({ clients = [] }: ClientPageProps) {
     const safePage = Math.min(currentPage, totalPages);
     const paginatedClients = useMemo(() => {
         const start = (safePage - 1) * ROWS_PER_PAGE;
+
         return processedClients.slice(start, start + ROWS_PER_PAGE);
     }, [processedClients, safePage]);
 
@@ -214,7 +223,10 @@ export default function ClientUsersPage({ clients = [] }: ClientPageProps) {
     }
 
     function renderGroupedContent() {
-        if (!groupedClients) return null;
+        if (!groupedClients) {
+return null;
+}
+
         const groupKeys = Object.keys(groupedClients);
 
         if (groupKeys.length === 0) {

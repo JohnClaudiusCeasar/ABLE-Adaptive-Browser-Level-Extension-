@@ -63,6 +63,7 @@ export default function NudgeEffectiveness({
     const safePage = Math.min(currentPage, totalPages);
     const paginatedItems = useMemo(() => {
         const start = (safePage - 1) * ROWS_PER_PAGE;
+
         return processedItems.slice(start, start + ROWS_PER_PAGE);
     }, [processedItems, safePage]);
 

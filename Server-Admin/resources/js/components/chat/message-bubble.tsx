@@ -10,20 +10,27 @@ function isImageAttachment(
     if (type && type.startsWith('image/')) {
         return true;
     }
+
     if (name) {
         const ext = name.split('.').pop()?.toLowerCase();
+
         return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(
             ext ?? '',
         );
     }
+
     return false;
 }
 
 function formatBytes(bytes?: number | null): string {
-    if (!bytes || bytes === 0) return '';
+    if (!bytes || bytes === 0) {
+return '';
+}
+
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
+
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 

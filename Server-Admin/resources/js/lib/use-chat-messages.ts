@@ -107,9 +107,11 @@ export function useChatMessages({
 
                 if (attachment) {
                     const formData = new FormData();
+
                     if (body.trim()) {
                         formData.append('body', body.trim());
                     }
+
                     formData.append('attachment', attachment);
 
                     res = await fetch(`/chat/${conversationId}/messages`, {
@@ -138,6 +140,7 @@ export function useChatMessages({
 
                 const data = (await res.json()) as { message: ChatMessageData };
                 upsertMessage(data.message);
+
                 return data.message;
             } finally {
                 setSending(false);

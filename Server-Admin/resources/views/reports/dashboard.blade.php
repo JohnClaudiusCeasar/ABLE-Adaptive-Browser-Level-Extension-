@@ -2,12 +2,12 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>ABLE Security Overview Report</title>
+    <title>ABLE Security Analysis</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400..700&family=Unbounded:wght@600;700;800;900&display=swap" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@600;700;800;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400..700&family=Unbounded:wght@600;700;800;900&display=swap');
 
         * {
             margin: 0;
@@ -22,7 +22,7 @@
         }
 
         body {
-            font-family: 'Helvetica', 'Arial', sans-serif;
+            font-family: 'Archivo', 'Helvetica', 'Arial', sans-serif;
             font-size: 8.5px;
             color: #0f172a;
             background-color: #ffffff;
@@ -41,7 +41,7 @@
         /* Document Header */
         .doc-header-table {
             width: 100%;
-            border-bottom: 2px solid #16a34a;
+            border-bottom: 2px solid #059669;
             padding-bottom: 12px;
             margin-bottom: 14px;
         }
@@ -347,11 +347,11 @@
         <table class="doc-header-table">
             <tr>
                 <td style="width: 42px; vertical-align: middle;">
-                    <div class="logo-box">A</div>
+                    <img src="{{ public_path('apple-touch-icon.png') }}" style="width: 38px; height: 38px; border-radius: 8px;" alt="ABLE Logo" />
                 </td>
                 <td style="vertical-align: middle; padding-left: 8px;">
-                    <div class="doc-title">ABLE SECURITY REPORT</div>
-                    <div class="doc-subtitle">Adaptive Browser-Level Extension • Enterprise Telemetry</div>
+                    <div class="doc-title">ABLE SECURITY ANALYSIS</div>
+                    <div class="doc-subtitle">Adaptive Browser-Level Extension • {{ auth()->user()->email ?? 'admin@able.local' }}</div>
                 </td>
                 <td style="text-align: right; vertical-align: middle;">
                     <div class="badge-classification">{{ $reportMeta['classification'] ?? 'RESTRICTED / SECURITY TELEMETRY' }}</div>
@@ -561,10 +561,10 @@
             <table class="doc-header-table">
                 <tr>
                     <td style="width: 42px; vertical-align: middle;">
-                        <div class="logo-box">A</div>
+                        <img src="{{ public_path('apple-touch-icon.png') }}" style="width: 38px; height: 38px; border-radius: 8px;" alt="ABLE Logo" />
                     </td>
                     <td style="vertical-align: middle; padding-left: 8px;">
-                        <div class="doc-title">ABLE SECURITY REPORT</div>
+                        <div class="doc-title">ABLE SECURITY ANALYSIS</div>
                         <div class="doc-subtitle">Incident, Containment &amp; High Risk Domain Telemetry</div>
                     </td>
                     <td style="text-align: right; vertical-align: middle;">

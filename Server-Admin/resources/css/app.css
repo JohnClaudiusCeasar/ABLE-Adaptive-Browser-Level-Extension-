@@ -263,14 +263,22 @@ select option:checked {
 }
 
 /* ==========================================================================
+   Report page box — the sheet IS the page, so the preview shows literally
+   what prints. --page-* are declared inline on each sheet so they survive
+   cloning into the print iframe and the html2canvas capture.
+   ========================================================================== */
+.printable-sheet {
+    box-sizing: border-box;
+    width: var(--page-w);
+    height: var(--page-h);
+    padding: var(--page-pad-y) var(--page-pad-x);
+    overflow: hidden;
+}
+
+/* ==========================================================================
    Print Optimization for Report Preview & Native Browser Print
    ========================================================================== */
 @media print {
-    @page {
-        size: auto;
-        margin: 6mm 8mm;
-    }
-
     *,
     *::before,
     *::after {
@@ -282,9 +290,9 @@ select option:checked {
     }
 
     /* Completely wipe out the sidebar, header, navigation, mobile sheets, modals, tooltips, and chat widgets */
-    [data-slot="sidebar"],
-    [data-slot="sidebar-gap"],
-    [data-slot="sidebar-wrapper"] > div:first-child,
+    [data-slot='sidebar'],
+    [data-slot='sidebar-gap'],
+    [data-slot='sidebar-wrapper'] > div:first-child,
     [data-sidebar],
     .app-sidebar,
     .app-sidebar-header,
@@ -296,10 +304,11 @@ select option:checked {
     .no-print,
     .fixed,
     [data-quick-chat],
+    [data-print-trigger],
     [data-sonner-toaster],
     [data-radix-popper-content-wrapper],
-    [role="tooltip"],
-    [role="dialog"] {
+    [role='tooltip'],
+    [role='dialog'] {
         display: none !important;
         visibility: hidden !important;
         position: absolute !important;
@@ -333,7 +342,6 @@ select option:checked {
         background-color: #ffffff !important;
         background-image: none !important;
         color: #0f172a !important;
-        font-size: 9pt !important;
         overflow: visible !important;
         height: auto !important;
         min-height: auto !important;
@@ -343,15 +351,16 @@ select option:checked {
         box-shadow: none !important;
     }
 
-    /* Reset all root app wrappers so height/overflow/grid restrictions don't clip pagination */
-    [data-slot="sidebar-wrapper"],
-    [data-slot="sidebar-inset"],
+    /* Reset the page chrome only. Scoped to dedicated classes so the report's
+       own grids are never flattened and root font sizing stays untouched. */
+    [data-slot='sidebar-wrapper'],
+    [data-slot='sidebar-inset'],
     main,
     .app-shell,
     .app-content,
     .report-preview-container,
-    .grid,
-    .lg\:col-span-7,
+    .print-layout-reset,
+    .report-sheet-frame,
     .report-preview-desk {
         display: block !important;
         width: 100% !important;
@@ -376,6 +385,7 @@ select option:checked {
         position: static !important;
         width: 100% !important;
         max-width: 100% !important;
+        height: auto !important;
         min-height: auto !important;
         margin: 0 !important;
         padding: 0 !important;
@@ -387,32 +397,24 @@ select option:checked {
         transform: none !important; /* Disregard interactive UI zoom during print */
     }
 
+    /* Each sheet is already exactly one page (see the base rule above), so the
+       only thing print needs is a forced break after it. Break-inside:avoid on
+       the sheet itself is dropped — it cannot be honoured once content exceeds
+       a page and it is what used to strand footers mid-page. */
     .printable-sheet {
-        position: relative !important;
         display: flex !important;
         flex-direction: column !important;
         justify-content: space-between !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        min-height: 260mm !important;
         margin: 0 !important;
-        padding: 8mm 10mm !important;
-        border: 1px solid #cbd5e1 !important;
-        border-radius: 4px !important;
         box-shadow: none !important;
-        background-color: #ffffff !important;
-        background-image: none !important;
-        color: #0f172a !important;
         transform: none !important;
-        page-break-after: always !important;
         break-after: page !important;
-        page-break-inside: avoid !important;
-        break-inside: avoid !important;
+        page-break-after: always !important;
     }
 
     .printable-sheet:last-child {
-        page-break-after: auto !important;
         break-after: auto !important;
+        page-break-after: auto !important;
         margin-bottom: 0 !important;
     }
 
@@ -426,4 +428,3 @@ select option:checked {
         box-shadow: none !important;
     }
 }
-

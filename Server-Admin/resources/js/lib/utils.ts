@@ -48,18 +48,23 @@ export function formatMetricNumber(value: number | string | null | undefined): s
 
     if (typeof value === 'string') {
         const trimmed = value.trim();
+
         // If string contains explicit unit suffixes (e.g., MB, KB, %, etc.) or non-numeric tokens
         if (/[a-zA-Z%]/.test(trimmed) || trimmed === '' || trimmed === '—') {
             return trimmed;
         }
+
         const parsed = Number(trimmed.replace(/,/g, ''));
+
         if (isNaN(parsed)) {
             return trimmed;
         }
+
         value = parsed;
     }
 
     const num = Number(value);
+
     if (isNaN(num)) {
         return String(value);
     }
@@ -83,6 +88,7 @@ export function formatMetricNumber(value: number | string | null | undefined): s
             const cleanFormatted = rawFormatted
                 .replace(/(\.[0-9]*[1-9])0+$/, '$1')
                 .replace(/\.00$/, '');
+
             return `${cleanFormatted}${suffix}`;
         }
     }

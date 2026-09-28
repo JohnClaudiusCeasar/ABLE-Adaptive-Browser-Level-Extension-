@@ -64,7 +64,9 @@ const emptyCriteriaForm: CriteriaFormData = {
 };
 
 function sumSubItemsScore(subItems?: CriteriaPatternItem[]): number {
-    if (!subItems || subItems.length === 0) return 0;
+    if (!subItems || subItems.length === 0) {
+return 0;
+}
 
     return subItems.reduce(
         (total, sub) => total + (Number(sub.score) || 0),
@@ -332,9 +334,11 @@ export default function CriteriaPatternConfiguration() {
         if (parentItem.sub_items) {
             parentItem.sub_items = [...parentItem.sub_items];
             parentItem.sub_items.splice(subIndex, 1);
+
             if (parentItem.sub_items.length > 0) {
                 parentItem.score = sumSubItemsScore(parentItem.sub_items);
             }
+
             updatedItems[parentIndex] = parentItem;
             setCriteriaForm({
                 ...criteriaForm,
@@ -375,9 +379,11 @@ export default function CriteriaPatternConfiguration() {
                 [field]: value,
             };
             parentItem.sub_items = updatedSubItems;
+
             if (field === 'score') {
                 parentItem.score = sumSubItemsScore(updatedSubItems);
             }
+
             updatedItems[parentIndex] = parentItem;
             setCriteriaForm({
                 ...criteriaForm,
@@ -534,6 +540,7 @@ export default function CriteriaPatternConfiguration() {
                                                             </span>
                                                         );
                                                     }
+
                                                     if (hasFlex) {
                                                         return (
                                                             <span className="rounded-full border border-[#36cfc9]/30 bg-[rgba(54,207,201,0.15)] px-2 py-0.5 text-xs font-semibold text-[#36cfc9]">
@@ -541,6 +548,7 @@ export default function CriteriaPatternConfiguration() {
                                                             </span>
                                                         );
                                                     }
+
                                                     return (
                                                         <span className="rounded-full border border-able-green/30 bg-[rgba(34,197,94,0.15)] px-2 py-0.5 text-xs font-semibold text-able-green">
                                                             All Required (AND)

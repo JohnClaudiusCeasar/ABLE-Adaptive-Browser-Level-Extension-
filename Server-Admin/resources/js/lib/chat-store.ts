@@ -124,6 +124,7 @@ export function incrementUnreadCount() {
         if (prev.quickChatOpen) {
             return { unreadCount: 0 };
         }
+
         return { unreadCount: prev.unreadCount + 1 };
     });
 }
@@ -137,6 +138,7 @@ export function setUnreadCount(count: number) {
         if (prev.quickChatOpen) {
             return { unreadCount: 0 };
         }
+
         return { unreadCount: Math.max(0, count) };
     });
 }

@@ -56,6 +56,7 @@ function CollapsibleNavItem({
     const groupRoot = href.split('/').slice(0, 2).join('/');
     const hasActiveChild = item.items?.some((child) => {
         const childHref = typeof child.href === 'string' ? child.href : child.href.url;
+
         return isCurrentUrl(childHref);
     });
     const groupActive = isCurrentUrl(groupRoot, undefined, true) || !!hasActiveChild;

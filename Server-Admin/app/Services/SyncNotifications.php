@@ -2,20 +2,19 @@
 
 namespace App\Services;
 
-use App\Models\AuditLog;
-use App\Models\ChatMessage;
 use App\Models\DomainVisit;
 use App\Models\EgressEvent;
 use App\Models\ExtensionLifecycle;
 use App\Models\Notification;
 use App\Models\NudgeInteraction;
-use Illuminate\Support\Str;
 
 class SyncNotifications
 {
     /**
-     * Sync notifications from the source tables. Idempotent: a notification is
-     * only created once per source event.
+     * Sync notifications from extension-related source tables. Idempotent: a
+     * notification is only created once per source event.
+     *
+     * Captured sources: egress events, domain visits, extension lifecycle.
      */
     public function sync(): void
     {
@@ -25,9 +24,7 @@ class SyncNotifications
 
         $this->syncEgressEvents();
         $this->syncDomainVisits();
-        $this->syncAuditLogs();
         $this->syncExtensionLifecycles();
-        $this->syncChatMessages();
     }
 
     private function syncEgressEvents(): void
@@ -115,42 +112,6 @@ class SyncNotifications
             });
     }
 
-    private function syncAuditLogs(): void
-    {
-        $existing = Notification::withTrashed()
-            ->where('source', 'audit')
-            ->pluck('message')
-            ->flip();
-
-        AuditLog::query()
-            ->orderBy('occurred_at')
-            ->get()
-            ->each(function (AuditLog $log) use ($existing) {
-                $messageKey = 'audit-log-'.$log->id;
-                if (isset($existing[$messageKey])) {
-                    return;
-                }
-
-                $modelName = class_basename($log->auditable_type);
-                $actionLabel = ucfirst($log->action);
-
-                Notification::create([
-                    'source' => 'audit',
-                    'type' => "Database Edit — {$modelName} {$actionLabel}",
-                    'description' => "{$modelName} record {$log->action} by {$log->user_email}",
-                    'domain' => null,
-                    'user_id' => null,
-                    'email' => $log->user_email,
-                    'ip_address' => null,
-                    'risk_score' => null,
-                    'status' => 'glass-unlisted',
-                    'message' => $messageKey,
-                    'occurred_at' => $log->occurred_at,
-                    'read_at' => null,
-                ]);
-            });
-    }
-
     private function syncExtensionLifecycles(): void
     {
         $existing = Notification::withTrashed()
@@ -196,49 +157,6 @@ class SyncNotifications
             });
     }
 
-    private function syncChatMessages(): void
-    {
-        $existing = Notification::withTrashed()
-            ->where('source', 'chat')
-            ->pluck('message')
-            ->flip();
-
-        ChatMessage::query()
-            ->with(['conversation.userOne', 'conversation.userTwo', 'sender'])
-            ->orderBy('created_at')
-            ->get()
-            ->each(function (ChatMessage $message) use ($existing) {
-                $messageKey = 'chat-message-'.$message->id;
-                if (isset($existing[$messageKey])) {
-                    return;
-                }
-
-                $conversation = $message->conversation;
-                $recipient = null;
-                if ($conversation) {
-                    $recipient = $conversation->user_one_id === $message->sender_id
-                        ? $conversation->userTwo
-                        : $conversation->userOne;
-                }
-                $senderName = $message->sender?->name ?? 'Unknown';
-                $bodyExcerpt = Str::limit($message->body ?? '', 60);
-
-                Notification::create([
-                    'source' => 'chat',
-                    'type' => 'New Chat Message',
-                    'description' => "{$senderName}: {$bodyExcerpt}",
-                    'domain' => null,
-                    'user_id' => (string) $message->sender_id,
-                    'email' => $recipient?->email,
-                    'ip_address' => null,
-                    'risk_score' => null,
-                    'status' => 'glass-unlisted',
-                    'message' => $messageKey,
-                    'occurred_at' => $message->created_at ?? now(),
-                    'read_at' => null,
-                ]);
-            });
-    }
 
     private function statusForRisk(int $riskScore): string
     {

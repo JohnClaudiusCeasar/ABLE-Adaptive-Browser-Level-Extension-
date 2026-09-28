@@ -26,14 +26,17 @@ function getRiskScoreBadgeClass(score: number): string {
     if (score >= 76) {
         return 'border border-[#ff4d4d] bg-[rgba(255,77,77,0.2)] text-[#ff4d4d]';
     }
+
     if (score >= 41) {
         return 'border border-[#f59e0b] bg-[rgba(245,158,11,0.2)] text-[#f59e0b]';
     }
+
     return 'border border-[#00ff66] bg-[rgba(0,255,102,0.2)] text-[#00ff66]';
 }
 
 function formatTimestamp(ts: string): { date: string; time: string } {
     const d = new Date(ts);
+
     return {
         date: d.toLocaleDateString(undefined, {
             year: 'numeric',
@@ -58,6 +61,7 @@ export default function EgressIncidents({ recentShadowEgress }: EgressIncidentsP
 
     const processedItems = useMemo(() => {
         let items = [...recentShadowEgress];
+
         if (searchQuery) {
             const q = searchQuery.toLowerCase();
             items = items.filter(
@@ -93,6 +97,7 @@ export default function EgressIncidents({ recentShadowEgress }: EgressIncidentsP
     const safePage = Math.min(currentPage, totalPages);
     const paginatedItems = useMemo(() => {
         const start = (safePage - 1) * ROWS_PER_PAGE;
+
         return processedItems.slice(start, start + ROWS_PER_PAGE);
     }, [processedItems, safePage]);
 
@@ -220,6 +225,7 @@ export default function EgressIncidents({ recentShadowEgress }: EgressIncidentsP
                                 ) : (
                                     paginatedItems.map((row) => {
                                         const { date, time } = formatTimestamp(row.occurred_at);
+
                                         return (
                                             <tr
                                                 key={row.id}

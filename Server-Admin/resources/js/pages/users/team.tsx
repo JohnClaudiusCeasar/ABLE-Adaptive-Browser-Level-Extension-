@@ -65,9 +65,15 @@ type SortDir = 'asc' | 'desc';
 type GroupField = 'none' | 'role' | 'status';
 
 function formatTimestamp(ts: string | null): string {
-    if (!ts) return '—';
+    if (!ts) {
+return '—';
+}
+
     const d = new Date(ts);
-    if (isNaN(d.getTime())) return ts;
+
+    if (isNaN(d.getTime())) {
+return ts;
+}
 
     return d.toLocaleString(undefined, {
         year: 'numeric',
@@ -110,7 +116,10 @@ export default function TeamUsersPage({ team = [] }: TeamPageProps) {
 
     const handleEditSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!editingUser) return;
+
+        if (!editingUser) {
+return;
+}
 
         editForm.patch(`/users/team/${editingUser.id}`, {
             preserveScroll: true,
@@ -145,6 +154,7 @@ export default function TeamUsersPage({ team = [] }: TeamPageProps) {
 
         items.sort((a, b) => {
             let cmp = 0;
+
             switch (sortField) {
                 case 'id':
                     cmp = a.id - b.id;
@@ -162,6 +172,7 @@ export default function TeamUsersPage({ team = [] }: TeamPageProps) {
                     cmp = Number(a.is_blocked) - Number(b.is_blocked);
                     break;
             }
+
             return sortDir === 'asc' ? cmp : -cmp;
         });
 
@@ -200,6 +211,7 @@ export default function TeamUsersPage({ team = [] }: TeamPageProps) {
     const safePage = Math.min(currentPage, totalPages);
     const paginatedTeam = useMemo(() => {
         const start = (safePage - 1) * ROWS_PER_PAGE;
+
         return processedTeam.slice(start, start + ROWS_PER_PAGE);
     }, [processedTeam, safePage]);
 
@@ -319,7 +331,10 @@ export default function TeamUsersPage({ team = [] }: TeamPageProps) {
     }
 
     function renderGroupedContent() {
-        if (!groupedTeam) return null;
+        if (!groupedTeam) {
+return null;
+}
+
         const groupKeys = Object.keys(groupedTeam);
 
         if (groupKeys.length === 0) {

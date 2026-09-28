@@ -20,15 +20,21 @@ function isAllowedFileType(file: File): boolean {
     if (file.type.startsWith('image/') || file.type.startsWith('text/')) {
         return true;
     }
+
     const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+
     return ALLOWED_EXTENSIONS.has(ext);
 }
 
 function formatBytes(bytes: number): string {
-    if (bytes === 0) return '0 B';
+    if (bytes === 0) {
+return '0 B';
+}
+
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
+
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
@@ -76,17 +82,21 @@ export function ChatMessageInput({
 
         if (!isAllowedFileType(file)) {
             setFileError('Only image, office (PDF, Word, Excel, PowerPoint), and text files are allowed.');
+
             if (fileInputRef.current) {
                 fileInputRef.current.value = '';
             }
+
             return;
         }
 
         if (file.size > MAX_FILE_SIZE_BYTES) {
             setFileError('File size exceeds the 20MB limit.');
+
             if (fileInputRef.current) {
                 fileInputRef.current.value = '';
             }
+
             return;
         }
 
@@ -96,6 +106,7 @@ export function ChatMessageInput({
     function removeAttachment() {
         setAttachment(null);
         setFileError(null);
+
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
@@ -103,8 +114,10 @@ export function ChatMessageInput({
 
     function handleEmojiSelect(emoji: string) {
         const textarea = textareaRef.current;
+
         if (!textarea) {
             setValue((prev) => prev + emoji);
+
             return;
         }
 

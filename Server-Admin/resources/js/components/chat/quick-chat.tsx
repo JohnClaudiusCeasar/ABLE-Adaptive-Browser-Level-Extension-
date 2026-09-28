@@ -62,6 +62,7 @@ export function QuickChat() {
     useEffect(() => {
         if (!initialSyncedRef.current) {
             initialSyncedRef.current = true;
+
             if (!quickChatOpen && typeof chat?.unreadCount === 'number' && chat.unreadCount > 0) {
                 setUnreadCount(chat.unreadCount);
             }
@@ -111,6 +112,7 @@ export function QuickChat() {
 
         if (!password) {
             setPasswordError('Please enter your password.');
+
             return;
         }
 
@@ -251,6 +253,7 @@ export function QuickChat() {
                                             value={password}
                                             onChange={(e) => {
                                                 setPassword(e.target.value);
+
                                                 if (passwordError) {
                                                     setPasswordError(null);
                                                 }

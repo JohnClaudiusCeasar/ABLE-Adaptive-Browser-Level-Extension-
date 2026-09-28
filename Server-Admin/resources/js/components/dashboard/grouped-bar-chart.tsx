@@ -122,6 +122,7 @@ export function GroupedBarChart({ data, className }: GroupedBarChartProps) {
                                     (d.egress / maxValue) * chartHeight,
                                     d.egress > 0 ? 6 : 0,
                                 );
+
                                 return (
                                     <div
                                         key={d.date}

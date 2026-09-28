@@ -103,6 +103,7 @@ export function ChatWindow({
             prevHeightRef.current = el.scrollHeight;
             prevScrollTopRef.current = el.scrollTop;
             prevMessagesLengthRef.current = messages.length;
+
             return;
         }
 

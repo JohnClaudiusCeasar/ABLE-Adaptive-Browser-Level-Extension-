@@ -135,7 +135,10 @@ export function DonutGauge({
                     {/* Interactive Segments */}
                     {!isEmpty ? (
                         arcData.map((arc) => {
-                            if (arc.value <= 0) return null;
+                            if (arc.value <= 0) {
+return null;
+}
+
                             const isHovered = hoveredIdx === arc.index;
                             const isAnyHovered = hoveredIdx !== null;
 

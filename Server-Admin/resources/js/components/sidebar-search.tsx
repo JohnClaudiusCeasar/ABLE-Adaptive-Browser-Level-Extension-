@@ -61,6 +61,7 @@ export function SidebarSearch({ items }: { items: NavItem[] }) {
         }
 
         window.addEventListener('keydown', handleGlobalKeyDown);
+
         return () => window.removeEventListener('keydown', handleGlobalKeyDown);
     }, []);
 

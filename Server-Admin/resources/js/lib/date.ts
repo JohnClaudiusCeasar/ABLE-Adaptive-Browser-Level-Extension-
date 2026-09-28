@@ -74,6 +74,7 @@ export function formatDividerDate(isoString: string | null | undefined): {
     }
 
     const d = new Date(isoString);
+
     if (isNaN(d.getTime())) {
         return { monthDay: '', time: '' };
     }
