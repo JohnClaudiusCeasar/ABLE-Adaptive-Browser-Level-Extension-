@@ -28,10 +28,10 @@ export default function AppSidebarLayout({
             <AppSidebar />
             <AppContent variant="sidebar" className="h-screen overflow-hidden">
                 <AppSidebarHeader breadcrumbs={breadcrumbs} />
-                <div className="flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
+                <div className="able-scrollbar flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
                     {children}
                 </div>
-                {!isPreviewPage && (
+                {!isPreviewPage && !isChatPage && (
                     <div data-print-trigger className="no-print fixed right-6 bottom-[92px] z-40">
                         <Link
                             href="/reports/preview"
