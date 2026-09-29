@@ -341,7 +341,17 @@ async function handleTextCheck(checkId, text, inputType, url) {
       text = text.substring(0, MAX_TEXT_LENGTH);
     }
 
-    var result = await calculateRiskScore(text);
+    // ── ④ Collect page context for contextual risk scoring ──────────────────
+    var pageContext = null;
+    try {
+      if (typeof ABLEPageSignals !== 'undefined' && ABLEPageSignals.collectPageSignals) {
+        pageContext = ABLEPageSignals.collectPageSignals();
+      }
+    } catch (e) {
+      // Non-fatal — scoring proceeds without page context
+    }
+
+    var result = await calculateRiskScore(text, { pageContext: pageContext });
     var domainRiskScore = domainStatus?.risk_score || 0;
     var totalScore = Math.min(100, domainRiskScore + result.score);
     var riskThreshold = ABLERuntimeSettings.get("behavior.risk_threshold", 85);

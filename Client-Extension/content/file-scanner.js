@@ -51,6 +51,23 @@ function detectFileTypeFromMagicBytes(file) {
   });
 }
 
+// ─── ⑥ File-type heuristic multipliers ───────────────────────────────────────
+// Applied to the pattern score only (before domain risk is added).
+// Reflects the prior probability that a given container holds real structured data
+// vs. illustrative or narrative content.
+const FILE_TYPE_MULTIPLIERS = {
+  csv:  1.5,  // tabular by definition — almost certainly real records
+  xlsx: 1.4,  // spreadsheets are operational data tools
+  xls:  1.4,
+  pdf:  1.1,  // reports often contain real data exported from systems
+  docx: 1.0,  // documents — neutral
+  doc:  1.0,
+  txt:  0.9,  // plain text — often logs or notes, slightly lower prior
+  rtf:  0.9,
+  pptx: 0.8,  // presentations routinely use placeholder / demo data
+  ppt:  0.8,
+};
+
 async function scanFile(file) {
   const scanStartTime = Date.now();
   const MAX_TEXT_FILE_SIZE = 100 * 1024 * 1024;
@@ -104,9 +121,42 @@ async function scanFile(file) {
     }
   }
 
-  const result = await calculateRiskScore(text);
+  // ── ④ Collect page context for contextual risk scoring ────────────────────
+  var pageContext = null;
+  try {
+    if (typeof ABLEPageSignals !== 'undefined' && ABLEPageSignals.collectPageSignals) {
+      pageContext = ABLEPageSignals.collectPageSignals();
+    }
+  } catch (e) {
+    // Non-fatal — scoring proceeds without page context
+  }
+
+  const result = await calculateRiskScore(text, { pageContext: pageContext });
+
+  // ── ⑥ Apply file-type heuristic multiplier to the pattern score ───────────
+  var fileExt = (file.name.split('.').pop() || '').toLowerCase();
+  var fileTypeMult = FILE_TYPE_MULTIPLIERS[fileExt] != null
+    ? FILE_TYPE_MULTIPLIERS[fileExt]
+    : 1.0;
+
+  // Fall back to the resolved format for binary/blob uploads
+  if (fileTypeMult === 1.0 && fileFormat && fileFormat !== 'plain') {
+    fileTypeMult = FILE_TYPE_MULTIPLIERS[fileFormat] != null
+      ? FILE_TYPE_MULTIPLIERS[fileFormat]
+      : 1.0;
+  }
+
+  var patternScore = fileTypeMult !== 1.0
+    ? Math.min(100, Math.round(result.score * fileTypeMult))
+    : result.score;
+
+  if (fileTypeMult !== 1.0) {
+    console.debug("ABLE: File-type multiplier applied:", fileExt || fileFormat,
+      fileTypeMult.toFixed(1) + '×', result.score, '→', patternScore);
+  }
+
   const domainRiskScore = domainStatus?.risk_score || 0;
-  const totalScore = Math.min(100, domainRiskScore + result.score);
+  const totalScore = Math.min(100, domainRiskScore + patternScore);
 
   const flaggedItems = [];
   if (domainRiskScore > 0) {
@@ -128,6 +178,8 @@ async function scanFile(file) {
     domain_status: domainStatus.status,
     domain_risk_score: domainRiskScore,
     pattern_score: result.score,
+    file_type_mult: fileTypeMult,
+    adjusted_pattern_score: patternScore,
     total_score: totalScore,
     threshold: riskThreshold,
     triggered: totalScore > riskThreshold,

@@ -4,6 +4,7 @@ import type { FormEvent } from 'react';
 import { useState, Fragment, useMemo } from 'react';
 import AlertError from '@/components/alert-error';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { ContextIntelligenceSection } from './context-intelligence-section';
 
 interface CriteriaPatternItem {
     id: number;
@@ -19,6 +20,9 @@ interface RiskPattern {
     title: string;
     type: 'single' | 'criteria';
     regex: string | null;
+    negation_context_regex: string | null;
+    amplifier_context_regex: string | null;
+    negation_window: number | null;
     priority: 'low' | 'medium' | 'high';
     score: number;
     criteria_pattern_items: CriteriaPatternItem[];
@@ -35,6 +39,9 @@ interface CriteriaFormData {
     title: string;
     score: string;
     priority: 'low' | 'medium' | 'high';
+    negation_context_regex: string;
+    amplifier_context_regex: string;
+    negation_window: number | null;
     criteria_pattern_items: CriteriaPatternItem[];
 }
 
@@ -44,6 +51,9 @@ const emptyCriteriaForm: CriteriaFormData = {
     title: '',
     score: '',
     priority: 'medium',
+    negation_context_regex: '',
+    amplifier_context_regex: '',
+    negation_window: null,
     criteria_pattern_items: [],
 };
 
@@ -156,6 +166,9 @@ export default function CreateCriteriaPattern() {
                 ? parseInt(criteriaForm.score) || 0
                 : autoCompositeScore,
             priority: criteriaForm.priority,
+            negation_context_regex: criteriaForm.negation_context_regex || null,
+            amplifier_context_regex: criteriaForm.amplifier_context_regex || null,
+            negation_window: criteriaForm.negation_window || null,
             criteria_pattern_items: criteriaForm.criteria_pattern_items,
             type: 'criteria' as const,
         };
@@ -464,6 +477,31 @@ export default function CreateCriteriaPattern() {
                             </button>
                         </div>
                     </div>
+
+                    {/* Context Intelligence — optional, collapsible */}
+                    <ContextIntelligenceSection
+                        negationRegex={criteriaForm.negation_context_regex}
+                        amplifierRegex={criteriaForm.amplifier_context_regex}
+                        negationWindow={criteriaForm.negation_window}
+                        onNegationChange={(v) =>
+                            setCriteriaForm({
+                                ...criteriaForm,
+                                negation_context_regex: v,
+                            })
+                        }
+                        onAmplifierChange={(v) =>
+                            setCriteriaForm({
+                                ...criteriaForm,
+                                amplifier_context_regex: v,
+                            })
+                        }
+                        onWindowChange={(v) =>
+                            setCriteriaForm({
+                                ...criteriaForm,
+                                negation_window: v,
+                            })
+                        }
+                    />
 
                     {/* Pattern Items Section */}
                     <div className="mt-[34px]">

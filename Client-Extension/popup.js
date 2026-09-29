@@ -60,8 +60,11 @@ function updateUI(classification) {
   statusValue.textContent = status.charAt(0).toUpperCase() + status.slice(1);
 
   // Update message card
-  messageTitle.textContent = messages.title;
-  messageBody.textContent = messages.message;
+  messageTitle.innerHTML = messages.title;
+  messageBody.innerHTML = (messages.message || "").replace(/\n/g, "<br>");
+  if (messageSuggestion) {
+    messageSuggestion.textContent = messages.suggestion || "";
+  }
   
   // Add animation
   animateUpdate();

@@ -136,6 +136,22 @@ class RiskPatternController extends Controller
     }
 
     /**
+     * Display the standalone page for editing an existing criteria pattern.
+     */
+    public function editCriteria(RiskPattern $riskPattern): Response
+    {
+        $existingPatterns = RiskPattern::with('criteriaPatternItems')
+            ->whereIn('type', ['single', 'criteria'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return Inertia::render('risk-algorithm/edit-criteria', [
+            'riskPattern'     => $riskPattern->load('criteriaPatternItems'),
+            'existingPatterns' => $existingPatterns,
+        ]);
+    }
+
+    /**
      * Store a newly created risk pattern.
      */
     public function store(Request $request): RedirectResponse
@@ -144,6 +160,9 @@ class RiskPatternController extends Controller
             'title' => 'required|string|max:255',
             'type' => 'required|in:single,criteria',
             'regex' => ['required_if:type,single', 'nullable', 'string', 'max:1000', new CompilableRegex],
+            'negation_context_regex' => ['nullable', 'string', 'max:1000', new CompilableRegex],
+            'amplifier_context_regex' => ['nullable', 'string', 'max:1000', new CompilableRegex],
+            'negation_window' => 'nullable|integer|min:50|max:500',
             'score' => 'required_if:type,single|nullable|integer|min:0|max:100',
             'priority' => 'nullable|in:low,medium,high',
             'criteria_pattern_items' => 'required_if:type,criteria|nullable|array|min:1',
@@ -164,6 +183,9 @@ class RiskPatternController extends Controller
             'title' => $validated['title'],
             'type' => $validated['type'],
             'regex' => $validated['type'] === 'single' ? $validated['regex'] : null,
+            'negation_context_regex' => $validated['negation_context_regex'] ?? null,
+            'amplifier_context_regex' => $validated['amplifier_context_regex'] ?? null,
+            'negation_window' => isset($validated['negation_window']) ? (int) $validated['negation_window'] : null,
             'score' => $validated['score'] ?? 0,
             'priority' => $validated['priority'] ?? 'medium',
         ]);
@@ -227,6 +249,9 @@ class RiskPatternController extends Controller
             'title' => 'required|string|max:255',
             'type' => 'required|in:single,criteria',
             'regex' => ['required_if:type,single', 'nullable', 'string', 'max:1000', new CompilableRegex],
+            'negation_context_regex' => ['nullable', 'string', 'max:1000', new CompilableRegex],
+            'amplifier_context_regex' => ['nullable', 'string', 'max:1000', new CompilableRegex],
+            'negation_window' => 'nullable|integer|min:50|max:500',
             'score' => 'required_if:type,single|nullable|integer|min:0|max:100',
             'priority' => 'nullable|in:low,medium,high',
             'criteria_pattern_items' => 'required_if:type,criteria|nullable|array|min:1',
@@ -247,6 +272,9 @@ class RiskPatternController extends Controller
             'title' => $validated['title'],
             'type' => $validated['type'],
             'regex' => $validated['type'] === 'single' ? $validated['regex'] : null,
+            'negation_context_regex' => $validated['negation_context_regex'] ?? null,
+            'amplifier_context_regex' => $validated['amplifier_context_regex'] ?? null,
+            'negation_window' => isset($validated['negation_window']) ? (int) $validated['negation_window'] : null,
             'score' => $validated['score'] ?? 0,
             'priority' => $validated['priority'] ?? $riskPattern->priority,
         ]);
