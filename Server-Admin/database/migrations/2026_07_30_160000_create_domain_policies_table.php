@@ -17,6 +17,8 @@ return new class extends Migration
             $table->enum('domain_status', ['safe', 'unsafe', 'unlisted'])->default('unlisted');
             $table->enum('policy', ['whitelisted', 'blacklisted', 'under_review'])->default('under_review');
             $table->string('category')->nullable();
+            $table->string('classification_source')->nullable();
+            $table->decimal('confidence', 3, 2)->nullable();
             $table->integer('risk_score')->default(0);
 
             // Visit tracking columns

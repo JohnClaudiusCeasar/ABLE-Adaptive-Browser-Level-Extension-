@@ -15,7 +15,11 @@ return new class extends Migration
             $table->id();
             $table->foreignId('conversation_id')->constrained('chat_conversations')->cascadeOnDelete();
             $table->foreignId('sender_id')->constrained('users')->cascadeOnDelete();
-            $table->text('body');
+            $table->string('body')->nullable(); // nullable to support attachment-only messages
+            $table->string('attachment_path')->nullable();
+            $table->string('attachment_name')->nullable();
+            $table->unsignedBigInteger('attachment_size')->nullable();
+            $table->string('attachment_type')->nullable();
             $table->timestamp('read_at')->nullable();
             $table->timestamps();
 

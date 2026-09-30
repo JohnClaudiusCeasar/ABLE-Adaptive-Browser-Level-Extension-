@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('source'); // 'egress' | 'nudge' | 'login'
             $table->string('type'); // human title e.g. 'Egress Event Detected'
+            $table->text('description')->nullable();
             $table->string('domain')->nullable();
             $table->string('user_id')->nullable();
             $table->string('email')->nullable();
@@ -24,10 +25,13 @@ return new class extends Migration
             $table->string('message')->nullable();
             $table->timestamp('occurred_at');
             $table->timestamp('read_at')->nullable();
+            $table->softDeletes();
             $table->timestamps();
 
             $table->index('read_at');
             $table->index('occurred_at');
+            $table->index(['source', 'message'], 'notifications_source_message_idx');
+            $table->index('user_id', 'notifications_user_id_idx');
         });
     }
 

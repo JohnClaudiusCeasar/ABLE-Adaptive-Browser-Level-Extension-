@@ -16,12 +16,14 @@ return new class extends Migration
             $table->foreignId('domain_policy_id')->constrained('domain_policies')->cascadeOnDelete();
             $table->string('domain');
             $table->string('user_id')->nullable();
+            $table->string('status', 50)->nullable();
             $table->timestamp('visited_at');
             $table->timestamps();
 
             $table->index('domain_policy_id');
             $table->index('domain');
             $table->index('visited_at');
+            $table->index('status');
         });
     }
 

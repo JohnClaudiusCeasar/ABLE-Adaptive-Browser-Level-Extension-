@@ -16,12 +16,25 @@ return new class extends Migration
             $table->string('title');
             $table->enum('type', ['single', 'criteria'])->default('single');
             $table->string('regex')->nullable();
-            $table->enum('status', ['active', 'inactive'])->default('active');
             $table->integer('score')->default(0);
+            $table->enum('priority', ['low', 'medium', 'high'])->default('medium');
+            $table->foreignId('parent_criteria_id')
+                ->nullable()
+                ->constrained('risk_patterns')
+                ->nullOnDelete();
+            $table->string('negation_context_regex', 1000)
+                ->nullable()
+                ->comment('Regex that, when found near a match, cancels its score contribution.');
+            $table->string('amplifier_context_regex', 1000)
+                ->nullable()
+                ->comment('Regex that, when found near a match, doubles its score contribution.');
+            $table->smallInteger('negation_window')
+                ->nullable()
+                ->comment('Character radius around each match to search for context signals (default 150).');
             $table->timestamps();
 
             $table->index('type');
-            $table->index('status');
+            $table->index('priority');
         });
     }
 

@@ -14,9 +14,15 @@ return new class extends Migration
         Schema::create('criteria_pattern_items', function (Blueprint $table) {
             $table->id();
             $table->foreignId('criteria_pattern_id')->constrained('risk_patterns')->cascadeOnDelete();
+            $table->foreignId('parent_id')
+                ->nullable()
+                ->constrained('criteria_pattern_items')
+                ->nullOnDelete();
             $table->string('title');
-            $table->string('regex');
+            $table->string('regex')->nullable(); // nullable: wrapper items imported from criteria patterns carry no regex
             $table->integer('score')->default(0);
+            $table->enum('operator', ['and', 'or'])->default('and');
+            $table->enum('risk_weight', ['low', 'medium', 'high'])->default('medium');
             $table->timestamps();
         });
     }
