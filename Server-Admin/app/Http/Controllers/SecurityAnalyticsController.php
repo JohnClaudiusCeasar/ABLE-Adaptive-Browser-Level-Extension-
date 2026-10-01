@@ -224,6 +224,7 @@ class SecurityAnalyticsController extends Controller
                     'fileName' => $event->file_name ?? '—',
                     'fileSize' => $event->file_size ? $this->formatBytes($event->file_size) : '—',
                     'risk_score' => (int) $event->risk_score,
+                    'flagged_items' => is_array($event->flagged_items) ? $event->flagged_items : null,
                     'action' => ucfirst($event->action),
                 ];
             });

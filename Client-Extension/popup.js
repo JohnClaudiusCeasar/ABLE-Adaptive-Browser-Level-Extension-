@@ -206,6 +206,20 @@ function setupEventListeners() {
       initializeExtension();
     }
   });
+
+  const viewGreetingLink = document.getElementById("viewGreetingLink");
+  if (viewGreetingLink) {
+    viewGreetingLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      try {
+        chrome.tabs.create({ url: chrome.runtime.getURL("welcome.html") });
+      } catch {
+        if (chrome.runtime && chrome.runtime.sendMessage) {
+          chrome.runtime.sendMessage({ type: "openWelcomePage" });
+        }
+      }
+    });
+  }
 }
 
 /**

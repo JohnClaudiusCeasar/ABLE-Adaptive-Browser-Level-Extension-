@@ -34,6 +34,12 @@ const ABLEStorage = {
   PENDING_VISITS: "able:pending_visits",
   PENDING_EGRESS: "able:pending_egress",
 
+  // Onboarding & greeting
+  GREETING_COMPLETED: "able:greeting_completed",
+  getGreetingCompletedKey() {
+    return "able:greeting_completed";
+  },
+
   // Modal cooldown
   getLastModalShownKey(domain) {
     return "able:last_modal:" + domain;

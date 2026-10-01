@@ -29,17 +29,19 @@
         "api/rate-limiter.js",
         "api/classification.js",
         "api/risk-patterns.js",
+        "api/scoring.js",
         "api/logging.js",
         "api/index.js",
         "content/page-signals.js",
         "content/zoom.js",
-        "content/risk-scoring.js",
+        "content/score-hold-modal.js",
         "content/file-scanner.js",
         "content/modal-container.js",
         "content/intercept-modal.js",
         "content/text-warning-modal.js",
         "content/site-warning-modal.js",
         "content/repeat-visit-modal.js",
+        "content/greeting-modal.js",
         "content/content.js"
       ],
       "css": ["content.css"],
@@ -53,7 +55,11 @@
         "inject/inject.js",
         "inject/file-extractor.js",
         "inject/network-interceptor.js",
-        "inject/file-tracker.js"
+        "inject/file-tracker.js",
+        "assets/ABLE-LOGO.png",
+        "assets/ABLE-LOGO.svg",
+        "icons/icon-128.png",
+        "icons/ABLE-LOGO.png"
       ],
       "matches": ["<all_urls>"]
     }

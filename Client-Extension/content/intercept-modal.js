@@ -78,8 +78,8 @@ function showInterceptModal(data) {
         '<div class="able-modal-body">' +
           '<p>' +
             'ABLE has detected sensitive information from' +
-            ' "<span class="able-highlight-text">' + data.fileName + '</span>" that is being uploaded into' +
-            ' <span class="able-highlight-text">' + data.websiteName + '</span>.' +
+            ' "<span class="able-highlight-text">' + escapeHtml(data.fileName) + '</span>" that is being uploaded into' +
+            ' <span class="able-highlight-text">' + escapeHtml(data.websiteName) + '</span>.' +
             ' Please be informed that the website is marked as' +
             ' <span class="able-highlight-text">' + statusLabel + '</span> by our security team' +
             ' and sending this file may expose your information to these third-party services.' +
@@ -121,6 +121,7 @@ function showInterceptModal(data) {
       scanDurationMs: data.scanDurationMs || null,
       contentSize: data.fileSize,
       flaggedItems: data.flaggedItems,
+      scanToken: data.scanToken || null,
     });
     removeModal();
   });
@@ -138,6 +139,7 @@ function showInterceptModal(data) {
       scanDurationMs: data.scanDurationMs || null,
       contentSize: data.fileSize,
       flaggedItems: data.flaggedItems,
+      scanToken: data.scanToken || null,
     });
     removeModal();
   });
@@ -157,14 +159,20 @@ function showInterceptModal(data) {
         scanDurationMs: data.scanDurationMs || null,
         contentSize: data.fileSize,
         flaggedItems: data.flaggedItems,
+        scanToken: data.scanToken || null,
       });
       removeModal();
-      window.removeEventListener("keydown", handleKeydown);
     }
   };
 
   backdrop.addEventListener("keydown", handleKeydown);
   window.addEventListener("keydown", handleKeydown);
+  if (typeof ABLEModalContainer !== "undefined" && ABLEModalContainer.registerModalCleanup) {
+    ABLEModalContainer.registerModalCleanup(function () {
+      window.removeEventListener("keydown", handleKeydown);
+      backdrop.removeEventListener("keydown", handleKeydown);
+    });
+  }
 
   backdrop.querySelector(".able-score-ring-wrapper").addEventListener("click", function () {
     showInterceptScoreDetails(data);
@@ -185,7 +193,7 @@ function showInterceptScoreDetails(data) {
     var pct = totalWeight > 0 ? ((item.weight / totalWeight) * 100).toFixed(0) : 0;
     return '<div class="able-detail-item">' +
       '<span class="able-detail-swatch" style="background: ' + color + ';"></span>' +
-      '<span class="able-detail-label"><span class="able-highlight-text">' + item.label + '</span></span>' +
+      '<span class="able-detail-label"><span class="able-highlight-text">' + escapeHtml(item.label) + '</span></span>' +
       '<span class="able-detail-count">x<span class="able-highlight-text">' + item.count + '</span></span>' +
       '<span class="able-detail-weight">+<span class="able-highlight-text">' + item.weight + '</span></span>' +
       '<span class="able-detail-pct"><span class="able-highlight-text">' + pct + '%</span></span>' +
@@ -225,6 +233,7 @@ function showInterceptScoreDetails(data) {
       scanDurationMs: data.scanDurationMs || null,
       contentSize: data.fileSize,
       flaggedItems: data.flaggedItems,
+      scanToken: data.scanToken || null,
     });
     removeModal();
   });

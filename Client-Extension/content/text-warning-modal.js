@@ -16,12 +16,12 @@ function showTextWarningModal(data) {
         </p>
         <div style="background: #fff3e0; border-left: 3px solid #ff9800; padding: 8px 12px; margin-bottom: 12px; font-size: 12px; color: #e65100;">
           <strong>Risk Score: ${data.totalScore}/100</strong><br>
-          Domain: ${data.domain}
+          Domain: ${escapeHtml(data.domain)}
         </div>
         <div style="font-size: 12px; color: #666666; margin-bottom: 16px;">
           <strong>Detected patterns:</strong>
           <ul style="margin: 4px 0; padding-left: 20px;">
-            ${data.flaggedItems.map(item => `<li>${item.label} (${item.count} matches)</li>`).join("")}
+            ${data.flaggedItems.map(item => `<li>${escapeHtml(item.label)} (${item.count} matches)</li>`).join("")}
           </ul>
         </div>
       </div>

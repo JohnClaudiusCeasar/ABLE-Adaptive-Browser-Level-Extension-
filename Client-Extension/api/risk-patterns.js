@@ -8,6 +8,16 @@ const RISK_PATTERNS_KEY = "able:risk_patterns";
 const RISK_PATTERNS_TIMESTAMP_KEY = "able:risk_patterns_timestamp";
 const RISK_PATTERNS_ENVELOPE_KEY = "able:risk_patterns_envelope";
 
+// Tamper-secure offline pattern snapshot ("criteria pattern reference file").
+// Written after every successful sync — before the server can fail — so the
+// extension can reference the recently assigned criteria pattern data while
+// the scoring server is unreachable. Every read verifies the HMAC envelope
+// (readSignedOfflineCache purges tampered data), and the snapshot is safely
+// deleted once the server reconnects after an outage episode.
+const PATTERN_SNAPSHOT_KEY = "able:pattern_snapshot";
+const PATTERN_SNAPSHOT_ENVELOPE_KEY = "able:pattern_snapshot_envelope";
+const OFFLINE_EPISODE_KEY = "able:offline_episode";
+
 const RISK_PATTERNS_SYNC_INTERVAL = 24 * 60 * 60 * 1000;
 const RISK_PATTERNS_MEMORY_TTL = 5 * 60 * 1000;
 
@@ -38,6 +48,9 @@ async function refreshRiskPatternsCache() {
       [RISK_PATTERNS_TIMESTAMP_KEY]: payload.issued_at || Date.now(),
       [RISK_PATTERNS_ENVELOPE_KEY]: envelope,
     });
+
+    // Refresh the tamper-secure snapshot while the server is reachable.
+    await writePatternSnapshot(envelope);
 
     console.log(`ABLE: Risk patterns cache updated with ${patterns.length} verified patterns.`);
     return patterns;
@@ -77,6 +90,64 @@ async function clearRiskPatternsCache() {
     console.log("ABLE: Risk patterns cache cleared.");
   } catch (error) {
     console.warn("ABLE: Failed to clear risk patterns cache:", error.message);
+  }
+}
+
+// ─── Tamper-secure offline pattern snapshot ──────────────────────────────────
+
+async function writePatternSnapshot(envelope) {
+  try {
+    await chrome.storage.local.set({ [PATTERN_SNAPSHOT_ENVELOPE_KEY]: envelope });
+    console.debug("ABLE: Offline pattern snapshot refreshed (signed envelope).");
+  } catch (error) {
+    console.warn("ABLE: Failed to write offline pattern snapshot:", error.message);
+  }
+}
+
+/**
+ * Read the verified snapshot payload {patterns, issued_at}, or null.
+ * Tampered envelopes are verified away and purged by readSignedOfflineCache.
+ */
+async function readPatternSnapshot() {
+  try {
+    return await ABLESecurity.readSignedOfflineCache(PATTERN_SNAPSHOT_KEY);
+  } catch (error) {
+    console.warn("ABLE: Failed to read offline pattern snapshot:", error.message);
+    return null;
+  }
+}
+
+/**
+ * Called when a scoring request fails: remember that an outage episode began
+ * so the snapshot persists until the server reconnects.
+ */
+async function markOfflineEpisode() {
+  try {
+    await chrome.storage.local.set({ [OFFLINE_EPISODE_KEY]: true });
+    console.debug("ABLE: Scoring outage episode started — snapshot will persist until reconnect.");
+  } catch (error) {
+    // Non-fatal
+  }
+}
+
+/**
+ * Called after the first successful scored verdict of an outage episode:
+ * the server has reconnected, so safely delete the snapshot file.
+ */
+async function safelyDeleteSnapshotOnReconnect() {
+  try {
+    var stored = await chrome.storage.local.get(OFFLINE_EPISODE_KEY);
+    if (!stored[OFFLINE_EPISODE_KEY]) return false;
+    await chrome.storage.local.remove([
+      PATTERN_SNAPSHOT_KEY,
+      PATTERN_SNAPSHOT_ENVELOPE_KEY,
+      OFFLINE_EPISODE_KEY,
+    ]);
+    console.log("ABLE: Scoring server reconnected — offline pattern snapshot safely deleted.");
+    return true;
+  } catch (error) {
+    console.warn("ABLE: Failed to delete offline pattern snapshot:", error.message);
+    return false;
   }
 }
 
@@ -137,6 +208,10 @@ if (typeof globalThis !== "undefined") {
     refreshRiskPatternsCache,
     getRiskPatternsOfflineCache,
     clearRiskPatternsCache,
+    writePatternSnapshot,
+    readPatternSnapshot,
+    markOfflineEpisode,
+    safelyDeleteSnapshotOnReconnect,
   };
   globalThis.ABLEARiskPatterns = globalThis.ABLERiskPatterns;
 }

@@ -48,9 +48,18 @@ function buildDefaultDomainStatus() {
   return {
     status: statusLabel,
     domain: hostname,
+    risk_score: 60,
     title: "The site you are entering is " + statusLabel.toUpperCase(),
     message: "<span class=\"able-highlight-text\">" + hostname + "</span> is an <span class=\"able-highlight-text\">" + statusLabel + "</span> service that has not been reviewed by our security team. Please refrain from sending sensitive institutional data from this website until it is properly reviewed."
   };
+}
+
+// Server-computed domain risk baseline. Falls back to the unlisted default
+// (60, matching config.js getDefaultClassification) when classification
+// hasn't resolved — never a silent 0.
+function currentDomainBaseline() {
+  var score = domainStatus ? domainStatus.risk_score : undefined;
+  return typeof score === "number" ? score : 60;
 }
 
 async function classifyCurrentDomain() {
@@ -207,6 +216,7 @@ function sendDecision(requestId, action, details) {
   window.postMessage({
     source: "ABLE_CONTENT",
     type: "ABLE_DECISION",
+    nonce: pageNonceHex,
     payload: { requestId: requestId, action: action, details: details || null }
   }, "*");
 }
@@ -215,6 +225,7 @@ function sendTextDecision(checkId, action) {
   window.postMessage({
     source: "ABLE_CONTENT",
     type: "ABLE_TEXT_DECISION",
+    nonce: pageNonceHex,
     payload: { checkId: checkId, action: action }
   }, "*");
 }
@@ -235,7 +246,7 @@ async function handleInterceptedFiles(fileInfos, requestId) {
         domain: domainStatus?.domain || new URL(window.location.href).hostname.replace(/^www\./, ""),
         fileName: files[i].name,
         fileSize: files[i].size,
-        riskScore: 0,
+        riskScore: currentDomainBaseline(),
         action: "allowed",
         userAction: "allowed",
         source: fileInfos[i].source,
@@ -248,10 +259,49 @@ async function handleInterceptedFiles(fileInfos, requestId) {
   var scanPromises = files.map(function (file) { return scanFile(file); });
   var scanResults = await Promise.all(scanPromises);
 
+  // Scoring server unreachable/unverifiable: HOLD the upload — never proceed unscored.
+  var failures = scanResults.filter(function (r) { return r && r.ok === false; });
+  if (failures.length > 0) {
+    // Notify page script that a modal is active; clear the upload timeout.
+    window.postMessage({
+      source: "ABLE_CONTENT",
+      type: "ABLE_MODAL_ACTIVE",
+      nonce: pageNonceHex,
+      payload: { requestId: requestId }
+    }, "*");
+
+    var failed = failures[0];
+    showScoreHoldModal({
+      domain: domainStatus.domain,
+      fileName: failed.fileName,
+      fileSize: failed.fileSize,
+      onRetry: function () {
+        removeModal();
+        handleInterceptedFiles(fileInfos, requestId);
+      },
+      onCancel: function () {
+        sendDecision(requestId, "cancel", { fileName: failed.fileName, fileSize: failed.fileSize });
+        logEgressEvent({
+          domain: domainStatus.domain,
+          fileName: failed.fileName,
+          fileSize: failed.fileSize,
+          riskScore: currentDomainBaseline(),
+          action: "denied",
+          userAction: "cancelled",
+          source: primarySource,
+          scanDurationMs: failed.scanDurationMs,
+        });
+        removeModal();
+      },
+    });
+    return;
+  }
+
+  var scoredResults = scanResults.filter(function (r) { return r && r.ok; });
   var highestRisk = null;
-  for (var i = 0; i < scanResults.length; i++) {
-    var result = scanResults[i];
-    if (result && (!highestRisk || result.score > highestRisk.score)) {
+  for (var j = 0; j < scoredResults.length; j++) {
+    var result = scoredResults[j];
+    if (!highestRisk || result.score > highestRisk.score) {
       highestRisk = result;
     }
   }
@@ -264,7 +314,7 @@ async function handleInterceptedFiles(fileInfos, requestId) {
 
   var consent = await hasSessionConsent();
   var riskThreshold = ABLERuntimeSettings.get("behavior.risk_threshold", 85);
-  var patternScore = highestRisk ? (highestRisk.score - (domainStatus?.risk_score || 0)) : 0;
+  var patternScore = highestRisk ? highestRisk.patternScore : 0;
   var isExtremeRisk = highestRisk && highestRisk.score >= 85;
   var isFlagged = highestRisk && (
     highestRisk.score > riskThreshold ||
@@ -277,6 +327,7 @@ async function handleInterceptedFiles(fileInfos, requestId) {
     window.postMessage({
       source: "ABLE_CONTENT",
       type: "ABLE_MODAL_ACTIVE",
+      nonce: pageNonceHex,
       payload: { requestId: requestId }
     }, "*");
 
@@ -292,6 +343,7 @@ async function handleInterceptedFiles(fileInfos, requestId) {
       requestId: requestId,
       contentHash: highestRisk.contentHash,
       scanDurationMs: highestRisk.scanDurationMs,
+      scanToken: highestRisk.scanToken,
     });
   } else {
     sendDecision(requestId, "proceed");
@@ -311,6 +363,7 @@ async function handleInterceptedFiles(fileInfos, requestId) {
           scanDurationMs: highestRisk.scanDurationMs,
           contentSize: highestRisk.fileSize,
           flaggedItems: highestRisk.flaggedItems,
+          scanToken: highestRisk.scanToken,
         });
       }
     } else if (fileInfos.length > 0) {
@@ -321,7 +374,7 @@ async function handleInterceptedFiles(fileInfos, requestId) {
           domain: domainStatus.domain,
           fileName: fallbackName,
           fileSize: firstInfo.contentSize || firstInfo.file?.size || 0,
-          riskScore: 0,
+          riskScore: currentDomainBaseline(),
           action: "proceeded",
           userAction: "proceeded",
           source: primarySource,
@@ -351,21 +404,46 @@ async function handleTextCheck(checkId, text, inputType, url) {
       // Non-fatal — scoring proceeds without page context
     }
 
-    var result = await calculateRiskScore(text, { pageContext: pageContext });
-    var domainRiskScore = domainStatus?.risk_score || 0;
-    var totalScore = Math.min(100, domainRiskScore + result.score);
+    var domain = domainStatus?.domain || new URL(url).hostname.replace(/^www\./, "");
+
+    // Server-authoritative scoring (algorithm + regex modifiers live server-side).
+    var verdict = await requestContentScore({
+      text: text,
+      fileName: "[text-input]",
+      fileSize: text.length,
+      domain: domain,
+      pageContext: pageContext,
+    });
+
+    if (!verdict) {
+      // Scoring server unreachable: uploads are held instead, but typed text
+      // fails open. Never fabricate a 0% score in the logs.
+      console.warn("ABLE: Scoring server unreachable — text check allowed at domain baseline.");
+      logEgressEvent({
+        domain: domain,
+        fileName: "[text-input]",
+        fileSize: text.length,
+        riskScore: currentDomainBaseline(),
+        action: "allowed",
+        userAction: "typing",
+        source: "text-intercept",
+      });
+      sendTextDecision(checkId, "allow");
+      return;
+    }
+
+    var totalScore = verdict.score;
     var riskThreshold = ABLERuntimeSettings.get("behavior.risk_threshold", 85);
 
     console.debug("ABLE Text Scan:", {
       inputType: inputType,
       textLength: text.length,
-      pattern_score: result.score,
-      domain_risk_score: domainRiskScore,
+      pattern_score: verdict.patternScore,
+      domain_risk_score: verdict.domainRiskScore,
       total_score: totalScore,
-      flaggedItems: result.flaggedItems,
+      flaggedItems: verdict.flaggedItems,
     });
 
-    var domain = domainStatus?.domain || new URL(url).hostname.replace(/^www\./, "");
     logEgressEvent({
       domain: domain,
       fileName: "[text-input]",
@@ -374,14 +452,15 @@ async function handleTextCheck(checkId, text, inputType, url) {
       action: totalScore >= riskThreshold ? "blocked" : "proceeded",
       userAction: "typing",
       source: "text-intercept",
-      flaggedItems: result.flaggedItems,
+      flaggedItems: verdict.flaggedItems,
+      scanToken: verdict.scanToken,
     });
 
-    if (totalScore >= riskThreshold && result.flaggedItems.length > 0) {
+    if (totalScore >= riskThreshold && verdict.flaggedItems.length > 0) {
       showTextWarningModal({
         domain: domain,
         totalScore: totalScore,
-        flaggedItems: result.flaggedItems,
+        flaggedItems: verdict.flaggedItems,
         inputType: inputType,
       });
       sendTextDecision(checkId, "block");
@@ -449,7 +528,7 @@ function setupInterceptionListener() {
             domain: domain,
             fileName: timeoutFileName,
             fileSize: firstInfo.contentSize || firstInfo.file?.size || 0,
-            riskScore: 0,
+            riskScore: currentDomainBaseline(),
             action: "proceeded",
             userAction: "proceeded",
             source: firstInfo.source,
@@ -470,7 +549,7 @@ function setupInterceptionListener() {
             domain: domain$1,
             fileName: nonceFailedName,
             fileSize: firstInfo$1.contentSize || firstInfo$1.file?.size || 0,
-            riskScore: 0,
+            riskScore: currentDomainBaseline(),
             action: "proceeded",
             userAction: "proceeded",
             source: firstInfo$1.source,
@@ -708,9 +787,48 @@ function setupFallbackDetection() {
   marker.style.display = "none";
   document.documentElement.appendChild(marker);
 
-  console.warn("ABLE: Fallback file detection active. Pattern scoring unavailable without inject.js.");
+  console.warn("ABLE: Fallback file detection active. Uploads cannot be intercepted, but selected files are still pattern-scored and logged.");
 
   var reportedInputs = new Set();
+
+  async function logFallbackFile(file, domain) {
+    var scan = null;
+    try {
+      if (typeof scanFile === "function") {
+        scan = await scanFile(file);
+      }
+    } catch (err) {
+      console.warn("ABLE: Fallback file scan failed:", err.message || err);
+    }
+
+    if (scan && scan.ok) {
+      await logEgressEvent({
+        domain: domain,
+        fileName: scan.fileName,
+        fileSize: scan.fileSize,
+        riskScore: scan.score,
+        action: "proceeded",
+        userAction: "proceeded",
+        source: "fallback",
+        contentHash: scan.contentHash,
+        scanDurationMs: scan.scanDurationMs,
+        contentSize: scan.fileSize,
+        flaggedItems: scan.flaggedItems,
+        scanToken: scan.scanToken,
+      });
+      return;
+    }
+
+    await logEgressEvent({
+      domain: domain,
+      fileName: file.name,
+      fileSize: file.size,
+      riskScore: currentDomainBaseline(),
+      action: "proceeded",
+      userAction: "proceeded",
+      source: "fallback",
+    });
+  }
 
   function watchFileInput(el) {
     if (reportedInputs.has(el)) return;
@@ -719,15 +837,7 @@ function setupFallbackDetection() {
       if (el.files && el.files.length > 0) {
         var domain = new URL(window.location.href).hostname.replace(/^www\./, "");
         for (var i = 0; i < el.files.length; i++) {
-          logEgressEvent({
-            domain: domain,
-            fileName: el.files[i].name,
-            fileSize: el.files[i].size,
-            riskScore: 0,
-            action: "proceeded",
-            userAction: "proceeded",
-            source: "fallback",
-          });
+          logFallbackFile(el.files[i], domain);
         }
       }
     }, true);
@@ -769,6 +879,23 @@ var initialContentHash = null;
 async function initialize() {
   injectFonts();
 
+  var greetingDone = (typeof hasGreetingCompleted === "function")
+    ? await hasGreetingCompleted()
+    : true;
+
+  if (!greetingDone && typeof showGreetingModal === "function") {
+    showGreetingModal({
+      onDismiss: async function () {
+        await continueInitialization();
+      }
+    });
+    return;
+  }
+
+  await continueInitialization();
+}
+
+async function continueInitialization() {
   classifyReady = classifyCurrentDomain();
   await classifyReady;
 

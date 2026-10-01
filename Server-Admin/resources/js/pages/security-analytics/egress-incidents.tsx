@@ -2,10 +2,23 @@ import { Head, Link } from '@inertiajs/react';
 import { ArrowLeft, Search, ArrowUpDown } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { TablePagination } from '@/components/pagination';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { cn, truncateFileName, formatMetricNumber } from '@/lib/utils';
 
 const glassCard =
     'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
+
+interface FlaggedItem {
+    label: string;
+    count: number;
+    weight: number;
+}
 
 interface RecentShadowEgressItem {
     id: number;
@@ -15,6 +28,7 @@ interface RecentShadowEgressItem {
     fileName: string;
     fileSize: string;
     risk_score: number;
+    flagged_items: FlaggedItem[] | null;
     action: string;
 }
 
@@ -54,10 +68,16 @@ function formatTimestamp(ts: string): { date: string; time: string } {
 
 const ROWS_PER_PAGE = 10;
 
-export default function EgressIncidents({ recentShadowEgress }: EgressIncidentsProps) {
+export default function EgressIncidents({
+    recentShadowEgress,
+}: EgressIncidentsProps) {
     const [searchQuery, setSearchQuery] = useState('');
-    const [sortOption, setSortOption] = useState<'date_desc' | 'date_asc' | 'risk_desc' | 'risk_asc' | 'domain_asc'>('date_desc');
+    const [sortOption, setSortOption] = useState<
+        'date_desc' | 'date_asc' | 'risk_desc' | 'risk_asc' | 'domain_asc'
+    >('date_desc');
     const [currentPage, setCurrentPage] = useState(1);
+    const [selectedRow, setSelectedRow] =
+        useState<RecentShadowEgressItem | null>(null);
 
     const processedItems = useMemo(() => {
         let items = [...recentShadowEgress];
@@ -93,7 +113,10 @@ export default function EgressIncidents({ recentShadowEgress }: EgressIncidentsP
         return items;
     }, [recentShadowEgress, searchQuery, sortOption]);
 
-    const totalPages = Math.max(1, Math.ceil(processedItems.length / ROWS_PER_PAGE));
+    const totalPages = Math.max(
+        1,
+        Math.ceil(processedItems.length / ROWS_PER_PAGE),
+    );
     const safePage = Math.min(currentPage, totalPages);
     const paginatedItems = useMemo(() => {
         const start = (safePage - 1) * ROWS_PER_PAGE;
@@ -118,13 +141,16 @@ export default function EgressIncidents({ recentShadowEgress }: EgressIncidentsP
                         <div>
                             <h1
                                 className="mb-2.5 text-[2.8rem] font-bold tracking-wide text-foreground uppercase"
-                                style={{ fontFamily: "'Unbounded', sans-serif" }}
+                                style={{
+                                    fontFamily: "'Unbounded', sans-serif",
+                                }}
                             >
                                 SHADOW INCIDENTS
                             </h1>
                             <p className="max-w-[760px] text-[1.05rem] leading-relaxed text-muted-foreground">
-                                Global telemetry stream of intercepted file uploads and data exfiltration
-                                events intercepted by the ABLE browser extension.
+                                Global telemetry stream of intercepted file
+                                uploads and data exfiltration events intercepted
+                                by the ABLE browser extension.
                             </p>
                         </div>
                     </div>
@@ -138,7 +164,8 @@ export default function EgressIncidents({ recentShadowEgress }: EgressIncidentsP
                                 Total Incidents:
                             </span>
                             <span className="rounded-full bg-rose-500/15 px-2.5 py-0.5 text-xs font-semibold text-rose-500">
-                                {formatMetricNumber(processedItems.length)} Records
+                                {formatMetricNumber(processedItems.length)}{' '}
+                                Records
                             </span>
                         </div>
 
@@ -165,16 +192,28 @@ export default function EgressIncidents({ recentShadowEgress }: EgressIncidentsP
                                 <select
                                     value={sortOption}
                                     onChange={(e) => {
-                                        setSortOption(e.target.value as typeof sortOption);
+                                        setSortOption(
+                                            e.target.value as typeof sortOption,
+                                        );
                                         setCurrentPage(1);
                                     }}
                                     className="cursor-pointer appearance-none rounded-full border border-black/10 bg-black/5 py-1.5 pr-7 pl-8 text-xs text-foreground outline-none hover:border-able-green/50 dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]"
                                 >
-                                    <option value="date_desc">Sort: Date (Newest)</option>
-                                    <option value="date_asc">Sort: Date (Oldest)</option>
-                                    <option value="risk_desc">Sort: Risk (High-Low)</option>
-                                    <option value="risk_asc">Sort: Risk (Low-High)</option>
-                                    <option value="domain_asc">Sort: Domain (A-Z)</option>
+                                    <option value="date_desc">
+                                        Sort: Date (Newest)
+                                    </option>
+                                    <option value="date_asc">
+                                        Sort: Date (Oldest)
+                                    </option>
+                                    <option value="risk_desc">
+                                        Sort: Risk (High-Low)
+                                    </option>
+                                    <option value="risk_asc">
+                                        Sort: Risk (Low-High)
+                                    </option>
+                                    <option value="domain_asc">
+                                        Sort: Domain (A-Z)
+                                    </option>
                                 </select>
                                 <ArrowUpDown
                                     size={13}
@@ -207,6 +246,9 @@ export default function EgressIncidents({ recentShadowEgress }: EgressIncidentsP
                                     <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
                                         Risk Score
                                     </th>
+                                    <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
+                                        Risk Factors
+                                    </th>
                                     <th className="border-b border-[rgba(34,197,94,0.7)] pb-4 text-left font-medium">
                                         Interception Action
                                     </th>
@@ -216,20 +258,23 @@ export default function EgressIncidents({ recentShadowEgress }: EgressIncidentsP
                                 {paginatedItems.length === 0 ? (
                                     <tr>
                                         <td
-                                            colSpan={7}
+                                            colSpan={8}
                                             className="py-10 text-center text-muted-foreground"
                                         >
-                                            No egress incidents recorded matching search.
+                                            No egress incidents recorded
+                                            matching search.
                                         </td>
                                     </tr>
                                 ) : (
                                     paginatedItems.map((row) => {
-                                        const { date, time } = formatTimestamp(row.occurred_at);
+                                        const { date, time } = formatTimestamp(
+                                            row.occurred_at,
+                                        );
 
                                         return (
                                             <tr
                                                 key={row.id}
-                                                className="border-b border-[rgba(34,197,94,0.3)] transition-colors hover:bg-black/5 last:border-b-0 dark:hover:bg-white/5"
+                                                className="border-b border-[rgba(34,197,94,0.3)] transition-colors last:border-b-0 hover:bg-black/5 dark:hover:bg-white/5"
                                             >
                                                 <td className="py-3.5 pr-2.5">
                                                     <div className="flex flex-col">
@@ -246,10 +291,12 @@ export default function EgressIncidents({ recentShadowEgress }: EgressIncidentsP
                                                     {row.domain}
                                                 </td>
                                                 <td
-                                                    className="py-3.5 pr-2.5 max-w-[200px] truncate"
+                                                    className="max-w-[200px] truncate py-3.5 pr-2.5"
                                                     title={row.fileName}
                                                 >
-                                                    {truncateFileName(row.fileName)}
+                                                    {truncateFileName(
+                                                        row.fileName,
+                                                    )}
                                                 </td>
                                                 <td className="py-3.5 pr-2.5 tabular-nums">
                                                     {row.fileSize}
@@ -263,15 +310,46 @@ export default function EgressIncidents({ recentShadowEgress }: EgressIncidentsP
                                                         {row.risk_score}%
                                                     </span>
                                                 </td>
+                                                <td className="py-3.5 pr-2.5">
+                                                    {row.flagged_items &&
+                                                    row.flagged_items.length >
+                                                        0 ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                setSelectedRow(
+                                                                    row,
+                                                                )
+                                                            }
+                                                            className="inline-flex cursor-pointer items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-500 transition-colors hover:bg-amber-500/20"
+                                                        >
+                                                            +
+                                                            {
+                                                                row
+                                                                    .flagged_items
+                                                                    .length
+                                                            }{' '}
+                                                            Detected
+                                                        </button>
+                                                    ) : (
+                                                        <span className="inline-flex items-center rounded-full border border-black/10 bg-black/5 px-2.5 py-0.5 text-xs font-semibold text-muted-foreground dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]">
+                                                            {row.flagged_items
+                                                                ? '+0 Detected'
+                                                                : 'Not scanned'}
+                                                        </span>
+                                                    )}
+                                                </td>
                                                 <td className="py-3.5">
                                                     <span
                                                         className={cn(
                                                             'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold',
-                                                            row.action === 'Denied'
-                                                                ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30'
-                                                                : row.action === 'Proceeded'
-                                                                  ? 'bg-rose-500/15 text-rose-500 border border-rose-500/30'
-                                                                  : 'bg-sky-500/15 text-sky-500 border border-sky-500/30',
+                                                            row.action ===
+                                                                'Denied'
+                                                                ? 'border border-emerald-500/30 bg-emerald-500/15 text-emerald-500'
+                                                                : row.action ===
+                                                                    'Proceeded'
+                                                                  ? 'border border-rose-500/30 bg-rose-500/15 text-rose-500'
+                                                                  : 'border border-sky-500/30 bg-sky-500/15 text-sky-500',
                                                         )}
                                                     >
                                                         {row.action}
@@ -295,6 +373,58 @@ export default function EgressIncidents({ recentShadowEgress }: EgressIncidentsP
                     )}
                 </div>
             </div>
+
+            <Dialog
+                open={selectedRow !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setSelectedRow(null);
+                    }
+                }}
+            >
+                <DialogContent className="border-[rgba(34,197,94,0.4)] bg-[rgba(34,197,94,0.08)] backdrop-blur-[10px] dark:border-[rgba(34,197,94,0.7)] dark:bg-[rgba(15,23,42,0.95)]">
+                    <DialogHeader>
+                        <DialogTitle>Flagged Risk Factors</DialogTitle>
+                        <DialogDescription>
+                            {selectedRow?.fileName} uploaded to{' '}
+                            {selectedRow?.domain}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-2">
+                        {selectedRow?.flagged_items?.map((item, i) => {
+                            const isDomain =
+                                item.label.startsWith('Domain Risk');
+
+                            return (
+                                <div
+                                    key={`${item.label}-${i}`}
+                                    className="flex items-center justify-between rounded-md border border-black/10 bg-black/5 px-3 py-2 dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <span
+                                            className={cn(
+                                                'size-2 rounded-full',
+                                                isDomain
+                                                    ? 'bg-sky-500'
+                                                    : 'bg-amber-500',
+                                            )}
+                                        />
+                                        <span className="text-sm font-medium">
+                                            {item.label}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                        <span>&times;{item.count}</span>
+                                        <span className="font-semibold text-foreground">
+                                            +{item.weight}
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </DialogContent>
+            </Dialog>
         </>
     );
 }

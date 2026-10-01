@@ -6,6 +6,7 @@ use App\Models\DomainPolicy;
 use App\Models\DomainVisit;
 use App\Models\EgressEvent;
 use App\Models\NudgeInteraction;
+use App\Support\ScanToken;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -68,11 +69,13 @@ class EgressEventController extends Controller
             'file_name' => 'required|string',
             'file_size' => 'integer|min:0',
             'risk_score' => 'required|integer|min:0|max:100',
-            'action' => 'required|in:proceeded,denied,allowed',
-            'user_action' => 'nullable|in:proceeded,cancelled,allowed',
+            'action' => 'required|in:proceeded,denied,allowed,blocked',
+            'user_action' => 'nullable|in:proceeded,cancelled,allowed,typing',
             'occurred_at' => 'nullable|numeric',
             'flagged_items' => 'nullable|string',
             'content_hash' => 'nullable|string',
+            'event_id' => 'nullable|string|max:255',
+            'scan_token' => 'nullable|string',
         ]);
 
         // Skip excluded domains (defense-in-depth)
@@ -80,9 +83,20 @@ class EgressEventController extends Controller
             return response()->json(['success' => true, 'egress_event_id' => null]);
         }
 
-        // Validate flagged_items JSON shape
+        // A valid scan token carries the server-computed verdict from
+        // /api/score-content; its score and flagged items are authoritative and
+        // override whatever the client supplied.
         $flaggedItems = null;
-        if (isset($validated['flagged_items'])) {
+        $scanClaims = ScanToken::verify($validated['scan_token'] ?? null);
+        if ($scanClaims !== null && ($scanClaims['domain'] ?? null) === $validated['domain']) {
+            $validated['risk_score'] = (int) $scanClaims['total_score'];
+            if (isset($scanClaims['flagged_items']) && is_array($scanClaims['flagged_items'])) {
+                $flaggedItems = $scanClaims['flagged_items'];
+            }
+        }
+
+        // Validate flagged_items JSON shape (client-supplied fallback when no token)
+        if ($flaggedItems === null && isset($validated['flagged_items'])) {
             $decoded = json_decode($validated['flagged_items'], true);
             if (json_last_error() !== JSON_ERROR_NONE) {
                 return response()->json(['success' => false, 'error' => 'Invalid flagged_items JSON'], 422);
@@ -98,6 +112,13 @@ class EgressEventController extends Controller
         }
 
         $occurredAt = $validated['occurred_at'] ?? null;
+        $eventId = $validated['event_id'] ?? null;
+
+        // Idempotency: a client-provided event_id is unique, so a retry of the
+        // same logical event (e.g. after an offline reconnect) is a duplicate.
+        if ($eventId && EgressEvent::where('event_id', $eventId)->exists()) {
+            return response()->json(['success' => true, 'egress_event_id' => null, 'duplicate' => true]);
+        }
 
         // Auto-create domain policy if it doesn't exist
         $policy = DomainPolicy::firstOrCreate(
@@ -125,18 +146,39 @@ class EgressEventController extends Controller
             ]);
         }
 
-        // Dedup: check for duplicate egress event within 60 seconds
+        // Dedup: one logical event within 60 seconds. When the earlier row was
+        // logged without scan data (fallback/timeout paths) and this event
+        // carries the scanned verdict, upgrade the stored row instead of
+        // silently dropping the pattern data.
         $contentHash = $validated['content_hash'] ?? null;
-        $exists = EgressEvent::where('domain', $validated['domain'])
+        $existing = EgressEvent::where('domain', $validated['domain'])
             ->where('file_name', $validated['file_name'])
             ->where('action', $validated['action'])
             ->where('occurred_at', '>=', now()->subSeconds(60))
             ->when($contentHash, function ($q) use ($contentHash) {
-                $q->where('content_hash', $contentHash);
+                $q->where(function ($q2) use ($contentHash) {
+                    $q2->where('content_hash', $contentHash)->orWhereNull('content_hash');
+                });
             })
-            ->exists();
+            ->orderByDesc('occurred_at')
+            ->first();
 
-        if ($exists) {
+        if ($existing) {
+            if ($flaggedItems !== null && $existing->flagged_items === null) {
+                $existing->update([
+                    'risk_score' => $validated['risk_score'],
+                    'flagged_items' => $flaggedItems,
+                    'content_hash' => $existing->content_hash ?? $contentHash,
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'egress_event_id' => $existing->id,
+                    'duplicate' => false,
+                    'upgraded' => true,
+                ]);
+            }
+
             return response()->json(['success' => true, 'egress_event_id' => null, 'duplicate' => true]);
         }
 
@@ -147,6 +189,7 @@ class EgressEventController extends Controller
             'file_size' => $validated['file_size'] ?? 0,
             'risk_score' => $validated['risk_score'],
             'action' => $validated['action'],
+            'event_id' => $eventId,
             'flagged_items' => $flaggedItems,
             'content_hash' => $contentHash,
             'occurred_at' => $occurredAt
@@ -167,6 +210,7 @@ class EgressEventController extends Controller
         return response()->json([
             'success' => true,
             'egress_event_id' => $egressEvent->id,
+            'duplicate' => false,
         ]);
     }
 

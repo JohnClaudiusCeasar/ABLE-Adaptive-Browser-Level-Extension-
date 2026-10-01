@@ -1,10 +1,12 @@
 self.importScripts(
   "config.js",
+  "core/storage.js",
   "core/security.js",
   "core/runtime-settings.js",
   "api/rate-limiter.js",
   "api/classification.js",
   "api/risk-patterns.js",
+  "api/scoring.js",
   "api/logging.js",
   "api/index.js"
 );
@@ -13,6 +15,14 @@ var RISK_PATTERNS_ALARM = "risk-patterns-sync";
 var VISIT_LOG_ALARM = "visit-log-flush";
 var EGRESS_LOG_ALARM = "egress-log-flush";
 var SETTINGS_ALARM = "settings-sync";
+
+// Expose chrome.storage.session to content scripts (untrusted contexts) so
+// their session/debounce/consent checks actually work. Defaults to TRUSTED_CONTEXTS.
+try {
+  chrome.storage.session.setAccessLevel({ accessLevel: "TRUSTED_AND_UNTRUSTED_CONTEXTS" });
+} catch (error) {
+  console.warn("ABLE: Failed to set storage.session access level:", error);
+}
 
 chrome.runtime.onInstalled.addListener(async function (details) {
   await ABLERuntimeSettings.initialize();
@@ -42,6 +52,20 @@ chrome.runtime.onInstalled.addListener(async function (details) {
       event: event,
       version: manifest.version,
     });
+
+    if (details.reason === 'install') {
+      try {
+        var greetingKey = (typeof ABLEStorage !== 'undefined' && ABLEStorage.GREETING_COMPLETED)
+          ? ABLEStorage.GREETING_COMPLETED
+          : 'able:greeting_completed';
+        await chrome.storage.local.set({ [greetingKey]: false });
+        chrome.tabs.create({
+          url: chrome.runtime.getURL('welcome.html')
+        });
+      } catch (welcomeError) {
+        console.warn('ABLE: Failed to launch greeting welcome tab:', welcomeError);
+      }
+    }
   } catch (error) {
     console.warn('ABLE: Failed to set up lifecycle tracking:', error);
   }
@@ -147,6 +171,12 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
       .catch(function (err) { sendResponse({ success: false, patterns: [] }); });
     return true;
   }
+  if (message.type === "scoreContent") {
+    requestContentScoreDirect(message.payload)
+      .then(function (verdict) { sendResponse({ success: !!verdict, verdict: verdict }); })
+      .catch(function () { sendResponse({ success: false, verdict: null }); });
+    return true;
+  }
   if (message.type === "logEgress") {
     logEgressEvent(message.payload)
       .then(function () { sendResponse({ success: true }); })
@@ -165,6 +195,11 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     }).catch(function () {
       sendResponse({ success: false });
     });
+    return true;
+  }
+  if (message.type === "openWelcomePage") {
+    chrome.tabs.create({ url: chrome.runtime.getURL("welcome.html") });
+    sendResponse({ success: true });
     return true;
   }
   return false;

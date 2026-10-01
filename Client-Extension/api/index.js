@@ -25,6 +25,8 @@ if (typeof globalThis !== "undefined") {
   globalThis.getDomainClassification = ABLEClassification.getDomainClassification;
   globalThis.getRiskPatterns = ABLEARiskPatterns.getRiskPatterns;
   globalThis.refreshRiskPatternsCache = ABLEARiskPatterns.refreshRiskPatternsCache;
+  globalThis.requestContentScore = ABLEScoring.requestContentScore;
+  globalThis.requestContentScoreDirect = ABLEScoring.requestContentScoreDirect;
   globalThis.logDomainVisit = ABLELogging.logDomainVisit;
   globalThis.logEgressEvent = ABLELogging.logEgressEvent;
   globalThis.getOrCreateUserId = ABLELogging.getOrCreateUserId;

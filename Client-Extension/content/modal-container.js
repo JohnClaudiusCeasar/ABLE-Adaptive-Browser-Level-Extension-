@@ -7,6 +7,25 @@
 
 var ABLE_MODAL_HOST_ID = "able-modal-root";
 
+// Per-modal cleanup callbacks (e.g. window keydown listeners) so removing a
+// modal also tears down its global listeners, preventing stale re-fires.
+var modalCleanupFns = [];
+
+function registerModalCleanup(fn) {
+  if (typeof fn === "function") {
+    modalCleanupFns.push(fn);
+  }
+}
+
+function escapeHtml(value) {
+  return String(value == null ? "" : value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 var MODAL_STYLES = `
 :host {
   all: initial;
@@ -383,6 +402,245 @@ var MODAL_STYLES = `
 .able-intercept-footer .able-btn-cancel {
   width: 50%;
 }
+
+/* Greeting Modal (Install Introduction) */
+.able-modal-card.able-modal-large {
+  width: 660px;
+  max-width: 94vw;
+  max-height: 92vh;
+  border-radius: 24px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.28);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background-color: var(--bg-white, #FFFFFF);
+}
+
+.able-greeting-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 26px 32px;
+  width: 100%;
+  max-height: calc(92vh - 56px);
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.able-greeting-container::-webkit-scrollbar {
+  width: 7px;
+}
+
+.able-greeting-container::-webkit-scrollbar-track {
+  background: #F1F1F1;
+  border-radius: 4px;
+}
+
+.able-greeting-container::-webkit-scrollbar-thumb {
+  background: #C4C4C4;
+  border-radius: 4px;
+}
+
+.able-greeting-container::-webkit-scrollbar-thumb:hover {
+  background: #9E9E9E;
+}
+
+.able-greeting-logo-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.able-greeting-logo {
+  width: 68px;
+  height: 68px;
+  border-radius: 16px;
+  object-fit: contain;
+  background: #000000;
+  padding: 6px;
+  border: 2px solid var(--brand-green, #00FF44);
+  box-shadow: 0 6px 18px rgba(0, 255, 68, 0.28);
+}
+
+.able-greeting-title {
+  font-family: 'Unbounded', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 700;
+  font-size: 28px;
+  color: var(--text-black, #000000);
+  letter-spacing: -0.5px;
+  line-height: 1.15;
+  margin: 0;
+  text-align: center;
+}
+
+.able-greeting-highlight {
+  color: #00C834;
+}
+
+.able-greeting-subtitle {
+  font-family: 'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  color: #666666;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-top: 4px;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.able-greeting-sections {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  text-align: left;
+  margin-top: 8px;
+  margin-bottom: 22px;
+}
+
+.able-greeting-section {
+  background: #F9FAFB;
+  border: 1px solid #E5E7EB;
+  border-radius: 14px;
+  padding: 16px 20px;
+  transition: border-color 0.15s ease;
+}
+
+.able-greeting-section:hover {
+  border-color: #D1D5DB;
+}
+
+.able-greeting-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.able-greeting-section-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--brand-green, #00FF44);
+  color: #000000;
+  font-family: 'Unbounded', sans-serif;
+  font-weight: 700;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.able-greeting-section-title {
+  font-family: 'Unbounded', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  color: #111827;
+  margin: 0;
+  letter-spacing: -0.2px;
+}
+
+.able-greeting-section-body {
+  font-family: 'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: #374151;
+}
+
+.able-greeting-section-body p {
+  margin-bottom: 8px;
+  font-style: normal;
+}
+
+.able-greeting-section-body p:last-child {
+  margin-bottom: 0;
+}
+
+.able-greeting-list {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.able-greeting-list-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #374151;
+}
+
+.able-greeting-bullet {
+  color: #00B32D;
+  font-weight: bold;
+  font-size: 14px;
+  line-height: 1.3;
+  flex-shrink: 0;
+}
+
+.able-greeting-code {
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  background: #E5E7EB;
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: #111827;
+}
+
+.able-greeting-disclaimer-box {
+  background: #FFFDF5;
+  border: 1.5px solid #FDE68A;
+}
+
+.able-greeting-disclaimer-badge {
+  background: #F59E0B;
+  color: #FFFFFF;
+}
+
+.able-greeting-disclaimer-box .able-greeting-section-title {
+  color: #92400E;
+}
+
+.able-greeting-disclaimer-box .able-greeting-section-body {
+  color: #78350F;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.able-greeting-footer {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding-top: 4px;
+}
+
+.able-greeting-btn {
+  width: 100%;
+  max-width: 340px;
+  background-color: var(--brand-green, #00FF44);
+  border: 1.5px solid #00DD3B;
+  font-weight: 700;
+  font-size: 15px;
+  padding: 12px 28px;
+  border-radius: 14px;
+  color: #000000;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 255, 68, 0.3);
+  transition: all 0.15s ease;
+}
+
+.able-greeting-btn:hover {
+  filter: brightness(0.95);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(0, 255, 68, 0.38);
+}
 `;
 
 function getModalShadowRoot() {
@@ -416,6 +674,15 @@ function renderModalIntoShadow(htmlContent) {
 }
 
 function removeModal() {
+  var cleanupFns = modalCleanupFns.splice(0);
+  for (var i = 0; i < cleanupFns.length; i++) {
+    try {
+      cleanupFns[i]();
+    } catch (e) {
+      // Cleanup failures must not block modal removal.
+    }
+  }
+
   var host = document.getElementById(ABLE_MODAL_HOST_ID);
   if (host) {
     host.remove();
@@ -431,7 +698,10 @@ if (typeof globalThis !== "undefined") {
     getModalShadowRoot: getModalShadowRoot,
     renderModalIntoShadow: renderModalIntoShadow,
     removeModal: removeModal,
+    registerModalCleanup: registerModalCleanup,
+    escapeHtml: escapeHtml,
     MODAL_STYLES: MODAL_STYLES,
   };
   globalThis.removeModal = removeModal;
+  globalThis.escapeHtml = escapeHtml;
 }

@@ -13,9 +13,9 @@ function showRepeatVisitModal(data) {
         <div class="able-modal-divider"><div class="able-modal-divider-circle"></div></div>
         <div class="able-modal-body">
           <p>
-            You have visited <span class="able-highlight-text">${data.domain}</span>
+            You have visited <span class="able-highlight-text">${escapeHtml(data.domain)}</span>
             for <span class="able-highlight-text">${data.visitCount} time${data.visitCount !== 1 ? 's' : ''}</span> now.
-            The ABLE security team is still marking this site as <span class="able-highlight-text">${data.status}</span>.
+            The ABLE security team is still marking this site as <span class="able-highlight-text">${escapeHtml(data.status)}</span>.
           </p>
           <br>
           <p>
@@ -58,12 +58,17 @@ function showRepeatVisitModal(data) {
       setLastModalShownTime();
       incrementInteractionCount();
       removeModal();
-      window.removeEventListener("keydown", handleKeydown);
     }
   };
 
   backdrop.addEventListener("keydown", handleKeydown);
   window.addEventListener("keydown", handleKeydown);
+  if (typeof ABLEModalContainer !== "undefined" && ABLEModalContainer.registerModalCleanup) {
+    ABLEModalContainer.registerModalCleanup(() => {
+      window.removeEventListener("keydown", handleKeydown);
+      backdrop.removeEventListener("keydown", handleKeydown);
+    });
+  }
 }
 
 if (typeof globalThis !== "undefined") {

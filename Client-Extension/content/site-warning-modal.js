@@ -6,21 +6,22 @@
 
 function formatSiteWarningTitle(title, status) {
   if (!title) {
-    return 'The site you are entering is <span class="able-highlight-text">' + (status || "UNLISTED").toUpperCase() + '</span>';
+    return 'The site you are entering is <span class="able-highlight-text">' + escapeHtml((status || "UNLISTED").toUpperCase()) + '</span>';
   }
   if (title.includes("<span") || title.includes("<strong")) {
     return title;
   }
+  var escapedTitle = escapeHtml(title);
   if (status) {
     var statusEscaped = status.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     var reg = new RegExp("\\b" + statusEscaped + "\\b", "i");
-    if (reg.test(title)) {
-      return title.replace(reg, function (m) {
+    if (reg.test(escapedTitle)) {
+      return escapedTitle.replace(reg, function (m) {
         return '<span class="able-highlight-text">' + m.toUpperCase() + '</span>';
       });
     }
   }
-  return title;
+  return escapedTitle;
 }
 
 function formatSiteWarningMessage(domain, status, message) {
@@ -28,7 +29,7 @@ function formatSiteWarningMessage(domain, status, message) {
   if (message.includes("<span") || message.includes("<strong")) {
     return message;
   }
-  var formatted = message;
+  var formatted = escapeHtml(message);
   if (domain) {
     var domainEscaped = domain.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     formatted = formatted.replace(new RegExp(domainEscaped, "gi"), function (m) {
@@ -88,12 +89,17 @@ function showSiteWarningModal(data) {
       e.preventDefault();
       setSiteWarningConsent();
       removeModal();
-      window.removeEventListener("keydown", handleKeydown);
     }
   };
 
   backdrop.addEventListener("keydown", handleKeydown);
   window.addEventListener("keydown", handleKeydown);
+  if (typeof ABLEModalContainer !== "undefined" && ABLEModalContainer.registerModalCleanup) {
+    ABLEModalContainer.registerModalCleanup(() => {
+      window.removeEventListener("keydown", handleKeydown);
+      backdrop.removeEventListener("keydown", handleKeydown);
+    });
+  }
 }
 
 if (typeof globalThis !== "undefined") {

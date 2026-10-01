@@ -17,10 +17,15 @@
 html {
   width: 400px;
   min-height: 500px;
+  scrollbar-width: none;
+}
+
+::-webkit-scrollbar {
+  display: none;
 }
 
 body {
-  width: 400px;
+  width: 100%;
   min-height: 500px;
   background-color: var(--bg-white);
   font-family: 'Archivo', sans-serif;
@@ -30,7 +35,7 @@ body {
 }
 
 .bg-shape {
-  position: absolute;
+  position: fixed;
   background-color: var(--brand-green);
   z-index: -1;
 }
@@ -195,6 +200,9 @@ body {
   text-align: center;
   padding: 12px;
   width: 100%;
+  max-height: 220px;
+  overflow-y: auto;
+  scrollbar-width: none;
 }
 
 .able-highlight-text {
@@ -212,10 +220,29 @@ body {
 
 .footer {
   margin-top: auto;
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   color: var(--text-muted);
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 4px 10px 4px;
+}
+
+.footer-link {
+  color: #008822;
+  text-decoration: underline;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.footer-link:hover {
+  color: #005511;
+}
+
+.footer-version {
   font-style: italic;
-  padding-bottom: 10px;
 }
 
 .status-safe .info-card {

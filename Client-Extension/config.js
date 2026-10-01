@@ -51,7 +51,7 @@ const TLS_PINS = {
  * TODO: Compute these at deploy time:
  *   npm run build
  */
-const EXPECTED_INJECT_HASH = "37d986766c48ac99db7953ea990bfd0c6c5a8d2092903b8d0c249836a0add92a";
+const EXPECTED_INJECT_HASH = "8eb29819765e572db1957854ded9561b4ac9d843f5733dc1dc28c6106bc556df";
 const EXPECTED_CONTENT_CSS_HASH = "ff40049c1b93db8275ee1170910b8477aa1a0dac8bab3f9f3306f80b9438c31b";
 
 /**

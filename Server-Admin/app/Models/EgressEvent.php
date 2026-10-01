@@ -14,6 +14,7 @@ use Illuminate\Support\Carbon;
  * @property int $file_size
  * @property string $action
  * @property int $risk_score
+ * @property string|null $event_id
  * @property array<int, array{label: string, count: int, weight: int}>|null $flagged_items
  * @property Carbon|null $occurred_at
  * @property Carbon|null $created_at
@@ -29,6 +30,7 @@ class EgressEvent extends Model
         'file_size',
         'action',
         'risk_score',
+        'event_id',
         'flagged_items',
         'content_hash',
         'occurred_at',

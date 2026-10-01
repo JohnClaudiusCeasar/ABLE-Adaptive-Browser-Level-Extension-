@@ -12,6 +12,7 @@ use Illuminate\Support\Carbon;
  * @property string $domain
  * @property string|null $status
  * @property string|null $user_id
+ * @property string|null $event_id
  * @property Carbon|null $visited_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -25,6 +26,7 @@ class DomainVisit extends Model
         'domain',
         'status',
         'user_id',
+        'event_id',
         'visited_at',
     ];
 

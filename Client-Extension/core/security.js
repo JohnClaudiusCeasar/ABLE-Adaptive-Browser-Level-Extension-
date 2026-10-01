@@ -133,6 +133,7 @@ async function readSignedOfflineCache(storageKey) {
  */
 async function secureFetch(url, options = {}) {
   const parsed = new URL(url);
+  const { timeoutMs, ...fetchOptions } = options;
 
   // Allow HTTP only for localhost (development). All other hosts require HTTPS.
   const isLocalhost = ["localhost", "127.0.0.1", "[::1]"].includes(parsed.hostname);
@@ -167,16 +168,18 @@ async function secureFetch(url, options = {}) {
       : TLS_PINS;
   await verifyTlsPin(parsed.hostname, tlsPins);
 
-  // Abort the request if the server doesn't respond within 5 seconds.
-  // Without this, an unreachable host causes fetch() to hang for the OS
-  // TCP timeout (2+ minutes on Windows), blocking the entire extension.
+  // Abort the request if the server doesn't respond within the timeout
+  // (default 5s; scoring requests may pass a larger timeoutMs). Without this,
+  // an unreachable host causes fetch() to hang for the OS TCP timeout
+  // (2+ minutes on Windows), blocking the entire extension.
+  const requestTimeoutMs = typeof timeoutMs === "number" ? timeoutMs : 5000;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  const timeoutId = setTimeout(() => controller.abort(), requestTimeoutMs);
 
   let response;
   try {
     response = await fetch(url, {
-      ...options,
+      ...fetchOptions,
       redirect: "manual",
       credentials: "omit",
       signal: controller.signal,
@@ -184,7 +187,7 @@ async function secureFetch(url, options = {}) {
   } catch (error) {
     clearTimeout(timeoutId);
     if (error.name === "AbortError") {
-      throw new Error(`ABLE: Request to ${parsed.origin} timed out after 5s`);
+      throw new Error(`ABLE: Request to ${parsed.origin} timed out after ${requestTimeoutMs}ms`);
     }
     throw error;
   } finally {

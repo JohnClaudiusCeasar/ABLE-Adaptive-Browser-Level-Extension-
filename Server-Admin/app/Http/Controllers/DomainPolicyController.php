@@ -7,6 +7,7 @@ use App\Models\DomainVisit;
 use App\Models\EgressEvent;
 use App\Services\AbleSettingsService;
 use App\Support\DomainBrandMap;
+use App\Support\DomainRiskResolver;
 use App\Support\HeuristicClassifier;
 use App\Support\JsCanonical;
 use Illuminate\Http\JsonResponse;
@@ -118,6 +119,7 @@ class DomainPolicyController extends Controller
             'source' => 'nullable|string|max:50',
             'user_id' => 'nullable|string|max:255',
             'visited_at' => 'nullable|numeric',
+            'event_id' => 'nullable|string|max:255',
         ]);
 
         // Skip excluded domains (defense-in-depth)
@@ -130,6 +132,7 @@ class DomainPolicyController extends Controller
         $source = $validated['source'] ?? null;
         $userId = $validated['user_id'] ?? null;
         $visitedAt = $validated['visited_at'] ?? null;
+        $eventId = $validated['event_id'] ?? null;
 
         $visitTime = $visitedAt
             ? Carbon::createFromTimestampMs($visitedAt)
@@ -137,7 +140,7 @@ class DomainPolicyController extends Controller
 
         $defaultRiskScore = match ($status) {
             'unsafe' => 70,
-            'unlisted' => (int) app(AbleSettingsService::class)->value('server', 'algorithm.default_risk_score', 60),
+            'unlisted' => DomainRiskResolver::defaultRiskScore(),
             default => 0,
         };
 
@@ -152,6 +155,16 @@ class DomainPolicyController extends Controller
                 'last_source' => $source,
             ]
         );
+
+        // Idempotency: a client-provided event_id is unique, so a retry of the
+        // same logical visit (e.g. after an offline reconnect) is a duplicate.
+        if ($eventId && DomainVisit::where('event_id', $eventId)->exists()) {
+            return response()->json([
+                'success' => true,
+                'visit_count' => $policy->visit_count,
+                'duplicate' => true,
+            ]);
+        }
 
         $debounceMs = (int) app(AbleSettingsService::class)->value('extension', 'logging.visit_debounce_ms', 5000);
 
@@ -182,6 +195,7 @@ class DomainPolicyController extends Controller
             'domain' => $domain,
             'status' => $visitStatus,
             'user_id' => $userId,
+            'event_id' => $eventId,
             'visited_at' => $visitTime,
         ]);
 
@@ -340,14 +354,7 @@ class DomainPolicyController extends Controller
             }
 
             // Check if domain matches safe patterns (edu, gov, org)
-            $safePatterns = app(AbleSettingsService::class)->value(
-                'server',
-                'algorithm.safe_patterns',
-                [
-                    '/^([\w-]+\.)*\.(edu|gov|org)$/i',
-                    '/^([\w-]+\.)*gov\.(uk|au|nz|ca)$/i',
-                ],
-            );
+            $safePatterns = DomainRiskResolver::safePatterns();
 
             foreach ($safePatterns as $pattern) {
                 if (preg_match($pattern, $domain)) {
@@ -395,14 +402,14 @@ class DomainPolicyController extends Controller
                 $this->persistAutoCategory($domain, [
                     'category' => null,
                     'confidence' => null,
-                    'policy' => (string) app(AbleSettingsService::class)->value('server', 'algorithm.fallback_policy', 'under_review'),
-                    'risk_score' => (int) app(AbleSettingsService::class)->value('server', 'algorithm.default_risk_score', 60),
+                    'policy' => DomainRiskResolver::fallbackPolicy(),
+                    'risk_score' => DomainRiskResolver::defaultRiskScore(),
                 ], 'pending');
             }
 
             // Not found in database
-            $defaultRiskScore = (int) app(AbleSettingsService::class)->value('server', 'algorithm.default_risk_score', 60);
-            $fallbackPolicy = (string) app(AbleSettingsService::class)->value('server', 'algorithm.fallback_policy', 'under_review');
+            $defaultRiskScore = DomainRiskResolver::defaultRiskScore();
+            $fallbackPolicy = DomainRiskResolver::fallbackPolicy();
 
             return response()->json([
                 'status' => 'unlisted',
@@ -484,20 +491,7 @@ class DomainPolicyController extends Controller
 
     private function riskForCategory(string $category): int
     {
-        return match ($category) {
-            'Gambling' => 90,
-            'Adult' => 95,
-            'Finance' => 60,
-            'E-commerce' => 55,
-            'Health' => 55,
-            'Shopping' => 50,
-            'AI' => 50,
-            'Government' => 10,
-            'Education' => 15,
-            'Search Engine' => 10,
-            'Reference' => 20,
-            default => 60,
-        };
+        return DomainRiskResolver::riskForCategory($category);
     }
 
     /**

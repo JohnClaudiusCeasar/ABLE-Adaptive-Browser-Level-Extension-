@@ -1,7 +1,13 @@
 /**
  * ABLE Extension - File Scanner
  *
- * File reading, content extraction, and scanning for sensitive data.
+ * File reading, content extraction, and remote scoring.
+ *
+ * The scoring algorithm lives on the server: this module only extracts text
+ * locally and posts it to /api/score-content (api/scoring.js), which returns
+ * the server-computed, HMAC-signed verdict. Unscannable files (PDF/OLE/images)
+ * are still scored — the server returns the domain risk baseline for them, so
+ * nothing is ever silently logged as 0%.
  */
 
 function readFileContent(file) {
@@ -51,51 +57,53 @@ function detectFileTypeFromMagicBytes(file) {
   });
 }
 
-// ─── ⑥ File-type heuristic multipliers ───────────────────────────────────────
-// Applied to the pattern score only (before domain risk is added).
-// Reflects the prior probability that a given container holds real structured data
-// vs. illustrative or narrative content.
-const FILE_TYPE_MULTIPLIERS = {
-  csv:  1.5,  // tabular by definition — almost certainly real records
-  xlsx: 1.4,  // spreadsheets are operational data tools
-  xls:  1.4,
-  pdf:  1.1,  // reports often contain real data exported from systems
-  docx: 1.0,  // documents — neutral
-  doc:  1.0,
-  txt:  0.9,  // plain text — often logs or notes, slightly lower prior
-  rtf:  0.9,
-  pptx: 0.8,  // presentations routinely use placeholder / demo data
-  ppt:  0.8,
-};
+// ─── File-type extraction ────────────────────────────────────────────────────
+// Note: the file-type heuristic multiplier (⑥) is applied server-side now
+// (RiskScoringService::fileTypeMultiplier); the extension only reports the
+// extension/container it detected.
 
 async function scanFile(file) {
   const scanStartTime = Date.now();
   const MAX_TEXT_FILE_SIZE = 100 * 1024 * 1024;
   const MAX_BINARY_SCAN_SIZE = 10 * 1024 * 1024;
-  let text;
+  let text = null;
   let fileFormat = "plain";
 
-  const isBinaryUpload = file.name === 'binary-upload' || file.name === 'blob';
-  console.debug("ABLE: Scanning file:", file.name, "size:", file.size, "isBinaryUpload:", isBinaryUpload);
+  // Detect binary containers by magic bytes on every upload, regardless of the
+  // synthetic filename (e.g. "upload.pdf") assigned by the file extractor.
+  var detectedType = null;
+  if (file.size < MAX_BINARY_SCAN_SIZE) {
+    detectedType = await detectFileTypeFromMagicBytes(file);
+  }
+  console.debug("ABLE: Scanning file:", file.name, "size:", file.size, "detectedType:", detectedType);
 
-  if (isBinaryUpload && file.size < MAX_BINARY_SCAN_SIZE) {
-    var detectedType = await detectFileTypeFromMagicBytes(file);
-    console.debug("ABLE: Detected file type:", detectedType);
-    if (detectedType === 'pdf' || detectedType === 'zip' || detectedType === 'ole') {
+  // PDF and legacy OLE (.doc/.xls/.ppt) have no text extractor — score them
+  // without text (the server applies the domain risk baseline) rather than
+  // sending garbage readAsText output.
+  if (detectedType === 'pdf' || detectedType === 'ole') {
+    console.warn("ABLE: Unscannable binary type (domain baseline will be scored):", detectedType, file.name);
+  } else if (detectedType === 'zip' || detectedType === 'png' || detectedType === 'jpg' || detectedType === 'gif') {
+    // ZIP may be an Office Open XML container (docx/xlsx/pptx); image containers
+    // have no meaningful text to scan.
+    if (detectedType === 'zip') {
       try {
-        var officeFormatBinary = detectOfficeFormat(file);
-        if (officeFormatBinary) {
-          var officeResult = await extractOfficeText(file);
-          text = officeResult.text;
-          fileFormat = officeResult.format;
+        var zipOfficeFormat = detectOfficeFormat(file);
+        if (zipOfficeFormat) {
+          var zipOfficeResult = await extractOfficeText(file);
+          text = zipOfficeResult.text;
+          fileFormat = zipOfficeResult.format;
+        } else {
+          console.warn("ABLE: Non-Office ZIP skipped (domain baseline will be scored):", file.name);
         }
       } catch (err) {
         console.warn("ABLE: Office extraction failed:", err.message || err);
       }
+    } else {
+      console.warn("ABLE: Image file skipped (domain baseline will be scored):", detectedType, file.name);
     }
   }
 
-  if (!text) {
+  if (!text && detectedType !== 'pdf' && detectedType !== 'ole' && detectedType !== 'png' && detectedType !== 'jpg' && detectedType !== 'gif') {
     var officeFormat = detectOfficeFormat(file);
     if (officeFormat) {
       try {
@@ -104,19 +112,15 @@ async function scanFile(file) {
         fileFormat = officeResult.format;
       } catch (err) {
         console.warn("ABLE: Office parsing skipped:", err.message || err);
-        return null;
       }
+    } else if (file.size > MAX_TEXT_FILE_SIZE) {
+      console.warn("ABLE: File too large for text extraction, scoring domain baseline:", file.name);
     } else {
-      if (file.size > MAX_TEXT_FILE_SIZE) {
-        console.warn("ABLE: File too large for scanning, skipping:", file.name);
-        return null;
-      }
       try {
         text = await readFileContent(file);
         console.debug("ABLE: Read file content, length:", text?.length, "type:", typeof text);
       } catch (err) {
         console.warn("ABLE: Failed to read file content:", err.message || err);
-        return null;
       }
     }
   }
@@ -131,66 +135,54 @@ async function scanFile(file) {
     // Non-fatal — scoring proceeds without page context
   }
 
-  const result = await calculateRiskScore(text, { pageContext: pageContext });
-
-  // ── ⑥ Apply file-type heuristic multiplier to the pattern score ───────────
-  var fileExt = (file.name.split('.').pop() || '').toLowerCase();
-  var fileTypeMult = FILE_TYPE_MULTIPLIERS[fileExt] != null
-    ? FILE_TYPE_MULTIPLIERS[fileExt]
-    : 1.0;
-
-  // Fall back to the resolved format for binary/blob uploads
-  if (fileTypeMult === 1.0 && fileFormat && fileFormat !== 'plain') {
-    fileTypeMult = FILE_TYPE_MULTIPLIERS[fileFormat] != null
-      ? FILE_TYPE_MULTIPLIERS[fileFormat]
-      : 1.0;
-  }
-
-  var patternScore = fileTypeMult !== 1.0
-    ? Math.min(100, Math.round(result.score * fileTypeMult))
-    : result.score;
-
-  if (fileTypeMult !== 1.0) {
-    console.debug("ABLE: File-type multiplier applied:", fileExt || fileFormat,
-      fileTypeMult.toFixed(1) + '×', result.score, '→', patternScore);
-  }
-
-  const domainRiskScore = domainStatus?.risk_score || 0;
-  const totalScore = Math.min(100, domainRiskScore + patternScore);
-
-  const flaggedItems = [];
-  if (domainRiskScore > 0) {
-    flaggedItems.push({
-      label: "Domain Risk (" + (domainStatus.status === "unlisted" ? "Unlisted" : "Unsafe") + ")",
-      count: 1,
-      weight: domainRiskScore,
-    });
-  }
-  flaggedItems.push(...result.flaggedItems);
-
-  const riskThreshold = ABLERuntimeSettings.get("behavior.risk_threshold", 85);
   const contentHash = await computeContentHash(file);
+  var fileExt = (file.name.split('.').pop() || '').toLowerCase();
+
+  // Server-authoritative scoring (returns null when unreachable/unverifiable).
+  const verdict = await requestContentScore({
+    text: text,
+    fileName: file.name,
+    fileSize: file.size,
+    fileType: fileExt,
+    fileFormat: fileFormat,
+    contentHash: contentHash,
+    pageContext: pageContext,
+    domain: domainStatus?.domain || new URL(window.location.href).hostname.replace(/^www\./, ""),
+  });
+
   const scanDurationMs = Date.now() - scanStartTime;
+
+  if (!verdict) {
+    console.warn("ABLE: Scoring server unreachable — upload must be held:", file.name);
+    return {
+      ok: false,
+      fileName: file.name,
+      fileSize: file.size,
+      contentHash: contentHash,
+      scanDurationMs: scanDurationMs,
+    };
+  }
 
   console.log("ABLE Scan:", {
     file: file.name,
-    domain: domainStatus.domain,
-    domain_status: domainStatus.status,
-    domain_risk_score: domainRiskScore,
-    pattern_score: result.score,
-    file_type_mult: fileTypeMult,
-    adjusted_pattern_score: patternScore,
-    total_score: totalScore,
-    threshold: riskThreshold,
-    triggered: totalScore > riskThreshold,
-    flagged_item_count: flaggedItems.length,
+    domain: domainStatus?.domain,
+    domain_status: verdict.domainStatus,
+    domain_risk_score: verdict.domainRiskScore,
+    pattern_score: verdict.patternScore,
+    total_score: verdict.score,
+    threshold: ABLERuntimeSettings.get("behavior.risk_threshold", 85),
+    flagged_item_count: verdict.flaggedItems.length,
     scan_duration_ms: scanDurationMs,
     content_hash: contentHash ? contentHash.substring(0, 16) + '...' : null,
   });
 
   return {
-    score: totalScore,
-    flaggedItems,
+    ok: true,
+    score: verdict.score,
+    patternScore: verdict.patternScore,
+    domainRiskScore: verdict.domainRiskScore,
+    flaggedItems: verdict.flaggedItems,
+    scanToken: verdict.scanToken,
     fileName: file.name,
     fileSize: file.size,
     fileType: fileFormat,

@@ -113,6 +113,7 @@
 
   window.addEventListener('message', function (event) {
     if (!event.data || event.data.source !== 'ABLE_CONTENT') return;
+    if (!ableNonce || event.data.nonce !== ableNonce) return;
 
     if (event.data.type === 'ABLE_DECISION') {
       var id = event.data.payload.requestId;
@@ -287,6 +288,7 @@
 
   window.addEventListener('message', function (event) {
     if (event.data && event.data.source === 'ABLE_CONTENT' && event.data.type === 'ABLE_TEXT_DECISION') {
+      if (!ableNonce || event.data.nonce !== ableNonce) return;
       var id = event.data.payload?.checkId;
       var action = event.data.payload?.action;
       if (pendingTextChecks && pendingTextChecks.has(id)) {

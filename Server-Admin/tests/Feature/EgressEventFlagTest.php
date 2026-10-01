@@ -55,6 +55,31 @@ class EgressEventFlagTest extends TestCase
         $this->assertNull($event->flagged_items);
     }
 
+    public function test_retry_with_same_event_id_is_deduplicated_past_dedup_window(): void
+    {
+        $payload = [
+            'domain' => 'example.com',
+            'user_id' => 'user-1',
+            'file_name' => 'report.txt',
+            'file_size' => 1200,
+            'risk_score' => 45,
+            'action' => 'denied',
+            'event_id' => 'egress-event-123',
+        ];
+
+        $first = $this->postJson('/api/log-egress', $payload);
+        $first->assertOk();
+        $this->assertFalse($first->json('duplicate'));
+
+        // Advance past the 60-second window: event_id must still dedupe.
+        $this->travel(2)->minutes();
+
+        $retry = $this->postJson('/api/log-egress', $payload);
+        $retry->assertOk();
+        $this->assertTrue($retry->json('duplicate'));
+        $this->assertSame(1, EgressEvent::where('domain', 'example.com')->count());
+    }
+
     public function test_single_view_reports_flag_counts_per_pattern_title()
     {
         $user = User::factory()->create();

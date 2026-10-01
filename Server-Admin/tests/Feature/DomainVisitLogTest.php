@@ -110,6 +110,30 @@ class DomainVisitLogTest extends TestCase
         $this->assertSame(1, DomainVisit::where('domain', 'example.com')->count());
     }
 
+    public function test_retry_with_same_event_id_is_deduplicated_past_debounce_window(): void
+    {
+        $payload = [
+            'domain' => 'example.com',
+            'status' => 'unlisted',
+            'source' => 'default',
+            'user_id' => 'ABLE-TEST',
+            'event_id' => 'visit-event-123',
+        ];
+
+        $first = $this->postJson('/api/log-visit', $payload);
+        $first->assertOk();
+        $this->assertFalse($first->json('duplicate'));
+
+        // Advance past the debounce window: event_id must still dedupe.
+        $this->travel(10)->seconds();
+
+        $retry = $this->postJson('/api/log-visit', $payload);
+        $retry->assertOk();
+        $this->assertTrue($retry->json('duplicate'));
+        $this->assertSame(1, $retry->json('visit_count'));
+        $this->assertSame(1, DomainVisit::where('domain', 'example.com')->count());
+    }
+
     public function test_client_provided_timestamp_is_stored(): void
     {
         // Send a fixed epoch timestamp (2024-01-15 10:30:00 UTC = 1705312200000 ms)
