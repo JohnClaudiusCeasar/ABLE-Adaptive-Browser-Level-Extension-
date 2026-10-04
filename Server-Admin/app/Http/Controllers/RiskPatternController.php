@@ -45,7 +45,15 @@ class RiskPatternController extends Controller
     }
 
     /**
-     * Tally how many egress events flagged each pattern.
+     * Tally how many file uploads flagged each pattern — at most once per
+     * upload per pattern, no matter how many times the regex matched inside
+     * that file or how many criteria cards claimed it.
+     *
+     * Audit rows store the criteria card title when a card matches, while the
+     * All Policies table lists the member single rows. Each upload therefore
+     * contributes +1 to a single row when any of these hit that file: the
+     * row's own direct label, or a parent card it belongs to. Labels that are
+     * neither (e.g. Domain Risk) keep their plain per-upload count.
      *
      * @return array<string, int>
      */
@@ -53,19 +61,74 @@ class RiskPatternController extends Controller
     {
         $flagCounts = [];
 
+        $criteriaTitles = RiskPattern::where('type', 'criteria')->pluck('title', 'id');
+        $cardIdByTitle = [];
+        foreach ($criteriaTitles as $id => $title) {
+            if (is_string($title) && $title !== '') {
+                $cardIdByTitle[$title] = $id;
+            }
+        }
+
+        $membersByCard = [];
+        foreach (CriteriaPatternItem::select('criteria_pattern_id', 'title')->get() as $item) {
+            $title = $item->title;
+            if (is_string($title) && $title !== '') {
+                $membersByCard[$item->criteria_pattern_id][] = $title;
+            }
+        }
+
+        $singleTitleSet = [];
+        foreach (RiskPattern::where('type', 'single')->pluck('title') as $title) {
+            if (is_string($title) && $title !== '') {
+                $singleTitleSet[$title] = true;
+            }
+        }
+
         EgressEvent::query()
             ->whereNotNull('flagged_items')
             ->get(['flagged_items'])
-            ->each(function (EgressEvent $event) use (&$flagCounts): void {
+            ->each(function (EgressEvent $event) use (&$flagCounts, $cardIdByTitle, $membersByCard, $singleTitleSet): void {
                 /** @var array<int, mixed> $items */
                 $items = is_array($event->flagged_items) ? $event->flagged_items : [];
 
+                $labels = [];
                 foreach ($items as $item) {
                     $label = is_array($item) ? ($item['label'] ?? null) : null;
 
                     if (is_string($label) && $label !== '') {
+                        $labels[$label] = true;
+                    }
+                }
+
+                if ($labels === []) {
+                    return;
+                }
+
+                // Non-pattern labels (e.g. Domain Risk) keep a plain per-upload count.
+                foreach ($labels as $label => $_) {
+                    if (! isset($singleTitleSet[$label]) && ! isset($cardIdByTitle[$label])) {
                         $flagCounts[$label] = ($flagCounts[$label] ?? 0) + 1;
                     }
+                }
+
+                // Single rows: union of direct hits and parent-card membership,
+                // counted once per upload even if several cards claim the file
+                // or the regex matched it repeatedly.
+                $attributed = [];
+                foreach ($labels as $label => $_) {
+                    if (isset($singleTitleSet[$label])) {
+                        $attributed[$label] = true;
+                    }
+
+                    if (isset($cardIdByTitle[$label])) {
+                        foreach ($membersByCard[$cardIdByTitle[$label]] ?? [] as $memberTitle) {
+                            $attributed[$memberTitle] = true;
+                        }
+                    }
+                }
+
+                foreach ($attributed as $title => $_) {
+                    $flagCounts[$title] = ($flagCounts[$title] ?? 0) + 1;
                 }
             });
 
