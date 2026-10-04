@@ -884,6 +884,10 @@ async function initialize() {
     : true;
 
   if (!greetingDone && typeof showGreetingModal === "function") {
+    if (document.getElementById("able-modal-root") || document.querySelector(".able-modal-backdrop")) {
+      await continueInitialization();
+      return;
+    }
     showGreetingModal({
       onDismiss: async function () {
         await continueInitialization();

@@ -15,6 +15,70 @@ var RISK_PATTERNS_ALARM = "risk-patterns-sync";
 var VISIT_LOG_ALARM = "visit-log-flush";
 var EGRESS_LOG_ALARM = "egress-log-flush";
 var SETTINGS_ALARM = "settings-sync";
+var GREETING_PENDING_KEY = "able:greeting_pending";
+
+function isGreetingInjectableUrl(url) {
+  if (!url || typeof url !== "string") return false;
+  if (!/^https?:\/\//i.test(url)) return false;
+  if (/^https?:\/\/(chrome\.google\.com\/webstore|chromewebstore\.google\.com)/i.test(url)) return false;
+  return true;
+}
+
+async function injectGreetingIntoTab(tabId) {
+  await chrome.scripting.executeScript({
+    target: { tabId: tabId },
+    files: ["content/modal-container.js", "content/greeting-modal.js"],
+  });
+  await chrome.scripting.executeScript({
+    target: { tabId: tabId },
+    func: function () {
+      if (document.getElementById("able-modal-root") || document.querySelector(".able-modal-backdrop")) return;
+      if (typeof showGreetingModal === "function") {
+        showGreetingModal({});
+      }
+    },
+  });
+}
+
+async function tryShowInstallGreeting() {
+  try {
+    var tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    var tab = tabs && tabs[0];
+    if (!tab || !isGreetingInjectableUrl(tab.url)) return false;
+    await injectGreetingIntoTab(tab.id);
+    return true;
+  } catch (error) {
+    console.warn("ABLE: Install greeting injection failed:", error);
+    return false;
+  }
+}
+
+async function flushPendingGreeting(tabId, url) {
+  try {
+    var stored = await chrome.storage.local.get(GREETING_PENDING_KEY);
+    if (!stored[GREETING_PENDING_KEY]) return;
+    var greetingKey = (typeof ABLEStorage !== 'undefined' && ABLEStorage.GREETING_COMPLETED)
+      ? ABLEStorage.GREETING_COMPLETED
+      : 'able:greeting_completed';
+    var completed = await chrome.storage.local.get(greetingKey);
+    if (completed[greetingKey] === true) {
+      await chrome.storage.local.remove(GREETING_PENDING_KEY);
+      return;
+    }
+    var targetUrl = url;
+    if (!targetUrl) {
+      try {
+        var tab = await chrome.tabs.get(tabId);
+        targetUrl = tab && tab.url;
+      } catch {}
+    }
+    if (!isGreetingInjectableUrl(targetUrl)) return;
+    await injectGreetingIntoTab(tabId);
+    await chrome.storage.local.remove(GREETING_PENDING_KEY);
+  } catch (error) {
+    console.warn("ABLE: Pending greeting injection failed:", error);
+  }
+}
 
 // Expose chrome.storage.session to content scripts (untrusted contexts) so
 // their session/debounce/consent checks actually work. Defaults to TRUSTED_CONTEXTS.
@@ -59,11 +123,15 @@ chrome.runtime.onInstalled.addListener(async function (details) {
           ? ABLEStorage.GREETING_COMPLETED
           : 'able:greeting_completed';
         await chrome.storage.local.set({ [greetingKey]: false });
-        chrome.tabs.create({
-          url: chrome.runtime.getURL('welcome.html')
-        });
+        var shown = await tryShowInstallGreeting();
+        if (!shown) {
+          await chrome.storage.local.set({ [GREETING_PENDING_KEY]: true });
+        }
       } catch (welcomeError) {
-        console.warn('ABLE: Failed to launch greeting welcome tab:', welcomeError);
+        console.warn('ABLE: Failed to launch greeting overlay:', welcomeError);
+        try {
+          await chrome.storage.local.set({ [GREETING_PENDING_KEY]: true });
+        } catch {}
       }
     }
   } catch (error) {
@@ -198,11 +266,28 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     return true;
   }
   if (message.type === "openWelcomePage") {
-    chrome.tabs.create({ url: chrome.runtime.getURL("welcome.html") });
-    sendResponse({ success: true });
+    (async function () {
+      try {
+        var tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+        var tab = tabs && tabs[0];
+        if (tab && isGreetingInjectableUrl(tab.url)) {
+          await injectGreetingIntoTab(tab.id);
+          sendResponse({ success: true });
+        } else {
+          sendResponse({ success: false, reason: "no-injectable-tab" });
+        }
+      } catch (error) {
+        sendResponse({ success: false });
+      }
+    })();
     return true;
   }
   return false;
+});
+
+chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
+  if (changeInfo.status !== "complete") return;
+  flushPendingGreeting(tabId, tab && tab.url);
 });
 
 async function handleClassifyDomain(url, sendResponse, signals) {

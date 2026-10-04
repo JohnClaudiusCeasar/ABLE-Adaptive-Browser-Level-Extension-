@@ -192,6 +192,21 @@ function showSpecialPageState(url) {
 }
 
 /**
+ * Show notice when the greeting overlay cannot be injected
+ */
+function showGreetingUnavailableNotice() {
+  if (messageTitle) {
+    messageTitle.textContent = "Greeting Unavailable Here";
+  }
+  if (messageBody) {
+    messageBody.textContent = "Open any website, then use this link again to view the greeting.";
+  }
+  if (messageSuggestion) {
+    messageSuggestion.textContent = "";
+  }
+}
+
+/**
  * Set up event listeners
  */
 function setupEventListeners() {
@@ -211,12 +226,16 @@ function setupEventListeners() {
   if (viewGreetingLink) {
     viewGreetingLink.addEventListener("click", (e) => {
       e.preventDefault();
-      try {
-        chrome.tabs.create({ url: chrome.runtime.getURL("welcome.html") });
-      } catch {
-        if (chrome.runtime && chrome.runtime.sendMessage) {
-          chrome.runtime.sendMessage({ type: "openWelcomePage" });
-        }
+      if (chrome.runtime && chrome.runtime.sendMessage) {
+        chrome.runtime.sendMessage({ type: "openWelcomePage" }, (response) => {
+          if (chrome.runtime.lastError) {
+            showErrorState("Unable to display the greeting on this page");
+            return;
+          }
+          if (response && response.success === false && response.reason === "no-injectable-tab") {
+            showGreetingUnavailableNotice();
+          }
+        });
       }
     });
   }
