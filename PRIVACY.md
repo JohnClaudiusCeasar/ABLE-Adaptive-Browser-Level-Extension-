@@ -1,7 +1,7 @@
 # Privacy Policy — ABLE: Adaptive Browser-Level Extension
 
 **Effective date:** October 1, 2026
-**Contact:** [insert contact email]
+**Contact:** bacarro.johnclaude@gmail.com
 
 This privacy policy describes how the ABLE browser extension ("the Extension") collects, uses, and protects information.
 
@@ -140,5 +140,5 @@ I may update this policy to reflect changes in the Extension's behavior or legal
 
 For questions about this policy or the Extension's data practices, or to exercise your data rights:
 
-- **Operator:** [insert your name or research project name]
-- **Email:** [insert contact email]
+- **Operator:** John Claude Bacarro
+- **Email:** bacarro.johnclaude@gmail.com
