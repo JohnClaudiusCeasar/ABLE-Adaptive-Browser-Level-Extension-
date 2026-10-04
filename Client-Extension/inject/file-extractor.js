@@ -87,24 +87,146 @@ async function peekReadableStream(stream, maxBytes) {
   }
 }
 
+function parseUrlForFilename(url) {
+  if (typeof URL === 'function') {
+    try {
+      var base = (typeof window !== 'undefined' && window.location && window.location.href) || 'https://localhost/';
+      return new URL(url, base);
+    } catch (e) { /* fall through to regex fallback */ }
+  }
+  return null;
+}
+
 function extractFilenameFromUrl(url) {
   if (!url || typeof url !== 'string') return null;
+  var queryKeys = ['filename', 'file_name', 'fileName', 'name', 'file', 'title', 'document'];
+  var parsed = parseUrlForFilename(url);
+  if (parsed) {
+    try {
+      for (var i = 0; i < queryKeys.length; i++) {
+        var val = parsed.searchParams.get(queryKeys[i]);
+        if (val && /\.[a-zA-Z0-9]{2,5}$/.test(val)) {
+          return decodeURIComponent(val);
+        }
+      }
+      var segments = parsed.pathname.split('/');
+      var lastSegment = segments[segments.length - 1];
+      if (lastSegment && /\.[a-zA-Z0-9]{2,5}$/.test(lastSegment)) {
+        return decodeURIComponent(lastSegment);
+      }
+    } catch (e) {}
+    return null;
+  }
+  // Regex fallback for non-browser runtimes (URL constructor unavailable).
   try {
-    var parsed = new URL(url, window.location.href);
-    var queryKeys = ['filename', 'file_name', 'fileName', 'name', 'file', 'title', 'document'];
-    for (var i = 0; i < queryKeys.length; i++) {
-      var val = parsed.searchParams.get(queryKeys[i]);
-      if (val && /\.[a-zA-Z0-9]{2,5}$/.test(val)) {
-        return decodeURIComponent(val);
+    var q = url.split('?')[1] || '';
+    var pairs = q.split('&');
+    for (var j = 0; j < pairs.length; j++) {
+      var kv = pairs[j].split('=');
+      if (queryKeys.indexOf(decodeURIComponent(kv[0] || '')) >= 0) {
+        var v = decodeURIComponent(kv[1] || '');
+        if (v && /\.[a-zA-Z0-9]{2,5}$/.test(v)) return v;
       }
     }
-    var segments = parsed.pathname.split('/');
-    var lastSegment = segments[segments.length - 1];
-    if (lastSegment && /\.[a-zA-Z0-9]{2,5}$/.test(lastSegment)) {
-      return decodeURIComponent(lastSegment);
-    }
+    var path = url.split('?')[0].split('#')[0];
+    var segs = path.split('/');
+    var last = segs[segs.length - 1];
+    if (last && /\.[a-zA-Z0-9]{2,5}$/.test(last)) return decodeURIComponent(last);
   } catch (e) {}
   return null;
+}
+
+// Best-effort synchronous peek at a blob's first bytes, for the
+// tracked-name/content agreement gate. Returns a lowercase hex string or
+// null when the body isn't synchronously readable (streams, FileReader-only
+// blobs). Callers treat null as "no content evidence" and fall back to the
+// declared MIME type.
+function peekBlobHexSync(body) {
+  try {
+    var parts = body && body.parts;
+    if (!parts || parts.length === 0) return null;
+    var first = parts[0];
+    var bytes = null;
+    if (typeof first === 'string') {
+      bytes = [];
+      for (var i = 0; i < Math.min(8, first.length); i++) bytes.push(first.charCodeAt(i) & 0xff);
+    } else if (first instanceof ArrayBuffer) {
+      bytes = Array.from(new Uint8Array(first).slice(0, 8));
+    } else if (ArrayBuffer.isView(first)) {
+      bytes = Array.from(new Uint8Array(first.buffer, first.byteOffset || 0, Math.min(8, first.byteLength || 0)));
+    } else {
+      return null;
+    }
+    if (!bytes || bytes.length < 4) return null;
+    return bytes.map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+  } catch (e) {
+    return null;
+  }
+}
+
+// A tracked filename may only be reused for a nameless blob when the blob's
+// own detected content agrees with the tracked file's extension: a JSON/text
+// sidecar must never be logged as photo.png or report.txt.
+//
+// This is a targeted veto, not a whitelist: it returns false only when we
+// positively know the blob is NOT the tracked file (JSON metadata claiming a
+// document name, image bytes claiming a document name, ...). Anything it
+// cannot judge returns true, so legitimate re-wrapped uploads keep working —
+// the exact-size matching in matchTrackedFilename is the primary guard.
+function trackedNameAgreesWithBlob(trackedName, blobType, peekHex) {
+  if (!trackedName || typeof trackedName !== 'string') return false;
+  var dot = trackedName.lastIndexOf('.');
+  var ext = dot >= 0 ? trackedName.slice(dot + 1).toLowerCase() : '';
+  if (!ext) return false;
+
+  var textExts = ['txt', 'csv', 'log', 'md', 'json', 'xml', 'html', 'htm'];
+  var zipExts = ['zip', 'docx', 'xlsx', 'pptx'];
+  var oleExts = ['doc', 'xls', 'ppt'];
+  var imageExts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'];
+  var mediaExts = imageExts.concat(['mp4', 'mp3', 'wav', 'ogg', 'webm', 'mov', 'avi']);
+
+  var mt = (blobType || '').toLowerCase().trim();
+  var isJson = mt.indexOf('application/json') === 0 || mt.indexOf('text/json') === 0;
+  var isText = mt.indexOf('text/') === 0 || isJson;
+  var isImage = mt.indexOf('image/') === 0;
+  var isMedia = isImage || mt.indexOf('video/') === 0 || mt.indexOf('audio/') === 0;
+
+  // Content sniff when sync bytes are available (ArrayBuffer/stream paths).
+  var hex = (peekHex || '').toLowerCase();
+  var isZipMagic = hex.indexOf('504b0304') === 0;
+  var isOleMagic = hex.indexOf('d0cf11e0') === 0;
+  if (isZipMagic) return zipExts.indexOf(ext) >= 0;
+  if (isOleMagic) return oleExts.indexOf(ext) >= 0;
+
+  // Media files keep their own names; a text/JSON blob can never be a photo,
+  // and an image blob can never be a document.
+  if (imageExts.indexOf(ext) >= 0 || mediaExts.indexOf(ext) >= 0) {
+    return isImage || isMedia;
+  }
+
+  // JSON payloads are site-generated metadata (upload tickets, message
+  // envelopes), never the user's document — unless the document is .json.
+  if (isJson) return ext === 'json';
+
+  // Office containers and PDFs: only a matching declared type keeps the name.
+  if (zipExts.indexOf(ext) >= 0 || oleExts.indexOf(ext) >= 0 || ext === 'pdf') {
+    if (!mt) return true;
+    if (ext === 'pdf') return mt.indexOf('application/pdf') === 0;
+    return mt.indexOf('application/zip') === 0 ||
+      mt.indexOf('application/x-zip') === 0 ||
+      mt.indexOf('application/vnd.openxmlformats') === 0 ||
+      mt.indexOf('application/msword') === 0 ||
+      mt.indexOf('application/vnd.ms-') === 0 ||
+      mt.indexOf('application/octet-stream') === 0;
+  }
+
+  // Plain-text family: text blobs may wear text names; anything binary may not.
+  if (textExts.indexOf(ext) >= 0) {
+    if (!mt) return true;
+    return isText;
+  }
+
+  return true;
 }
 
 function guessExtensionFromMagicBytes(bytes) {
@@ -170,8 +292,54 @@ function extractFiles(body, context) {
       return [];
     }
 
+    // Strict: a tracked filename may only be reused when the blob's own
+    // detected content agrees with the tracked extension. Size-only or
+    // hash-only matches let site-generated sidecar blobs (upload tickets,
+    // message payloads) steal the user's filename and log phantom rows.
+    var blobHex = peekBlobHexSync(body);
+    if (blobHex === null && typeof window.__ablePeekBlobHex === 'function') {
+      try { blobHex = window.__ablePeekBlobHex(body); } catch (e) { blobHex = null; }
+    }
+    // JSON-looking text content on a typeless blob is site-generated metadata
+    // (message envelopes, upload tickets), never the user's document — unless
+    // the tracked name itself is a .json file.
+    var blobTextHead = null;
+    try {
+      var firstPart = body && body.parts && body.parts[0];
+      if (typeof firstPart === 'string') blobTextHead = firstPart.slice(0, 64);
+    } catch (e) { blobTextHead = null; }
+    var agreesWith = function (candidateName) {
+      if (!trackedNameAgreesWithBlob(candidateName, body.type, blobHex)) return false;
+      if (blobTextHead && /^[\s]*[\[{]/.test(blobTextHead) && !(body.type || '').toLowerCase().match(/^text\//)) {
+        var dot = (candidateName || '').lastIndexOf('.');
+        var ext = dot >= 0 ? candidateName.slice(dot + 1).toLowerCase() : '';
+        if (ext !== 'json') return false;
+      }
+      return true;
+    };
+    // A site-generated download (report.txt?filename=..., attachment, ...)
+    // hosted at a real file URL is the page's document, not our upload — but
+    // only when the blob's own content agrees with that filename. This keeps
+    // genuine "save target as" style downloads working while JSON/plain
+    // sidecars posted to API routes stay excluded. The JSON-content veto
+    // applies to tracked-name reuse, not URL filenames: a URL that names the
+    // file is itself corroborating evidence, so it only needs the base gate.
+    if (candidateFilename && !trackedNameAgreesWithBlob(candidateFilename, body.type, blobHex)) {
+      // JSON-looking message envelopes posted to API routes are sidecars even
+      // when the URL happens to carry a file-like segment — drop those, keep
+      // real downloads (text blobs get a second chance below).
+      var looksLikeJson = blobTextHead && /^[\s]*[\[{]/.test(blobTextHead) &&
+        !(body.type || '').toLowerCase().match(/^text\//);
+      var looksLikeApiRoute = /\/api[\/\-_]|\/backend[\/\-_]|\/v\d+[\/\-_]|\/graphql/i.test(requestUrl || '');
+      if (looksLikeJson || looksLikeApiRoute) {
+        candidateFilename = null;
+      }
+    }
+    var agreesWith = function (candidateName) {
+      return trackedNameAgreesWithBlob(candidateName, body.type, blobHex);
+    };
     var blobName = candidateFilename ||
-      (window.__ableMatchFilename ? window.__ableMatchFilename(body.size, null) : null);
+      (window.__ableMatchFilename ? window.__ableMatchFilename(body.size, null, agreesWith) : null);
 
     if (!blobName && isDocumentOrMediaMime(body.type)) {
       var mimeExt = (body.type.split('/')[1] || '').split(';')[0];
@@ -195,8 +363,11 @@ function extractFiles(body, context) {
         var fname = (val.name && val.name !== 'blob') ? val.name : (candidateFilename || val.name);
         results.push({ file: fname !== val.name ? new File([val], fname, { type: val.type }) : val, source: 'formdata', contentSize: val.size });
       } else if (val instanceof Blob) {
+        var formAgreesWith = function (candidateName) {
+          return trackedNameAgreesWithBlob(candidateName, val.type, null);
+        };
         var blobName = candidateFilename ||
-          (window.__ableMatchFilename ? window.__ableMatchFilename(val.size, null) : null);
+          (window.__ableMatchFilename ? window.__ableMatchFilename(val.size, null, formAgreesWith) : null);
         if (!blobName && isDocumentOrMediaMime(val.type)) {
           var mimeExt = (val.type.split('/')[1] || '').split(';')[0];
           blobName = fieldName ? fieldName + '.' + mimeExt : 'upload.' + mimeExt;
@@ -217,7 +388,10 @@ function extractFiles(body, context) {
 
     var bodyHash = computeBodyHashSync(body);
     var ext = guessExtensionFromMagicBytes(viewBytes);
-    var matchedFilename = (window.__ableMatchFilename ? window.__ableMatchFilename(byteLength, bodyHash) : null);
+    var abAgreesWith = function (candidateName) {
+      return trackedNameAgreesWithBlob(candidateName, body.type || 'application/octet-stream', null);
+    };
+    var matchedFilename = (window.__ableMatchFilename ? window.__ableMatchFilename(byteLength, bodyHash, abAgreesWith) : null);
     var arrayBufferName = candidateFilename || matchedFilename || (ext ? 'upload' + ext : null);
 
     if (!arrayBufferName) {
@@ -278,8 +452,11 @@ async function extractFilesAsync(body, context) {
       var ext = guessExtensionFromMagicBytes(new Uint8Array(peeked.buffer));
       var requestUrl = context ? context.url : null;
       var candidateFilename = extractFilenameFromUrl(requestUrl);
+      var streamAgreesWith = function (candidateName) {
+        return trackedNameAgreesWithBlob(candidateName, 'application/octet-stream', null);
+      };
       var streamName = candidateFilename ||
-        (window.__ableMatchFilename ? window.__ableMatchFilename(peeked.bytesRead, null) : null) ||
+        (window.__ableMatchFilename ? window.__ableMatchFilename(peeked.bytesRead, null, streamAgreesWith) : null) ||
         (ext ? 'stream-upload' + ext : null);
 
       if (!streamName) {
@@ -539,6 +716,7 @@ if (typeof globalThis !== "undefined") {
     extractFiles,
     extractFilesAsync,
     extractFilenameFromUrl,
+    parseUrlForFilename,
     filesMatch,
     normalizeFileTargets,
     resetNativeFileInput,
@@ -548,6 +726,7 @@ if (typeof globalThis !== "undefined") {
     clearFileInputs,
     computeBodyHashSync,
     parseContentDisposition,
+    trackedNameAgreesWithBlob,
   };
 }
 

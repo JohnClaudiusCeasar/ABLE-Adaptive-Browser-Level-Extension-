@@ -104,26 +104,46 @@ function cleanupTrackedFiles() {
   });
 }
 
-function matchTrackedFilename(size, quickHash) {
+function matchTrackedFilename(size, quickHash, validator) {
   cleanupTrackedFiles();
 
+  // Strict: a hash match is strong evidence of identical content. When a
+  // hash is supplied but matches nothing, do NOT fall through to size-only
+  // matching — a hash mismatch means different content, and the size
+  // fallback is what let site-generated sidecar blobs steal tracked names.
   if (quickHash) {
     for (var i = trackedFiles.length - 1; i >= 0; i--) {
       if (trackedFiles[i].hash === quickHash) {
+        if (typeof validator === 'function' && !validator(trackedFiles[i].name)) {
+          continue;
+        }
         var name = trackedFiles[i].name;
         trackedFiles.splice(i, 1);
         return name;
       }
     }
+    return null;
   }
 
-  for (var i = trackedFiles.length - 1; i >= 0; i--) {
-    var sizeDiff = Math.abs(trackedFiles[i].size - size);
-    var sizeThreshold = Math.max(trackedFiles[i].size * 0.1, 1024);
-    if (sizeDiff <= sizeThreshold) {
-      var name = trackedFiles[i].name;
-      trackedFiles.splice(i, 1);
-      return name;
+  // Size-only matching requires an exact byte match plus a strong
+  // uniqueness signal: the tracked entry must carry a quick hash (proving a
+  // real file-selection event, not a bare Object-URL/paste record) and there
+  // must be no competing same-size entry with a different hash (i.e. a
+  // sidecar blob that happens to share the size). The old tolerance (10% or
+  // 1024 bytes) matched unrelated sidecar blobs to the user's file and
+  // logged them under the wrong filename.
+  var sameSize = [];
+  for (var i = 0; i < trackedFiles.length; i++) {
+    if (trackedFiles[i].size === size) {
+      sameSize.push(trackedFiles[i]);
+    }
+  }
+  if (sameSize.length === 1 && sameSize[0].hash) {
+    var sole = sameSize[0];
+    if (typeof validator !== 'function' || validator(sole.name)) {
+      var idx = trackedFiles.indexOf(sole);
+      if (idx >= 0) trackedFiles.splice(idx, 1);
+      return sole.name;
     }
   }
 
