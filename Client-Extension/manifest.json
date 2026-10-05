@@ -4,7 +4,6 @@
   "version": "0.1.0",
   "description": "Detects website safety status and provides security warnings for unsafe and unlisted domains",
   "permissions": [
-    "activeTab",
     "scripting",
     "storage",
     "alarms",
