@@ -29,9 +29,16 @@ chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/d
 # Create storage symlink if it doesn't exist
 php artisan storage:link || true
 
-# Run database migrations
-echo "Running migrations..."
-php artisan migrate --force --no-interaction || true
+# Run database migrations with retry loop
+echo "Waiting for database and running migrations..."
+n=0
+until [ "$n" -ge 10 ]
+do
+    php artisan migrate --force --no-interaction && break
+    n=$((n+1))
+    echo "Database not ready yet, retrying in 3 seconds ($n/10)..."
+    sleep 3
+done
 
 # Seed default risk patterns and domain policies if empty
 echo "Checking seeders..."

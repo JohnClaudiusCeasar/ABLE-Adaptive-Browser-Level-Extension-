@@ -1,3 +1,10 @@
+databases:
+  - name: able-postgres
+    plan: free
+    region: singapore
+    databaseName: able
+    user: able_user
+
 services:
   - type: web
     name: able-server-admin
@@ -19,7 +26,11 @@ services:
       - key: ABLE_SIGNING_KEY
         sync: false
       - key: DB_CONNECTION
-        value: sqlite
+        value: pgsql
+      - key: DB_URL
+        fromDatabase:
+          name: able-postgres
+          property: connectionString
       - key: SESSION_DRIVER
         value: file
       - key: CACHE_STORE
