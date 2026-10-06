@@ -24,6 +24,12 @@ export function getEcho(): Echo<'reverb'> | null {
         return echo;
     }
 
+    // No Reverb key compiled into this build (e.g. a host without a Reverb
+    // server). pusher-js throws on an empty key, so disable real-time instead.
+    if (!import.meta.env.VITE_REVERB_APP_KEY) {
+        return null;
+    }
+
     if (!window.Pusher) {
         window.Pusher = Pusher;
     }

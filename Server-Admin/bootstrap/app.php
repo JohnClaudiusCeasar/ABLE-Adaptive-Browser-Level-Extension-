@@ -20,6 +20,11 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withBroadcasting(__DIR__.'/../routes/channels.php')
     ->withMiddleware(function (Middleware $middleware): void {
+        // Render (and most PaaS hosts) terminate HTTPS at a load balancer and
+        // forward plain HTTP to the container. Trusting the proxy makes Laravel
+        // honour X-Forwarded-Proto so asset/route URLs are generated as https://.
+        $middleware->trustProxies(at: '*');
+
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
         $middleware->web(prepend: [

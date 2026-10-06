@@ -51,7 +51,7 @@ class SecurityHeaders
         $appUrl = config('app.url', 'http://localhost');
         $isDev = config('app.debug', false);
 
-        $scriptSrc = ["'self'"];
+        $scriptSrc = ["'self'", "'unsafe-inline'"];
         $styleSrc = ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'];
         $fontSrc = ["'self'", 'https://fonts.googleapis.com', 'https://fonts.gstatic.com'];
         $connectSrc = ["'self'"];
@@ -104,6 +104,10 @@ class SecurityHeaders
             "base-uri 'self'",
             "form-action 'self'",
         ];
+
+        if (! $isDev) {
+            $directives[] = 'upgrade-insecure-requests';
+        }
 
         return self::$cachedCsp[$key] = implode('; ', $directives);
     }
