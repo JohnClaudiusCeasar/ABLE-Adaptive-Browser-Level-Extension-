@@ -24,16 +24,20 @@ RUN npm install -g pnpm
 
 WORKDIR /app
 
-# Step 1: Install Composer dependencies
+# Step 1: Install Composer dependencies.
+# --no-scripts: the post-autoload-dump hook calls `php artisan`, which
+# doesn't exist yet at this point (only composer.json/lock are copied).
 COPY composer.json composer.lock ./
-RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --ignore-platform-reqs
+RUN composer install --no-dev --no-interaction --prefer-dist --no-scripts --no-autoloader --ignore-platform-reqs
 
 # Step 2: Install Node dependencies
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml* .npmrc* ./
 RUN pnpm install --frozen-lockfile --ignore-scripts
 
-# Step 3: Copy full source code
+# Step 3: Copy full source code, then build the autoloader and run
+# Laravel package discovery now that `artisan` is present.
 COPY . .
+RUN composer dump-autoload --no-dev --optimize
 
 # Step 4: Generate Wayfinder bridge files and compile frontend assets
 RUN php artisan wayfinder:generate --with-form
@@ -82,6 +86,9 @@ COPY --from=builder /app/public/build ./public/build
 
 # Copy vendor dependencies from builder stage
 COPY --from=builder /app/vendor ./vendor
+
+# Copy the package manifest built for production (no dev packages)
+COPY --from=builder /app/bootstrap/cache ./bootstrap/cache
 
 # Copy entrypoint script and set permissions
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
