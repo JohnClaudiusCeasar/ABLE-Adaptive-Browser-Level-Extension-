@@ -32,9 +32,9 @@ services:
           name: able-postgres
           property: connectionString
       - key: SESSION_DRIVER
-        value: file
+        value: database
       - key: CACHE_STORE
-        value: file
+        value: database
       - key: QUEUE_CONNECTION
         value: sync
       - key: LOG_CHANNEL
