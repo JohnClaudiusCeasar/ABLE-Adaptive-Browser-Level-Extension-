@@ -3,8 +3,8 @@ FROM node:22-alpine AS frontend
 WORKDIR /app
 RUN apk add --no-cache php php-cli php-phar php-mbstring php-openssl php-tokenizer
 RUN npm install -g pnpm
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml* .npmrc* ./
+RUN pnpm install --frozen-lockfile --ignore-scripts
 COPY . .
 RUN pnpm run build
 
