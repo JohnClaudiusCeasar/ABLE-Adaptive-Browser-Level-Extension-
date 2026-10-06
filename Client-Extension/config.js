@@ -13,11 +13,11 @@ const COMPANY_NAME = "ABLE";
  * origin and port can never disagree.
  *
  * DEVELOPMENT: http://localhost:8000
- * PRODUCTION:  https://able-admin.internal:8443
+ * PRODUCTION:  https://able-server-admin.onrender.com
  *
  * Change this value before building for distribution.
  */
-const SERVER_URL = "http://localhost:8000";
+const SERVER_URL = "https://able-server-admin.onrender.com";
 
 /**
  * Public keys for verifying signed offline cache payloads.
