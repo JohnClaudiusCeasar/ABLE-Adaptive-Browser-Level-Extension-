@@ -1,4 +1,6 @@
-import { Form, Head } from '@inertiajs/react';
+import { Form, Head, usePage } from '@inertiajs/react';
+import { useEffect, useState } from 'react';
+import { ActiveSessionConflictModal } from '@/components/auth/active-session-conflict-modal';
 import InputError from '@/components/input-error';
 import PasskeyVerify from '@/components/passkey-verify';
 import PasswordInput from '@/components/password-input';
@@ -15,9 +17,29 @@ import { request } from '@/routes/password';
 type Props = {
     status?: string;
     canResetPassword: boolean;
+    activeConflict?: boolean;
+    activeConflictEmail?: string;
+    breakGlassToken?: string;
 };
 
-export default function Login({ status, canResetPassword }: Props) {
+export default function Login({
+    status,
+    canResetPassword,
+    activeConflict = false,
+    activeConflictEmail = '',
+    breakGlassToken = '',
+}: Props) {
+    const { errors: pageErrors } = usePage().props;
+    const [typedEmail, setTypedEmail] = useState('');
+    const [isConflictModalOpen, setIsConflictModalOpen] = useState(
+        Boolean(activeConflict || pageErrors?.active_conflict)
+    );
+
+    useEffect(() => {
+        if (activeConflict || pageErrors?.active_conflict) {
+            setIsConflictModalOpen(true);
+        }
+    }, [activeConflict, pageErrors?.active_conflict]);
     return (
         <>
             <Head title="Log in" />
@@ -48,6 +70,8 @@ export default function Login({ status, canResetPassword }: Props) {
                                     tabIndex={1}
                                     autoComplete="email"
                                     placeholder="admin@able.security"
+                                    value={typedEmail}
+                                    onChange={(e) => setTypedEmail(e.target.value)}
                                     className="border-white/12 bg-white/8 focus:border-[rgba(34,197,94,0.6)] focus:shadow-[0_0_12px_rgba(34,197,94,0.2)]"
                                 />
                                 <InputError message={errors.email} />
@@ -124,6 +148,17 @@ export default function Login({ status, canResetPassword }: Props) {
                     {status}
                 </div>
             )}
+
+            <ActiveSessionConflictModal
+                isOpen={isConflictModalOpen}
+                onClose={() => setIsConflictModalOpen(false)}
+                email={activeConflictEmail || typedEmail}
+                token={breakGlassToken}
+                errorMessage={
+                    (pageErrors?.active_conflict as string) ||
+                    (pageErrors?.break_glass_password as string)
+                }
+            />
         </>
     );
 }

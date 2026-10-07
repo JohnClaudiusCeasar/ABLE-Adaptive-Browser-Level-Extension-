@@ -1,10 +1,13 @@
 import { Link, usePage } from '@inertiajs/react';
 import { Printer } from 'lucide-react';
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import { InactivityWarningModal } from '@/components/auth/inactivity-warning-modal';
+import { SecurityRecommendationModal } from '@/components/auth/security-recommendation-modal';
 import { AppContent } from '@/components/app-content';
 import { AppShell } from '@/components/app-shell';
 import { AppSidebar } from '@/components/app-sidebar';
 import { AppSidebarHeader } from '@/components/app-sidebar-header';
+import { useInactivityTimeout } from '@/hooks/use-inactivity-timeout';
 import type { AppLayoutProps } from '@/types';
 
 // The chat widget and its full dependency tree (Echo/Pusher, message input,
@@ -19,9 +22,21 @@ export default function AppSidebarLayout({
     children,
     breadcrumbs = [],
 }: AppLayoutProps) {
-    const { url } = usePage();
+    const { url, props } = usePage();
+    const auth = props.auth as { recommendPasswordChange?: boolean } | undefined;
     const isChatPage = url === '/chat' || url.startsWith('/chat/');
     const isPreviewPage = url === '/reports/preview' || url.startsWith('/reports/preview') || url.startsWith('/dashboard/report-preview');
+
+    const { isWarningOpen, secondsRemaining, stayLoggedIn } = useInactivityTimeout(true);
+    const [isRecommendationOpen, setIsRecommendationOpen] = useState(
+        Boolean(auth?.recommendPasswordChange)
+    );
+
+    useEffect(() => {
+        if (auth?.recommendPasswordChange) {
+            setIsRecommendationOpen(true);
+        }
+    }, [auth?.recommendPasswordChange]);
 
     return (
         <AppShell variant="sidebar">
@@ -53,6 +68,17 @@ export default function AppSidebarLayout({
                     </Suspense>
                 )}
             </AppContent>
+
+            <InactivityWarningModal
+                isOpen={isWarningOpen}
+                secondsRemaining={secondsRemaining}
+                onStayLoggedIn={stayLoggedIn}
+            />
+
+            <SecurityRecommendationModal
+                isOpen={isRecommendationOpen}
+                onClose={() => setIsRecommendationOpen(false)}
+            />
         </AppShell>
     );
 }

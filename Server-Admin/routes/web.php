@@ -9,6 +9,7 @@ use App\Http\Controllers\EgressEventController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\RiskPatternController;
 use App\Http\Controllers\SecurityAnalyticsController;
+use App\Http\Controllers\SessionSecurityController;
 use App\Http\Controllers\Users\ClientUserController;
 use App\Http\Controllers\Users\TeamUserController;
 use Illuminate\Support\Facades\Auth;
@@ -21,6 +22,13 @@ Route::get('/', function () {
 
     return redirect()->route('login');
 })->name('home');
+
+Route::post('login/break-glass', [SessionSecurityController::class, 'breakGlass'])
+    ->middleware('throttle:5,1')
+    ->name('login.break-glass');
+
+Route::post('session/terminate-beacon', [SessionSecurityController::class, 'terminateBeacon'])
+    ->name('session.terminate-beacon');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -82,6 +90,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('users/team', [TeamUserController::class, 'index'])->name('users.team.index');
     Route::patch('users/team/{user}', [TeamUserController::class, 'update'])->name('users.team.update');
     Route::patch('users/team/{user}/toggle-block', [TeamUserController::class, 'toggleBlock'])->name('users.team.toggle-block');
+    Route::post('session/heartbeat', [SessionSecurityController::class, 'heartbeat'])->name('session.heartbeat');
+    Route::post('session/dismiss-recommendation', [SessionSecurityController::class, 'dismissRecommendation'])->name('session.dismiss-recommendation');
 });
 
 require __DIR__.'/settings.php';

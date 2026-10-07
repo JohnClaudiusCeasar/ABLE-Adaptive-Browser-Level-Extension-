@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnforceInactivityTimeout;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\ResetPasswordConfirmationOnNavigation;
@@ -27,6 +28,10 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
+        $middleware->validateCsrfTokens(except: [
+            'session/terminate-beacon',
+        ]);
+
         $middleware->web(prepend: [
             SecurityHeaders::class,
         ]);
@@ -36,6 +41,7 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
             ResetPasswordConfirmationOnNavigation::class,
+            EnforceInactivityTimeout::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

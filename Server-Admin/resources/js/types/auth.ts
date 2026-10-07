@@ -13,6 +13,7 @@ export type User = {
 
 export type Auth = {
     user: User;
+    recommendPasswordChange?: boolean;
 };
 
 /* @chisel-passkeys */

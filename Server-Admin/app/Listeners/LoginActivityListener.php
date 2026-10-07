@@ -44,15 +44,19 @@ class LoginActivityListener
 
     public function handleLogout(Logout $event): void
     {
-        /** @var User $user */
+        /** @var User|null $user */
         $user = $event->user;
 
-        $this->auditService->log(
-            email: $user->email,
-            type: 'logout',
-            ipAddress: request()->ip() ?? 'unknown',
-            userAgent: request()->userAgent(),
-            userId: $user->id,
-        );
+        if ($user) {
+            app(\App\Services\ActiveSessionService::class)->terminateSession($user->id);
+
+            $this->auditService->log(
+                email: $user->email,
+                type: 'logout',
+                ipAddress: request()->ip() ?? 'unknown',
+                userAgent: request()->userAgent(),
+                userId: $user->id,
+            );
+        }
     }
 }
