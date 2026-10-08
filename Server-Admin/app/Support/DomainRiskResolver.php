@@ -26,7 +26,7 @@ class DomainRiskResolver
         $domain = preg_replace('/^www\./', '', strtolower($domain));
 
         $policy = DomainPolicy::where('domain', $domain)->first()
-            ?? DomainPolicy::whereRaw('? LIKE CONCAT("%.", domain)', [$domain])->first();
+            ?? DomainPolicy::whereRaw("? LIKE CONCAT('%.', domain)", [$domain])->first();
 
         if ($policy) {
             return [

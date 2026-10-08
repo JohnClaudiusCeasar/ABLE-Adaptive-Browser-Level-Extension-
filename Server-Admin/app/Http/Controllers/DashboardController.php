@@ -131,12 +131,12 @@ class DashboardController extends Controller
 
         $dailyVisits = DomainVisit::selectRaw('DATE(visited_at) as date, COUNT(*) as count')
             ->where('visited_at', '>=', $sevenDaysAgo)
-            ->groupBy('date')
+            ->groupByRaw('DATE(visited_at)')
             ->pluck('count', 'date');
 
         $dailyEgress = EgressEvent::selectRaw('DATE(occurred_at) as date, COUNT(*) as count')
             ->where('occurred_at', '>=', $sevenDaysAgo)
-            ->groupBy('date')
+            ->groupByRaw('DATE(occurred_at)')
             ->pluck('count', 'date');
 
         $shadowActivity = [];

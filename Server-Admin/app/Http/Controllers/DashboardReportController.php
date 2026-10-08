@@ -171,12 +171,12 @@ class DashboardReportController extends Controller
         $startDate = now()->subDays(6)->startOfDay();
         $visits = DomainVisit::selectRaw('DATE(visited_at) as date, COUNT(*) as count')
             ->where('visited_at', '>=', $startDate)
-            ->groupBy('date')
+            ->groupByRaw('DATE(visited_at)')
             ->pluck('count', 'date');
 
         $egress = EgressEvent::selectRaw('DATE(occurred_at) as date, COUNT(*) as count')
             ->where('occurred_at', '>=', $startDate)
-            ->groupBy('date')
+            ->groupByRaw('DATE(occurred_at)')
             ->pluck('count', 'date');
 
         $result = [];
@@ -305,7 +305,7 @@ class DashboardReportController extends Controller
             DB::raw('COUNT(*) as count'),
             DB::raw('ROUND(AVG(risk_score)) as avg_risk')
         )
-            ->groupBy('category_name')
+            ->groupByRaw("COALESCE(NULLIF(category, ''), 'General Cloud')")
             ->orderByDesc('count')
             ->limit(5)
             ->get()

@@ -312,7 +312,7 @@ class DomainPolicyController extends Controller
 
             // If no exact match, check for subdomain match (e.g. mail.google.com → google.com)
             if (! $policy) {
-                $policy = DomainPolicy::whereRaw('? LIKE CONCAT("%.", domain)', [$domain])->first();
+                $policy = DomainPolicy::whereRaw("? LIKE CONCAT('%.', domain)", [$domain])->first();
             }
 
             if ($policy) {
