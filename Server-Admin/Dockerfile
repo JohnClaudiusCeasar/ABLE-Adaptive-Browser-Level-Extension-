@@ -71,7 +71,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Enable Apache modules
-RUN a2enmod rewrite headers
+RUN a2enmod rewrite headers \
+    && echo "expose_php = Off" > /usr/local/etc/php/conf.d/disable-expose-php.ini
 
 # Copy Apache config
 COPY docker/apache.conf /etc/apache2/sites-available/000-default.conf

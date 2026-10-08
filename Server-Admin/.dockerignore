@@ -17,3 +17,12 @@ database/database.sqlite-journal
 .phpunit.cache
 .phpunit.result.cache
 tests
+docker/
+chisel.php
+chisel-paths.php
+phpunit.xml
+phpstan.neon
+pint.json
+eslint.config.js
+tsconfig.json
+
