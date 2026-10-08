@@ -5,6 +5,9 @@
 
     RewriteEngine On
 
+    # Block access to hidden files and directories (except .well-known for ACME/SSL)
+    RewriteRule (^|/)\.(?!well-known) - [F]
+
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]

@@ -70,17 +70,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         zip \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Enable Apache modules
+# Enable Apache modules and harden security headers
 RUN a2enmod rewrite headers \
+    && sed -ri -e 's!^ServerTokens .*!ServerTokens Prod!' /etc/apache2/conf-available/security.conf \
+    && sed -ri -e 's!^ServerSignature .*!ServerSignature Off!' /etc/apache2/conf-available/security.conf \
+    && a2enconf security \
     && echo "expose_php = Off" > /usr/local/etc/php/conf.d/disable-expose-php.ini
 
-# Copy Apache config
+# Copy Apache config and entrypoint script
 COPY docker/apache.conf /etc/apache2/sites-available/000-default.conf
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 WORKDIR /var/www/html
 
-# Copy application code
+# Copy application code and remove deployment configs from webroot
 COPY . .
+RUN rm -rf /var/www/html/docker
 
 # Copy compiled frontend assets from builder stage
 COPY --from=builder /app/public/build ./public/build
@@ -91,10 +97,7 @@ COPY --from=builder /app/vendor ./vendor
 # Copy the package manifest built for production (no dev packages)
 COPY --from=builder /app/bootstrap/cache ./bootstrap/cache
 
-# Copy entrypoint script and set permissions
-COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh \
-    && chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
 EXPOSE 80
 

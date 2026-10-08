@@ -29,6 +29,12 @@ chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/d
 # Create storage symlink if it doesn't exist
 php artisan storage:link || true
 
+# Ensure APP_KEY exists so Artisan operations never fail
+if [ -z "$APP_KEY" ]; then
+    echo "Warning: APP_KEY not provided by environment. Generating fallback key..."
+    php artisan key:generate --force || true
+fi
+
 # Run database migrations with retry loop
 echo "Waiting for database and running migrations..."
 n=0
