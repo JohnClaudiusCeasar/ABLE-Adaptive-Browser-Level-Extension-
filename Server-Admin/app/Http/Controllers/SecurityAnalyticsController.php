@@ -22,27 +22,31 @@ class SecurityAnalyticsController extends Controller
             $q->whereIn('policy', ['blacklisted', 'under_review'])
                 ->orWhereIn('domain_status', ['unsafe', 'unlisted']);
         });
-        $shadowDomainList = $shadowDomainsQuery->pluck('domain');
-        $discoveredShadowApps = $shadowDomainList->count();
+        $discoveredShadowApps = $shadowDomainsQuery->count();
         if ($discoveredShadowApps === 0) {
             $discoveredShadowApps = DomainPolicy::count();
         }
 
         // 2. Shadow Adopters - unique installed extension users accessing shadow domains
-        $shadowVisitUsers = DomainVisit::where(function ($q) use ($shadowDomainList) {
-            $q->whereIn('domain', $shadowDomainList)
+        $shadowDomainsSub = DomainPolicy::where(function ($q) {
+            $q->whereIn('policy', ['blacklisted', 'under_review'])
+                ->orWhereIn('domain_status', ['unsafe', 'unlisted']);
+        })->select('domain');
+
+        $shadowVisitUsersQuery = DomainVisit::where(function ($q) use ($shadowDomainsSub) {
+            $q->whereIn('domain', $shadowDomainsSub)
                 ->orWhereIn('status', ['unsafe', 'unlisted']);
         })
             ->whereNotNull('user_id')
-            ->distinct('user_id')
-            ->pluck('user_id');
+            ->select('user_id');
 
-        $shadowEgressUsers = EgressEvent::whereIn('domain', $shadowDomainList)
+        $shadowEgressUsersQuery = EgressEvent::whereIn('domain', $shadowDomainsSub)
             ->whereNotNull('user_id')
-            ->distinct('user_id')
-            ->pluck('user_id');
+            ->select('user_id');
 
-        $shadowAdopters = $shadowVisitUsers->merge($shadowEgressUsers)->unique()->count();
+        $shadowAdopters = DB::query()
+            ->fromSub($shadowVisitUsersQuery->union($shadowEgressUsersQuery), 'shadow_adopters')
+            ->count();
 
         // 3. Shadow Egress Attempts
         $shadowEgressAttempts = EgressEvent::count();
@@ -104,6 +108,7 @@ class SecurityAnalyticsController extends Controller
             ->get();
 
         $categoryDistribution = $categoriesRaw->map(function ($row) use ($totalPolicies) {
+            /** @var object{category_name: string, count: int|string, avg_risk: int|string} $row */
             return [
                 'category' => $row->category_name,
                 'count' => (int) $row->count,

@@ -31,6 +31,7 @@ class ResetPasswordConfirmationOnNavigation
         return $request->is([
             'security',
             'security/*',
+            'session/*',
             'chat',
             'chat/*',
             'user/confirm-password',

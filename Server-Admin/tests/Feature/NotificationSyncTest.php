@@ -111,7 +111,7 @@ class NotificationSyncTest extends TestCase
         $this->assertSame(0, Notification::where('source', 'login')->count());
     }
 
-    public function test_all_four_event_types_sync_to_notifications(): void
+    public function test_all_extension_event_types_sync_to_notifications(): void
     {
         $user = $this->createUser();
         $this->actingAs($user);
@@ -123,9 +123,7 @@ class NotificationSyncTest extends TestCase
         $sources = Notification::pluck('source')->unique()->toArray();
         $this->assertContains('egress', $sources);
         $this->assertContains('domain', $sources);
-        $this->assertContains('audit', $sources);
         $this->assertContains('extension', $sources);
-        $this->assertContains('chat', $sources);
     }
 
     public function test_each_notification_has_a_description(): void
@@ -147,8 +145,6 @@ class NotificationSyncTest extends TestCase
         $this->assertStringContainsString('ext123', Notification::where('source', 'extension')->first()->description);
         $this->assertStringContainsString('test.pdf', Notification::where('source', 'egress')->first()->description);
         $this->assertStringContainsString('unlisted-site.com', Notification::where('source', 'domain')->first()->description);
-        $this->assertStringContainsString('DomainPolicy', Notification::where('source', 'audit')->first()->description);
-        $this->assertStringContainsString('Hello', Notification::where('source', 'chat')->first()->description);
     }
 
     public function test_clear_all_permanently_removes_notifications(): void

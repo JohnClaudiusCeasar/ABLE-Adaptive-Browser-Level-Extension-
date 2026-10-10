@@ -34,40 +34,47 @@ class SyncNotifications
             ->pluck('message')
             ->flip();
 
-        // Grab only the nudge outcome per egress event in one query.
-        $nudgeActions = NudgeInteraction::query()
-            ->select('egress_event_id', 'user_action')
-            ->get()
-            ->keyBy('egress_event_id');
+        $now = now();
 
         EgressEvent::query()
-            ->orderBy('occurred_at')
-            ->get()
-            ->each(function (EgressEvent $event) use ($existing, $nudgeActions) {
-                $messageKey = 'egress-event-'.$event->id;
-                if (isset($existing[$messageKey])) {
+            ->orderBy('id')
+            ->chunkById(250, function ($events) use ($existing, $now) {
+                $unprocessed = $events->reject(fn (EgressEvent $event) => isset($existing['egress-event-'.$event->id]));
+                if ($unprocessed->isEmpty()) {
                     return;
                 }
 
-                $nudgeAction = $nudgeActions->get($event->id)?->user_action;
-                $status = $this->statusForRisk($event->risk_score);
+                $nudgeActions = NudgeInteraction::query()
+                    ->whereIn('egress_event_id', $unprocessed->pluck('id'))
+                    ->pluck('user_action', 'egress_event_id');
 
-                // One notification per egress event; the nudge outcome is
-                // folded into the same notification's message/type.
-                Notification::create([
-                    'source' => 'egress',
-                    'type' => $this->typeForEgress($event, $nudgeAction),
-                    'description' => $this->descriptionForEgress($event, $nudgeAction),
-                    'domain' => $event->domain,
-                    'user_id' => $event->user_id,
-                    'email' => null,
-                    'ip_address' => null,
-                    'risk_score' => $event->risk_score,
-                    'status' => $status,
-                    'message' => $messageKey,
-                    'occurred_at' => $event->occurred_at,
-                    'read_at' => null,
-                ]);
+                $records = [];
+                foreach ($unprocessed as $event) {
+                    $messageKey = 'egress-event-'.$event->id;
+                    $nudgeAction = $nudgeActions->get($event->id);
+                    $status = $this->statusForRisk($event->risk_score);
+
+                    $records[] = [
+                        'source' => 'egress',
+                        'type' => $this->typeForEgress($event, $nudgeAction),
+                        'description' => $this->descriptionForEgress($event, $nudgeAction),
+                        'domain' => $event->domain,
+                        'user_id' => $event->user_id,
+                        'email' => null,
+                        'ip_address' => null,
+                        'risk_score' => $event->risk_score,
+                        'status' => $status,
+                        'message' => $messageKey,
+                        'occurred_at' => $event->occurred_at,
+                        'read_at' => null,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+
+                if (! empty($records)) {
+                    Notification::insert($records);
+                }
             });
     }
 
@@ -78,37 +85,48 @@ class SyncNotifications
             ->pluck('message')
             ->flip();
 
+        $now = now();
+
         DomainVisit::query()
             ->with('domainPolicy')
-            ->orderBy('visited_at')
-            ->get()
-            ->each(function (DomainVisit $visit) use ($existing) {
-                $messageKey = 'domain-visit-'.$visit->id;
-                if (isset($existing[$messageKey])) {
-                    return;
+            ->orderBy('id')
+            ->chunkById(250, function ($visits) use ($existing, $now) {
+                $records = [];
+
+                foreach ($visits as $visit) {
+                    $messageKey = 'domain-visit-'.$visit->id;
+                    if (isset($existing[$messageKey])) {
+                        continue;
+                    }
+
+                    $isFirstVisit = $visit->domainPolicy !== null && $visit->domainPolicy->visit_count === 1;
+                    $type = $isFirstVisit ? 'New Domain Detected' : 'New Domain Visit';
+                    $status = $this->statusForDomainStatus($visit->resolvedStatus());
+                    $riskScore = $visit->domainPolicy->risk_score ?? 0;
+
+                    $records[] = [
+                        'source' => 'domain',
+                        'type' => $type,
+                        'description' => $isFirstVisit
+                            ? "First visit to {$visit->domain} by user {$visit->user_id}"
+                            : "Visit to {$visit->domain} by user {$visit->user_id}",
+                        'domain' => $visit->domain,
+                        'user_id' => $visit->user_id,
+                        'email' => null,
+                        'ip_address' => null,
+                        'risk_score' => $riskScore,
+                        'status' => $status,
+                        'message' => $messageKey,
+                        'occurred_at' => $visit->visited_at,
+                        'read_at' => null,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
                 }
 
-                $isFirstVisit = $visit->domainPolicy !== null && $visit->domainPolicy->visit_count === 1;
-                $type = $isFirstVisit ? 'New Domain Detected' : 'New Domain Visit';
-                $status = $this->statusForDomainStatus($visit->resolvedStatus());
-                $riskScore = $visit->domainPolicy->risk_score ?? 0;
-
-                Notification::create([
-                    'source' => 'domain',
-                    'type' => $type,
-                    'description' => $isFirstVisit
-                        ? "First visit to {$visit->domain} by user {$visit->user_id}"
-                        : "Visit to {$visit->domain} by user {$visit->user_id}",
-                    'domain' => $visit->domain,
-                    'user_id' => $visit->user_id,
-                    'email' => null,
-                    'ip_address' => null,
-                    'risk_score' => $riskScore,
-                    'status' => $status,
-                    'message' => $messageKey,
-                    'occurred_at' => $visit->visited_at,
-                    'read_at' => null,
-                ]);
+                if (! empty($records)) {
+                    Notification::insert($records);
+                }
             });
     }
 
@@ -119,41 +137,52 @@ class SyncNotifications
             ->pluck('message')
             ->flip();
 
+        $now = now();
+
+        $typeMap = [
+            'installed' => 'Extension Installed',
+            'updated' => 'Extension Updated',
+            'uninstalled' => 'Extension Uninstalled',
+        ];
+
+        $statusMap = [
+            'installed' => 'glass-safe',
+            'updated' => 'glass-unlisted',
+            'uninstalled' => 'glass-unsafe',
+        ];
+
         ExtensionLifecycle::query()
-            ->orderBy('occurred_at')
-            ->get()
-            ->each(function (ExtensionLifecycle $lifecycle) use ($existing) {
-                $messageKey = 'extension-lifecycle-'.$lifecycle->id;
-                if (isset($existing[$messageKey])) {
-                    return;
+            ->orderBy('id')
+            ->chunkById(250, function ($lifecycles) use ($existing, $now, $typeMap, $statusMap) {
+                $records = [];
+
+                foreach ($lifecycles as $lifecycle) {
+                    $messageKey = 'extension-lifecycle-'.$lifecycle->id;
+                    if (isset($existing[$messageKey])) {
+                        continue;
+                    }
+
+                    $records[] = [
+                        'source' => 'extension',
+                        'type' => $typeMap[$lifecycle->event] ?? 'Extension Event',
+                        'description' => "Extension {$lifecycle->extension_id} {$lifecycle->event} by user {$lifecycle->user_id}",
+                        'domain' => null,
+                        'user_id' => $lifecycle->user_id,
+                        'email' => null,
+                        'ip_address' => null,
+                        'risk_score' => null,
+                        'status' => $statusMap[$lifecycle->event] ?? 'glass-unlisted',
+                        'message' => $messageKey,
+                        'occurred_at' => $lifecycle->occurred_at,
+                        'read_at' => null,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
                 }
 
-                $typeMap = [
-                    'installed' => 'Extension Installed',
-                    'updated' => 'Extension Updated',
-                    'uninstalled' => 'Extension Uninstalled',
-                ];
-
-                $statusMap = [
-                    'installed' => 'glass-safe',
-                    'updated' => 'glass-unlisted',
-                    'uninstalled' => 'glass-unsafe',
-                ];
-
-                Notification::create([
-                    'source' => 'extension',
-                    'type' => $typeMap[$lifecycle->event] ?? 'Extension Event',
-                    'description' => "Extension {$lifecycle->extension_id} {$lifecycle->event} by user {$lifecycle->user_id}",
-                    'domain' => null,
-                    'user_id' => $lifecycle->user_id,
-                    'email' => null,
-                    'ip_address' => null,
-                    'risk_score' => null,
-                    'status' => $statusMap[$lifecycle->event] ?? 'glass-unlisted',
-                    'message' => $messageKey,
-                    'occurred_at' => $lifecycle->occurred_at,
-                    'read_at' => null,
-                ]);
+                if (! empty($records)) {
+                    Notification::insert($records);
+                }
             });
     }
 

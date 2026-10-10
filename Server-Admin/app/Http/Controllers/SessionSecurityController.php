@@ -97,11 +97,11 @@ class SessionSecurityController extends Controller
             $request->userAgent()
         );
 
-        $request->session()->put('able_last_activity_time', now()->timestamp);
+        $request->session()->put('able_last_activity_time', now()->getTimestamp());
 
         return response()->json([
             'status' => 'ok',
-            'active_until' => now()->timestamp + EnforceInactivityTimeout::INACTIVITY_TIMEOUT_SECONDS,
+            'active_until' => now()->getTimestamp() + EnforceInactivityTimeout::INACTIVITY_TIMEOUT_SECONDS,
         ]);
     }
 

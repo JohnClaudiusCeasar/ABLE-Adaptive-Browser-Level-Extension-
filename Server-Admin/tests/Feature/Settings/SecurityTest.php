@@ -151,4 +151,34 @@ class SecurityTest extends TestCase
             ->get(route('security.edit'))
             ->assertRedirect(route('password.confirm'));
     }
+
+    public function test_heartbeat_preserves_password_confirmation_while_on_security_page()
+    {
+        $user = User::factory()->create();
+
+        // 1. Visit security page with active confirmation
+        $this->actingAs($user)
+            ->withSession(['auth.password_confirmed_at' => time()])
+            ->get(route('security.edit'))
+            ->assertOk();
+
+        // 2. Send session heartbeat (background ping while on page)
+        $this->actingAs($user)
+            ->post(route('session.heartbeat'))
+            ->assertOk();
+
+        // 3. Accessing security page continues to succeed without re-prompt
+        $this->actingAs($user)
+            ->get(route('security.edit'))
+            ->assertOk();
+
+        // 4. Leaving the page still resets confirmation as intended
+        $this->actingAs($user)
+            ->get(route('dashboard'))
+            ->assertOk();
+
+        $this->actingAs($user)
+            ->get(route('security.edit'))
+            ->assertRedirect(route('password.confirm'));
+    }
 }

@@ -1,4 +1,4 @@
-import { router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import {
     BarChart3,
     Bell,
@@ -122,6 +122,10 @@ export const mainNavItems: NavItem[] = [
 ];
 
 export function AppSidebar() {
+    const { unreadNotificationsCount = 0 } = usePage<{
+        unreadNotificationsCount?: number;
+    }>().props;
+
     return (
         <Sidebar
             collapsible="none"
@@ -151,11 +155,18 @@ export function AppSidebar() {
                         <Shield size={20} />
                     </button>
                     <button
-                        className="transition-colors hover:text-able-green-muted dark:hover:text-white"
+                        className="relative transition-colors hover:text-able-green-muted dark:hover:text-white"
                         aria-label="Notifications"
                         onClick={() => router.visit(notifications())}
                     >
                         <Bell size={20} />
+                        {unreadNotificationsCount > 0 && (
+                            <span className="absolute -top-1.5 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-sm">
+                                {unreadNotificationsCount > 99
+                                    ? '99+'
+                                    : unreadNotificationsCount}
+                            </span>
+                        )}
                     </button>
                 </div>
 

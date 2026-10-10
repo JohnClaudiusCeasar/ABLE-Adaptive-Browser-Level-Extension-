@@ -7,6 +7,7 @@ use App\Models\DomainVisit;
 use App\Models\EgressEvent;
 use App\Models\ExtensionLifecycle;
 use App\Models\NudgeInteraction;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -19,15 +20,15 @@ class DashboardController extends Controller
     {
         // 1. Active Extension Users - distinct extension user IDs with activity in the last 30 days
         $thirtyDaysAgo = now()->subDays(30);
-        $activeVisitUsers = DomainVisit::where('visited_at', '>=', $thirtyDaysAgo)
+        $activeVisitUsersQuery = DomainVisit::where('visited_at', '>=', $thirtyDaysAgo)
             ->whereNotNull('user_id')
-            ->distinct('user_id')
-            ->pluck('user_id');
-        $activeEgressUsers = EgressEvent::where('occurred_at', '>=', $thirtyDaysAgo)
+            ->select('user_id');
+        $activeEgressUsersQuery = EgressEvent::where('occurred_at', '>=', $thirtyDaysAgo)
             ->whereNotNull('user_id')
-            ->distinct('user_id')
-            ->pluck('user_id');
-        $activeUsers = $activeVisitUsers->merge($activeEgressUsers)->unique()->count();
+            ->select('user_id');
+        $activeUsers = DB::query()
+            ->fromSub($activeVisitUsersQuery->union($activeEgressUsersQuery), 'active_users')
+            ->count();
 
         // Inactive Extension Users - users whose latest lifecycle event is 'uninstalled'
         $inactiveUsers = ExtensionLifecycle::select('user_id')

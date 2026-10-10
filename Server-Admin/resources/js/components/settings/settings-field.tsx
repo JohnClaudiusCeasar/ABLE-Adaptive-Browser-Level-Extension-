@@ -12,7 +12,7 @@ export function SettingsField({
     error?: string;
 }>) {
     return (
-        <div className="grid gap-2">
+        <div className="grid gap-3">
             <label className="text-sm font-medium text-foreground">
                 {label}
             </label>

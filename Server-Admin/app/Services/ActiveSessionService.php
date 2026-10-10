@@ -88,7 +88,7 @@ class ActiveSessionService
         Cache::forget(self::TERMINATION_PENDING_PREFIX.$userId);
 
         // If database sessions are used, purge old sessions
-        if (Schema::hasTable('sessions')) {
+        if (config('session.driver') === 'database' || Schema::hasTable('sessions')) {
             $query = DB::table('sessions')->where('user_id', $userId);
             if ($exceptSessionId !== null) {
                 $query->where('id', '!=', $exceptSessionId);
@@ -133,14 +133,8 @@ class ActiveSessionService
     public function consumeBreakGlassToken(string $token): ?int
     {
         $key = self::BREAK_GLASS_PREFIX.$token;
-        $userId = Cache::get($key);
+        $userId = Cache::pull($key);
 
-        if ($userId !== null) {
-            Cache::forget($key);
-
-            return (int) $userId;
-        }
-
-        return null;
+        return $userId !== null ? (int) $userId : null;
     }
 }

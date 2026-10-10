@@ -15,8 +15,8 @@ export function SettingsSection({
     className?: string;
 }>) {
     return (
-        <section className={cn(glassCard, 'space-y-5 p-5', className)}>
-            <header className="space-y-1">
+        <section className={cn(glassCard, 'space-y-7 p-7', className)}>
+            <header className="space-y-[3px]">
                 <h2 className="text-base font-semibold text-foreground">
                     {title}
                 </h2>
@@ -26,7 +26,7 @@ export function SettingsSection({
                     </p>
                 )}
             </header>
-            <div className="space-y-5">{children}</div>
+            <div className="space-y-7">{children}</div>
         </section>
     );
 }

@@ -20,6 +20,11 @@ class ServerSettingsTest extends TestCase
             ->get(route('server-settings.edit'));
 
         $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->has('settings')
+            ->has('status.signing_key_ok')
+            ->has('status.policy_counts')
+        );
     }
 
     public function test_guests_are_redirected_from_server_settings()
@@ -59,5 +64,20 @@ class ServerSettingsTest extends TestCase
             ]);
 
         $response->assertSessionHasErrors('algorithm.fallback_policy');
+    }
+
+    public function test_server_settings_accept_valid_policy()
+    {
+        $user = User::factory()->create();
+
+        $response = $this
+            ->actingAs($user)
+            ->put(route('server-settings.update'), [
+                'algorithm.fallback_policy' => 'blacklisted',
+            ]);
+
+        $response->assertSessionHasNoErrors();
+
+        $this->assertSame('blacklisted', AbleSetting::where('key', 'algorithm.fallback_policy')->first()->value);
     }
 }

@@ -6,6 +6,7 @@ use App\Models\DomainPolicy;
 use App\Services\AbleSettingsService;
 use App\Support\Ut1CategoryMapper;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 class ImportUt1Blacklists extends Command
@@ -134,6 +135,14 @@ class ImportUt1Blacklists extends Command
         }
 
         $this->info("UT1 import done: {$created} created, {$updated} updated, {$skipped} skipped.");
+
+        Cache::forever('ut1.last_import', [
+            'ran_at' => now()->toIso8601String(),
+            'created' => $created,
+            'updated' => $updated,
+            'skipped' => $skipped,
+            'url' => $url,
+        ]);
 
         return self::SUCCESS;
     }

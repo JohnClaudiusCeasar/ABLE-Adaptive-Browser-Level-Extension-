@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
 use App\Services\AbleSettingsService;
+use App\Services\SettingsStatusService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -11,7 +12,7 @@ use Inertia\Response;
 
 class ServerSettingsController extends Controller
 {
-    public function __construct(private AbleSettingsService $settings) {}
+    public function __construct(private AbleSettingsService $settings, private SettingsStatusService $status) {}
 
     /**
      * Show the server master-control settings page.
@@ -20,6 +21,7 @@ class ServerSettingsController extends Controller
     {
         return Inertia::render('settings/server', [
             'settings' => $this->settings->get(AbleSettingsService::GROUP_SERVER),
+            'status' => $this->status->serverStatus(),
         ]);
     }
 

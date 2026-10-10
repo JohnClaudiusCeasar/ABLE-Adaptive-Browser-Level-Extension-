@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\ChatConversation;
 use App\Models\ChatMessage;
+use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -47,6 +48,7 @@ class HandleInertiaRequests extends Middleware
                 'recommendPasswordChange' => (bool) $request->session()->get('recommend_password_change', false),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            'unreadNotificationsCount' => $request->user() ? Notification::whereNull('read_at')->count() : 0,
             // On the chat page the data is required immediately, so it is
             // provided eagerly; every other page gets it deferred so the
             // queries only run if the quick chat widget fetches them.

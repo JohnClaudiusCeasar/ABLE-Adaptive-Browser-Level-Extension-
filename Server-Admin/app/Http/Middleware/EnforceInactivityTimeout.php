@@ -29,7 +29,7 @@ class EnforceInactivityTimeout
         if (Auth::check()) {
             /** @var \App\Models\User $user */
             $user = Auth::user();
-            $now = now()->timestamp;
+            $now = now()->getTimestamp();
             $lastActivity = $request->session()->get('able_last_activity_time');
 
             // If last activity exists and has exceeded 5 minutes (300 seconds)

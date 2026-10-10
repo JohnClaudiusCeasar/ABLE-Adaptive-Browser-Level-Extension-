@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Support\AbleSettingsSchema;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 class AbleSettingsService
@@ -72,12 +73,14 @@ class AbleSettingsService
 
         $validated = Validator::make($nested, $rules)->validate();
 
-        foreach (array_keys($flatInput) as $key) {
-            AbleSetting::updateOrCreate(
-                ['group' => $group, 'key' => $key],
-                ['value' => Arr::get($validated, $key), 'updated_by' => $user->id],
-            );
-        }
+        DB::transaction(function () use ($flatInput, $group, $validated, $user) {
+            foreach (array_keys($flatInput) as $key) {
+                AbleSetting::updateOrCreate(
+                    ['group' => $group, 'key' => $key],
+                    ['value' => Arr::get($validated, $key), 'updated_by' => $user->id],
+                );
+            }
+        });
 
         Cache::forget($this->cachePrefix.$group);
 

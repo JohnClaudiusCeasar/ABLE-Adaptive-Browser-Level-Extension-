@@ -20,6 +20,11 @@ class ExtensionSettingsTest extends TestCase
             ->get(route('extension-settings.edit'));
 
         $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->has('settings')
+            ->has('status.signing_key_ok')
+            ->has('status.egress_today')
+        );
     }
 
     public function test_guests_are_redirected_from_extension_settings()
@@ -65,5 +70,20 @@ class ExtensionSettingsTest extends TestCase
             ]);
 
         $response->assertSessionHasErrors('behavior.risk_threshold');
+    }
+
+    public function test_extension_egress_flush_interval_can_be_updated()
+    {
+        $user = User::factory()->create();
+
+        $response = $this
+            ->actingAs($user)
+            ->put(route('extension-settings.update'), [
+                'sync.egress_log_flush_interval_minutes' => 10,
+            ]);
+
+        $response->assertSessionHasNoErrors();
+
+        $this->assertSame(10, AbleSetting::where('key', 'sync.egress_log_flush_interval_minutes')->first()->value);
     }
 }
