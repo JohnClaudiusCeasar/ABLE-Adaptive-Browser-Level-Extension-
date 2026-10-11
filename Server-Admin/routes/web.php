@@ -14,13 +14,14 @@ use App\Http\Controllers\Users\ClientUserController;
 use App\Http\Controllers\Users\TeamUserController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 
 Route::get('/', function () {
     if (Auth::check()) {
         return redirect()->route('dashboard');
     }
 
-    return redirect()->route('login');
+    return Inertia::render('welcome');
 })->name('home');
 
 Route::post('login/break-glass', [SessionSecurityController::class, 'breakGlass'])
