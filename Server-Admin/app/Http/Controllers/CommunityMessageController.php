@@ -21,6 +21,7 @@ class CommunityMessageController extends Controller
     {
         if (! \Illuminate\Support\Facades\Schema::hasTable('community_messages')) {
             try {
+                \Illuminate\Support\Facades\Artisan::call('app:baseline-migrations');
                 \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
                 if (\Illuminate\Support\Facades\Schema::hasTable('community_messages')) {
                     \Illuminate\Support\Facades\Artisan::call('db:seed', [

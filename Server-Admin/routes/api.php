@@ -28,12 +28,23 @@ Route::get('/system/status', function () {
     $existingTables = collect(\Illuminate\Support\Facades\DB::select("SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname = 'public'"))
         ->pluck('tablename');
 
+    $baselineOutput = null;
     $migrateOutput = null;
     $migrateError = null;
 
     try {
+        \Illuminate\Support\Facades\Artisan::call('app:baseline-migrations');
+        $baselineOutput = \Illuminate\Support\Facades\Artisan::output();
+
         \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
         $migrateOutput = \Illuminate\Support\Facades\Artisan::output();
+
+        if (\Illuminate\Support\Facades\Schema::hasTable('community_messages') && \App\Models\CommunityMessage::count() === 0) {
+            \Illuminate\Support\Facades\Artisan::call('db:seed', [
+                '--class' => 'CommunityMessageSeeder',
+                '--force' => true,
+            ]);
+        }
     } catch (\Throwable $e) {
         $migrateError = [
             'class' => get_class($e),
@@ -55,6 +66,7 @@ Route::get('/system/status', function () {
         'community_messages_table' => $communityExists,
         'community_messages_count' => $communityExists ? \App\Models\CommunityMessage::count() : 0,
         'migrations' => $migrationList,
+        'baseline_output' => $baselineOutput,
         'migrate_output' => $migrateOutput,
         'migrate_error' => $migrateError,
     ]);

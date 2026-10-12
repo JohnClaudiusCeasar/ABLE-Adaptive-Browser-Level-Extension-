@@ -40,6 +40,7 @@ echo "Waiting for database and running migrations..."
 n=0
 until [ "$n" -ge 10 ]
 do
+    php artisan app:baseline-migrations || true
     php artisan migrate --force --no-interaction && break
     n=$((n+1))
     echo "Database not ready yet, retrying in 3 seconds ($n/10)..."
