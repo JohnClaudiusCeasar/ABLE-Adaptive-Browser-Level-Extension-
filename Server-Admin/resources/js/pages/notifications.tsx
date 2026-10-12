@@ -17,6 +17,9 @@ import { formatRelativeTime } from '@/lib/date';
 const glassCard =
     'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
 
+const readCard =
+    'bg-black/15 border border-black/10 rounded-lg backdrop-blur-[6px] opacity-45 dark:bg-black/60 dark:border-white/5 dark:opacity-35 hover:opacity-75 hover:bg-black/25 dark:hover:bg-black/50 shadow-none';
+
 interface NotificationItem {
     id: number;
     source: 'egress' | 'domain' | 'extension';
@@ -82,6 +85,15 @@ export default function Notifications() {
         Set<NotificationItem['source']>
     >(new Set(allSources));
     const [clearAllConfirm, setClearAllConfirm] = useState(false);
+    const [optimisticReadIds, setOptimisticReadIds] = useState<Set<number>>(
+        new Set(),
+    );
+
+    const effectiveUnreadCount = useMemo(() => {
+        return notifications.filter(
+            (n) => n.unread && !optimisticReadIds.has(n.id),
+        ).length;
+    }, [notifications, optimisticReadIds]);
 
     const filteredNotifications = useMemo(() => {
         let result = notifications;
@@ -148,6 +160,7 @@ counts[n.source]++;
     }
 
     function markAllRead() {
+        setOptimisticReadIds(new Set(notifications.map((n) => n.id)));
         router.post('/notifications/read-all', {}, { preserveScroll: true });
     }
 
@@ -165,6 +178,7 @@ counts[n.source]++;
     }
 
     function markRead(id: number) {
+        setOptimisticReadIds((prev) => new Set(prev).add(id));
         router.post(`/notifications/${id}/read`, {}, { preserveScroll: true });
     }
 
@@ -264,9 +278,9 @@ counts[n.source]++;
                             </Button>
                         </div>
 
-                        {unreadCount > 0 && (
+                        {effectiveUnreadCount > 0 && (
                             <span className="ml-auto text-sm text-muted-foreground">
-                                {unreadCount} unread
+                                {effectiveUnreadCount} unread
                             </span>
                         )}
                     </div>
@@ -284,19 +298,22 @@ counts[n.source]++;
                         {filteredNotifications.map((notification) => {
                             const SourceIcon =
                                 sourceIcons[notification.source];
+                            const isUnread =
+                                notification.unread &&
+                                !optimisticReadIds.has(notification.id);
 
                             return (
                                 <div
                                     key={notification.id}
-                                    className={`relative flex gap-4 border-l-4 ${sourceBorderColors[notification.source]} ${glassCard} px-6 py-5 transition-colors ${
-                                        notification.unread
-                                            ? 'bg-[rgba(34,197,94,0.06)]'
-                                            : 'hover:bg-white/5'
+                                    className={`relative flex gap-4 rounded-lg px-6 py-5 transition-all duration-300 ${
+                                        isUnread
+                                            ? `border-l-4 ${sourceBorderColors[notification.source]} ${glassCard} bg-[rgba(34,197,94,0.06)] shadow-[0_4px_20px_rgba(34,197,94,0.08)]`
+                                            : `border-l-2 border-l-black/20 dark:border-l-white/10 ${readCard}`
                                     }`}
                                 >
                                     {/* Unread dot column */}
                                     <div className="mt-1.5 flex w-3 flex-shrink-0 items-start justify-center">
-                                        {notification.unread ? (
+                                        {isUnread ? (
                                             <span className="mt-1 h-2 w-2 rounded-full bg-able-green shadow-[0_0_6px_rgba(34,197,94,0.6)]" />
                                         ) : (
                                             <span className="h-2 w-2" />
@@ -308,9 +325,11 @@ counts[n.source]++;
                                         <SourceIcon
                                             size={16}
                                             className={
-                                                sourceColors[
-                                                    notification.source
-                                                ]
+                                                isUnread
+                                                    ? sourceColors[
+                                                          notification.source
+                                                      ]
+                                                    : 'text-muted-foreground/60'
                                             }
                                         />
                                     </div>
@@ -322,7 +341,13 @@ counts[n.source]++;
                                             <div className="flex min-w-0 items-center gap-2">
                                                 <Badge
                                                     variant="outline"
-                                                    className={`shrink-0 px-1.5 py-0.5 text-[0.65rem] font-medium ${sourceBadgeClasses[notification.source]}`}
+                                                    className={`shrink-0 px-1.5 py-0.5 text-[0.65rem] font-medium transition-colors ${
+                                                        isUnread
+                                                            ? sourceBadgeClasses[
+                                                                  notification.source
+                                                              ]
+                                                            : 'border-black/10 bg-black/5 text-muted-foreground/70 dark:border-white/10 dark:bg-white/5'
+                                                    }`}
                                                 >
                                                     {
                                                         sourceLabels[
@@ -331,10 +356,10 @@ counts[n.source]++;
                                                     }
                                                 </Badge>
                                                 <span
-                                                    className={`min-w-0 truncate text-base text-foreground ${
-                                                        notification.unread
-                                                            ? 'font-bold'
-                                                            : 'font-medium'
+                                                    className={`min-w-0 truncate text-base transition-colors ${
+                                                        isUnread
+                                                            ? 'font-bold text-foreground'
+                                                            : 'font-normal text-muted-foreground'
                                                     }`}
                                                     title={notification.type}
                                                 >
@@ -356,7 +381,11 @@ counts[n.source]++;
                                         {/* Description — up to 2 lines */}
                                         {notification.description && (
                                             <p
-                                                className="line-clamp-2 text-sm text-muted-foreground"
+                                                className={`line-clamp-2 text-sm transition-colors ${
+                                                    isUnread
+                                                        ? 'text-muted-foreground'
+                                                        : 'text-muted-foreground/60'
+                                                }`}
                                                 title={
                                                     notification.description
                                                 }
@@ -415,7 +444,7 @@ counts[n.source]++;
 
                                     {/* Actions — floated to top-right corner */}
                                     <div className="absolute top-3 right-4 flex items-center gap-1">
-                                        {notification.unread && (
+                                        {isUnread && (
                                             <button
                                                 onClick={() =>
                                                     markRead(notification.id)

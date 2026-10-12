@@ -9,9 +9,14 @@ interface StreamMessage {
     domain: string;
     time: string;
     body: string;
+    status?: string;
 }
 
-export default function Welcome() {
+interface WelcomeProps {
+    initialMessages?: StreamMessage[];
+}
+
+export default function Welcome({ initialMessages = [] }: WelcomeProps) {
     // -------------------------------------------------------------
     // State Management
     // -------------------------------------------------------------
@@ -26,8 +31,15 @@ export default function Welcome() {
     const [messageBody, setMessageBody] = useState('');
     const [activeFeedFilter, setActiveFeedFilter] = useState<'all' | 'suggestion' | 'comment' | 'complaint'>('all');
     const [postedSuccess, setPostedSuccess] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [moderationNotice, setModerationNotice] = useState<string | null>(null);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-    const [streamMessages, setStreamMessages] = useState<StreamMessage[]>([
+    const [streamMessages, setStreamMessages] = useState<StreamMessage[]>(() => {
+        if (initialMessages && initialMessages.length > 0) {
+            return initialMessages;
+        }
+        return [
         {
             id: 1,
             author: 'SecurityResearch_01',
@@ -60,7 +72,8 @@ export default function Welcome() {
             time: '1d ago',
             body: 'Would appreciate an instant one-click bypass for internal staging URLs without needing to configure the policy table on the research server.',
         },
-    ]);
+    ];
+});
 
     // Refs
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -385,28 +398,63 @@ export default function Welcome() {
         setAuthorName(`ABLE-User-${suffix}`);
     };
 
-    const handlePostSubmit = (e: React.FormEvent) => {
+    const handlePostSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         const trimmedBody = messageBody.trim();
-        if (!trimmedBody) return;
+        if (!trimmedBody || isSubmitting) return;
 
-        const newPost: StreamMessage = {
-            id: Date.now(),
-            author: authorName.trim() || 'Anonymous',
-            category: selectedCat,
-            domain: targetDomain.trim(),
-            time: 'Just now',
-            body: trimmedBody,
-        };
+        setIsSubmitting(true);
+        setErrorMessage(null);
+        setModerationNotice(null);
 
-        setStreamMessages([newPost, ...streamMessages]);
-        setMessageBody('');
-        setTargetDomain('');
-        setAuthorName('');
-        setSelectedCat('suggestion');
+        const csrfToken =
+            document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '';
 
-        setPostedSuccess(true);
-        setTimeout(() => setPostedSuccess(false), 2200);
+        try {
+            const response = await fetch('/community-messages', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                },
+                body: JSON.stringify({
+                    author: authorName.trim() || 'Anonymous',
+                    category: selectedCat,
+                    domain: targetDomain.trim(),
+                    message: trimmedBody,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                setModerationNotice(
+                    data.message ||
+                        '✓ Submitted for review. Your message will appear publicly once approved by our research team.',
+                );
+                setMessageBody('');
+                setTargetDomain('');
+                setAuthorName('');
+                setSelectedCat('suggestion');
+
+                setPostedSuccess(true);
+                setTimeout(() => setPostedSuccess(false), 2500);
+            } else {
+                if (response.status === 429) {
+                    setErrorMessage('Too many messages submitted. Please wait a moment before trying again.');
+                } else if (data.errors) {
+                    const firstErr = Object.values(data.errors)[0] as string[];
+                    setErrorMessage(firstErr?.[0] || 'Please review your inputs.');
+                } else {
+                    setErrorMessage(data.message || 'Unable to submit your message. Please try again.');
+                }
+            }
+        } catch {
+            setErrorMessage('Network connection error. Please try again.');
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const filteredMessages =
@@ -1574,8 +1622,31 @@ const dispatchHook = {
                                             </div>
                                         </div>
 
+                                        {moderationNotice && (
+                                            <div className="moderation-alert-banner">
+                                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                    <circle cx="12" cy="12" r="10" />
+                                                    <line x1="12" y1="16" x2="12" y2="12" />
+                                                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                                                </svg>
+                                                <span>{moderationNotice}</span>
+                                            </div>
+                                        )}
+
+                                        {errorMessage && (
+                                            <div className="moderation-alert-banner error">
+                                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                    <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2" />
+                                                    <line x1="12" y1="8" x2="12" y2="12" />
+                                                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                                                </svg>
+                                                <span>{errorMessage}</span>
+                                            </div>
+                                        )}
+
                                         <button
                                             type="submit"
+                                            disabled={isSubmitting}
                                             className="btn-solid btn-full"
                                             id="submit-post-btn"
                                             style={
@@ -1584,8 +1655,10 @@ const dispatchHook = {
                                                     : undefined
                                             }
                                         >
-                                            {postedSuccess ? (
-                                                <span>✓ Posted to Board</span>
+                                            {isSubmitting ? (
+                                                <span>Submitting...</span>
+                                            ) : postedSuccess ? (
+                                                <span>✓ Submitted for Review</span>
                                             ) : (
                                                 <>
                                                     <span>Post Message</span>

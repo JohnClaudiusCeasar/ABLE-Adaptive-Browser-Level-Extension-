@@ -117,6 +117,11 @@ export const mainNavItems: NavItem[] = [
                 href: '/chat',
                 icon: MessageSquareText,
             },
+            {
+                title: 'Community Feedback',
+                href: '/community-messages',
+                icon: MessageSquareText,
+            },
         ],
     },
 ];

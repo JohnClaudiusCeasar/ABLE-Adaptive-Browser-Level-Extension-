@@ -9,9 +9,11 @@ use App\Http\Controllers\EgressEventController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\RiskPatternController;
 use App\Http\Controllers\SecurityAnalyticsController;
+use App\Http\Controllers\CommunityMessageController;
 use App\Http\Controllers\SessionSecurityController;
 use App\Http\Controllers\Users\ClientUserController;
 use App\Http\Controllers\Users\TeamUserController;
+use App\Models\CommunityMessage;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -21,8 +23,28 @@ Route::get('/', function () {
         return redirect()->route('dashboard');
     }
 
-    return Inertia::render('welcome');
+    $messages = CommunityMessage::approved()
+        ->latest()
+        ->take(30)
+        ->get()
+        ->map(fn ($m) => [
+            'id' => $m->id,
+            'author' => $m->author,
+            'category' => $m->category,
+            'domain' => $m->domain ?? '',
+            'time' => $m->created_at ? $m->created_at->diffForHumans() : 'Recently',
+            'body' => $m->message,
+            'status' => $m->status,
+        ]);
+
+    return Inertia::render('welcome', [
+        'initialMessages' => $messages,
+    ]);
 })->name('home');
+
+Route::post('community-messages', [CommunityMessageController::class, 'store'])
+    ->middleware('throttle:5,1')
+    ->name('community-messages.store');
 
 Route::post('login/break-glass', [SessionSecurityController::class, 'breakGlass'])
     ->middleware('throttle:5,1')
@@ -75,6 +97,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('notifications/{notification}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
     Route::delete('notifications-all', [NotificationController::class, 'destroyAll'])->name('notifications.destroyAll');
     Route::delete('notifications/{notification}', [NotificationController::class, 'destroy'])->name('notifications.destroy');
+
+    Route::get('community-messages', [CommunityMessageController::class, 'adminIndex'])->name('community-messages.index');
+    Route::patch('community-messages/{communityMessage}/approve', [CommunityMessageController::class, 'approve'])->name('community-messages.approve');
+    Route::patch('community-messages/{communityMessage}/reject', [CommunityMessageController::class, 'reject'])->name('community-messages.reject');
+    Route::delete('community-messages/{communityMessage}', [CommunityMessageController::class, 'destroy'])->name('community-messages.destroy');
 
     Route::get('chat', [ChatController::class, 'index'])->name('chat.index');
     Route::get('chat/unread-count', [ChatController::class, 'unreadCount'])->name('chat.unread-count');
