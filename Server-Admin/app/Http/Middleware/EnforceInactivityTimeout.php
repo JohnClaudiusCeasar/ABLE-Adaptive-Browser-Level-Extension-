@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\User;
 use App\Services\ActiveSessionService;
 use App\Services\LoginAuditService;
 use Closure;
@@ -27,7 +28,7 @@ class EnforceInactivityTimeout
     public function handle(Request $request, Closure $next): Response
     {
         if (Auth::check()) {
-            /** @var \App\Models\User $user */
+            /** @var User $user */
             $user = Auth::user();
             $now = now()->getTimestamp();
             $lastActivity = $request->session()->get('able_last_activity_time');

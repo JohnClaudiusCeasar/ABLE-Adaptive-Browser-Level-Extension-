@@ -23,7 +23,9 @@ export default function NudgeEffectiveness({
     nudgeEffectiveness,
 }: NudgeEffectivenessProps) {
     const [searchQuery, setSearchQuery] = useState('');
-    const [sortOption, setSortOption] = useState<'date_desc' | 'date_asc' | 'rate_desc' | 'rate_asc' | 'cancelled_desc'>('date_desc');
+    const [sortOption, setSortOption] = useState<
+        'date_desc' | 'date_asc' | 'rate_desc' | 'rate_asc' | 'cancelled_desc'
+    >('date_desc');
     const [currentPage, setCurrentPage] = useState(1);
 
     const processedItems = useMemo(() => {
@@ -31,7 +33,9 @@ export default function NudgeEffectiveness({
 
         if (searchQuery) {
             const query = searchQuery.toLowerCase();
-            items = items.filter((row) => row.date.toLowerCase().includes(query));
+            items = items.filter((row) =>
+                row.date.toLowerCase().includes(query),
+            );
         }
 
         items.sort((a, b) => {
@@ -59,7 +63,10 @@ export default function NudgeEffectiveness({
         return items;
     }, [nudgeEffectiveness, searchQuery, sortOption]);
 
-    const totalPages = Math.max(1, Math.ceil(processedItems.length / ROWS_PER_PAGE));
+    const totalPages = Math.max(
+        1,
+        Math.ceil(processedItems.length / ROWS_PER_PAGE),
+    );
     const safePage = Math.min(currentPage, totalPages);
     const paginatedItems = useMemo(() => {
         const start = (safePage - 1) * ROWS_PER_PAGE;
@@ -84,12 +91,16 @@ export default function NudgeEffectiveness({
                         <div>
                             <h1
                                 className="mb-2.5 text-[2.8rem] font-bold tracking-wide text-foreground uppercase"
-                                style={{ fontFamily: "'Unbounded', sans-serif" }}
+                                style={{
+                                    fontFamily: "'Unbounded', sans-serif",
+                                }}
                             >
                                 SHADOW CONTAINMENT
                             </h1>
                             <p className="max-w-[760px] text-[1.05rem] leading-relaxed text-muted-foreground">
-                                Detailed interaction telemetry and employee compliance outcomes upon receiving data upload warnings.
+                                Detailed interaction telemetry and employee
+                                compliance outcomes upon receiving data upload
+                                warnings.
                             </p>
                         </div>
                     </div>
@@ -104,7 +115,8 @@ export default function NudgeEffectiveness({
                                 Total Records:
                             </span>
                             <span className="rounded-full bg-able-green/15 px-2.5 py-0.5 text-xs font-semibold text-able-green">
-                                {formatMetricNumber(processedItems.length)} Days Tracked
+                                {formatMetricNumber(processedItems.length)} Days
+                                Tracked
                             </span>
                         </div>
 
@@ -131,16 +143,28 @@ export default function NudgeEffectiveness({
                                 <select
                                     value={sortOption}
                                     onChange={(e) => {
-                                        setSortOption(e.target.value as typeof sortOption);
+                                        setSortOption(
+                                            e.target.value as typeof sortOption,
+                                        );
                                         setCurrentPage(1);
                                     }}
                                     className="cursor-pointer appearance-none rounded-full border border-black/10 bg-black/5 py-1.5 pr-7 pl-8 text-xs text-foreground outline-none hover:border-able-green/50 dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]"
                                 >
-                                    <option value="date_desc">Sort: Date (Newest)</option>
-                                    <option value="date_asc">Sort: Date (Oldest)</option>
-                                    <option value="rate_desc">Sort: Success (High-Low)</option>
-                                    <option value="rate_asc">Sort: Success (Low-High)</option>
-                                    <option value="cancelled_desc">Sort: Prevented (Most)</option>
+                                    <option value="date_desc">
+                                        Sort: Date (Newest)
+                                    </option>
+                                    <option value="date_asc">
+                                        Sort: Date (Oldest)
+                                    </option>
+                                    <option value="rate_desc">
+                                        Sort: Success (High-Low)
+                                    </option>
+                                    <option value="rate_asc">
+                                        Sort: Success (Low-High)
+                                    </option>
+                                    <option value="cancelled_desc">
+                                        Sort: Prevented (Most)
+                                    </option>
                                 </select>
                                 <ArrowUpDown
                                     size={13}
@@ -186,16 +210,20 @@ export default function NudgeEffectiveness({
                                     </tr>
                                 ) : (
                                     paginatedItems.map((row, i) => {
-                                        const total = row.proceeded + row.cancelled;
+                                        const total =
+                                            row.proceeded + row.cancelled;
                                         const successRate =
                                             total > 0
-                                                ? Math.round((row.cancelled / total) * 100)
+                                                ? Math.round(
+                                                      (row.cancelled / total) *
+                                                          100,
+                                                  )
                                                 : 0;
 
                                         return (
                                             <tr
                                                 key={i}
-                                                className="border-b border-[rgba(34,197,94,0.3)] transition-colors hover:bg-black/5 last:border-b-0 dark:hover:bg-white/5"
+                                                className="border-b border-[rgba(34,197,94,0.3)] transition-colors last:border-b-0 hover:bg-black/5 dark:hover:bg-white/5"
                                             >
                                                 <td className="py-3.5 pr-2.5 font-medium text-foreground">
                                                     {row.date}
@@ -204,13 +232,17 @@ export default function NudgeEffectiveness({
                                                     className="py-3.5 pr-2.5 font-semibold text-emerald-500 tabular-nums"
                                                     title={row.cancelled.toLocaleString()}
                                                 >
-                                                    {formatMetricNumber(row.cancelled)}
+                                                    {formatMetricNumber(
+                                                        row.cancelled,
+                                                    )}
                                                 </td>
                                                 <td
                                                     className="py-3.5 pr-2.5 font-semibold text-rose-500 tabular-nums"
                                                     title={row.proceeded.toLocaleString()}
                                                 >
-                                                    {formatMetricNumber(row.proceeded)}
+                                                    {formatMetricNumber(
+                                                        row.proceeded,
+                                                    )}
                                                 </td>
                                                 <td
                                                     className="py-3.5 pr-2.5 text-foreground tabular-nums"
@@ -223,7 +255,8 @@ export default function NudgeEffectiveness({
                                                         className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                                                             successRate >= 70
                                                                 ? 'border border-[#00ff66] bg-[rgba(0,255,102,0.15)] text-[#00ff66]'
-                                                                : successRate >= 40
+                                                                : successRate >=
+                                                                    40
                                                                   ? 'border border-[#f59e0b] bg-[rgba(245,158,11,0.15)] text-[#f59e0b]'
                                                                   : 'border border-[#ff4d4d] bg-[rgba(255,77,77,0.15)] text-[#ff4d4d]'
                                                         }`}

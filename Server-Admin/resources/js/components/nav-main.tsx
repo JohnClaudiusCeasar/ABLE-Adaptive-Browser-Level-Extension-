@@ -35,7 +35,9 @@ function NavItemContent({ item }: { item: NavItem }) {
             <span
                 className={cn(
                     'h-1.5 w-1.5 shrink-0 rounded-full',
-                    item.isActive ? 'bg-able-green shadow-[0_0_6px_rgba(34,197,94,0.8)]' : 'bg-muted-foreground/30',
+                    item.isActive
+                        ? 'bg-able-green shadow-[0_0_6px_rgba(34,197,94,0.8)]'
+                        : 'bg-muted-foreground/30',
                 )}
             />
         </>
@@ -55,11 +57,13 @@ function CollapsibleNavItem({
     const href = typeof item.href === 'string' ? item.href : item.href.url;
     const groupRoot = href.split('/').slice(0, 2).join('/');
     const hasActiveChild = item.items?.some((child) => {
-        const childHref = typeof child.href === 'string' ? child.href : child.href.url;
+        const childHref =
+            typeof child.href === 'string' ? child.href : child.href.url;
 
         return isCurrentUrl(childHref);
     });
-    const groupActive = isCurrentUrl(groupRoot, undefined, true) || !!hasActiveChild;
+    const groupActive =
+        isCurrentUrl(groupRoot, undefined, true) || !!hasActiveChild;
 
     const [open, setOpen] = useState(groupActive);
     const [syncedGroupActive, setSyncedGroupActive] = useState(groupActive);

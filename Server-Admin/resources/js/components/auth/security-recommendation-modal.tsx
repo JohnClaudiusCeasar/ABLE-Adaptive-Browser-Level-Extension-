@@ -23,7 +23,7 @@ export function SecurityRecommendationModal({ isOpen, onClose }: Props) {
             {
                 preserveScroll: true,
                 onFinish: () => onClose(),
-            }
+            },
         );
     };
 
@@ -37,7 +37,7 @@ export function SecurityRecommendationModal({ isOpen, onClose }: Props) {
                     onClose();
                     router.visit('/security');
                 },
-            }
+            },
         );
     };
 
@@ -52,7 +52,10 @@ export function SecurityRecommendationModal({ isOpen, onClose }: Props) {
                         Security Recommendation
                     </DialogTitle>
                     <DialogDescription className="text-sm text-gray-300">
-                        Another active session was terminated when you authenticated. For your security, we strongly recommend updating your password now to prevent unauthorized access.
+                        Another active session was terminated when you
+                        authenticated. For your security, we strongly recommend
+                        updating your password now to prevent unauthorized
+                        access.
                     </DialogDescription>
                 </DialogHeader>
 

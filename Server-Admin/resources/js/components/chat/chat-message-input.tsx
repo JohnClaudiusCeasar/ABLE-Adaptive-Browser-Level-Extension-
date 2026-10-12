@@ -7,14 +7,45 @@ const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20MB
 
 const ALLOWED_EXTENSIONS = new Set([
     // Images
-    'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'tiff', 'ico',
+    'jpg',
+    'jpeg',
+    'png',
+    'gif',
+    'webp',
+    'svg',
+    'bmp',
+    'tiff',
+    'ico',
     // Office files (PDF, Word, Excel, PowerPoint, OpenOffice, RTF)
-    'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp', 'rtf', 'csv',
+    'pdf',
+    'doc',
+    'docx',
+    'xls',
+    'xlsx',
+    'ppt',
+    'pptx',
+    'odt',
+    'ods',
+    'odp',
+    'rtf',
+    'csv',
     // Text files
-    'txt', 'md', 'json', 'log', 'xml', 'html', 'htm', 'yml', 'yaml', 'ini', 'cfg', 'conf',
+    'txt',
+    'md',
+    'json',
+    'log',
+    'xml',
+    'html',
+    'htm',
+    'yml',
+    'yaml',
+    'ini',
+    'cfg',
+    'conf',
 ]);
 
-const ACCEPTED_FILE_TYPES = 'image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp,.rtf,.txt,.csv,.json,.md,.log,.xml,.html,.htm,.yml,.yaml,.ini,.cfg,.conf';
+const ACCEPTED_FILE_TYPES =
+    'image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp,.rtf,.txt,.csv,.json,.md,.log,.xml,.html,.htm,.yml,.yaml,.ini,.cfg,.conf';
 
 function isAllowedFileType(file: File): boolean {
     if (file.type.startsWith('image/') || file.type.startsWith('text/')) {
@@ -28,8 +59,8 @@ function isAllowedFileType(file: File): boolean {
 
 function formatBytes(bytes: number): string {
     if (bytes === 0) {
-return '0 B';
-}
+        return '0 B';
+    }
 
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB'];
@@ -81,7 +112,9 @@ export function ChatMessageInput({
         }
 
         if (!isAllowedFileType(file)) {
-            setFileError('Only image, office (PDF, Word, Excel, PowerPoint), and text files are allowed.');
+            setFileError(
+                'Only image, office (PDF, Word, Excel, PowerPoint), and text files are allowed.',
+            );
 
             if (fileInputRef.current) {
                 fileInputRef.current.value = '';
@@ -123,7 +156,8 @@ export function ChatMessageInput({
 
         const start = textarea.selectionStart ?? value.length;
         const end = textarea.selectionEnd ?? value.length;
-        const nextValue = value.substring(0, start) + emoji + value.substring(end);
+        const nextValue =
+            value.substring(0, start) + emoji + value.substring(end);
 
         setValue(nextValue);
 
@@ -177,12 +211,19 @@ export function ChatMessageInput({
 
             {/* Attachment Preview Chip */}
             {attachment && (
-                <div className={cn(
-                    'flex items-center gap-2 self-start border border-[rgba(34,197,94,0.4)] bg-white/70 text-foreground shadow-sm backdrop-blur-[10px] dark:border-[rgba(34,197,94,0.5)] dark:bg-[rgba(15,23,42,0.6)]',
-                    compact ? 'rounded-xl px-3 py-1.5 text-xs' : 'rounded-2xl px-4 py-2 text-sm',
-                )}>
-                    <FileText size={compact ? 16 : 18} className="text-able-green shrink-0" />
-                    <span className="max-w-[180px] sm:max-w-[220px] truncate font-medium">
+                <div
+                    className={cn(
+                        'flex items-center gap-2 self-start border border-[rgba(34,197,94,0.4)] bg-white/70 text-foreground shadow-sm backdrop-blur-[10px] dark:border-[rgba(34,197,94,0.5)] dark:bg-[rgba(15,23,42,0.6)]',
+                        compact
+                            ? 'rounded-xl px-3 py-1.5 text-xs'
+                            : 'rounded-2xl px-4 py-2 text-sm',
+                    )}
+                >
+                    <FileText
+                        size={compact ? 16 : 18}
+                        className="shrink-0 text-able-green"
+                    />
+                    <span className="max-w-[180px] truncate font-medium sm:max-w-[220px]">
                         {attachment.name}
                     </span>
                     <span className="text-xs text-muted-foreground">
@@ -202,7 +243,7 @@ export function ChatMessageInput({
             {/* Input and Action Buttons Row */}
             <div className="flex items-end gap-2.5">
                 {/* Textarea container with Emoji button inside on the right */}
-                <div className="relative flex-1 min-w-0">
+                <div className="relative min-w-0 flex-1">
                     {/* Emoji Picker Popover positioned directly above the smiley button */}
                     {showEmojiPicker && (
                         <EmojiPicker
@@ -228,10 +269,10 @@ export function ChatMessageInput({
                             }
                         }}
                         className={cn(
-                            'block w-full resize-none border border-[rgba(34,197,94,0.4)] bg-black/5 leading-6 text-foreground transition-colors outline-none max-h-[180px]',
+                            'block max-h-[180px] w-full resize-none border border-[rgba(34,197,94,0.4)] bg-black/5 leading-6 text-foreground transition-colors outline-none',
                             compact
-                                ? 'rounded-xl py-2.5 pr-10 pl-3.5 text-sm min-h-[44px]'
-                                : 'rounded-2xl py-3 pr-12 pl-4 text-base min-h-[50px]',
+                                ? 'min-h-[44px] rounded-xl py-2.5 pr-10 pl-3.5 text-sm'
+                                : 'min-h-[50px] rounded-2xl py-3 pr-12 pl-4 text-base',
                             'placeholder:text-muted-foreground focus:border-able-green focus:ring-[3px] focus:ring-[rgba(34,197,94,0.15)]',
                             'dark:border-[rgba(34,197,94,0.7)] dark:bg-[rgba(15,23,42,0.4)]',
                             'disabled:opacity-50',
@@ -280,7 +321,8 @@ export function ChatMessageInput({
                         'hover:border-able-green hover:bg-[rgba(34,197,94,0.1)] hover:text-able-green',
                         'dark:border-[rgba(34,197,94,0.5)] dark:bg-[rgba(15,23,42,0.4)] dark:hover:bg-[rgba(34,197,94,0.15)]',
                         'disabled:cursor-not-allowed disabled:opacity-40',
-                        attachment && 'border-able-green text-able-green bg-[rgba(34,197,94,0.1)]',
+                        attachment &&
+                            'border-able-green bg-[rgba(34,197,94,0.1)] text-able-green',
                     )}
                 >
                     <Paperclip size={compact ? 20 : 24} />
@@ -291,8 +333,7 @@ export function ChatMessageInput({
                     type="button"
                     onClick={submit}
                     disabled={
-                        disabled ||
-                        (value.trim().length === 0 && !attachment)
+                        disabled || (value.trim().length === 0 && !attachment)
                     }
                     aria-label="Send message"
                     className={cn(

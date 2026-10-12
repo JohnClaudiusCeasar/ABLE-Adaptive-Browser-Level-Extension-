@@ -1,6 +1,11 @@
 import { Head, router, usePage } from '@inertiajs/react';
-import { CheckSquare, MessageSquarePlus, MessagesSquare, X } from 'lucide-react';
-import { useState } from 'react';
+import {
+    CheckSquare,
+    MessageSquarePlus,
+    MessagesSquare,
+    X,
+} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import {
     index as confirmOptions,
     store as confirmStore,
@@ -48,23 +53,59 @@ export default function Chat() {
     // conversation, seed the store with the server-rendered page.
     const store = useChatStore();
 
-    const [seeded] = useState(() => {
-        if (conversation && store.activeConversation?.id !== conversation.id) {
+    useEffect(() => {
+        if (conversation) {
             setActiveConversation(
                 conversation,
                 messages ?? [],
                 next_cursor ?? null,
             );
         }
-
-        return true;
-    });
-    void seeded;
+    }, [conversation?.id, messages, next_cursor]);
 
     const activeConversation =
+        (conversation?.id ? conversation : null) ??
         store.activeConversation ??
-        conversations.find((c) => c.id === conversation?.id) ??
+        (conversation?.id
+            ? conversations.find((c) => c.id === conversation.id)
+            : null) ??
         null;
+
+    const initialMessages = useMemo(() => {
+        if (!activeConversation) {
+            return [];
+        }
+
+        if (
+            store.activeConversation?.id === activeConversation.id &&
+            store.activeMessages.length > 0
+        ) {
+            return store.activeMessages;
+        }
+
+        if (
+            conversation?.id === activeConversation.id &&
+            messages &&
+            messages.length > 0
+        ) {
+            return messages;
+        }
+
+        return [];
+    }, [
+        activeConversation?.id,
+        store.activeConversation?.id,
+        store.activeMessages,
+        conversation?.id,
+        messages,
+    ]);
+
+    const activeCursor =
+        store.activeConversation?.id === activeConversation?.id
+            ? store.nextCursor
+            : conversation?.id === activeConversation?.id
+              ? (next_cursor ?? null)
+              : null;
 
     const [showRecipientPicker, setShowRecipientPicker] = useState(false);
     const [selectMode, setSelectMode] = useState(false);
@@ -118,6 +159,18 @@ export default function Chat() {
     function openConversation(next: ChatConversationData) {
         setShowRecipientPicker(false);
 
+        if (typeof window !== 'undefined') {
+            window.history.replaceState({}, '', `/chat/${next.id}`);
+        }
+
+        setActiveConversation(
+            next,
+            store.activeConversation?.id === next.id
+                ? store.activeMessages
+                : [],
+            store.activeConversation?.id === next.id ? store.nextCursor : null,
+        );
+
         fetch(`/chat/${next.id}/messages`, {
             headers: { Accept: 'application/json' },
         })
@@ -130,7 +183,7 @@ export default function Chat() {
                 );
             })
             .catch(() => {
-                setActiveConversation(next, [], null);
+                // If fetch fails, keep current active conversation
             });
     }
 
@@ -204,7 +257,7 @@ export default function Chat() {
                     className={cn(
                         'flex h-full gap-3 transition-all duration-300',
                         !isAuthenticated &&
-                            'pointer-events-none select-none filter blur-[8px] opacity-70 brightness-90',
+                            'pointer-events-none opacity-70 blur-[8px] brightness-90 filter select-none',
                     )}
                     aria-hidden={!isAuthenticated}
                 >
@@ -280,7 +333,9 @@ export default function Chat() {
                                 className="absolute inset-x-0 bottom-0 z-10 flex items-center justify-center border-t border-white/20 bg-gradient-to-t from-red-600 to-red-500 px-4 py-4 text-sm font-medium text-white shadow-[0_-4px_20px_rgba(239,68,68,0.4)] transition-all hover:from-red-700 hover:to-red-600 hover:shadow-[0_-4px_28px_rgba(239,68,68,0.55)]"
                             >
                                 ({selectedIds.size}){' '}
-                                {selectedIds.size === 1 ? 'Message' : 'Messages'}{' '}
+                                {selectedIds.size === 1
+                                    ? 'Message'
+                                    : 'Messages'}{' '}
                                 Selected
                             </button>
                         )}
@@ -290,19 +345,22 @@ export default function Chat() {
                     <main className="relative flex min-w-0 flex-1 flex-col p-2">
                         {/* Floating New Message Overlay Layer */}
                         {showRecipientPicker && (
-                            <div className="absolute top-4 left-4 z-40 w-[380px] sm:w-[420px] rounded-2xl border border-[rgba(34,197,94,0.45)] bg-white/95 p-3.5 shadow-[0_12px_40px_-5px_rgba(0,0,0,0.35)] backdrop-blur-xl dark:border-[rgba(34,197,94,0.6)] dark:bg-[#15342a]/95">
-                                <div className="flex items-center justify-between mb-2.5 px-1">
+                            <div className="absolute top-4 left-4 z-40 w-[380px] rounded-2xl border border-[rgba(34,197,94,0.45)] bg-white/95 p-3.5 shadow-[0_12px_40px_-5px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:w-[420px] dark:border-[rgba(34,197,94,0.6)] dark:bg-[#15342a]/95">
+                                <div className="mb-2.5 flex items-center justify-between px-1">
                                     <span
                                         className="text-xs font-semibold tracking-wider text-foreground uppercase"
                                         style={{
-                                            fontFamily: "'Unbounded', sans-serif",
+                                            fontFamily:
+                                                "'Unbounded', sans-serif",
                                         }}
                                     >
                                         New Message
                                     </span>
                                     <button
                                         type="button"
-                                        onClick={() => setShowRecipientPicker(false)}
+                                        onClick={() =>
+                                            setShowRecipientPicker(false)
+                                        }
                                         aria-label="Close user picker"
                                         className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
                                     >
@@ -326,13 +384,8 @@ export default function Chat() {
                                 <ChatWindow
                                     key={activeConversation.id}
                                     conversation={activeConversation}
-                                    initialMessages={
-                                        store.activeConversation?.id ===
-                                        activeConversation.id
-                                            ? store.activeMessages
-                                            : []
-                                    }
-                                    nextCursor={store.nextCursor}
+                                    initialMessages={initialMessages}
+                                    nextCursor={activeCursor}
                                     currentUserId={currentUserId}
                                 />
                             ) : (
@@ -358,16 +411,21 @@ export default function Chat() {
 
                         {/* Original modal card wrapper */}
                         <div
-                            className="relative z-10 w-full max-w-md rounded-xl border border-[rgba(34,197,94,0.7)] bg-[#0e271d]/90 p-8 md:p-10 shadow-[0_16px_50px_rgba(0,0,0,0.6),0_0_60px_rgba(34,197,94,0.15)] backdrop-blur-2xl dark:bg-[#0a2219]/95"
-                            style={{ animation: 'authCardIn 0.5s ease forwards' }}
+                            className="relative z-10 w-full max-w-md rounded-xl border border-[rgba(34,197,94,0.7)] bg-[#0e271d]/90 p-8 shadow-[0_16px_50px_rgba(0,0,0,0.6),0_0_60px_rgba(34,197,94,0.15)] backdrop-blur-2xl md:p-10 dark:bg-[#0a2219]/95"
+                            style={{
+                                animation: 'authCardIn 0.5s ease forwards',
+                            }}
                         >
                             {/* Brand */}
                             <div className="mb-6 flex flex-col items-center">
                                 <h1
                                     className="text-[2rem] font-bold tracking-widest text-foreground"
-                                    style={{ fontFamily: "'Unbounded', sans-serif" }}
+                                    style={{
+                                        fontFamily: "'Unbounded', sans-serif",
+                                    }}
                                 >
-                                    ABL<span className="text-able-green">E</span>
+                                    ABL
+                                    <span className="text-able-green">E</span>
                                 </h1>
                                 <p className="text-[0.85rem] text-muted-foreground">
                                     Adaptive Browser-Level Extension
@@ -381,7 +439,9 @@ export default function Chat() {
                                         Confirm password
                                     </h2>
                                     <p className="text-center text-sm text-muted-foreground">
-                                        This is a secure area of the application. Please confirm your password before continuing.
+                                        This is a secure area of the
+                                        application. Please confirm your
+                                        password before continuing.
                                     </p>
                                 </div>
 
@@ -400,9 +460,14 @@ export default function Chat() {
                                     }}
                                 />
 
-                                <form onSubmit={handlePasswordSubmit} className="space-y-6">
+                                <form
+                                    onSubmit={handlePasswordSubmit}
+                                    className="space-y-6"
+                                >
                                     <div className="grid gap-2">
-                                        <Label htmlFor="chat-confirm-password">Password</Label>
+                                        <Label htmlFor="chat-confirm-password">
+                                            Password
+                                        </Label>
                                         <PasswordInput
                                             id="chat-confirm-password"
                                             name="password"
@@ -419,7 +484,9 @@ export default function Chat() {
                                             autoFocus
                                         />
                                         {passwordError && (
-                                            <InputError message={passwordError} />
+                                            <InputError
+                                                message={passwordError}
+                                            />
                                         )}
                                     </div>
 
@@ -427,7 +494,9 @@ export default function Chat() {
                                         <Button
                                             type="submit"
                                             className="w-full"
-                                            disabled={passwordProcessing || !password}
+                                            disabled={
+                                                passwordProcessing || !password
+                                            }
                                         >
                                             {passwordProcessing && <Spinner />}
                                             Confirm password

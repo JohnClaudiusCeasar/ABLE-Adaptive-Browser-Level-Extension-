@@ -60,6 +60,7 @@ export function ChatWindow({
         conversationId: conversation.id,
         initialMessages,
         nextCursor,
+        currentUserId,
     });
 
     // Reset initial scroll marker if conversation ID changes
@@ -96,7 +97,8 @@ export function ChatWindow({
             el.scrollTop = el.scrollHeight;
             requestAnimationFrame(() => {
                 if (scrollRef.current) {
-                    scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+                    scrollRef.current.scrollTop =
+                        scrollRef.current.scrollHeight;
                 }
             });
             initialScrollDoneRef.current = true;
@@ -126,7 +128,8 @@ export function ChatWindow({
                 el.scrollTop = el.scrollHeight;
                 requestAnimationFrame(() => {
                     if (scrollRef.current) {
-                        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+                        scrollRef.current.scrollTop =
+                            scrollRef.current.scrollHeight;
                     }
                 });
             }
@@ -197,12 +200,14 @@ export function ChatWindow({
     }, [messages]);
 
     function onSend(body: string, attachment?: File | null) {
-        send(body, attachment).then(() => {
-            requestAnimationFrame(() => {
-                if (scrollRef.current) {
-                    scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-                }
-            });
+        send(body, attachment).catch((err) => {
+            console.error('Failed to send message:', err);
+        });
+
+        requestAnimationFrame(() => {
+            if (scrollRef.current) {
+                scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+            }
         });
     }
 
@@ -211,15 +216,17 @@ export function ChatWindow({
             className={cn(
                 'relative flex h-full flex-col bg-white/90 shadow-[0_10px_40px_-5px_rgba(34,197,94,0.35)] backdrop-blur-[12px] dark:bg-[#1e4b3e]/95',
                 compact
-                    ? 'rounded-2xl border border-[rgba(34,197,94,0.45)] overflow-visible'
-                    : 'rounded-none border-0 bg-white/50 backdrop-blur-[10px] dark:bg-[rgba(15,23,42,0.35)] shadow-none overflow-hidden',
+                    ? 'overflow-visible rounded-2xl border border-[rgba(34,197,94,0.45)]'
+                    : 'overflow-hidden rounded-none border-0 bg-white/50 shadow-none backdrop-blur-[10px] dark:bg-[rgba(15,23,42,0.35)]',
             )}
         >
             {/* Header */}
-            <div className={cn(
-                'flex items-center justify-between border-b border-[rgba(34,197,94,0.3)] bg-[rgba(34,197,94,0.08)] px-4 py-3',
-                compact && 'rounded-t-2xl',
-            )}>
+            <div
+                className={cn(
+                    'flex items-center justify-between border-b border-[rgba(34,197,94,0.3)] bg-[rgba(34,197,94,0.08)] px-4 py-3',
+                    compact && 'rounded-t-2xl',
+                )}
+            >
                 <div className="flex min-w-0 flex-1 items-center gap-3">
                     {onBack && (
                         <button
@@ -283,11 +290,9 @@ export function ChatWindow({
                 )}
 
                 {messages.length === 0 ? (
-                    <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground py-8">
+                    <div className="flex h-full flex-col items-center justify-center gap-3 py-8 text-muted-foreground">
                         <MessagesSquare size={compact ? 32 : 40} />
-                        <p className={cn(
-                            compact ? 'text-sm' : 'text-base',
-                        )}>
+                        <p className={cn(compact ? 'text-sm' : 'text-base')}>
                             Say hello to {otherUser?.name ?? 'your contact'}!
                         </p>
                     </div>

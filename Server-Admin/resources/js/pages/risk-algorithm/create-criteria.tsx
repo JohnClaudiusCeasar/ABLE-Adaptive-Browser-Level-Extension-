@@ -59,13 +59,10 @@ const emptyCriteriaForm: CriteriaFormData = {
 
 function sumSubItemsScore(subItems?: CriteriaPatternItem[]): number {
     if (!subItems || subItems.length === 0) {
-return 0;
-}
+        return 0;
+    }
 
-    return subItems.reduce(
-        (total, sub) => total + (Number(sub.score) || 0),
-        0,
-    );
+    return subItems.reduce((total, sub) => total + (Number(sub.score) || 0), 0);
 }
 
 // Recursive helper: sum all item scores (top-level + all nested sub-items).
@@ -167,7 +164,8 @@ export default function CreateCriteriaPattern() {
                 : autoCompositeScore,
             priority: criteriaForm.priority,
             negation_context_regex: criteriaForm.negation_context_regex || null,
-            amplifier_context_regex: criteriaForm.amplifier_context_regex || null,
+            amplifier_context_regex:
+                criteriaForm.amplifier_context_regex || null,
             negation_window: criteriaForm.negation_window || null,
             criteria_pattern_items: criteriaForm.criteria_pattern_items,
             type: 'criteria' as const,
@@ -511,7 +509,8 @@ export default function CreateCriteriaPattern() {
                                     Pattern Items
                                 </label>
                                 <p className="mt-0.5 text-xs text-muted-foreground">
-                                    Define the detection patterns and regular expressions for this criteria.
+                                    Define the detection patterns and regular
+                                    expressions for this criteria.
                                 </p>
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
@@ -540,22 +539,35 @@ export default function CreateCriteriaPattern() {
                         {/* Option 2: Pattern Classification Guide */}
                         <div className="mb-4 rounded-xl border border-black/10 bg-black/[0.02] p-4 text-xs text-muted-foreground dark:border-white/10 dark:bg-white/[0.02]">
                             <div className="mb-2 flex items-center gap-2 font-semibold text-foreground">
-                                <Info size={15} className="shrink-0 text-able-green" />
+                                <Info
+                                    size={15}
+                                    className="shrink-0 text-able-green"
+                                />
                                 <span>Pattern Classification Guide</span>
                             </div>
                             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                                 <div className="flex items-start gap-2 rounded-lg border border-black/5 bg-white/50 p-2.5 dark:border-white/5 dark:bg-white/5">
                                     <span className="mt-0.5 inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-able-green" />
                                     <div>
-                                        <span className="font-semibold text-foreground">Required (Strict — AND)</span>
-                                        <p className="mt-0.5 text-muted-foreground">All required patterns must be detected together in the content.</p>
+                                        <span className="font-semibold text-foreground">
+                                            Required (Strict — AND)
+                                        </span>
+                                        <p className="mt-0.5 text-muted-foreground">
+                                            All required patterns must be
+                                            detected together in the content.
+                                        </p>
                                     </div>
                                 </div>
                                 <div className="flex items-start gap-2 rounded-lg border border-black/5 bg-white/50 p-2.5 dark:border-white/5 dark:bg-white/5">
                                     <span className="mt-0.5 inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-[#36cfc9]" />
                                     <div>
-                                        <span className="font-semibold text-foreground">Flexible (Alternative — OR)</span>
-                                        <p className="mt-0.5 text-muted-foreground">Any one or more flexible patterns will trigger this criteria rule.</p>
+                                        <span className="font-semibold text-foreground">
+                                            Flexible (Alternative — OR)
+                                        </span>
+                                        <p className="mt-0.5 text-muted-foreground">
+                                            Any one or more flexible patterns
+                                            will trigger this criteria rule.
+                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -772,8 +784,7 @@ export default function CreateCriteriaPattern() {
                                             (item, idx) => {
                                                 const hasSubItems = Boolean(
                                                     item.sub_items &&
-                                                        item.sub_items.length >
-                                                            0,
+                                                    item.sub_items.length > 0,
                                                 );
 
                                                 return (

@@ -23,7 +23,10 @@ export default function AppLogo() {
             </span>
             <span
                 className="truncate text-[12px] leading-tight text-muted-foreground"
-                style={{ marginTop: '-8px', fontFamily: "'Archivo', sans-serif" }}
+                style={{
+                    marginTop: '-8px',
+                    fontFamily: "'Archivo', sans-serif",
+                }}
             >
                 Adaptive Browser-Level Extension
             </span>

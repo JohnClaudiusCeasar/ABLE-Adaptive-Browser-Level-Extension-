@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use App\Rules\CompilableRegex;
 use App\Services\RiskScoringService;
 use Tests\TestCase;
 
@@ -236,7 +237,7 @@ class RiskScoringServiceTest extends TestCase
     {
         // Save-time validation must agree with the scoring engine's compile
         // path (\uXXXX normalization + iu flags).
-        $rule = new \App\Rules\CompilableRegex;
+        $rule = new CompilableRegex;
 
         $failed = false;
         $rule->validate('regex', 'dean[\'\u2019]?s\s*list', function () use (&$failed): void {

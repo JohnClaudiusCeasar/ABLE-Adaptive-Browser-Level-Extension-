@@ -52,7 +52,8 @@ export function PatternItemsModal({
                         </span>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                        Required items must all be present. Flexible items trigger if any one or more match.
+                        Required items must all be present. Flexible items
+                        trigger if any one or more match.
                     </p>
                 </DialogHeader>
                 <div className="overflow-x-auto">
@@ -83,12 +84,14 @@ export function PatternItemsModal({
                                         <td className="px-4 py-2.5">
                                             <span
                                                 className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                                                    (item.operator || 'and') === 'and'
+                                                    (item.operator || 'and') ===
+                                                    'and'
                                                         ? 'bg-[rgba(34,197,94,0.15)] text-able-green'
                                                         : 'bg-[rgba(54,207,201,0.15)] text-[#36cfc9]'
                                                 }`}
                                             >
-                                                {(item.operator || 'and') === 'and'
+                                                {(item.operator || 'and') ===
+                                                'and'
                                                     ? 'Required'
                                                     : 'Flexible'}
                                             </span>
@@ -133,12 +136,14 @@ export function PatternItemsModal({
                                                 <td className="px-4 py-2">
                                                     <span
                                                         className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                                                            (subItem.operator || 'and') === 'and'
+                                                            (subItem.operator ||
+                                                                'and') === 'and'
                                                                 ? 'bg-[rgba(34,197,94,0.15)] text-able-green'
                                                                 : 'bg-[rgba(54,207,201,0.15)] text-[#36cfc9]'
                                                         }`}
                                                     >
-                                                        {(subItem.operator || 'and') === 'and'
+                                                        {(subItem.operator ||
+                                                            'and') === 'and'
                                                             ? 'Required'
                                                             : 'Flexible'}
                                                     </span>

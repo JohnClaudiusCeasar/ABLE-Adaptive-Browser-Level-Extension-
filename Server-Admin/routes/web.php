@@ -1,15 +1,14 @@
 <?php
 
 use App\Http\Controllers\ChatController;
+use App\Http\Controllers\CommunityMessageController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DashboardReportController;
 use App\Http\Controllers\DomainPolicyController;
 use App\Http\Controllers\DomainVisitController;
-use App\Http\Controllers\EgressEventController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\RiskPatternController;
 use App\Http\Controllers\SecurityAnalyticsController;
-use App\Http\Controllers\CommunityMessageController;
 use App\Http\Controllers\SessionSecurityController;
 use App\Http\Controllers\Users\ClientUserController;
 use App\Http\Controllers\Users\TeamUserController;
@@ -23,19 +22,23 @@ Route::get('/', function () {
         return redirect()->route('dashboard');
     }
 
-    $messages = CommunityMessage::approved()
-        ->latest()
-        ->take(30)
-        ->get()
-        ->map(fn ($m) => [
-            'id' => $m->id,
-            'author' => $m->author,
-            'category' => $m->category,
-            'domain' => $m->domain ?? '',
-            'time' => $m->created_at ? $m->created_at->diffForHumans() : 'Recently',
-            'body' => $m->message,
-            'status' => $m->status,
-        ]);
+    try {
+        $messages = CommunityMessage::approved()
+            ->latest()
+            ->take(30)
+            ->get()
+            ->map(fn ($m) => [
+                'id' => $m->id,
+                'author' => $m->author,
+                'category' => $m->category,
+                'domain' => $m->domain ?? '',
+                'time' => $m->created_at ? $m->created_at->diffForHumans() : 'Recently',
+                'body' => $m->message,
+                'status' => $m->status,
+            ]);
+    } catch (Throwable) {
+        $messages = collect();
+    }
 
     return Inertia::render('welcome', [
         'initialMessages' => $messages,

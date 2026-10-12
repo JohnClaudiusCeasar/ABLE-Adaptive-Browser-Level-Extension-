@@ -56,7 +56,9 @@ export function StatCard({
                 {suffix && <span className="ml-1 text-lg">{suffix}</span>}
             </p>
             {subtitle && (
-                <span className="text-xs text-muted-foreground">{subtitle}</span>
+                <span className="text-xs text-muted-foreground">
+                    {subtitle}
+                </span>
             )}
             <span className={cn('block h-0.5 w-10 rounded-full', underline)} />
         </div>

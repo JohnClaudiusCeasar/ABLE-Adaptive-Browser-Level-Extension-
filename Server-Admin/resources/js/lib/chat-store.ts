@@ -147,6 +147,10 @@ export function setUnreadCount(count: number) {
  * Append (or replace) a message in the persisted conversation window.
  */
 export function upsertMessage(message: ChatMessageData) {
+    if (!message || typeof message.id !== 'number') {
+        return;
+    }
+
     setState((prev) => {
         const exists = prev.activeMessages.some((m) => m.id === message.id);
 

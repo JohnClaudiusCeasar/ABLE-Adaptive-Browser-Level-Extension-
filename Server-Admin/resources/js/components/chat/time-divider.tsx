@@ -32,10 +32,12 @@ export function ChatTimeDivider({
                         : 'px-4 py-1 text-xs',
                 )}
             >
-                <span className="font-semibold text-foreground/90">{monthDay}</span>
+                <span className="font-semibold text-foreground/90">
+                    {monthDay}
+                </span>
                 <span
                     className={cn(
-                        'rounded-full bg-able-green shrink-0 shadow-[0_0_6px_rgba(34,197,94,0.6)]',
+                        'shrink-0 rounded-full bg-able-green shadow-[0_0_6px_rgba(34,197,94,0.6)]',
                         compact ? 'h-1.5 w-1.5' : 'h-2 w-2',
                     )}
                 />

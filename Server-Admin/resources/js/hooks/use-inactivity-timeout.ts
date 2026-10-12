@@ -44,10 +44,10 @@ export function useInactivityTimeout(enabled: boolean = true) {
                     window.location.href =
                         '/login?status=' +
                         encodeURIComponent(
-                            'You were logged out due to 5 minutes of inactivity.'
+                            'You were logged out due to 5 minutes of inactivity.',
                         );
                 },
-            }
+            },
         );
     }, []);
 
@@ -75,11 +75,13 @@ export function useInactivityTimeout(enabled: boolean = true) {
                 }
             }
         },
-        [sendHeartbeat]
+        [sendHeartbeat],
     );
 
     useEffect(() => {
-        if (!enabled) return;
+        if (!enabled) {
+            return;
+        }
 
         // Initialize BroadcastChannel for multi-tab sync
         if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
@@ -100,7 +102,10 @@ export function useInactivityTimeout(enabled: boolean = true) {
         // Activity event listeners with throttling
         let throttleTimer: number | null = null;
         const handleUserActivity = () => {
-            if (throttleTimer) return;
+            if (throttleTimer) {
+                return;
+            }
+
             throttleTimer = window.setTimeout(() => {
                 throttleTimer = null;
             }, 1000);
@@ -161,6 +166,7 @@ export function useInactivityTimeout(enabled: boolean = true) {
             });
             window.removeEventListener('pagehide', handlePageHide);
             window.clearInterval(checkInterval);
+
             if (channelRef.current) {
                 channelRef.current.close();
             }

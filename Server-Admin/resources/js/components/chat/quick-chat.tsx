@@ -1,5 +1,11 @@
 import { usePage } from '@inertiajs/react';
-import { MessageCircle, MessagesSquare, Minimize2, ShieldCheck, X } from 'lucide-react';
+import {
+    MessageCircle,
+    MessagesSquare,
+    Minimize2,
+    ShieldCheck,
+    X,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import {
     index as confirmOptions,
@@ -63,7 +69,11 @@ export function QuickChat() {
         if (!initialSyncedRef.current) {
             initialSyncedRef.current = true;
 
-            if (!quickChatOpen && typeof chat?.unreadCount === 'number' && chat.unreadCount > 0) {
+            if (
+                !quickChatOpen &&
+                typeof chat?.unreadCount === 'number' &&
+                chat.unreadCount > 0
+            ) {
                 setUnreadCount(chat.unreadCount);
             }
         }
@@ -230,7 +240,9 @@ export function QuickChat() {
                             {/* Body */}
                             <div className="space-y-4 p-4">
                                 <p className="text-xs text-muted-foreground">
-                                    This is a secure area of the application. Please confirm your password before continuing.
+                                    This is a secure area of the application.
+                                    Please confirm your password before
+                                    continuing.
                                 </p>
 
                                 <PasskeyVerify
@@ -244,9 +256,14 @@ export function QuickChat() {
                                     onSuccess={() => handleUnlockSuccess()}
                                 />
 
-                                <form onSubmit={handlePasswordSubmit} className="space-y-4">
+                                <form
+                                    onSubmit={handlePasswordSubmit}
+                                    className="space-y-4"
+                                >
                                     <div className="grid gap-2">
-                                        <Label htmlFor="quick-chat-password">Password</Label>
+                                        <Label htmlFor="quick-chat-password">
+                                            Password
+                                        </Label>
                                         <PasswordInput
                                             id="quick-chat-password"
                                             name="password"
@@ -263,14 +280,18 @@ export function QuickChat() {
                                             autoFocus
                                         />
                                         {passwordError && (
-                                            <InputError message={passwordError} />
+                                            <InputError
+                                                message={passwordError}
+                                            />
                                         )}
                                     </div>
 
                                     <Button
                                         type="submit"
                                         className="w-full"
-                                        disabled={passwordProcessing || !password}
+                                        disabled={
+                                            passwordProcessing || !password
+                                        }
                                     >
                                         {passwordProcessing && <Spinner />}
                                         Confirm password
@@ -282,6 +303,7 @@ export function QuickChat() {
                         /* Dedicated message window without the outer Quick Chat wrapper */
                         <div className="relative h-[480px] w-[380px] overflow-visible">
                             <ChatWindow
+                                key={activeConversation.id}
                                 conversation={activeConversation}
                                 initialMessages={activeMessages}
                                 nextCursor={nextCursor}
@@ -349,7 +371,7 @@ export function QuickChat() {
             >
                 {quickChatOpen ? <X size={22} /> : <MessageCircle size={22} />}
                 {unreadCount > 0 && !quickChatOpen && (
-                    <span className="absolute -top-1.5 -right-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[0.65rem] font-semibold text-white shadow-md animate-in fade-in zoom-in duration-200">
+                    <span className="absolute -top-1.5 -right-1.5 flex h-5 min-w-5 animate-in items-center justify-center rounded-full bg-red-500 px-1.5 text-[0.65rem] font-semibold text-white shadow-md duration-200 fade-in zoom-in">
                         {unreadCount}
                     </span>
                 )}

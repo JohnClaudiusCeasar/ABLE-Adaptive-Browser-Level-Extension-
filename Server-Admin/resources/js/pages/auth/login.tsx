@@ -32,7 +32,7 @@ export default function Login({
     const { errors: pageErrors } = usePage().props;
     const [typedEmail, setTypedEmail] = useState('');
     const [isConflictModalOpen, setIsConflictModalOpen] = useState(
-        Boolean(activeConflict || pageErrors?.active_conflict)
+        Boolean(activeConflict || pageErrors?.active_conflict),
     );
 
     useEffect(() => {
@@ -40,6 +40,7 @@ export default function Login({
             setIsConflictModalOpen(true);
         }
     }, [activeConflict, pageErrors?.active_conflict]);
+
     return (
         <>
             <Head title="Log in" />
@@ -71,7 +72,9 @@ export default function Login({
                                     autoComplete="email"
                                     placeholder="admin@able.security"
                                     value={typedEmail}
-                                    onChange={(e) => setTypedEmail(e.target.value)}
+                                    onChange={(e) =>
+                                        setTypedEmail(e.target.value)
+                                    }
                                     className="border-white/12 bg-white/8 focus:border-[rgba(34,197,94,0.6)] focus:shadow-[0_0_12px_rgba(34,197,94,0.2)]"
                                 />
                                 <InputError message={errors.email} />

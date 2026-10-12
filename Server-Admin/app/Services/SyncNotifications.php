@@ -186,7 +186,6 @@ class SyncNotifications
             });
     }
 
-
     private function statusForRisk(int $riskScore): string
     {
         return match (true) {

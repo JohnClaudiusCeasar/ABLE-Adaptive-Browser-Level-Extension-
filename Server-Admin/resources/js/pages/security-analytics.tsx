@@ -209,7 +209,7 @@ export default function ShadowAnalytics({
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className="h-7 px-2.5 text-xs border-[rgba(34,197,94,0.5)] hover:bg-[rgba(34,197,94,0.1)]"
+                                    className="h-7 border-[rgba(34,197,94,0.5)] px-2.5 text-xs hover:bg-[rgba(34,197,94,0.1)]"
                                 >
                                     View Incidents
                                 </Button>
@@ -228,7 +228,7 @@ export default function ShadowAnalytics({
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className="h-7 px-2.5 text-xs border-[rgba(34,197,94,0.5)] hover:bg-[rgba(34,197,94,0.1)]"
+                                    className="h-7 border-[rgba(34,197,94,0.5)] px-2.5 text-xs hover:bg-[rgba(34,197,94,0.1)]"
                                 >
                                     View Catalog
                                 </Button>
@@ -304,7 +304,7 @@ export default function ShadowAnalytics({
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className="h-7 px-2.5 text-xs border-[rgba(34,197,94,0.5)] hover:bg-[rgba(34,197,94,0.1)]"
+                                    className="h-7 border-[rgba(34,197,94,0.5)] px-2.5 text-xs hover:bg-[rgba(34,197,94,0.1)]"
                                 >
                                     Policy Rules
                                 </Button>
@@ -328,7 +328,7 @@ export default function ShadowAnalytics({
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className="h-7 px-2.5 text-xs border-[rgba(34,197,94,0.5)] hover:bg-[rgba(34,197,94,0.1)]"
+                                    className="h-7 border-[rgba(34,197,94,0.5)] px-2.5 text-xs hover:bg-[rgba(34,197,94,0.1)]"
                                 >
                                     Full Telemetry
                                 </Button>

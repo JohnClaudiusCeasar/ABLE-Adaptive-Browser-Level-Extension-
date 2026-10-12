@@ -3,6 +3,7 @@
 namespace App\Listeners;
 
 use App\Models\User;
+use App\Services\ActiveSessionService;
 use App\Services\LoginAuditService;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
@@ -48,7 +49,7 @@ class LoginActivityListener
         $user = $event->user;
 
         if ($user) {
-            app(\App\Services\ActiveSessionService::class)->terminateSession($user->id);
+            app(ActiveSessionService::class)->terminateSession($user->id);
 
             $this->auditService->log(
                 email: $user->email,

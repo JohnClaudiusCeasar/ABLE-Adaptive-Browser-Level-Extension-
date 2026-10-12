@@ -209,7 +209,7 @@ class RiskPatternController extends Controller
             ->get();
 
         return Inertia::render('risk-algorithm/edit-criteria', [
-            'riskPattern'     => $riskPattern->load('criteriaPatternItems'),
+            'riskPattern' => $riskPattern->load('criteriaPatternItems'),
             'existingPatterns' => $existingPatterns,
         ]);
     }

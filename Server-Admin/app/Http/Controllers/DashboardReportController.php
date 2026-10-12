@@ -296,11 +296,11 @@ class DashboardReportController extends Controller
         $unlistedCount = DomainPolicy::where('domain_status', 'unlisted')->count();
         $total = max(1, $safeCount + $unsafeCount + $unlistedCount);
 
-        $avgRisk = (int) round(DomainPolicy::avg('risk_score') ?? 35);
+        $avgRisk = (int) round((float) (DomainPolicy::avg('risk_score') ?? 35));
         $temperatureIndex = $avgRisk >= 75 ? 'Critical' : ($avgRisk >= 45 ? 'Elevated' : 'Nominal');
         $temperatureColor = $avgRisk >= 75 ? '#ff4d4d' : ($avgRisk >= 45 ? '#f59e0b' : '#22c55e');
 
-        $categories = DomainPolicy::select(
+        $categories = DB::table('domain_policies')->select(
             DB::raw("COALESCE(NULLIF(category, ''), 'General Cloud') as category_name"),
             DB::raw('COUNT(*) as count'),
             DB::raw('ROUND(AVG(risk_score)) as avg_risk')
@@ -309,9 +309,9 @@ class DashboardReportController extends Controller
             ->orderByDesc('count')
             ->limit(5)
             ->get()
-            ->map(function ($row) use ($total) {
+            ->map(function (object $row) use ($total) {
                 return [
-                    'category' => $row->category_name,
+                    'category' => (string) $row->category_name,
                     'count' => (int) $row->count,
                     'percentage' => round(((int) $row->count / $total) * 100),
                     'avgRisk' => (int) $row->avg_risk,
@@ -438,7 +438,7 @@ class DashboardReportController extends Controller
      */
     protected function getHighRiskDomains(): array
     {
-        return DomainPolicy::select(
+        return DB::table('domain_policies')->select(
             'domain_policies.id',
             'domain_policies.domain',
             'domain_policies.category',
@@ -461,7 +461,7 @@ class DashboardReportController extends Controller
             ->orderByDesc('domain_policies.risk_score')
             ->limit(15)
             ->get()
-            ->map(function ($row) {
+            ->map(function (object $row) {
                 return [
                     'id' => $row->id,
                     'domain' => $row->domain,

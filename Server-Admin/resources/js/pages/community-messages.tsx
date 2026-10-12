@@ -107,8 +107,12 @@ export default function CommunityMessagesPage({
     const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
 
     const filteredMessages = useMemo(() => {
-        if (!searchQuery.trim()) return messages.data;
+        if (!searchQuery.trim()) {
+            return messages.data;
+        }
+
         const q = searchQuery.toLowerCase();
+
         return messages.data.filter(
             (m) =>
                 m.author.toLowerCase().includes(q) ||
@@ -119,19 +123,34 @@ export default function CommunityMessagesPage({
     }, [messages.data, searchQuery]);
 
     const handleFilterChange = (filter: string) => {
-        router.get('/community-messages', { status: filter }, { preserveState: true });
+        router.get(
+            '/community-messages',
+            { status: filter },
+            { preserveState: true },
+        );
     };
 
     const handleApprove = (id: number) => {
-        router.patch(`/community-messages/${id}/approve`, {}, { preserveScroll: true });
+        router.patch(
+            `/community-messages/${id}/approve`,
+            {},
+            { preserveScroll: true },
+        );
     };
 
     const handleReject = (id: number) => {
-        router.patch(`/community-messages/${id}/reject`, {}, { preserveScroll: true });
+        router.patch(
+            `/community-messages/${id}/reject`,
+            {},
+            { preserveScroll: true },
+        );
     };
 
     const handleDeleteConfirm = () => {
-        if (!deleteTargetId) return;
+        if (!deleteTargetId) {
+            return;
+        }
+
         router.delete(`/community-messages/${deleteTargetId}`, {
             preserveScroll: true,
             onFinish: () => setDeleteTargetId(null),
@@ -158,7 +177,9 @@ export default function CommunityMessagesPage({
                         className="mb-6 text-[1.05rem] text-muted-foreground"
                         style={{ fontFamily: "'Archivo', sans-serif" }}
                     >
-                        Review visitor submissions from the landing page. Approve verified posts to make them publicly visible in the live feed.
+                        Review visitor submissions from the landing page.
+                        Approve verified posts to make them publicly visible in
+                        the live feed.
                     </p>
 
                     {/* Colored Icon + Text Sorting Pills (Identical to Notifications Page) */}
@@ -173,21 +194,25 @@ export default function CommunityMessagesPage({
                                     key={status}
                                     type="button"
                                     onClick={() => handleFilterChange(status)}
-                                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[0.8rem] font-medium transition-all duration-150 cursor-pointer ${
+                                    className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-1.5 text-[0.8rem] font-medium transition-all duration-150 ${
                                         isActive
                                             ? `${statusBadgeClasses[status]} scale-105 ring-1 ring-[rgba(34,197,94,0.3)]`
-                                            : 'bg-white/3 text-muted-foreground opacity-50 hover:opacity-75 hover:bg-white/5 hover:text-foreground'
+                                            : 'bg-white/3 text-muted-foreground opacity-50 hover:bg-white/5 hover:text-foreground hover:opacity-75'
                                     }`}
                                 >
                                     <Icon
                                         size={14}
-                                        className={isActive ? statusColors[status] : ''}
+                                        className={
+                                            isActive ? statusColors[status] : ''
+                                        }
                                     />
                                     <span>{statusLabels[status]}</span>
                                     {count > 0 && (
                                         <span
-                                            className={`ml-0.5 rounded-full px-1.5 py-0.5 text-[0.65rem] font-semibold leading-none ${
-                                                isActive ? 'bg-white/15' : 'bg-white/8'
+                                            className={`ml-0.5 rounded-full px-1.5 py-0.5 text-[0.65rem] leading-none font-semibold ${
+                                                isActive
+                                                    ? 'bg-white/15'
+                                                    : 'bg-white/8'
                                             }`}
                                         >
                                             {count}
@@ -232,10 +257,17 @@ export default function CommunityMessagesPage({
                         className="py-12 text-center text-muted-foreground"
                         style={{ fontFamily: "'Archivo', sans-serif" }}
                     >
-                        <MessageSquare className="mx-auto mb-3 opacity-40" size={36} />
-                        <p className="text-base font-medium">No feedback messages found</p>
+                        <MessageSquare
+                            className="mx-auto mb-3 opacity-40"
+                            size={36}
+                        />
+                        <p className="text-base font-medium">
+                            No feedback messages found
+                        </p>
                         <p className="text-sm opacity-70">
-                            {searchQuery ? 'No results match your search query.' : 'Visitor messages will appear here once submitted.'}
+                            {searchQuery
+                                ? 'No results match your search query.'
+                                : 'Visitor messages will appear here once submitted.'}
                         </p>
                     </div>
                 ) : (
@@ -251,59 +283,91 @@ export default function CommunityMessagesPage({
                                         {/* Author Name in Unbounded Font */}
                                         <span
                                             className="text-[0.92rem] font-bold tracking-wide text-foreground"
-                                            style={{ fontFamily: "'Unbounded', sans-serif" }}
+                                            style={{
+                                                fontFamily:
+                                                    "'Unbounded', sans-serif",
+                                            }}
                                         >
                                             {item.author}
                                         </span>
 
                                         <Badge
                                             variant="outline"
-                                            className={categoryBadgeVariants[item.category] || ''}
-                                            style={{ fontFamily: "'Archivo', sans-serif" }}
+                                            className={
+                                                categoryBadgeVariants[
+                                                    item.category
+                                                ] || ''
+                                            }
+                                            style={{
+                                                fontFamily:
+                                                    "'Archivo', sans-serif",
+                                            }}
                                         >
-                                            {categoryLabels[item.category] || item.category}
+                                            {categoryLabels[item.category] ||
+                                                item.category}
                                         </Badge>
 
                                         {item.status === 'pending' && (
                                             <Badge
                                                 className="border-amber-500/50 bg-amber-500/15 text-amber-300"
-                                                style={{ fontFamily: "'Archivo', sans-serif" }}
+                                                style={{
+                                                    fontFamily:
+                                                        "'Archivo', sans-serif",
+                                                }}
                                             >
-                                                <Clock className="mr-1 inline-block" size={12} />
+                                                <Clock
+                                                    className="mr-1 inline-block"
+                                                    size={12}
+                                                />
                                                 Pending Review
                                             </Badge>
                                         )}
                                         {item.status === 'approved' && (
                                             <Badge
                                                 className="border-emerald-500/50 bg-emerald-500/15 text-emerald-300"
-                                                style={{ fontFamily: "'Archivo', sans-serif" }}
+                                                style={{
+                                                    fontFamily:
+                                                        "'Archivo', sans-serif",
+                                                }}
                                             >
-                                                <CheckCircle2 className="mr-1 inline-block" size={12} />
+                                                <CheckCircle2
+                                                    className="mr-1 inline-block"
+                                                    size={12}
+                                                />
                                                 Live on Board
                                             </Badge>
                                         )}
                                         {item.status === 'rejected' && (
                                             <Badge
                                                 className="border-red-500/50 bg-red-500/15 text-red-300"
-                                                style={{ fontFamily: "'Archivo', sans-serif" }}
+                                                style={{
+                                                    fontFamily:
+                                                        "'Archivo', sans-serif",
+                                                }}
                                             >
-                                                <XCircle className="mr-1 inline-block" size={12} />
+                                                <XCircle
+                                                    className="mr-1 inline-block"
+                                                    size={12}
+                                                />
                                                 Rejected
                                             </Badge>
                                         )}
 
                                         <span
                                             className="text-xs text-muted-foreground"
-                                            style={{ fontFamily: "'Archivo', sans-serif" }}
+                                            style={{
+                                                fontFamily:
+                                                    "'Archivo', sans-serif",
+                                            }}
                                         >
-                                            {new Date(item.created_at).toLocaleString()}
+                                            {new Date(
+                                                item.created_at,
+                                            ).toLocaleString()}
                                         </span>
                                     </div>
 
                                     {item.domain && (
-                                        <div
-                                            className="flex items-center gap-1.5 text-xs text-cyan-400 font-mono"
-                                        >
+                                        <div className="flex items-center gap-1.5 font-mono text-xs text-cyan-400">
                                             <Globe size={13} />
                                             <span>{item.domain}</span>
                                         </div>
@@ -312,7 +376,9 @@ export default function CommunityMessagesPage({
                                     {/* Content Body in Archivo Font */}
                                     <p
                                         className="text-[0.95rem] leading-relaxed text-zinc-200 dark:text-zinc-300"
-                                        style={{ fontFamily: "'Archivo', sans-serif" }}
+                                        style={{
+                                            fontFamily: "'Archivo', sans-serif",
+                                        }}
                                     >
                                         {item.message}
                                     </p>
@@ -320,7 +386,10 @@ export default function CommunityMessagesPage({
                                     {item.ip_address && (
                                         <div
                                             className="text-[11px] text-muted-foreground opacity-60"
-                                            style={{ fontFamily: "'Archivo', sans-serif" }}
+                                            style={{
+                                                fontFamily:
+                                                    "'Archivo', sans-serif",
+                                            }}
                                         >
                                             Origin IP: {item.ip_address}
                                         </div>
@@ -332,9 +401,14 @@ export default function CommunityMessagesPage({
                                     {item.status !== 'approved' && (
                                         <Button
                                             size="sm"
-                                            onClick={() => handleApprove(item.id)}
-                                            className="gap-1.5 rounded-full bg-emerald-600 px-3.5 text-xs text-white hover:bg-emerald-500 cursor-pointer"
-                                            style={{ fontFamily: "'Archivo', sans-serif" }}
+                                            onClick={() =>
+                                                handleApprove(item.id)
+                                            }
+                                            className="cursor-pointer gap-1.5 rounded-full bg-emerald-600 px-3.5 text-xs text-white hover:bg-emerald-500"
+                                            style={{
+                                                fontFamily:
+                                                    "'Archivo', sans-serif",
+                                            }}
                                         >
                                             <CheckCircle2 size={13} />
                                             <span>Approve</span>
@@ -345,9 +419,14 @@ export default function CommunityMessagesPage({
                                         <Button
                                             size="sm"
                                             variant="outline"
-                                            onClick={() => handleReject(item.id)}
-                                            className="gap-1.5 rounded-full border-amber-500/40 text-xs text-amber-300 hover:bg-amber-500/10 cursor-pointer"
-                                            style={{ fontFamily: "'Archivo', sans-serif" }}
+                                            onClick={() =>
+                                                handleReject(item.id)
+                                            }
+                                            className="cursor-pointer gap-1.5 rounded-full border-amber-500/40 text-xs text-amber-300 hover:bg-amber-500/10"
+                                            style={{
+                                                fontFamily:
+                                                    "'Archivo', sans-serif",
+                                            }}
                                         >
                                             <XCircle size={13} />
                                             <span>Reject</span>
@@ -357,9 +436,13 @@ export default function CommunityMessagesPage({
                                     <Button
                                         size="sm"
                                         variant="outline"
-                                        onClick={() => setDeleteTargetId(item.id)}
-                                        className="gap-1.5 rounded-full border-red-500/30 text-xs text-red-400 hover:bg-red-500/10 cursor-pointer"
-                                        style={{ fontFamily: "'Archivo', sans-serif" }}
+                                        onClick={() =>
+                                            setDeleteTargetId(item.id)
+                                        }
+                                        className="cursor-pointer gap-1.5 rounded-full border-red-500/30 text-xs text-red-400 hover:bg-red-500/10"
+                                        style={{
+                                            fontFamily: "'Archivo', sans-serif",
+                                        }}
                                     >
                                         <Trash2 size={13} />
                                         <span>Delete</span>
@@ -373,14 +456,14 @@ export default function CommunityMessagesPage({
 
             {/* Delete Confirmation Modal */}
             <ConfirmDialog
-                isOpen={deleteTargetId !== null}
-                onClose={() => setDeleteTargetId(null)}
+                open={deleteTargetId !== null}
+                onOpenChange={(open) => !open && setDeleteTargetId(null)}
                 onConfirm={handleDeleteConfirm}
                 title="Delete Community Message"
-                message="Are you sure you want to permanently delete this message? This action cannot be undone."
-                confirmText="Delete"
-                cancelText="Cancel"
-                variant="danger"
+                description="Are you sure you want to permanently delete this message? This action cannot be undone."
+                confirmLabel="Delete"
+                cancelLabel="Cancel"
+                variant="destructive"
             />
         </>
     );

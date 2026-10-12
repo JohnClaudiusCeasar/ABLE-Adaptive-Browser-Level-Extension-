@@ -7,6 +7,7 @@ use App\Models\DomainVisit;
 use App\Models\EgressEvent;
 use App\Models\ExtensionLifecycle;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -37,14 +38,14 @@ class ClientUserController extends Controller
             ->groupBy('user_id');
 
         // Preload visit counts and latest activity
-        $visitCounts = DomainVisit::whereIn('user_id', $allUserIds)
+        $visitCounts = DB::table('domain_visits')->whereIn('user_id', $allUserIds)
             ->selectRaw('user_id, count(*) as total, max(visited_at) as last_visited, min(visited_at) as first_visited')
             ->groupBy('user_id')
             ->get()
             ->keyBy('user_id');
 
         // Preload egress counts and latest activity
-        $egressCounts = EgressEvent::whereIn('user_id', $allUserIds)
+        $egressCounts = DB::table('egress_events')->whereIn('user_id', $allUserIds)
             ->selectRaw('user_id, count(*) as total, max(occurred_at) as last_egress, min(occurred_at) as first_egress')
             ->groupBy('user_id')
             ->get()
@@ -60,10 +61,10 @@ class ClientUserController extends Controller
             $egressStat = $egressCounts->get($userId);
 
             // Determine earliest registration date
-            $registeredAt = $installedEvent?->occurred_at
-                ?? $userLifecycles?->first()?->occurred_at
-                ?? $visitStat?->first_visited
-                ?? $egressStat?->first_egress
+            $registeredAt = $installedEvent->occurred_at
+                ?? $userLifecycles?->first()->occurred_at
+                ?? $visitStat->first_visited
+                ?? $egressStat->first_egress
                 ?? now();
 
             // Determine latest active date
@@ -85,9 +86,9 @@ class ClientUserController extends Controller
                 'registered_at' => $registeredAt ? (string) $registeredAt : null,
                 'last_active_at' => $lastActiveAt ? (string) $lastActiveAt : null,
                 'status' => $isActive ? 'active' : ($isUninstalled ? 'uninstalled' : 'inactive'),
-                'version' => $latestLifecycle?->version ?? 'v1.0.0',
-                'total_visits' => (int) ($visitStat?->total ?? 0),
-                'total_egress' => (int) ($egressStat?->total ?? 0),
+                'version' => $latestLifecycle->version ?? 'v1.0.0',
+                'total_visits' => (int) ($visitStat->total ?? 0),
+                'total_egress' => (int) ($egressStat->total ?? 0),
             ];
         })->sortByDesc('registered_at')->values()->all();
 

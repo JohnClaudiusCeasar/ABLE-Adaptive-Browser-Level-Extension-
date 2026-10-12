@@ -41,7 +41,9 @@ export function truncateFileName(fileName: string, maxLength = 15): string {
  * Values under 1000 remain formatted as locale integers (e.g. 950).
  * Preserves pre-formatted strings with units (e.g., "12.5 MB", "85%").
  */
-export function formatMetricNumber(value: number | string | null | undefined): string {
+export function formatMetricNumber(
+    value: number | string | null | undefined,
+): string {
     if (value === null || value === undefined) {
         return '0';
     }

@@ -99,10 +99,15 @@ export function SidebarSearch({ items }: { items: NavItem[] }) {
             <div
                 className={cn(
                     'flex items-center rounded-xl border border-black/10 bg-black/5 px-3 py-2 transition-all duration-200 dark:border-white/10 dark:bg-black/20',
-                    open && hasQuery && 'border-able-green/50 shadow-[0_0_12px_rgba(34,197,94,0.2)] dark:border-able-green/50',
+                    open &&
+                        hasQuery &&
+                        'border-able-green/50 shadow-[0_0_12px_rgba(34,197,94,0.2)] dark:border-able-green/50',
                 )}
             >
-                <Search size={14} className="shrink-0 text-muted-foreground transition-colors" />
+                <Search
+                    size={14}
+                    className="shrink-0 text-muted-foreground transition-colors"
+                />
                 <input
                     ref={inputRef}
                     type="text"

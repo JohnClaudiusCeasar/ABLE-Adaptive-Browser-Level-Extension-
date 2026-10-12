@@ -14,9 +14,7 @@ function isImageAttachment(
     if (name) {
         const ext = name.split('.').pop()?.toLowerCase();
 
-        return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(
-            ext ?? '',
-        );
+        return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext ?? '');
     }
 
     return false;
@@ -24,8 +22,8 @@ function isImageAttachment(
 
 function formatBytes(bytes?: number | null): string {
     if (!bytes || bytes === 0) {
-return '';
-}
+        return '';
+    }
 
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB'];
@@ -68,19 +66,23 @@ export function MessageBubble({
             >
                 {/* Image attachment */}
                 {message.attachment_url && isImage && (
-                    <div className={cn(
-                        'mb-2.5 overflow-hidden border border-black/10 dark:border-white/10',
-                        compact ? 'rounded-xl' : 'rounded-2xl',
-                    )}>
+                    <div
+                        className={cn(
+                            'mb-2.5 overflow-hidden border border-black/10 dark:border-white/10',
+                            compact ? 'rounded-xl' : 'rounded-2xl',
+                        )}
+                    >
                         <a
                             href={message.attachment_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="block group"
+                            className="group block"
                         >
                             <img
                                 src={message.attachment_url}
-                                alt={message.attachment_name ?? 'Attached image'}
+                                alt={
+                                    message.attachment_name ?? 'Attached image'
+                                }
                                 className={cn(
                                     'w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]',
                                     compact ? 'max-h-64' : 'max-h-80',
@@ -101,20 +103,28 @@ export function MessageBubble({
                             rel="noopener noreferrer"
                             className={cn(
                                 'flex items-center gap-3 border border-black/10 bg-black/5 transition-colors hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10',
-                                compact ? 'rounded-xl p-2.5 text-sm' : 'rounded-2xl p-3 text-sm',
+                                compact
+                                    ? 'rounded-xl p-2.5 text-sm'
+                                    : 'rounded-2xl p-3 text-sm',
                             )}
                         >
-                            <div className={cn(
-                                'flex shrink-0 items-center justify-center bg-able-green/20 text-able-green',
-                                compact ? 'h-9 w-9 rounded-lg' : 'h-11 w-11 rounded-xl',
-                            )}>
+                            <div
+                                className={cn(
+                                    'flex shrink-0 items-center justify-center bg-able-green/20 text-able-green',
+                                    compact
+                                        ? 'h-9 w-9 rounded-lg'
+                                        : 'h-11 w-11 rounded-xl',
+                                )}
+                            >
                                 <FileText size={compact ? 20 : 25} />
                             </div>
                             <div className="min-w-0 flex-1">
-                                <p className={cn(
-                                    'truncate font-medium text-foreground',
-                                    compact ? 'text-sm' : 'text-base',
-                                )}>
+                                <p
+                                    className={cn(
+                                        'truncate font-medium text-foreground',
+                                        compact ? 'text-sm' : 'text-base',
+                                    )}
+                                >
                                     {message.attachment_name ?? 'Download file'}
                                 </p>
                                 {message.attachment_size && (
@@ -125,7 +135,7 @@ export function MessageBubble({
                             </div>
                             <Download
                                 size={compact ? 17 : 21}
-                                className="text-muted-foreground shrink-0"
+                                className="shrink-0 text-muted-foreground"
                             />
                         </a>
                     </div>

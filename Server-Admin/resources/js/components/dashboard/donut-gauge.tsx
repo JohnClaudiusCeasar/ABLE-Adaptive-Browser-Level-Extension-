@@ -79,9 +79,10 @@ export function DonutGauge({
                   ...segments[hoveredIdx],
                   pct:
                       total > 0
-                          ? ((segments[hoveredIdx].value / total) * 100).toFixed(
-                                1,
-                            )
+                          ? (
+                                (segments[hoveredIdx].value / total) *
+                                100
+                            ).toFixed(1)
                           : '0.0',
               }
             : null;
@@ -136,8 +137,8 @@ export function DonutGauge({
                     {!isEmpty ? (
                         arcData.map((arc) => {
                             if (arc.value <= 0) {
-return null;
-}
+                                return null;
+                            }
 
                             const isHovered = hoveredIdx === arc.index;
                             const isAnyHovered = hoveredIdx !== null;
@@ -206,14 +207,14 @@ return null;
                 >
                     {activeHoveredSegment ? (
                         /* Inspected Segment Hover Mode */
-                        <div className="flex flex-col items-center px-2 animate-in fade-in zoom-in-95 duration-150">
+                        <div className="flex animate-in flex-col items-center px-2 duration-150 zoom-in-95 fade-in">
                             <span
-                                className="text-xs font-semibold uppercase tracking-wider"
+                                className="text-xs font-semibold tracking-wider uppercase"
                                 style={{ color: activeHoveredSegment.color }}
                             >
                                 {activeHoveredSegment.label}
                             </span>
-                            <p className="text-xl font-bold tabular-nums text-foreground">
+                            <p className="text-xl font-bold text-foreground tabular-nums">
                                 {activeHoveredSegment.value.toLocaleString()}
                             </p>
                             <span className="text-[11px] font-medium text-muted-foreground">
@@ -223,7 +224,7 @@ return null;
                     ) : (
                         /* Default Overview Mode */
                         <div className="flex flex-col items-center px-2">
-                            <p className="text-2xl leading-none font-bold tabular-nums text-foreground">
+                            <p className="text-2xl leading-none font-bold text-foreground tabular-nums">
                                 {centerValue}
                             </p>
                             <p className="mt-1 text-[0.8rem] text-muted-foreground">
@@ -282,7 +283,7 @@ return null;
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <span className="font-semibold tabular-nums text-foreground">
+                                    <span className="font-semibold text-foreground tabular-nums">
                                         {s.value.toLocaleString()}
                                     </span>
                                     <span className="text-[10px] text-muted-foreground tabular-nums">

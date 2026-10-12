@@ -108,7 +108,7 @@ class DomainRiskResolver
      */
     public static function safePatterns(): array
     {
-        return (array) app(AbleSettingsService::class)->value(
+        $patterns = (array) app(AbleSettingsService::class)->value(
             'server',
             'algorithm.safe_patterns',
             [
@@ -116,5 +116,7 @@ class DomainRiskResolver
                 '/^([\w-]+\.)*gov\.(uk|au|nz|ca)$/i',
             ],
         );
+
+        return array_values(array_map('strval', $patterns));
     }
 }

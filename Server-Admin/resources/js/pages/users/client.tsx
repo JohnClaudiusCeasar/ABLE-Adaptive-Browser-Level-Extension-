@@ -50,14 +50,14 @@ type GroupField = 'none' | 'status' | 'version';
 
 function formatTimestamp(ts: string | null): string {
     if (!ts) {
-return '—';
-}
+        return '—';
+    }
 
     const d = new Date(ts);
 
     if (isNaN(d.getTime())) {
-return ts;
-}
+        return ts;
+    }
 
     return d.toLocaleString(undefined, {
         year: 'numeric',
@@ -75,7 +75,9 @@ export default function ClientUsersPage({ clients = [] }: ClientPageProps) {
     const [sortField, setSortField] = useState<SortField>('id');
     const [sortDir, setSortDir] = useState<SortDir>('asc');
     const [groupField, setGroupField] = useState<GroupField>('none');
-    const [selectedClient, setSelectedClient] = useState<ClientUser | null>(null);
+    const [selectedClient, setSelectedClient] = useState<ClientUser | null>(
+        null,
+    );
     const [copiedId, setCopiedId] = useState<string | null>(null);
 
     // Search and sort logic
@@ -103,7 +105,9 @@ export default function ClientUsersPage({ clients = [] }: ClientPageProps) {
                     cmp = a.client_name.localeCompare(b.client_name);
                     break;
                 case 'registered_at':
-                    cmp = (a.registered_at ?? '').localeCompare(b.registered_at ?? '');
+                    cmp = (a.registered_at ?? '').localeCompare(
+                        b.registered_at ?? '',
+                    );
                     break;
                 case 'status':
                     cmp = a.status.localeCompare(b.status);
@@ -140,7 +144,10 @@ export default function ClientUsersPage({ clients = [] }: ClientPageProps) {
         return groups;
     }, [processedClients, groupField]);
 
-    const totalPages = Math.max(1, Math.ceil(processedClients.length / ROWS_PER_PAGE));
+    const totalPages = Math.max(
+        1,
+        Math.ceil(processedClients.length / ROWS_PER_PAGE),
+    );
     const safePage = Math.min(currentPage, totalPages);
     const paginatedClients = useMemo(() => {
         const start = (safePage - 1) * ROWS_PER_PAGE;
@@ -176,13 +183,13 @@ export default function ClientUsersPage({ clients = [] }: ClientPageProps) {
                     }`}
                 >
                     <div className="flex items-center gap-2">
-                        <span className="truncate max-w-[280px]">
+                        <span className="max-w-[280px] truncate">
                             {client.client_name}
                         </span>
                         <button
                             onClick={() => copyToClipboard(client.user_id)}
                             title="Copy sanitized ID"
-                            className="text-muted-foreground hover:text-foreground transition-colors p-1"
+                            className="p-1 text-muted-foreground transition-colors hover:text-foreground"
                         >
                             {copiedId === client.user_id ? (
                                 <Check size={14} className="text-able-green" />
@@ -195,7 +202,7 @@ export default function ClientUsersPage({ clients = [] }: ClientPageProps) {
 
                 {/* ID Registered Timestamp */}
                 <td
-                    className={`py-3 pr-2.5 tabular-nums text-muted-foreground ${
+                    className={`py-3 pr-2.5 text-muted-foreground tabular-nums ${
                         isGrouped ? 'w-[25%]' : ''
                     }`}
                 >
@@ -212,7 +219,7 @@ export default function ClientUsersPage({ clients = [] }: ClientPageProps) {
                         variant="outline"
                         size="sm"
                         onClick={() => setSelectedClient(client)}
-                        className="gap-1.5 border-[rgba(34,197,94,0.7)] hover:bg-[rgba(34,197,94,0.1)] text-xs h-8"
+                        className="h-8 gap-1.5 border-[rgba(34,197,94,0.7)] text-xs hover:bg-[rgba(34,197,94,0.1)]"
                     >
                         <Eye size={14} />
                         View
@@ -224,8 +231,8 @@ export default function ClientUsersPage({ clients = [] }: ClientPageProps) {
 
     function renderGroupedContent() {
         if (!groupedClients) {
-return null;
-}
+            return null;
+        }
 
         const groupKeys = Object.keys(groupedClients);
 
@@ -256,7 +263,8 @@ return null;
                                     {groupKey}
                                 </span>
                                 <span className="rounded-full bg-able-green/15 px-2.5 py-0.5 text-xs font-semibold text-able-green">
-                                    {items.length} {items.length === 1 ? 'Client' : 'Clients'}
+                                    {items.length}{' '}
+                                    {items.length === 1 ? 'Client' : 'Clients'}
                                 </span>
                             </div>
 
@@ -286,12 +294,14 @@ return null;
                             <div
                                 className={`overflow-x-auto ${
                                     isScrollable
-                                        ? 'max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-[rgba(34,197,94,0.4)] scrollbar-track-transparent'
+                                        ? 'max-h-[300px] scrollbar-thin scrollbar-thumb-[rgba(34,197,94,0.4)] scrollbar-track-transparent overflow-y-auto'
                                         : ''
                                 }`}
                             >
                                 <table className="w-full table-fixed border-collapse text-[0.85rem]">
-                                    <tbody>{renderTableRows(items, true)}</tbody>
+                                    <tbody>
+                                        {renderTableRows(items, true)}
+                                    </tbody>
                                 </table>
                             </div>
                         </div>
@@ -330,13 +340,14 @@ return null;
                 {/* Header */}
                 <header className="mb-8">
                     <h1
-                        className="mb-2.5 text-[2.8rem] font-bold tracking-wide uppercase text-foreground"
+                        className="mb-2.5 text-[2.8rem] font-bold tracking-wide text-foreground uppercase"
                         style={{ fontFamily: "'Unbounded', sans-serif" }}
                     >
                         Able clients
                     </h1>
                     <p className="mb-6 text-[1.05rem] text-muted-foreground">
-                        All sanitized User IDs registered via the ABLE browser extension.
+                        All sanitized User IDs registered via the ABLE browser
+                        extension.
                     </p>
 
                     {/* Search + Sort + Group row */}
@@ -370,14 +381,30 @@ return null;
                                 }}
                                 className="cursor-pointer appearance-none rounded-full border border-black/10 bg-black/5 py-2.5 pr-8 pl-9 text-[0.85rem] text-foreground transition-all duration-200 outline-none hover:border-able-green/50 hover:bg-black/10 focus:border-able-green focus:ring-1 focus:ring-able-green/30 dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)] dark:hover:bg-white/5"
                             >
-                                <option value="id__asc">Sort: ID (Ascending)</option>
-                                <option value="id__desc">Sort: ID (Descending)</option>
-                                <option value="client_name__asc">Sort: Client Name (A-Z)</option>
-                                <option value="client_name__desc">Sort: Client Name (Z-A)</option>
-                                <option value="registered_at__desc">Sort: Date (Newest)</option>
-                                <option value="registered_at__asc">Sort: Date (Oldest)</option>
-                                <option value="status__asc">Sort: Status (A-Z)</option>
-                                <option value="status__desc">Sort: Status (Z-A)</option>
+                                <option value="id__asc">
+                                    Sort: ID (Ascending)
+                                </option>
+                                <option value="id__desc">
+                                    Sort: ID (Descending)
+                                </option>
+                                <option value="client_name__asc">
+                                    Sort: Client Name (A-Z)
+                                </option>
+                                <option value="client_name__desc">
+                                    Sort: Client Name (Z-A)
+                                </option>
+                                <option value="registered_at__desc">
+                                    Sort: Date (Newest)
+                                </option>
+                                <option value="registered_at__asc">
+                                    Sort: Date (Oldest)
+                                </option>
+                                <option value="status__asc">
+                                    Sort: Status (A-Z)
+                                </option>
+                                <option value="status__desc">
+                                    Sort: Status (Z-A)
+                                </option>
                             </select>
                             <ArrowUpDown
                                 size={16}
@@ -453,13 +480,14 @@ return null;
                 <DialogContent className="max-w-lg border border-[rgba(34,197,94,0.4)] bg-background/95 backdrop-blur-xl">
                     <DialogHeader>
                         <DialogTitle
-                            className="text-xl font-bold uppercase tracking-wide"
+                            className="text-xl font-bold tracking-wide uppercase"
                             style={{ fontFamily: "'Unbounded', sans-serif" }}
                         >
                             Client Telemetry Profile
                         </DialogTitle>
                         <DialogDescription className="text-sm text-muted-foreground">
-                            Telemetry overview for this sanitized extension client.
+                            Telemetry overview for this sanitized extension
+                            client.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -467,19 +495,26 @@ return null;
                         <div className="flex flex-col gap-5 pt-2">
                             {/* User ID block */}
                             <div className="rounded-lg border border-black/10 bg-black/5 p-3.5 dark:border-white/10 dark:bg-white/5">
-                                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                                     Sanitized Extension User ID
                                 </span>
                                 <div className="mt-1 flex items-center justify-between gap-2">
-                                    <code className="text-sm font-mono text-foreground font-semibold break-all">
+                                    <code className="font-mono text-sm font-semibold break-all text-foreground">
                                         {selectedClient.user_id}
                                     </code>
                                     <button
-                                        onClick={() => copyToClipboard(selectedClient.user_id)}
+                                        onClick={() =>
+                                            copyToClipboard(
+                                                selectedClient.user_id,
+                                            )
+                                        }
                                         className="shrink-0 rounded p-1.5 text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5"
                                     >
                                         {copiedId === selectedClient.user_id ? (
-                                            <Check size={16} className="text-able-green" />
+                                            <Check
+                                                size={16}
+                                                className="text-able-green"
+                                            />
                                         ) : (
                                             <Copy size={16} />
                                         )}
@@ -491,20 +526,26 @@ return null;
                             <div className="grid grid-cols-2 gap-3 text-sm">
                                 <div className="rounded-lg border border-black/10 bg-black/5 p-3 dark:border-white/10 dark:bg-white/5">
                                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                        <Globe size={14} className="text-sky-400" />
+                                        <Globe
+                                            size={14}
+                                            className="text-sky-400"
+                                        />
                                         <span>Total Domain Visits</span>
                                     </div>
-                                    <p className="mt-1 text-lg font-bold tabular-nums text-foreground">
+                                    <p className="mt-1 text-lg font-bold text-foreground tabular-nums">
                                         {selectedClient.total_visits.toLocaleString()}
                                     </p>
                                 </div>
 
                                 <div className="rounded-lg border border-black/10 bg-black/5 p-3 dark:border-white/10 dark:bg-white/5">
                                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                        <ShieldAlert size={14} className="text-rose-400" />
+                                        <ShieldAlert
+                                            size={14}
+                                            className="text-rose-400"
+                                        />
                                         <span>Egress Events</span>
                                     </div>
-                                    <p className="mt-1 text-lg font-bold tabular-nums text-foreground">
+                                    <p className="mt-1 text-lg font-bold text-foreground tabular-nums">
                                         {selectedClient.total_egress.toLocaleString()}
                                     </p>
                                 </div>
@@ -513,20 +554,30 @@ return null;
                             {/* Timestamps & details */}
                             <div className="flex flex-col gap-2 rounded-lg border border-black/10 bg-black/5 p-3.5 text-xs dark:border-white/10 dark:bg-white/5">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-muted-foreground">ID Registered:</span>
+                                    <span className="text-muted-foreground">
+                                        ID Registered:
+                                    </span>
                                     <span className="font-semibold text-foreground tabular-nums">
-                                        {formatTimestamp(selectedClient.registered_at)}
+                                        {formatTimestamp(
+                                            selectedClient.registered_at,
+                                        )}
                                     </span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                    <span className="text-muted-foreground">Last Active Telemetry:</span>
+                                    <span className="text-muted-foreground">
+                                        Last Active Telemetry:
+                                    </span>
                                     <span className="font-semibold text-foreground tabular-nums">
-                                        {formatTimestamp(selectedClient.last_active_at)}
+                                        {formatTimestamp(
+                                            selectedClient.last_active_at,
+                                        )}
                                     </span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                    <span className="text-muted-foreground">Client Version:</span>
-                                    <span className="font-semibold font-mono text-foreground">
+                                    <span className="text-muted-foreground">
+                                        Client Version:
+                                    </span>
+                                    <span className="font-mono font-semibold text-foreground">
                                         {selectedClient.version}
                                     </span>
                                 </div>

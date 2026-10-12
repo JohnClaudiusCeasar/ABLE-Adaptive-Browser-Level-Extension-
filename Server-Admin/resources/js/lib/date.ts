@@ -86,9 +86,11 @@ export function formatDividerDate(isoString: string | null | undefined): {
     const hours24 = d.getHours();
     const minutes = String(d.getMinutes()).padStart(2, '0');
     const ampm = hours24 >= 12 ? 'PM' : 'AM';
-    const hours12 = String(hours24 % 12 === 0 ? 12 : hours24 % 12).padStart(2, '0');
+    const hours12 = String(hours24 % 12 === 0 ? 12 : hours24 % 12).padStart(
+        2,
+        '0',
+    );
     const time = `${hours12}:${minutes} ${ampm}`;
 
     return { monthDay, time };
 }
-

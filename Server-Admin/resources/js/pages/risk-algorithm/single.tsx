@@ -89,7 +89,7 @@ export default function SinglePatternConfiguration() {
                 {/* Header */}
                 <header className="mb-8">
                     <h1
-                        className="mb-3 text-[2.8rem] font-bold tracking-wide uppercase text-foreground"
+                        className="mb-3 text-[2.8rem] font-bold tracking-wide text-foreground uppercase"
                         style={{ fontFamily: "'Unbounded', sans-serif" }}
                     >
                         All Policies
@@ -207,7 +207,6 @@ export default function SinglePatternConfiguration() {
                             </tbody>
                         </table>
                     </div>
-
 
                     {/* Pagination */}
                     {filteredPatterns.length > ROWS_PER_PAGE && (

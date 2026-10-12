@@ -15,7 +15,10 @@ type Props = {
     label?: string;
     loadingLabel?: string;
     separator?: string;
-    onSuccess?: (response: { redirect?: string; [key: string]: unknown }) => void;
+    onSuccess?: (response: {
+        redirect?: string;
+        [key: string]: unknown;
+    }) => void;
 };
 
 export default function PasskeyVerify({

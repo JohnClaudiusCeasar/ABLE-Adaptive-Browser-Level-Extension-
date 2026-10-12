@@ -26,7 +26,9 @@ export function GroupedBarChart({ data, className }: GroupedBarChartProps) {
     const totalVisits = data.reduce((acc, d) => acc + d.visits, 0);
     const totalEgress = data.reduce((acc, d) => acc + d.egress, 0);
     const egressRate =
-        totalVisits > 0 ? ((totalEgress / totalVisits) * 100).toFixed(1) : '0.0';
+        totalVisits > 0
+            ? ((totalEgress / totalVisits) * 100).toFixed(1)
+            : '0.0';
 
     const chartHeight = 200;
 
@@ -109,7 +111,7 @@ export function GroupedBarChart({ data, className }: GroupedBarChartProps) {
 
                         {/* Bars Container */}
                         <div
-                            className="relative z-10 flex items-end justify-between pl-10 pr-2"
+                            className="relative z-10 flex items-end justify-between pr-2 pl-10"
                             style={{ height: chartHeight }}
                         >
                             {data.map((d, idx) => {
@@ -133,9 +135,7 @@ export function GroupedBarChart({ data, className }: GroupedBarChartProps) {
                                     >
                                         {/* Hover Tooltip Card */}
                                         {isHovered && (
-                                            <div
-                                                className="pointer-events-none absolute -top-16 z-30 flex flex-col items-center animate-in fade-in zoom-in-95 duration-150"
-                                            >
+                                            <div className="pointer-events-none absolute -top-16 z-30 flex animate-in flex-col items-center duration-150 zoom-in-95 fade-in">
                                                 <div className="flex min-w-[135px] flex-col gap-1 rounded-md border border-black/10 bg-popover/95 px-3 py-2 text-xs text-popover-foreground shadow-lg backdrop-blur-md dark:border-white/15">
                                                     <div className="flex items-center justify-between gap-3 border-b border-border/50 pb-1 font-semibold">
                                                         <span>{d.day}</span>
@@ -148,7 +148,7 @@ export function GroupedBarChart({ data, className }: GroupedBarChartProps) {
                                                             <span className="h-2 w-2 rounded-full bg-sky-400" />
                                                             <span>Visits:</span>
                                                         </div>
-                                                        <span className="font-semibold tabular-nums text-foreground">
+                                                        <span className="font-semibold text-foreground tabular-nums">
                                                             {d.visits.toLocaleString()}
                                                         </span>
                                                     </div>
@@ -157,20 +157,20 @@ export function GroupedBarChart({ data, className }: GroupedBarChartProps) {
                                                             <span className="h-2 w-2 rounded-full bg-rose-500" />
                                                             <span>Egress:</span>
                                                         </div>
-                                                        <span className="font-semibold tabular-nums text-foreground">
+                                                        <span className="font-semibold text-foreground tabular-nums">
                                                             {d.egress.toLocaleString()}
                                                         </span>
                                                     </div>
                                                 </div>
                                                 {/* Tooltip Arrow */}
-                                                <div className="h-2 w-2 -rotate-45 border-b border-l border-black/10 bg-popover/95 dark:border-white/15 -mt-1" />
+                                                <div className="-mt-1 h-2 w-2 -rotate-45 border-b border-l border-black/10 bg-popover/95 dark:border-white/15" />
                                             </div>
                                         )}
 
                                         {/* Day Column Track: Exactly matches combined width of dual pillars */}
                                         <div
                                             className={cn(
-                                                'relative flex w-10 sm:w-12 items-end justify-center rounded-t-md transition-all duration-300',
+                                                'relative flex w-10 items-end justify-center rounded-t-md transition-all duration-300 sm:w-12',
                                                 isHovered
                                                     ? 'bg-black/[0.04] dark:bg-white/[0.06]'
                                                     : 'bg-black/[0.02] dark:bg-white/[0.02]',
@@ -182,7 +182,7 @@ export function GroupedBarChart({ data, className }: GroupedBarChartProps) {
                                                 {/* Bar 1: Domain Visits Pillar */}
                                                 <div
                                                     className={cn(
-                                                        'relative w-1/2 rounded-tl-md bg-gradient-to-t from-sky-600 via-sky-500 to-sky-400 transition-all duration-300 shadow-xs shadow-sky-500/20',
+                                                        'relative w-1/2 rounded-tl-md bg-gradient-to-t from-sky-600 via-sky-500 to-sky-400 shadow-xs shadow-sky-500/20 transition-all duration-300',
                                                         isHovered &&
                                                             'from-sky-500 via-sky-400 to-sky-300 shadow-md shadow-sky-500/30',
                                                     )}
@@ -203,7 +203,7 @@ export function GroupedBarChart({ data, className }: GroupedBarChartProps) {
                                                 {/* Bar 2: Egress Incidents Pillar (Flush to Visits) */}
                                                 <div
                                                     className={cn(
-                                                        'relative w-1/2 rounded-tr-md bg-gradient-to-t from-rose-600 via-rose-500 to-rose-400 transition-all duration-300 shadow-xs shadow-rose-500/20',
+                                                        'relative w-1/2 rounded-tr-md bg-gradient-to-t from-rose-600 via-rose-500 to-rose-400 shadow-xs shadow-rose-500/20 transition-all duration-300',
                                                         isHovered &&
                                                             'from-rose-500 via-rose-400 to-rose-300 shadow-md shadow-rose-500/30',
                                                     )}
@@ -228,7 +228,7 @@ export function GroupedBarChart({ data, className }: GroupedBarChartProps) {
                         </div>
 
                         {/* Day Labels Axis */}
-                        <div className="mt-2.5 flex items-center justify-between pl-10 pr-2">
+                        <div className="mt-2.5 flex items-center justify-between pr-2 pl-10">
                             {data.map((d, idx) => (
                                 <div
                                     key={d.date}
@@ -255,7 +255,7 @@ export function GroupedBarChart({ data, className }: GroupedBarChartProps) {
                             {[1, 2, 3, 4, 5, 6, 7].map((i) => (
                                 <div
                                     key={i}
-                                    className="flex w-10 sm:w-12 items-end justify-center rounded-t-md bg-black/5 dark:bg-white/5"
+                                    className="flex w-10 items-end justify-center rounded-t-md bg-black/5 sm:w-12 dark:bg-white/5"
                                     style={{ height: 120 }}
                                 >
                                     <div className="flex w-full items-end justify-center">
@@ -271,7 +271,7 @@ export function GroupedBarChart({ data, className }: GroupedBarChartProps) {
                                 </div>
                             ))}
                         </div>
-                        <span className="mt-4 text-xs font-medium uppercase tracking-wider text-muted-foreground/70">
+                        <span className="mt-4 text-xs font-medium tracking-wider text-muted-foreground/70 uppercase">
                             No Activity Recorded in Selected Window
                         </span>
                     </div>

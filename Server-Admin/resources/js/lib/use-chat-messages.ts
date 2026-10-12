@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     mergeOlderMessages,
     setCursor,
@@ -34,10 +34,12 @@ export function useChatMessages({
     conversationId,
     initialMessages = [],
     nextCursor = null,
+    currentUserId,
 }: {
     conversationId: number;
     initialMessages?: ChatMessageData[];
     nextCursor?: string | null;
+    currentUserId?: number;
 }) {
     const store = useChatStore();
     const matchesConversation = store.activeConversation?.id === conversationId;
@@ -45,11 +47,57 @@ export function useChatMessages({
     const [sending, setSending] = useState(false);
     const loadingMoreRef = useRef(false);
 
-    // If the persisted window belongs to a different conversation, fall back
-    // to the freshly supplied props for this window.
-    const messages = matchesConversation
-        ? store.activeMessages
-        : initialMessages;
+    // Maintain local message list that incorporates initialMessages, store messages, and optimistic sends
+    const [localMessages, setLocalMessages] = useState<ChatMessageData[]>(
+        () => {
+            if (matchesConversation && store.activeMessages.length > 0) {
+                return store.activeMessages;
+            }
+
+            return initialMessages;
+        },
+    );
+
+    // Synchronize local messages whenever store updates for this conversation or initialMessages arrive
+    useEffect(() => {
+        if (matchesConversation && store.activeMessages.length > 0) {
+            setLocalMessages((prev) => {
+                const optimistic = prev.filter((m) => m.id < 0);
+                const known = new Set(store.activeMessages.map((m) => m.id));
+                const extra = prev.filter(
+                    (m) =>
+                        !known.has(m.id) &&
+                        m.id > 0 &&
+                        m.conversation_id === conversationId,
+                );
+
+                return dedupe([
+                    ...optimistic,
+                    ...store.activeMessages,
+                    ...extra,
+                ]);
+            });
+        } else if (initialMessages.length > 0) {
+            setLocalMessages((prev) => {
+                const optimistic = prev.filter((m) => m.id < 0);
+                const known = new Set(initialMessages.map((m) => m.id));
+                const extra = prev.filter(
+                    (m) =>
+                        !known.has(m.id) &&
+                        m.id > 0 &&
+                        m.conversation_id === conversationId,
+                );
+
+                return dedupe([...optimistic, ...extra, ...initialMessages]);
+            });
+        }
+    }, [
+        conversationId,
+        matchesConversation,
+        store.activeMessages,
+        initialMessages,
+    ]);
+
     const cursor = matchesConversation ? store.nextCursor : nextCursor;
     const hasMore = cursor !== null;
 
@@ -57,7 +105,7 @@ export function useChatMessages({
      * Load the next older page of history and prepend it.
      */
     const loadMore = useCallback(async () => {
-        if (loadingMoreRef.current || cursor === null || !matchesConversation) {
+        if (loadingMoreRef.current || cursor === null) {
             return;
         }
 
@@ -79,20 +127,35 @@ export function useChatMessages({
             const data = (await res.json()) as ChatMessagesResponse;
             mergeOlderMessages(data.messages);
             setCursor(data.next_cursor);
+            setLocalMessages((prev) => dedupe([...prev, ...data.messages]));
         } catch {
             // Keep the current cursor so the user can retry.
         } finally {
             loadingMoreRef.current = false;
             setLoadingMore(false);
         }
-    }, [conversationId, cursor, matchesConversation]);
+    }, [conversationId, cursor]);
 
     /**
      * Append a single message (live broadcast or local echo).
      */
-    const appendMessage = useCallback((message: ChatMessageData) => {
-        upsertMessage(message);
-    }, []);
+    const appendMessage = useCallback(
+        (message: ChatMessageData) => {
+            if (!message || message.conversation_id !== conversationId) {
+                return;
+            }
+
+            upsertMessage(message);
+            setLocalMessages((prev) => {
+                const exists = prev.some((m) => m.id === message.id);
+
+                return exists
+                    ? prev.map((m) => (m.id === message.id ? message : m))
+                    : [message, ...prev];
+            });
+        },
+        [conversationId],
+    );
 
     /**
      * Send a message (and optional attachment) via plain fetch (no X-Inertia header)
@@ -101,6 +164,26 @@ export function useChatMessages({
     const send = useCallback(
         async (body: string, attachment?: File | null) => {
             setSending(true);
+
+            // Optimistic message so the user immediately sees what they typed
+            const tempId = -Date.now();
+            const optimisticMessage: ChatMessageData = {
+                id: tempId,
+                conversation_id: conversationId,
+                sender_id: currentUserId ?? 0,
+                body: body.trim(),
+                attachment_name: attachment?.name ?? null,
+                attachment_size: attachment?.size ?? null,
+                attachment_type: attachment?.type ?? null,
+                attachment_url:
+                    attachment && attachment.type.startsWith('image/')
+                        ? URL.createObjectURL(attachment)
+                        : null,
+                created_at: new Date().toISOString(),
+                read_at: null,
+            };
+
+            setLocalMessages((prev) => [optimisticMessage, ...prev]);
 
             try {
                 let res: Response;
@@ -139,18 +222,33 @@ export function useChatMessages({
                 }
 
                 const data = (await res.json()) as { message: ChatMessageData };
+
+                // Replace optimistic message with actual persisted message from server
+                setLocalMessages((prev) => {
+                    const filtered = prev.filter(
+                        (m) => m.id !== tempId && m.id !== data.message.id,
+                    );
+
+                    return [data.message, ...filtered];
+                });
+
                 upsertMessage(data.message);
 
                 return data.message;
+            } catch (err) {
+                // Remove optimistic message if send failed
+                setLocalMessages((prev) => prev.filter((m) => m.id !== tempId));
+
+                throw err;
             } finally {
                 setSending(false);
             }
         },
-        [conversationId],
+        [conversationId, currentUserId],
     );
 
     // Oldest-first for rendering.
-    const visibleMessages = dedupe([...messages].reverse());
+    const visibleMessages = dedupe([...localMessages].reverse());
 
     return {
         messages: visibleMessages,

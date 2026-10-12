@@ -239,7 +239,6 @@ class SecurityAnalyticsController extends Controller
         ]);
     }
 
-
     /**
      * Display the Nudge Effectiveness subpage with full data.
      */

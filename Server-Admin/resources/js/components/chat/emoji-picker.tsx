@@ -766,8 +766,8 @@ export function EmojiPicker({
         const query = search.toLowerCase().trim();
 
         if (!query) {
-return null;
-}
+            return null;
+        }
 
         const results: { emoji: string; name: string }[] = [];
 
@@ -785,13 +785,13 @@ return null;
     return (
         <div
             ref={containerRef}
-            className="absolute bottom-full right-0 z-[100] mb-3.5 flex h-[340px] w-72 flex-col rounded-2xl border border-[rgba(34,197,94,0.45)] bg-white shadow-[0_12px_40px_-5px_rgba(0,0,0,0.35)] backdrop-blur-xl dark:border-[rgba(34,197,94,0.6)] dark:bg-[#15342a] sm:w-[320px]"
+            className="absolute right-0 bottom-full z-[100] mb-3.5 flex h-[340px] w-72 flex-col rounded-2xl border border-[rgba(34,197,94,0.45)] bg-white shadow-[0_12px_40px_-5px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:w-[320px] dark:border-[rgba(34,197,94,0.6)] dark:bg-[#15342a]"
             style={{
                 boxShadow: '0 12px 35px -5px rgba(34,197,94,0.35)',
             }}
         >
             {/* Dialogue bubble tail pointing at the smiley icon */}
-            <div className="absolute -bottom-2 right-[18px] z-10 h-4 w-4 rotate-45 border-r border-b border-[rgba(34,197,94,0.45)] bg-white dark:border-[rgba(34,197,94,0.6)] dark:bg-[#15342a]" />
+            <div className="absolute right-[18px] -bottom-2 z-10 h-4 w-4 rotate-45 border-r border-b border-[rgba(34,197,94,0.45)] bg-white dark:border-[rgba(34,197,94,0.6)] dark:bg-[#15342a]" />
 
             {/* Header / Search */}
             <div className="flex items-center gap-2 border-b border-[rgba(34,197,94,0.25)] p-2.5">
@@ -841,7 +841,7 @@ return null;
             )}
 
             {/* Emoji Grid */}
-            <div className="flex-1 overflow-y-auto p-2.5 [scrollbar-gutter:stable]">
+            <div className="flex-1 [scrollbar-gutter:stable] overflow-y-auto p-2.5">
                 {searchResults ? (
                     searchResults.length === 0 ? (
                         <p className="py-12 text-center text-xs text-muted-foreground">
@@ -865,7 +865,8 @@ return null;
                 ) : (
                     <div>
                         <div className="mb-2 px-1 text-[0.68rem] font-semibold tracking-wider text-muted-foreground uppercase">
-                            {EMOJI_CATEGORIES[activeTab].name} ({EMOJI_CATEGORIES[activeTab].emojis.length})
+                            {EMOJI_CATEGORIES[activeTab].name} (
+                            {EMOJI_CATEGORIES[activeTab].emojis.length})
                         </div>
                         <div className="grid grid-cols-7 gap-1 sm:grid-cols-8">
                             {EMOJI_CATEGORIES[activeTab].emojis.map((item) => (

@@ -613,10 +613,7 @@ export default function PolicyAlgorithm() {
         return domain;
     }
 
-    async function fetchDomainVisits(
-        domainPolicyId: number,
-        page: number = 1,
-    ) {
+    async function fetchDomainVisits(domainPolicyId: number, page: number = 1) {
         setVisitsLoading(true);
 
         try {
@@ -701,7 +698,9 @@ export default function PolicyAlgorithm() {
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1.5 font-semibold text-foreground transition-colors hover:text-able-green"
                     >
-                        <span className="truncate max-w-[200px]">{d.domain}</span>
+                        <span className="max-w-[200px] truncate">
+                            {d.domain}
+                        </span>
                         <ExternalLink
                             size={14}
                             className="shrink-0 text-muted-foreground"
@@ -718,7 +717,9 @@ export default function PolicyAlgorithm() {
                         {policyLabels[d.policy]}
                     </Badge>
                 </td>
-                <td className={`px-4 py-4 text-muted-foreground ${isGrouped ? 'w-[16%] truncate' : ''}`}>
+                <td
+                    className={`px-4 py-4 text-muted-foreground ${isGrouped ? 'w-[16%] truncate' : ''}`}
+                >
                     {d.category || '—'}
                 </td>
                 <td
@@ -789,7 +790,8 @@ export default function PolicyAlgorithm() {
                                     {groupKey}
                                 </span>
                                 <span className="rounded-full bg-able-green/15 px-2.5 py-0.5 text-xs font-semibold text-able-green">
-                                    {items.length} {items.length === 1 ? 'Domain' : 'Domains'}
+                                    {items.length}{' '}
+                                    {items.length === 1 ? 'Domain' : 'Domains'}
                                 </span>
                             </div>
 
@@ -825,12 +827,14 @@ export default function PolicyAlgorithm() {
                             <div
                                 className={`overflow-x-auto ${
                                     isScrollable
-                                        ? 'max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-[rgba(34,197,94,0.4)] scrollbar-track-transparent'
+                                        ? 'max-h-[300px] scrollbar-thin scrollbar-thumb-[rgba(34,197,94,0.4)] scrollbar-track-transparent overflow-y-auto'
                                         : ''
                                 }`}
                             >
                                 <table className="w-full table-fixed border-collapse text-left text-[0.95rem]">
-                                    <tbody>{renderTableRows(items, true)}</tbody>
+                                    <tbody>
+                                        {renderTableRows(items, true)}
+                                    </tbody>
                                 </table>
                             </div>
                         </div>
@@ -876,7 +880,7 @@ export default function PolicyAlgorithm() {
                 {/* Header */}
                 <header className="mb-8">
                     <h1
-                        className="mb-2 text-[2.8rem] font-bold tracking-wide uppercase text-foreground"
+                        className="mb-2 text-[2.8rem] font-bold tracking-wide text-foreground uppercase"
                         style={{ fontFamily: "'Unbounded', sans-serif" }}
                     >
                         Domain Policy
@@ -1401,35 +1405,37 @@ export default function PolicyAlgorithm() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="flex flex-col gap-1.5 rounded-lg border border-[rgba(34,197,94,0.3)] bg-[rgba(34,197,94,0.06)] p-4 dark:bg-white/5">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                                        <span className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
                                             Visit Count
                                         </span>
                                         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-able-green/10 text-able-green">
                                             <Globe size={15} />
                                         </div>
                                     </div>
-                                    <p className="text-2xl font-bold tabular-nums text-foreground">
+                                    <p className="text-2xl font-bold text-foreground tabular-nums">
                                         {visitMetrics.visit_count.toLocaleString()}
                                     </p>
                                     <p className="text-xs text-muted-foreground">
-                                        Counts the number of times this domain has been visited.
+                                        Counts the number of times this domain
+                                        has been visited.
                                     </p>
                                 </div>
 
                                 <div className="flex flex-col gap-1.5 rounded-lg border border-[rgba(34,197,94,0.3)] bg-[rgba(34,197,94,0.06)] p-4 dark:bg-white/5">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                                        <span className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
                                             Active Users
                                         </span>
                                         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-500">
                                             <Users size={15} />
                                         </div>
                                     </div>
-                                    <p className="text-2xl font-bold tabular-nums text-foreground">
+                                    <p className="text-2xl font-bold text-foreground tabular-nums">
                                         {visitMetrics.active_users.toLocaleString()}
                                     </p>
                                     <p className="text-xs text-muted-foreground">
-                                        Counts users currently active on this domain (last 15m).
+                                        Counts users currently active on this
+                                        domain (last 15m).
                                     </p>
                                 </div>
                             </div>

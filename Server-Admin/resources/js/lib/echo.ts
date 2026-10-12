@@ -47,9 +47,26 @@ export function getEcho(): Echo<'reverb'> | null {
     return echo;
 }
 
-export type MessageSentPayload = {
-    message: ChatMessageData;
-};
+export type MessageSentPayload = { message: ChatMessageData } | ChatMessageData;
+
+function extractMessage(payload: unknown): ChatMessageData | null {
+    if (!payload || typeof payload !== 'object') {
+        return null;
+    }
+
+    const candidate =
+        'message' in payload &&
+        payload.message &&
+        typeof payload.message === 'object'
+            ? (payload as { message: ChatMessageData }).message
+            : (payload as ChatMessageData);
+
+    if (candidate && typeof candidate.id === 'number') {
+        return candidate;
+    }
+
+    return null;
+}
 
 /**
  * Subscribe to a conversation channel and invoke the handler for each
@@ -67,7 +84,11 @@ export function subscribeToConversation(
 
     const channel = instance.private(`chat.${conversationId}`);
     channel.listen('.message.sent', (payload: MessageSentPayload) => {
-        onMessage(payload.message);
+        const msg = extractMessage(payload);
+
+        if (msg) {
+            onMessage(msg);
+        }
     });
 
     return () => {
@@ -92,7 +113,11 @@ export function subscribeToUser(
 
     const channel = instance.private(`user.${userId}`);
     channel.listen('.message.sent', (payload: MessageSentPayload) => {
-        onMessage(payload.message);
+        const msg = extractMessage(payload);
+
+        if (msg) {
+            onMessage(msg);
+        }
     });
 
     return () => {
@@ -100,4 +125,3 @@ export function subscribeToUser(
         instance.leaveChannel(`private-user.${userId}`);
     };
 }
-

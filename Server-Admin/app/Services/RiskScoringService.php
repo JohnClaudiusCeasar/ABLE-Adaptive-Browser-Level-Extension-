@@ -49,6 +49,7 @@ class RiskScoringService
     ];
 
     private const MAX_PATTERN_LENGTH = 500;
+
     private const MAX_TEXT_SLICE = 10000;
 
     // (1) chars to inspect before and after a match
@@ -117,7 +118,7 @@ class RiskScoringService
      *
      * @param  string|null  $text  Extracted content (null for unscannable files).
      * @param  array<int, array<string, mixed>>  $patterns  Risk patterns as serialized
-     *        by RiskPatternController (snake_case, criteria_pattern_items with sub_items).
+     *                                                      by RiskPatternController (snake_case, criteria_pattern_items with sub_items).
      * @param  array<string, mixed>|null  $pageContext  Page signals from the extension.
      * @return array{pattern_score: int, flagged_items: list<array{label: string, count: int, weight: int}>, suppressed: list<array{label: string, reason: string}>}
      */
@@ -212,6 +213,7 @@ class RiskScoringService
                 if ($totalScore >= 100) {
                     break;
                 }
+
                 continue;
             }
 
@@ -276,7 +278,7 @@ class RiskScoringService
                     foreach ($segments as $segment) {
                         $segHasMatch = false;
                         foreach ($matchedCriteriaItems as $mc) {
-                            if ($mc['regex'] && $this->safeTestPattern($mc['regex'], $segment['text']) > 0) {
+                            if ($this->safeTestPattern($mc['regex'], $segment['text']) > 0) {
                                 $segHasMatch = true;
                                 break;
                             }
@@ -303,9 +305,7 @@ class RiskScoringService
             } elseif (count($matchedCriteriaItems) > 0) {
                 // Criteria not fully satisfied - score matched sub-items individually
                 foreach ($matchedCriteriaItems as $matched) {
-                    $itemContextMod = $matched['regex']
-                        ? $this->getFirstMatchContextModifier($matched['regex'], $text)
-                        : 1.0;
+                    $itemContextMod = $this->getFirstMatchContextModifier((string) $matched['regex'], $text);
 
                     // F-01: per-item schema modifier using the parent pattern's
                     // negation/amplifier context fields.
@@ -321,7 +321,7 @@ class RiskScoringService
 
                     if ($itemAdjustedScore > 0) {
                         $totalScore += $recordRegexMatch(
-                            (string) ($matched['regex'] ?? ('criteria_item_'.$matched['title'])),
+                            (string) $matched['regex'],
                             $matched['count'],
                             $itemAdjustedScore,
                             $matched['title']

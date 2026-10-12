@@ -66,14 +66,14 @@ type GroupField = 'none' | 'role' | 'status';
 
 function formatTimestamp(ts: string | null): string {
     if (!ts) {
-return '—';
-}
+        return '—';
+    }
 
     const d = new Date(ts);
 
     if (isNaN(d.getTime())) {
-return ts;
-}
+        return ts;
+    }
 
     return d.toLocaleString(undefined, {
         year: 'numeric',
@@ -118,8 +118,8 @@ export default function TeamUsersPage({ team = [] }: TeamPageProps) {
         e.preventDefault();
 
         if (!editingUser) {
-return;
-}
+            return;
+        }
 
         editForm.patch(`/users/team/${editingUser.id}`, {
             preserveScroll: true,
@@ -130,12 +130,16 @@ return;
     };
 
     const handleToggleBlock = (user: TeamUser) => {
-        router.patch(`/users/team/${user.id}/toggle-block`, {}, {
-            preserveScroll: true,
-            onSuccess: () => {
-                setBlockingUser(null);
+        router.patch(
+            `/users/team/${user.id}/toggle-block`,
+            {},
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setBlockingUser(null);
+                },
             },
-        });
+        );
     };
 
     // Filter and sort
@@ -207,7 +211,10 @@ return;
         return groups;
     }, [processedTeam, groupField]);
 
-    const totalPages = Math.max(1, Math.ceil(processedTeam.length / ROWS_PER_PAGE));
+    const totalPages = Math.max(
+        1,
+        Math.ceil(processedTeam.length / ROWS_PER_PAGE),
+    );
     const safePage = Math.min(currentPage, totalPages);
     const paginatedTeam = useMemo(() => {
         const start = (safePage - 1) * ROWS_PER_PAGE;
@@ -332,8 +339,8 @@ return;
 
     function renderGroupedContent() {
         if (!groupedTeam) {
-return null;
-}
+            return null;
+        }
 
         const groupKeys = Object.keys(groupedTeam);
 
@@ -364,7 +371,8 @@ return null;
                                     {groupKey}
                                 </span>
                                 <span className="rounded-full bg-able-green/15 px-2.5 py-0.5 text-xs font-semibold text-able-green">
-                                    {items.length} {items.length === 1 ? 'Member' : 'Members'}
+                                    {items.length}{' '}
+                                    {items.length === 1 ? 'Member' : 'Members'}
                                 </span>
                             </div>
 
@@ -397,12 +405,14 @@ return null;
                             <div
                                 className={`overflow-x-auto ${
                                     isScrollable
-                                        ? 'max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-[rgba(34,197,94,0.4)] scrollbar-track-transparent'
+                                        ? 'max-h-[300px] scrollbar-thin scrollbar-thumb-[rgba(34,197,94,0.4)] scrollbar-track-transparent overflow-y-auto'
                                         : ''
                                 }`}
                             >
                                 <table className="w-full table-fixed border-collapse text-[0.85rem]">
-                                    <tbody>{renderTableRows(items, true)}</tbody>
+                                    <tbody>
+                                        {renderTableRows(items, true)}
+                                    </tbody>
                                 </table>
                             </div>
                         </div>
@@ -441,13 +451,14 @@ return null;
                 {/* Header */}
                 <header className="mb-8">
                     <h1
-                        className="mb-2.5 text-[2.8rem] font-bold tracking-wide uppercase text-foreground"
+                        className="mb-2.5 text-[2.8rem] font-bold tracking-wide text-foreground uppercase"
                         style={{ fontFamily: "'Unbounded', sans-serif" }}
                     >
                         Able Teams
                     </h1>
                     <p className="mb-6 text-[1.05rem] text-muted-foreground">
-                        All registered administrative accounts and staff members of the server website.
+                        All registered administrative accounts and staff members
+                        of the server website.
                     </p>
 
                     {/* Search + Sort + Group row */}
@@ -481,16 +492,36 @@ return null;
                                 }}
                                 className="cursor-pointer appearance-none rounded-full border border-black/10 bg-black/5 py-2.5 pr-8 pl-9 text-[0.85rem] text-foreground transition-all duration-200 outline-none hover:border-able-green/50 hover:bg-black/10 focus:border-able-green focus:ring-1 focus:ring-able-green/30 dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)] dark:hover:bg-white/5"
                             >
-                                <option value="id__asc">Sort: ID (Ascending)</option>
-                                <option value="id__desc">Sort: ID (Descending)</option>
-                                <option value="name__asc">Sort: Name (A-Z)</option>
-                                <option value="name__desc">Sort: Name (Z-A)</option>
-                                <option value="email__asc">Sort: Email (A-Z)</option>
-                                <option value="email__desc">Sort: Email (Z-A)</option>
-                                <option value="role__asc">Sort: Role (A-Z)</option>
-                                <option value="role__desc">Sort: Role (Z-A)</option>
-                                <option value="status__asc">Sort: Status (Active First)</option>
-                                <option value="status__desc">Sort: Status (Blocked First)</option>
+                                <option value="id__asc">
+                                    Sort: ID (Ascending)
+                                </option>
+                                <option value="id__desc">
+                                    Sort: ID (Descending)
+                                </option>
+                                <option value="name__asc">
+                                    Sort: Name (A-Z)
+                                </option>
+                                <option value="name__desc">
+                                    Sort: Name (Z-A)
+                                </option>
+                                <option value="email__asc">
+                                    Sort: Email (A-Z)
+                                </option>
+                                <option value="email__desc">
+                                    Sort: Email (Z-A)
+                                </option>
+                                <option value="role__asc">
+                                    Sort: Role (A-Z)
+                                </option>
+                                <option value="role__desc">
+                                    Sort: Role (Z-A)
+                                </option>
+                                <option value="status__asc">
+                                    Sort: Status (Active First)
+                                </option>
+                                <option value="status__desc">
+                                    Sort: Status (Blocked First)
+                                </option>
                             </select>
                             <ArrowUpDown
                                 size={16}
@@ -569,7 +600,7 @@ return null;
                 <DialogContent className="max-w-md border border-[rgba(34,197,94,0.4)] bg-background/95 backdrop-blur-xl">
                     <DialogHeader>
                         <DialogTitle
-                            className="text-xl font-bold uppercase tracking-wide"
+                            className="text-xl font-bold tracking-wide uppercase"
                             style={{ fontFamily: "'Unbounded', sans-serif" }}
                         >
                             Team Member Profile
@@ -586,7 +617,7 @@ return null;
                                     {viewingUser.name.charAt(0).toUpperCase()}
                                 </div>
                                 <div className="flex flex-col">
-                                    <span className="font-semibold text-foreground text-base">
+                                    <span className="text-base font-semibold text-foreground">
                                         {viewingUser.name}
                                     </span>
                                     <span className="font-mono text-xs text-muted-foreground">
@@ -597,13 +628,18 @@ return null;
 
                             <div className="flex flex-col gap-2 rounded-lg border border-black/10 bg-black/5 p-3.5 text-xs dark:border-white/10 dark:bg-white/5">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-muted-foreground">Account Role:</span>
+                                    <span className="text-muted-foreground">
+                                        Account Role:
+                                    </span>
                                     <span className="font-semibold text-foreground">
-                                        {viewingUser.role ?? 'Unassigned (None)'}
+                                        {viewingUser.role ??
+                                            'Unassigned (None)'}
                                     </span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                    <span className="text-muted-foreground">Account Status:</span>
+                                    <span className="text-muted-foreground">
+                                        Account Status:
+                                    </span>
                                     <span
                                         className={
                                             viewingUser.is_blocked
@@ -611,19 +647,29 @@ return null;
                                                 : 'font-semibold text-able-green'
                                         }
                                     >
-                                        {viewingUser.is_blocked ? 'Blocked' : 'Active'}
+                                        {viewingUser.is_blocked
+                                            ? 'Blocked'
+                                            : 'Active'}
                                     </span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                    <span className="text-muted-foreground">Two-Factor Auth:</span>
+                                    <span className="text-muted-foreground">
+                                        Two-Factor Auth:
+                                    </span>
                                     <span className="font-semibold text-foreground">
-                                        {viewingUser.two_factor_enabled ? 'Enabled' : 'Disabled'}
+                                        {viewingUser.two_factor_enabled
+                                            ? 'Enabled'
+                                            : 'Disabled'}
                                     </span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                    <span className="text-muted-foreground">Created Date:</span>
+                                    <span className="text-muted-foreground">
+                                        Created Date:
+                                    </span>
                                     <span className="font-semibold text-foreground tabular-nums">
-                                        {formatTimestamp(viewingUser.created_at)}
+                                        {formatTimestamp(
+                                            viewingUser.created_at,
+                                        )}
                                     </span>
                                 </div>
                             </div>
@@ -649,7 +695,7 @@ return null;
                 <DialogContent className="max-w-md border border-[rgba(34,197,94,0.4)] bg-background/95 backdrop-blur-xl">
                     <DialogHeader>
                         <DialogTitle
-                            className="text-xl font-bold uppercase tracking-wide"
+                            className="text-xl font-bold tracking-wide uppercase"
                             style={{ fontFamily: "'Unbounded', sans-serif" }}
                         >
                             Edit Team Member
@@ -659,13 +705,18 @@ return null;
                         </DialogDescription>
                     </DialogHeader>
 
-                    <form onSubmit={handleEditSubmit} className="space-y-4 pt-2">
+                    <form
+                        onSubmit={handleEditSubmit}
+                        className="space-y-4 pt-2"
+                    >
                         <div className="space-y-1.5">
                             <Label htmlFor="name">Full Name</Label>
                             <Input
                                 id="name"
                                 value={editForm.data.name}
-                                onChange={(e) => editForm.setData('name', e.target.value)}
+                                onChange={(e) =>
+                                    editForm.setData('name', e.target.value)
+                                }
                                 required
                             />
                             <InputError message={editForm.errors.name} />
@@ -677,7 +728,9 @@ return null;
                                 id="email"
                                 type="email"
                                 value={editForm.data.email}
-                                onChange={(e) => editForm.setData('email', e.target.value)}
+                                onChange={(e) =>
+                                    editForm.setData('email', e.target.value)
+                                }
                                 required
                             />
                             <InputError message={editForm.errors.email} />
@@ -689,7 +742,9 @@ return null;
                                 id="role"
                                 placeholder="e.g. Admin, Analyst, Auditor"
                                 value={editForm.data.role}
-                                onChange={(e) => editForm.setData('role', e.target.value)}
+                                onChange={(e) =>
+                                    editForm.setData('role', e.target.value)
+                                }
                             />
                             <InputError message={editForm.errors.role} />
                         </div>
@@ -722,10 +777,12 @@ return null;
                 <DialogContent className="max-w-md border border-[rgba(34,197,94,0.4)] bg-background/95 backdrop-blur-xl">
                     <DialogHeader>
                         <DialogTitle
-                            className="text-xl font-bold uppercase tracking-wide"
+                            className="text-xl font-bold tracking-wide uppercase"
                             style={{ fontFamily: "'Unbounded', sans-serif" }}
                         >
-                            {blockingUser?.is_blocked ? 'Unblock User' : 'Block User Account'}
+                            {blockingUser?.is_blocked
+                                ? 'Unblock User'
+                                : 'Block User Account'}
                         </DialogTitle>
                         <DialogDescription className="text-sm text-muted-foreground">
                             {blockingUser?.is_blocked
@@ -742,15 +799,23 @@ return null;
                             Cancel
                         </Button>
                         <Button
-                            variant={blockingUser?.is_blocked ? 'default' : 'destructive'}
-                            onClick={() => blockingUser && handleToggleBlock(blockingUser)}
+                            variant={
+                                blockingUser?.is_blocked
+                                    ? 'default'
+                                    : 'destructive'
+                            }
+                            onClick={() =>
+                                blockingUser && handleToggleBlock(blockingUser)
+                            }
                             className={
                                 blockingUser?.is_blocked
                                     ? 'bg-able-green text-white hover:bg-able-green-muted'
                                     : undefined
                             }
                         >
-                            {blockingUser?.is_blocked ? 'Confirm Unblock' : 'Confirm Block'}
+                            {blockingUser?.is_blocked
+                                ? 'Confirm Unblock'
+                                : 'Confirm Block'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

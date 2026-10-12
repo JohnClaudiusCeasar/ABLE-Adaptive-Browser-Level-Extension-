@@ -7,7 +7,6 @@ use App\Models\EgressEvent;
 use App\Models\ExtensionLifecycle;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class SettingsStatusService
 {

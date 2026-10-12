@@ -49,7 +49,7 @@ class DomainVisit extends Model
      */
     public function resolvedStatus(): string
     {
-        return $this->status ?? $this->domainPolicy?->domain_status ?? 'unlisted';
+        return $this->status ?? $this->domainPolicy->domain_status ?? 'unlisted';
     }
 
     /**

@@ -1,11 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import {
-    ArrowLeft,
-    Search,
-    Filter,
-    ArrowUpDown,
-    Users,
-} from 'lucide-react';
+import { ArrowLeft, Search, Filter, ArrowUpDown, Users } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { TablePagination } from '@/components/pagination';
 import { Badge } from '@/components/ui/badge';
@@ -48,12 +42,12 @@ function getPolicyBadgeVariant(
     status: string,
 ): 'glass-safe' | 'glass-unsafe' | 'glass-unlisted' {
     if (status === 'Sanctioned' || status === 'Approved') {
-return 'glass-safe';
-}
+        return 'glass-safe';
+    }
 
     if (status === 'Unapproved' || status === 'Blacklisted') {
-return 'glass-unsafe';
-}
+        return 'glass-unsafe';
+    }
 
     return 'glass-unlisted';
 }
@@ -63,15 +57,17 @@ const ROWS_PER_PAGE = 10;
 export default function ShadowApps({ shadowCatalog }: ShadowAppsProps) {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('all');
-    const [sortOption, setSortOption] = useState<'risk_desc' | 'risk_asc' | 'users_desc' | 'visits_desc'>('risk_desc');
+    const [sortOption, setSortOption] = useState<
+        'risk_desc' | 'risk_asc' | 'users_desc' | 'visits_desc'
+    >('risk_desc');
     const [currentPage, setCurrentPage] = useState(1);
 
     const availableCategories = useMemo(() => {
         const set = new Set<string>();
         shadowCatalog.forEach((item) => {
             if (item.category) {
-set.add(item.category);
-}
+                set.add(item.category);
+            }
         });
 
         return Array.from(set);
@@ -93,7 +89,8 @@ set.add(item.category);
         if (selectedCategory !== 'all') {
             items = items.filter(
                 (item) =>
-                    item.category.toLowerCase() === selectedCategory.toLowerCase(),
+                    item.category.toLowerCase() ===
+                    selectedCategory.toLowerCase(),
             );
         }
 
@@ -115,7 +112,10 @@ set.add(item.category);
         return items;
     }, [shadowCatalog, searchQuery, selectedCategory, sortOption]);
 
-    const totalPages = Math.max(1, Math.ceil(processedItems.length / ROWS_PER_PAGE));
+    const totalPages = Math.max(
+        1,
+        Math.ceil(processedItems.length / ROWS_PER_PAGE),
+    );
     const safePage = Math.min(currentPage, totalPages);
     const paginatedItems = useMemo(() => {
         const start = (safePage - 1) * ROWS_PER_PAGE;
@@ -140,13 +140,16 @@ set.add(item.category);
                         <div>
                             <h1
                                 className="mb-2.5 text-[2.8rem] font-bold tracking-wide text-foreground uppercase"
-                                style={{ fontFamily: "'Unbounded', sans-serif" }}
+                                style={{
+                                    fontFamily: "'Unbounded', sans-serif",
+                                }}
                             >
                                 SHADOW CATALOG
                             </h1>
                             <p className="max-w-[760px] text-[1.05rem] leading-relaxed text-muted-foreground">
-                                Complete catalog of unapproved, unlisted, and reviewed cloud applications
-                                intercepted across your network.
+                                Complete catalog of unapproved, unlisted, and
+                                reviewed cloud applications intercepted across
+                                your network.
                             </p>
                         </div>
                     </div>
@@ -160,7 +163,8 @@ set.add(item.category);
                                 Total Monitored:
                             </span>
                             <span className="rounded-full bg-able-green/15 px-2.5 py-0.5 text-xs font-semibold text-able-green">
-                                {formatMetricNumber(processedItems.length)} Applications
+                                {formatMetricNumber(processedItems.length)}{' '}
+                                Applications
                             </span>
                         </div>
 
@@ -209,15 +213,25 @@ set.add(item.category);
                                 <select
                                     value={sortOption}
                                     onChange={(e) => {
-                                        setSortOption(e.target.value as typeof sortOption);
+                                        setSortOption(
+                                            e.target.value as typeof sortOption,
+                                        );
                                         setCurrentPage(1);
                                     }}
                                     className="cursor-pointer appearance-none rounded-full border border-black/10 bg-black/5 py-1.5 pr-7 pl-8 text-xs text-foreground outline-none hover:border-able-green/50 dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]"
                                 >
-                                    <option value="risk_desc">Sort: Risk (High-Low)</option>
-                                    <option value="risk_asc">Sort: Risk (Low-High)</option>
-                                    <option value="users_desc">Sort: Users (Most)</option>
-                                    <option value="visits_desc">Sort: Visits (Most)</option>
+                                    <option value="risk_desc">
+                                        Sort: Risk (High-Low)
+                                    </option>
+                                    <option value="risk_asc">
+                                        Sort: Risk (Low-High)
+                                    </option>
+                                    <option value="users_desc">
+                                        Sort: Users (Most)
+                                    </option>
+                                    <option value="visits_desc">
+                                        Sort: Visits (Most)
+                                    </option>
                                 </select>
                                 <ArrowUpDown
                                     size={13}
@@ -262,21 +276,22 @@ set.add(item.category);
                                             colSpan={7}
                                             className="py-10 text-center text-muted-foreground"
                                         >
-                                            No shadow applications match your search.
+                                            No shadow applications match your
+                                            search.
                                         </td>
                                     </tr>
                                 ) : (
                                     paginatedItems.map((row) => (
                                         <tr
                                             key={row.id}
-                                            className="border-b border-[rgba(34,197,94,0.3)] transition-colors hover:bg-black/5 last:border-b-0 dark:hover:bg-white/5"
+                                            className="border-b border-[rgba(34,197,94,0.3)] transition-colors last:border-b-0 hover:bg-black/5 dark:hover:bg-white/5"
                                         >
                                             <td className="py-3.5 pr-2.5">
                                                 <div className="flex flex-col">
                                                     <span className="font-semibold text-foreground">
                                                         {row.app}
                                                     </span>
-                                                    <span className="text-xs text-muted-foreground font-mono">
+                                                    <span className="font-mono text-xs text-muted-foreground">
                                                         {row.domain}
                                                     </span>
                                                 </div>
@@ -305,15 +320,19 @@ set.add(item.category);
                                                         className="font-semibold tabular-nums"
                                                         title={row.users.toLocaleString()}
                                                     >
-                                                        {formatMetricNumber(row.users)}
+                                                        {formatMetricNumber(
+                                                            row.users,
+                                                        )}
                                                     </span>
                                                 </div>
                                             </td>
                                             <td
-                                                className="py-3.5 pr-2.5 tabular-nums text-foreground"
+                                                className="py-3.5 pr-2.5 text-foreground tabular-nums"
                                                 title={row.visit_count.toLocaleString()}
                                             >
-                                                {formatMetricNumber(row.visit_count)}
+                                                {formatMetricNumber(
+                                                    row.visit_count,
+                                                )}
                                             </td>
                                             <td className="py-3.5 pr-2.5">
                                                 <Badge
@@ -329,7 +348,7 @@ set.add(item.category);
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
-                                                        className="h-7 px-2.5 text-xs border-[rgba(34,197,94,0.5)] hover:bg-[rgba(34,197,94,0.1)]"
+                                                        className="h-7 border-[rgba(34,197,94,0.5)] px-2.5 text-xs hover:bg-[rgba(34,197,94,0.1)]"
                                                     >
                                                         Policy
                                                     </Button>

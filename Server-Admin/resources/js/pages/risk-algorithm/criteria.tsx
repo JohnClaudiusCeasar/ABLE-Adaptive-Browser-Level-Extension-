@@ -85,7 +85,7 @@ export default function CriteriaPatternConfiguration() {
                 {/* Header */}
                 <header className="mb-8">
                     <h1
-                        className="mb-3 text-[2.8rem] font-bold tracking-wide uppercase text-foreground"
+                        className="mb-3 text-[2.8rem] font-bold tracking-wide text-foreground uppercase"
                         style={{ fontFamily: "'Unbounded', sans-serif" }}
                     >
                         Risk Policy
@@ -137,7 +137,6 @@ export default function CriteriaPatternConfiguration() {
                         </a>
                     </div>
                 </div>
-
 
                 {/* Criteria Card Grid */}
                 {filteredPatterns.length > 0 ? (
@@ -205,7 +204,8 @@ export default function CriteriaPatternConfiguration() {
                                                     if (hasFlex) {
                                                         return (
                                                             <span className="rounded-full border border-[#36cfc9]/30 bg-[rgba(54,207,201,0.15)] px-2 py-0.5 text-xs font-semibold text-[#36cfc9]">
-                                                                All Flexible (OR)
+                                                                All Flexible
+                                                                (OR)
                                                             </span>
                                                         );
                                                     }

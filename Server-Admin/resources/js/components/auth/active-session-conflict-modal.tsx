@@ -28,7 +28,12 @@ export function ActiveSessionConflictModal({
     token,
     errorMessage,
 }: Props) {
-    const { data, setData, post, processing, errors, reset } = useForm({
+    const { data, setData, post, processing, errors, reset } = useForm<{
+        email: string;
+        password: string;
+        token: string;
+        break_glass_password?: string;
+    }>({
         email: email || '',
         password: '',
         token: token || '',
@@ -55,7 +60,9 @@ export function ActiveSessionConflictModal({
                         Active Session Detected
                     </DialogTitle>
                     <DialogDescription className="text-sm text-gray-300">
-                        Your account is actively being used by another device. If this is your account, please confirm if this is you by entering your password.
+                        Your account is actively being used by another device.
+                        If this is your account, please confirm if this is you
+                        by entering your password.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -67,7 +74,9 @@ export function ActiveSessionConflictModal({
                             required
                             autoFocus
                             value={data.password}
-                            onChange={(e) => setData('password', e.target.value)}
+                            onChange={(e) =>
+                                setData('password', e.target.value)
+                            }
                             placeholder="Enter your password to confirm"
                             className="border-white/10 bg-white/5"
                         />

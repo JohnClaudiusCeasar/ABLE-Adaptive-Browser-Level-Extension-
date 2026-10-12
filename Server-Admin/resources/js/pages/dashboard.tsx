@@ -365,9 +365,16 @@ export default function Dashboard({
                                                 </td>
                                                 <td
                                                     className="py-3 pr-2.5"
-                                                    title={row.fileName ?? undefined}
+                                                    title={
+                                                        row.fileName ??
+                                                        undefined
+                                                    }
                                                 >
-                                                    {row.fileName ? truncateFileName(row.fileName) : '—'}
+                                                    {row.fileName
+                                                        ? truncateFileName(
+                                                              row.fileName,
+                                                          )
+                                                        : '—'}
                                                 </td>
                                                 <td className="py-3">
                                                     {row.action}

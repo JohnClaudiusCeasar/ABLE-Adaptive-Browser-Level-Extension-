@@ -138,8 +138,8 @@ export default function Notifications() {
             : notifications;
         base.forEach((n) => {
             if (n.source in counts) {
-counts[n.source]++;
-}
+                counts[n.source]++;
+            }
         });
 
         return counts;
@@ -217,7 +217,7 @@ counts[n.source]++;
                                     className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[0.8rem] font-medium transition-all duration-150 ${
                                         isActive
                                             ? `${sourceBadgeClasses[source]} scale-105 ring-1 ring-[rgba(34,197,94,0.3)]`
-                                            : 'bg-white/3 text-muted-foreground opacity-50 hover:opacity-75 hover:bg-white/5 hover:text-foreground'
+                                            : 'bg-white/3 text-muted-foreground opacity-50 hover:bg-white/5 hover:text-foreground hover:opacity-75'
                                     } `}
                                 >
                                     <Icon
@@ -229,7 +229,7 @@ counts[n.source]++;
                                     {sourceLabels[source]}
                                     {count > 0 && (
                                         <span
-                                            className={`ml-0.5 rounded-full px-1.5 py-0.5 text-[0.65rem] font-semibold leading-none ${
+                                            className={`ml-0.5 rounded-full px-1.5 py-0.5 text-[0.65rem] leading-none font-semibold ${
                                                 isActive
                                                     ? 'bg-white/15'
                                                     : 'bg-white/8'
@@ -296,8 +296,7 @@ counts[n.source]++;
                 ) : (
                     <div className="flex flex-col gap-3">
                         {filteredNotifications.map((notification) => {
-                            const SourceIcon =
-                                sourceIcons[notification.source];
+                            const SourceIcon = sourceIcons[notification.source];
                             const isUnread =
                                 notification.unread &&
                                 !optimisticReadIds.has(notification.id);
@@ -344,7 +343,8 @@ counts[n.source]++;
                                                     className={`shrink-0 px-1.5 py-0.5 text-[0.65rem] font-medium transition-colors ${
                                                         isUnread
                                                             ? sourceBadgeClasses[
-                                                                  notification.source
+                                                                  notification
+                                                                      .source
                                                               ]
                                                             : 'border-black/10 bg-black/5 text-muted-foreground/70 dark:border-white/10 dark:bg-white/5'
                                                     }`}
@@ -386,9 +386,7 @@ counts[n.source]++;
                                                         ? 'text-muted-foreground'
                                                         : 'text-muted-foreground/60'
                                                 }`}
-                                                title={
-                                                    notification.description
-                                                }
+                                                title={notification.description}
                                             >
                                                 {notification.description}
                                             </p>

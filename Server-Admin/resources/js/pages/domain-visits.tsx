@@ -147,23 +147,33 @@ export default function DomainVisits() {
             return (
                 <tr
                     key={i}
-                    className="border-b border-[rgba(34,197,94,0.3)] transition-colors hover:bg-black/5 last:border-b-0 dark:hover:bg-white/5"
+                    className="border-b border-[rgba(34,197,94,0.3)] transition-colors last:border-b-0 hover:bg-black/5 dark:hover:bg-white/5"
                 >
-                    <td className={`py-3.5 pr-2.5 ${isGrouped ? 'w-[16%] pl-4' : ''}`}>
+                    <td
+                        className={`py-3.5 pr-2.5 ${isGrouped ? 'w-[16%] pl-4' : ''}`}
+                    >
                         {date}
                     </td>
-                    <td className={`py-3.5 pr-2.5 ${isGrouped ? 'w-[14%]' : ''}`}>
+                    <td
+                        className={`py-3.5 pr-2.5 ${isGrouped ? 'w-[14%]' : ''}`}
+                    >
                         {time}
                     </td>
-                    <td className={`py-3.5 pr-2.5 ${isGrouped ? 'w-[28%] truncate' : ''}`}>
+                    <td
+                        className={`py-3.5 pr-2.5 ${isGrouped ? 'w-[28%] truncate' : ''}`}
+                    >
                         {row.domain}
                     </td>
-                    <td className={`py-3.5 pr-2.5 ${isGrouped ? 'w-[14%]' : ''}`}>
+                    <td
+                        className={`py-3.5 pr-2.5 ${isGrouped ? 'w-[14%]' : ''}`}
+                    >
                         <Badge variant={row.status}>
                             {row.status.replace('glass-', '').toUpperCase()}
                         </Badge>
                     </td>
-                    <td className={`py-3.5 pr-2.5 ${isGrouped ? 'w-[14%]' : ''}`}>
+                    <td
+                        className={`py-3.5 pr-2.5 ${isGrouped ? 'w-[14%]' : ''}`}
+                    >
                         {row.user ?? '—'}
                     </td>
                     <td className={`py-3.5 ${isGrouped ? 'w-[14%] pr-4' : ''}`}>
@@ -245,12 +255,14 @@ export default function DomainVisits() {
                             <div
                                 className={`overflow-x-auto ${
                                     isScrollable
-                                        ? 'max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-[rgba(34,197,94,0.4)] scrollbar-track-transparent'
+                                        ? 'max-h-[300px] scrollbar-thin scrollbar-thumb-[rgba(34,197,94,0.4)] scrollbar-track-transparent overflow-y-auto'
                                         : ''
                                 }`}
                             >
                                 <table className="w-full table-fixed border-collapse text-[0.85rem]">
-                                    <tbody>{renderTableRows(items, true)}</tbody>
+                                    <tbody>
+                                        {renderTableRows(items, true)}
+                                    </tbody>
                                 </table>
                             </div>
                         </div>
@@ -298,12 +310,16 @@ export default function DomainVisits() {
                         <div>
                             <h1
                                 className="mb-2.5 text-[2.8rem] font-bold tracking-wide text-foreground uppercase"
-                                style={{ fontFamily: "'Unbounded', sans-serif" }}
+                                style={{
+                                    fontFamily: "'Unbounded', sans-serif",
+                                }}
                             >
                                 SHADOW VISITS
                             </h1>
                             <p className="max-w-[760px] text-[1.05rem] leading-relaxed text-muted-foreground">
-                                Complete timeline of domain interactions and shadow activity recorded by the ABLE browser extension.
+                                Complete timeline of domain interactions and
+                                shadow activity recorded by the ABLE browser
+                                extension.
                             </p>
                         </div>
                     </div>
@@ -318,7 +334,8 @@ export default function DomainVisits() {
                                 Total Visits:
                             </span>
                             <span className="rounded-full bg-cyan-500/15 px-2.5 py-0.5 text-xs font-semibold text-cyan-400">
-                                {formatMetricNumber(processedVisits.length)} Sessions
+                                {formatMetricNumber(processedVisits.length)}{' '}
+                                Sessions
                             </span>
                         </div>
 
@@ -346,7 +363,8 @@ export default function DomainVisits() {
                                 <select
                                     value={`${sortField}__${sortDir}`}
                                     onChange={(e) => {
-                                        const parts = e.target.value.split('__');
+                                        const parts =
+                                            e.target.value.split('__');
                                         setSortField(parts[0] as SortField);
                                         setSortDir(parts[1] as SortDir);
                                         setCurrentPage(1);
@@ -383,14 +401,20 @@ export default function DomainVisits() {
                                 <select
                                     value={groupField}
                                     onChange={(e) => {
-                                        setGroupField(e.target.value as GroupField);
+                                        setGroupField(
+                                            e.target.value as GroupField,
+                                        );
                                         setCurrentPage(1);
                                     }}
                                     className="cursor-pointer appearance-none rounded-full border border-black/10 bg-black/5 py-1.5 pr-7 pl-8 text-xs text-foreground outline-none hover:border-able-green/50 dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]"
                                 >
                                     <option value="none">Group: None</option>
-                                    <option value="status">Group: Status</option>
-                                    <option value="action">Group: Action</option>
+                                    <option value="status">
+                                        Group: Status
+                                    </option>
+                                    <option value="action">
+                                        Group: Action
+                                    </option>
                                 </select>
                                 <Layers
                                     size={13}

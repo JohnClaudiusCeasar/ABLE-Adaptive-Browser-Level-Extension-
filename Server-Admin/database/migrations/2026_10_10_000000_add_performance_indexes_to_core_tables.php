@@ -12,24 +12,42 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('login_activities', function (Blueprint $table) {
-            $table->index('created_at', 'login_activities_created_at_idx');
-            $table->index('type', 'login_activities_type_idx');
-            $table->index('email', 'login_activities_email_idx');
+            if (! Schema::hasIndex('login_activities', 'login_activities_created_at_idx')) {
+                $table->index('created_at', 'login_activities_created_at_idx');
+            }
+            if (! Schema::hasIndex('login_activities', 'login_activities_type_idx')) {
+                $table->index('type', 'login_activities_type_idx');
+            }
+            if (! Schema::hasIndex('login_activities', 'login_activities_email_idx')) {
+                $table->index('email', 'login_activities_email_idx');
+            }
         });
 
         Schema::table('domain_policies', function (Blueprint $table) {
-            $table->index('policy', 'domain_policies_policy_idx');
-            $table->index('category', 'domain_policies_category_idx');
-            $table->index('risk_score', 'domain_policies_risk_score_idx');
+            if (! Schema::hasIndex('domain_policies', 'domain_policies_policy_idx')) {
+                $table->index('policy', 'domain_policies_policy_idx');
+            }
+            if (! Schema::hasIndex('domain_policies', 'domain_policies_category_idx')) {
+                $table->index('category', 'domain_policies_category_idx');
+            }
+            if (! Schema::hasIndex('domain_policies', 'domain_policies_risk_score_idx')) {
+                $table->index('risk_score', 'domain_policies_risk_score_idx');
+            }
         });
 
         Schema::table('egress_events', function (Blueprint $table) {
-            $table->index('risk_score', 'egress_events_risk_score_idx');
-            $table->index('user_id', 'egress_events_user_id_idx');
+            if (! Schema::hasIndex('egress_events', 'egress_events_risk_score_idx')) {
+                $table->index('risk_score', 'egress_events_risk_score_idx');
+            }
+            if (! Schema::hasIndex('egress_events', 'egress_events_user_id_idx')) {
+                $table->index('user_id', 'egress_events_user_id_idx');
+            }
         });
 
         Schema::table('domain_visits', function (Blueprint $table) {
-            $table->index('user_id', 'domain_visits_user_id_idx');
+            if (! Schema::hasIndex('domain_visits', 'domain_visits_user_id_idx')) {
+                $table->index('user_id', 'domain_visits_user_id_idx');
+            }
         });
     }
 
