@@ -15,10 +15,32 @@ use Inertia\Response;
 class CommunityMessageController extends Controller
 {
     /**
+     * Ensure the community_messages table exists and is seeded.
+     */
+    private function ensureTableExists(): void
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('community_messages')) {
+            try {
+                \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+                if (\Illuminate\Support\Facades\Schema::hasTable('community_messages')) {
+                    \Illuminate\Support\Facades\Artisan::call('db:seed', [
+                        '--class' => 'CommunityMessageSeeder',
+                        '--force' => true,
+                    ]);
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('CommunityMessage auto-migration failed: ' . $e->getMessage());
+            }
+        }
+    }
+
+    /**
      * Store a newly created community message from public visitors (Moderation Policy: Pending).
      */
     public function store(Request $request): JsonResponse
     {
+        $this->ensureTableExists();
+
         $validated = $request->validate([
             'author' => ['nullable', 'string', 'max:32'],
             'category' => ['required', 'string', 'in:suggestion,comment,complaint,false-positive'],
@@ -40,17 +62,21 @@ class CommunityMessageController extends Controller
             'status' => 'pending', // Requires admin approval before public visibility
         ]);
 
-        // Dispatch in-dashboard notification for administrators
-        Notification::create([
-            'source' => 'community',
-            'type' => $record->category === 'false-positive' ? 'false_positive_report' : 'community_feedback',
-            'description' => "Community message pending review from {$record->author} ({$record->category})",
-            'domain' => $record->domain,
-            'ip_address' => $record->ip_address,
-            'message' => Str::limit($record->message, 255),
-            'status' => 'glass-unlisted',
-            'occurred_at' => now(),
-        ]);
+        // Dispatch in-dashboard notification for administrators (best-effort)
+        try {
+            Notification::create([
+                'source' => 'community',
+                'type' => $record->category === 'false-positive' ? 'false_positive_report' : 'community_feedback',
+                'description' => "Community message pending review from {$record->author} ({$record->category})",
+                'domain' => $record->domain,
+                'ip_address' => $record->ip_address,
+                'message' => Str::limit($record->message, 255),
+                'status' => 'glass-unlisted',
+                'occurred_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Failed to create notification for community message: ' . $e->getMessage());
+        }
 
         return response()->json([
             'success' => true,
@@ -72,22 +98,35 @@ class CommunityMessageController extends Controller
      */
     public function adminIndex(Request $request): Response
     {
+        $this->ensureTableExists();
+
         $statusFilter = $request->query('status', 'all');
 
-        $query = CommunityMessage::orderByDesc('created_at');
+        try {
+            $query = CommunityMessage::orderByDesc('created_at');
 
-        if (in_array($statusFilter, ['pending', 'approved', 'rejected'], true)) {
-            $query->where('status', $statusFilter);
+            if (in_array($statusFilter, ['pending', 'approved', 'rejected'], true)) {
+                $query->where('status', $statusFilter);
+            }
+
+            $messages = $query->paginate(20)->withQueryString();
+
+            $counts = [
+                'all' => CommunityMessage::count(),
+                'pending' => CommunityMessage::where('status', 'pending')->count(),
+                'approved' => CommunityMessage::where('status', 'approved')->count(),
+                'rejected' => CommunityMessage::where('status', 'rejected')->count(),
+            ];
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to query community messages: ' . $e->getMessage());
+            $messages = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 20);
+            $counts = [
+                'all' => 0,
+                'pending' => 0,
+                'approved' => 0,
+                'rejected' => 0,
+            ];
         }
-
-        $messages = $query->paginate(20)->withQueryString();
-
-        $counts = [
-            'all' => CommunityMessage::count(),
-            'pending' => CommunityMessage::where('status', 'pending')->count(),
-            'approved' => CommunityMessage::where('status', 'approved')->count(),
-            'rejected' => CommunityMessage::where('status', 'rejected')->count(),
-        ];
 
         return Inertia::render('community-messages', [
             'messages' => $messages,

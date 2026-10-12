@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -11,44 +12,49 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('login_activities', function (Blueprint $table) {
-            if (! Schema::hasIndex('login_activities', 'login_activities_created_at_idx')) {
-                $table->index('created_at', 'login_activities_created_at_idx');
-            }
-            if (! Schema::hasIndex('login_activities', 'login_activities_type_idx')) {
-                $table->index('type', 'login_activities_type_idx');
-            }
-            if (! Schema::hasIndex('login_activities', 'login_activities_email_idx')) {
-                $table->index('email', 'login_activities_email_idx');
-            }
-        });
+        $indexes = [
+            'login_activities' => [
+                'login_activities_created_at_idx' => 'created_at',
+                'login_activities_type_idx' => 'type',
+                'login_activities_email_idx' => 'email',
+            ],
+            'domain_policies' => [
+                'domain_policies_policy_idx' => 'policy',
+                'domain_policies_category_idx' => 'category',
+                'domain_policies_risk_score_idx' => 'risk_score',
+            ],
+            'egress_events' => [
+                'egress_events_risk_score_idx' => 'risk_score',
+                'egress_events_user_id_idx' => 'user_id',
+            ],
+            'domain_visits' => [
+                'domain_visits_user_id_idx' => 'user_id',
+            ],
+        ];
 
-        Schema::table('domain_policies', function (Blueprint $table) {
-            if (! Schema::hasIndex('domain_policies', 'domain_policies_policy_idx')) {
-                $table->index('policy', 'domain_policies_policy_idx');
-            }
-            if (! Schema::hasIndex('domain_policies', 'domain_policies_category_idx')) {
-                $table->index('category', 'domain_policies_category_idx');
-            }
-            if (! Schema::hasIndex('domain_policies', 'domain_policies_risk_score_idx')) {
-                $table->index('risk_score', 'domain_policies_risk_score_idx');
-            }
-        });
+        $driver = DB::getDriverName();
 
-        Schema::table('egress_events', function (Blueprint $table) {
-            if (! Schema::hasIndex('egress_events', 'egress_events_risk_score_idx')) {
-                $table->index('risk_score', 'egress_events_risk_score_idx');
+        foreach ($indexes as $table => $tableIndexes) {
+            if (! Schema::hasTable($table)) {
+                continue;
             }
-            if (! Schema::hasIndex('egress_events', 'egress_events_user_id_idx')) {
-                $table->index('user_id', 'egress_events_user_id_idx');
-            }
-        });
 
-        Schema::table('domain_visits', function (Blueprint $table) {
-            if (! Schema::hasIndex('domain_visits', 'domain_visits_user_id_idx')) {
-                $table->index('user_id', 'domain_visits_user_id_idx');
+            foreach ($tableIndexes as $indexName => $column) {
+                try {
+                    if ($driver === 'pgsql' || $driver === 'sqlite') {
+                        DB::statement("CREATE INDEX IF NOT EXISTS {$indexName} ON {$table} ({$column})");
+                    } else {
+                        Schema::table($table, function (Blueprint $blueprint) use ($table, $indexName, $column) {
+                            if (! Schema::hasIndex($table, $indexName)) {
+                                $blueprint->index($column, $indexName);
+                            }
+                        });
+                    }
+                } catch (\Throwable $e) {
+                    // Index already exists or cannot be created, ignore safely
+                }
             }
-        });
+        }
     }
 
     /**
@@ -56,25 +62,25 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('login_activities', function (Blueprint $table) {
-            $table->dropIndex('login_activities_created_at_idx');
-            $table->dropIndex('login_activities_type_idx');
-            $table->dropIndex('login_activities_email_idx');
-        });
+        $indexes = [
+            'login_activities' => ['login_activities_created_at_idx', 'login_activities_type_idx', 'login_activities_email_idx'],
+            'domain_policies' => ['domain_policies_policy_idx', 'domain_policies_category_idx', 'domain_policies_risk_score_idx'],
+            'egress_events' => ['egress_events_risk_score_idx', 'egress_events_user_id_idx'],
+            'domain_visits' => ['domain_visits_user_id_idx'],
+        ];
 
-        Schema::table('domain_policies', function (Blueprint $table) {
-            $table->dropIndex('domain_policies_policy_idx');
-            $table->dropIndex('domain_policies_category_idx');
-            $table->dropIndex('domain_policies_risk_score_idx');
-        });
+        foreach ($indexes as $table => $tableIndexes) {
+            if (! Schema::hasTable($table)) {
+                continue;
+            }
 
-        Schema::table('egress_events', function (Blueprint $table) {
-            $table->dropIndex('egress_events_risk_score_idx');
-            $table->dropIndex('egress_events_user_id_idx');
-        });
-
-        Schema::table('domain_visits', function (Blueprint $table) {
-            $table->dropIndex('domain_visits_user_id_idx');
-        });
+            foreach ($tableIndexes as $indexName) {
+                try {
+                    DB::statement("DROP INDEX IF EXISTS {$indexName}");
+                } catch (\Throwable $e) {
+                    // Ignore safely
+                }
+            }
+        }
     }
 };

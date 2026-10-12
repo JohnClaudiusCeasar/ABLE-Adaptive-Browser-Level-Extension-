@@ -30,6 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->validateCsrfTokens(except: [
             'session/terminate-beacon',
+            'community-messages',
         ]);
 
         $middleware->web(prepend: [

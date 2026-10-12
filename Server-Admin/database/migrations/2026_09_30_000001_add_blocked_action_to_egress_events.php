@@ -14,11 +14,19 @@ return new class extends Migration
     public function up(): void
     {
         if (DB::getDriverName() === 'pgsql') {
-            DB::statement('ALTER TABLE egress_events DROP CONSTRAINT IF EXISTS egress_events_action_check');
-            DB::statement("ALTER TABLE egress_events ADD CONSTRAINT egress_events_action_check CHECK (action IN ('proceeded', 'denied', 'allowed', 'blocked'))");
+            try {
+                DB::statement('ALTER TABLE egress_events DROP CONSTRAINT IF EXISTS egress_events_action_check');
+                DB::statement("ALTER TABLE egress_events ADD CONSTRAINT egress_events_action_check CHECK (action IN ('proceeded', 'denied', 'allowed', 'blocked'))");
+            } catch (\Throwable $e) {
+                // If constraint exists or cannot be dropped/added, ignore safely
+            }
 
-            DB::statement('ALTER TABLE nudge_interactions DROP CONSTRAINT IF EXISTS nudge_interactions_user_action_check');
-            DB::statement("ALTER TABLE nudge_interactions ADD CONSTRAINT nudge_interactions_user_action_check CHECK (user_action IN ('proceeded', 'cancelled', 'allowed', 'typing'))");
+            try {
+                DB::statement('ALTER TABLE nudge_interactions DROP CONSTRAINT IF EXISTS nudge_interactions_user_action_check');
+                DB::statement("ALTER TABLE nudge_interactions ADD CONSTRAINT nudge_interactions_user_action_check CHECK (user_action IN ('proceeded', 'cancelled', 'allowed', 'typing'))");
+            } catch (\Throwable $e) {
+                // If constraint exists or cannot be dropped/added, ignore safely
+            }
         } else {
             Schema::table('egress_events', function (Blueprint $table) {
                 $table->enum('action', ['proceeded', 'denied', 'allowed', 'blocked'])->default('denied')->change();

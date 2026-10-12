@@ -23,3 +23,15 @@ Route::post('/score-content', [RiskScoringController::class, 'score'])->middlewa
 Route::post('/extension/lifecycle', [ExtensionLifecycleController::class, 'logLifecycle'])->middleware('throttle:60,1');
 Route::get('/extension/uninstall', [ExtensionLifecycleController::class, 'logUninstall'])->middleware('throttle:60,1');
 Route::get('/extension/config', [ExtensionConfigController::class, 'signed'])->middleware('throttle:30,1');
+
+Route::get('/system/status', function () {
+    $communityExists = \Illuminate\Support\Facades\Schema::hasTable('community_messages');
+    $migrationList = \Illuminate\Support\Facades\DB::table('migrations')->pluck('migration');
+    return response()->json([
+        'status' => 'ok',
+        'database_driver' => \Illuminate\Support\Facades\DB::getDriverName(),
+        'community_messages_table' => $communityExists,
+        'community_messages_count' => $communityExists ? \App\Models\CommunityMessage::count() : 0,
+        'migrations' => $migrationList,
+    ]);
+});

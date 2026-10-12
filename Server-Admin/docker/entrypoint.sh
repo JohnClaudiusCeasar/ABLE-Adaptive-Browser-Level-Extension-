@@ -59,12 +59,8 @@ fi
 # DomainBrandSeeder uses firstOrCreate(), so it is safe to run every boot.
 php artisan db:seed --class=DomainBrandSeeder --force --no-interaction || true
 
-# Seed default community messages if empty
-COMMUNITY_COUNT=$(php artisan tinker --execute='echo \App\Models\CommunityMessage::count();' 2>/dev/null | tail -n 1)
-if [ "$COMMUNITY_COUNT" = "0" ]; then
-    echo "Seeding initial community messages..."
-    php artisan db:seed --class=CommunityMessageSeeder --force --no-interaction || true
-fi
+# CommunityMessageSeeder uses firstOrCreate(), so it is safe to run every boot.
+php artisan db:seed --class=CommunityMessageSeeder --force --no-interaction || true
 
 # Cache configurations, routes, and views for optimal performance
 echo "Caching configurations..."
