@@ -25,13 +25,37 @@ Route::get('/extension/uninstall', [ExtensionLifecycleController::class, 'logUni
 Route::get('/extension/config', [ExtensionConfigController::class, 'signed'])->middleware('throttle:30,1');
 
 Route::get('/system/status', function () {
+    $existingTables = collect(\Illuminate\Support\Facades\DB::select("SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname = 'public'"))
+        ->pluck('tablename');
+
+    $migrateOutput = null;
+    $migrateError = null;
+
+    try {
+        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+        $migrateOutput = \Illuminate\Support\Facades\Artisan::output();
+    } catch (\Throwable $e) {
+        $migrateError = [
+            'class' => get_class($e),
+            'message' => $e->getMessage(),
+            'file' => $e->getFile() . ':' . $e->getLine(),
+        ];
+    }
+
     $communityExists = \Illuminate\Support\Facades\Schema::hasTable('community_messages');
-    $migrationList = \Illuminate\Support\Facades\DB::table('migrations')->pluck('migration');
+    $migrationList = [];
+    if ($existingTables->contains('migrations')) {
+        $migrationList = \Illuminate\Support\Facades\DB::table('migrations')->pluck('migration');
+    }
+
     return response()->json([
         'status' => 'ok',
         'database_driver' => \Illuminate\Support\Facades\DB::getDriverName(),
+        'tables' => $existingTables,
         'community_messages_table' => $communityExists,
         'community_messages_count' => $communityExists ? \App\Models\CommunityMessage::count() : 0,
         'migrations' => $migrationList,
+        'migrate_output' => $migrateOutput,
+        'migrate_error' => $migrateError,
     ]);
 });
