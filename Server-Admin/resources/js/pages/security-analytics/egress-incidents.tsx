@@ -1,5 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { ArrowLeft, Search, ArrowUpDown } from 'lucide-react';
+import { ArrowLeft, ArrowUpDown, Eye, Search } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { TablePagination } from '@/components/pagination';
 import {
@@ -314,23 +314,31 @@ export default function EgressIncidents({
                                                     {row.flagged_items &&
                                                     row.flagged_items.length >
                                                         0 ? (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() =>
-                                                                setSelectedRow(
-                                                                    row,
-                                                                )
-                                                            }
-                                                            className="inline-flex cursor-pointer items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-500 transition-colors hover:bg-amber-500/20"
-                                                        >
-                                                            +
-                                                            {
-                                                                row
-                                                                    .flagged_items
-                                                                    .length
-                                                            }{' '}
-                                                            Detected
-                                                        </button>
+                                                        <span className="inline-flex items-center gap-2">
+                                                            <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-500">
+                                                                +
+                                                                {
+                                                                    row
+                                                                        .flagged_items
+                                                                        .length
+                                                                }{' '}
+                                                                Detected
+                                                            </span>
+                                                            <button
+                                                                type="button"
+                                                                title="View Flagged Items"
+                                                                onClick={() =>
+                                                                    setSelectedRow(
+                                                                        row,
+                                                                    )
+                                                                }
+                                                                className="cursor-pointer rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-[rgba(34,197,94,0.1)] hover:text-able-green"
+                                                            >
+                                                                <Eye
+                                                                    size={16}
+                                                                />
+                                                            </button>
+                                                        </span>
                                                     ) : (
                                                         <span className="inline-flex items-center rounded-full border border-black/10 bg-black/5 px-2.5 py-0.5 text-xs font-semibold text-muted-foreground dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]">
                                                             {row.flagged_items

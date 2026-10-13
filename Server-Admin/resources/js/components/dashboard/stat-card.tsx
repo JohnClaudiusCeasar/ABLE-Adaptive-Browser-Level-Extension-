@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
+import type { KeyboardEvent } from 'react';
 import { cn, formatMetricNumber } from '@/lib/utils';
 
 const glassCard =
@@ -12,6 +13,7 @@ interface StatCardProps {
     underline: string; // tailwind bg color for the accent line
     suffix?: string;
     subtitle?: string;
+    onClick?: () => void;
 }
 
 export function StatCard({
@@ -22,6 +24,7 @@ export function StatCard({
     underline,
     suffix,
     subtitle,
+    onClick,
 }: StatCardProps) {
     const formattedValue = formatMetricNumber(value);
     const fullValueTooltip =
@@ -32,7 +35,24 @@ export function StatCard({
               : undefined;
 
     return (
-        <div className={cn(glassCard, 'flex flex-col gap-3 p-5')}>
+        <div
+            className={cn(
+                glassCard,
+                'flex flex-col gap-3 p-5',
+                onClick && 'cursor-pointer transition-colors hover:bg-[rgba(34,197,94,0.14)] focus-visible:outline-2 focus-visible:outline-[rgba(34,197,94,0.7)] dark:hover:bg-white/10',
+            )}
+            {...(onClick && {
+                role: 'button',
+                tabIndex: 0,
+                onClick,
+                onKeyDown: (e: KeyboardEvent) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onClick();
+                    }
+                },
+            })}
+        >
             <div className="flex items-center justify-between gap-2">
                 <span className="text-sm text-muted-foreground">{label}</span>
                 <span

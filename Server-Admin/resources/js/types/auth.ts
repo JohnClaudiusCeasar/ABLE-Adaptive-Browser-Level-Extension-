@@ -6,6 +6,7 @@ export type User = {
     email_verified_at: string | null;
     profile_last_updated_at: string | null;
     two_factor_enabled?: boolean;
+    role?: string | null;
     created_at: string;
     updated_at: string;
     [key: string]: unknown;
@@ -13,6 +14,7 @@ export type User = {
 
 export type Auth = {
     user: User;
+    modules?: string[];
     recommendPasswordChange?: boolean;
 };
 

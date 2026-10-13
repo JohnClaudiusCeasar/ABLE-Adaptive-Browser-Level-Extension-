@@ -731,21 +731,21 @@ export default function PolicyAlgorithm() {
                     <div className="flex items-center gap-2">
                         <button
                             onClick={() => openDetailModal(d)}
-                            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-[rgba(34,197,94,0.1)] hover:text-able-green"
+                            className="cursor-pointer rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-[rgba(34,197,94,0.1)] hover:text-able-green"
                             title="View Details"
                         >
                             <Eye size={16} />
                         </button>
                         <button
                             onClick={() => openEditModal(d)}
-                            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-[rgba(34,197,94,0.1)] hover:text-able-green"
+                            className="cursor-pointer rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-[rgba(34,197,94,0.1)] hover:text-able-green"
                             title="Edit"
                         >
                             <Pencil size={16} />
                         </button>
                         <button
                             onClick={() => setDeleteConfirmId(d.id)}
-                            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-[rgba(248,113,113,0.1)] hover:text-[#f87171]"
+                            className="cursor-pointer rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-[rgba(248,113,113,0.1)] hover:text-[#f87171]"
                             title="Delete"
                         >
                             <Trash2 size={16} />

@@ -175,6 +175,25 @@
     }
 }
 
+/* ==========================================================================
+   Consistent table typography — every cell in every table renders in
+   Archivo (including cells that ask for a monospace font) so row items
+   read as one system across the whole admin.
+   ========================================================================== */
+table th,
+table td,
+table th *,
+table td * {
+    font-family: 'Archivo', ui-sans-serif, system-ui, sans-serif;
+}
+
+table th.font-mono,
+table td.font-mono,
+table th .font-mono,
+table td .font-mono {
+    font-family: 'Archivo', ui-sans-serif, system-ui, sans-serif;
+}
+
 /* Custom dropdown option styling for native select elements */
 select option {
     padding: 6px 10px;

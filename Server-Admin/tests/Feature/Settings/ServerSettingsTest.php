@@ -13,7 +13,7 @@ class ServerSettingsTest extends TestCase
 
     public function test_server_settings_page_is_displayed()
     {
-        $user = User::factory()->create();
+        $user = User::factory()->superAdmin()->create();
 
         $response = $this
             ->actingAs($user)
@@ -34,9 +34,19 @@ class ServerSettingsTest extends TestCase
         $response->assertRedirect(route('login'));
     }
 
+    public function test_admin_without_settings_access_is_forbidden()
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $this->actingAs($admin)->get(route('server-settings.edit'))->assertForbidden();
+        $this->actingAs($admin)
+            ->put(route('server-settings.update'), ['algorithm.default_risk_score' => 60])
+            ->assertForbidden();
+    }
+
     public function test_server_settings_can_be_updated()
     {
-        $user = User::factory()->create();
+        $user = User::factory()->superAdmin()->create();
 
         $response = $this
             ->actingAs($user)
@@ -55,7 +65,7 @@ class ServerSettingsTest extends TestCase
 
     public function test_server_settings_reject_invalid_policy()
     {
-        $user = User::factory()->create();
+        $user = User::factory()->superAdmin()->create();
 
         $response = $this
             ->actingAs($user)
@@ -68,7 +78,7 @@ class ServerSettingsTest extends TestCase
 
     public function test_server_settings_accept_valid_policy()
     {
-        $user = User::factory()->create();
+        $user = User::factory()->superAdmin()->create();
 
         $response = $this
             ->actingAs($user)

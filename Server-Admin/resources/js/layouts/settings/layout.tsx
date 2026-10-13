@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import type { PropsWithChildren } from 'react';
 import Heading from '@/components/heading';
 import { Button } from '@/components/ui/button';
@@ -26,16 +26,27 @@ const sidebarNavItems: NavItem[] = [
         title: 'Extension',
         href: editExtension(),
         icon: null,
+        permission: 'settings',
     },
     {
         title: 'Server',
         href: editServer(),
         icon: null,
+        permission: 'settings',
     },
 ];
 
 export default function SettingsLayout({ children }: PropsWithChildren) {
     const { isCurrentOrParentUrl } = useCurrentUrl();
+    const { auth } = usePage<{ auth?: { modules?: string[] } }>().props;
+    const navItems =
+        auth?.modules === undefined
+            ? sidebarNavItems
+            : sidebarNavItems.filter(
+                  (item) =>
+                      !item.permission ||
+                      auth.modules?.includes(item.permission),
+              );
 
     return (
         <div className="mx-auto w-full max-w-[1100px] px-8 pt-22 pb-[22px]">
@@ -50,7 +61,7 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                         className="flex flex-col space-y-1 space-x-0"
                         aria-label="Settings"
                     >
-                        {sidebarNavItems.map((item, index) => (
+                        {navItems.map((item, index) => (
                             <Button
                                 key={`${toUrl(item.href)}-${index}`}
                                 size="sm"

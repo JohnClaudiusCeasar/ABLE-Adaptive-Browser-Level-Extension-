@@ -6,6 +6,7 @@ use App\Models\DomainPolicy;
 use App\Models\DomainVisit;
 use App\Models\EgressEvent;
 use App\Models\NudgeInteraction;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -158,10 +159,20 @@ class SecurityAnalyticsController extends Controller
 
     /**
      * Display the standalone Discovered Shadow Applications catalog subpage.
+     *
+     * When a user_id query param is supplied the catalog is scoped to the
+     * domains that specific client touched, and rows carry that client's
+     * own visit and incident counts.
      */
-    public function shadowApps(): Response
+    public function shadowApps(Request $request): Response
     {
-        $shadowCatalog = DomainPolicy::select(
+        $scopedUserId = trim((string) $request->query('user_id', ''));
+        $scopedUserId = $scopedUserId !== '' ? $scopedUserId : null;
+
+        $visitsByDomain = collect();
+        $incidentsByDomain = collect();
+
+        $catalogQuery = DomainPolicy::select(
             'domain_policies.id',
             'domain_policies.domain',
             'domain_policies.category',
@@ -181,35 +192,60 @@ class SecurityAnalyticsController extends Controller
                 'domain_policies.policy',
                 'domain_policies.visit_count'
             )
-            ->orderByDesc('domain_policies.risk_score')
-            ->get()
-            ->map(function ($row) {
-                /** @var object{id: int, domain: string, category: string|null, risk_score: int, domain_status: string, policy: string, visit_count: int, active_users: int} $row */
-                $domainParts = explode('.', $row->domain);
-                $appName = ucfirst($domainParts[0]);
+            ->orderByDesc('domain_policies.risk_score');
 
-                $statusMap = [
-                    'whitelisted' => 'Sanctioned',
-                    'blacklisted' => 'Unapproved',
-                    'under_review' => 'Under Review',
-                ];
+        if ($scopedUserId !== null) {
+            $touchedDomains = DomainVisit::where('user_id', $scopedUserId)
+                ->select('domain')
+                ->union(
+                    EgressEvent::where('user_id', $scopedUserId)->select('domain')
+                );
 
-                return [
-                    'id' => $row->id,
-                    'app' => $appName,
-                    'domain' => $row->domain,
-                    'category' => $row->category ?: 'General Cloud',
-                    'risk_score' => (int) $row->risk_score,
-                    'users' => (int) $row->active_users,
-                    'visit_count' => (int) ($row->visit_count ?: $row->active_users),
-                    'status' => $statusMap[$row->policy] ?? 'Under Review',
-                    'policy' => $row->policy,
-                    'domain_status' => $row->domain_status,
-                ];
-            });
+            $catalogQuery->whereIn('domain_policies.domain', $touchedDomains);
+
+            $visitsByDomain = DomainVisit::where('user_id', $scopedUserId)
+                ->selectRaw('domain, COUNT(*) as visits')
+                ->groupBy('domain')
+                ->get()
+                ->keyBy('domain');
+
+            $incidentsByDomain = EgressEvent::where('user_id', $scopedUserId)
+                ->selectRaw('domain, COUNT(*) as incidents')
+                ->groupBy('domain')
+                ->get()
+                ->keyBy('domain');
+        }
+
+        $shadowCatalog = $catalogQuery->get()->map(function ($row) use ($visitsByDomain, $incidentsByDomain) {
+            /** @var object{id: int, domain: string, category: string|null, risk_score: int, domain_status: string, policy: string, visit_count: int, active_users: int} $row */
+            $domainParts = explode('.', $row->domain);
+            $appName = ucfirst($domainParts[0]);
+
+            $statusMap = [
+                'whitelisted' => 'Sanctioned',
+                'blacklisted' => 'Unapproved',
+                'under_review' => 'Under Review',
+            ];
+
+            return [
+                'id' => $row->id,
+                'app' => $appName,
+                'domain' => $row->domain,
+                'category' => $row->category ?: 'General Cloud',
+                'risk_score' => (int) $row->risk_score,
+                'users' => (int) $row->active_users,
+                'visit_count' => (int) ($row->visit_count ?: $row->active_users),
+                'user_visits' => (int) ($visitsByDomain->get($row->domain)->visits ?? 0),
+                'user_incidents' => (int) ($incidentsByDomain->get($row->domain)->incidents ?? 0),
+                'status' => $statusMap[$row->policy] ?? 'Under Review',
+                'policy' => $row->policy,
+                'domain_status' => $row->domain_status,
+            ];
+        });
 
         return Inertia::render('security-analytics/shadow-apps', [
             'shadowCatalog' => $shadowCatalog,
+            'scoped_user' => $scopedUserId,
         ]);
     }
 

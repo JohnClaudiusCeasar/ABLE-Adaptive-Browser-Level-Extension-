@@ -1,4 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
+import { useState } from 'react';
 import {
     Users,
     UserMinus,
@@ -7,6 +8,10 @@ import {
     Ghost,
     ArrowUpFromLine,
 } from 'lucide-react';
+import {
+    ActiveShadowAppsModal,
+    type ActiveShadowApp,
+} from '@/components/dashboard/active-shadow-apps-modal';
 import { DonutGauge } from '@/components/dashboard/donut-gauge';
 import { GroupedBarChart } from '@/components/dashboard/grouped-bar-chart';
 import { PanelCard } from '@/components/dashboard/panel-card';
@@ -48,6 +53,7 @@ interface DashboardProps {
     inactiveUsers: number;
     totalDomainVisits: number;
     activeShadowApps: number;
+    activeShadowAppsList: ActiveShadowApp[];
     totalEgressCount: number;
     criticalEgressCount: number;
     dataSaved: string;
@@ -88,6 +94,7 @@ export default function Dashboard({
     inactiveUsers,
     totalDomainVisits,
     activeShadowApps,
+    activeShadowAppsList = [],
     totalEgressCount,
     criticalEgressCount,
     dataSaved,
@@ -100,6 +107,8 @@ export default function Dashboard({
     recentDomainVisits,
     shadowActivity,
 }: DashboardProps) {
+    const [shadowAppsOpen, setShadowAppsOpen] = useState(false);
+
     const totalDomains =
         domainUsage.safe + domainUsage.unsafe + domainUsage.unlisted;
 
@@ -232,8 +241,15 @@ export default function Dashboard({
                         icon={Ghost}
                         accent="text-[#a855f7]"
                         underline="bg-[#a855f7]"
+                        onClick={() => setShadowAppsOpen(true)}
                     />
                 </div>
+
+                <ActiveShadowAppsModal
+                    open={shadowAppsOpen}
+                    onOpenChange={setShadowAppsOpen}
+                    apps={activeShadowAppsList}
+                />
 
                 {/* Charts Row */}
                 <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">

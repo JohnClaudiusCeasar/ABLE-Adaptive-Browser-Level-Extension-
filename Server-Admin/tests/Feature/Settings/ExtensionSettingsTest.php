@@ -13,7 +13,7 @@ class ExtensionSettingsTest extends TestCase
 
     public function test_extension_settings_page_is_displayed()
     {
-        $user = User::factory()->create();
+        $user = User::factory()->superAdmin()->create();
 
         $response = $this
             ->actingAs($user)
@@ -34,9 +34,19 @@ class ExtensionSettingsTest extends TestCase
         $response->assertRedirect(route('login'));
     }
 
+    public function test_admin_without_settings_access_is_forbidden()
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $this->actingAs($admin)->get(route('extension-settings.edit'))->assertForbidden();
+        $this->actingAs($admin)
+            ->put(route('extension-settings.update'), ['behavior.risk_threshold' => 70])
+            ->assertForbidden();
+    }
+
     public function test_extension_settings_can_be_updated()
     {
-        $user = User::factory()->create();
+        $user = User::factory()->superAdmin()->create();
 
         $response = $this
             ->actingAs($user)
@@ -61,7 +71,7 @@ class ExtensionSettingsTest extends TestCase
 
     public function test_extension_settings_reject_out_of_range_value()
     {
-        $user = User::factory()->create();
+        $user = User::factory()->superAdmin()->create();
 
         $response = $this
             ->actingAs($user)
@@ -74,7 +84,7 @@ class ExtensionSettingsTest extends TestCase
 
     public function test_extension_egress_flush_interval_can_be_updated()
     {
-        $user = User::factory()->create();
+        $user = User::factory()->superAdmin()->create();
 
         $response = $this
             ->actingAs($user)

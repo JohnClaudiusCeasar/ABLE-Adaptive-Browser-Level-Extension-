@@ -19,6 +19,7 @@ import { PanelCard } from '@/components/dashboard/panel-card';
 import { StatCard } from '@/components/dashboard/stat-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 const glassCard =
     'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
@@ -75,10 +76,11 @@ interface RecentEgress {
     occurred_at: string;
 }
 
-interface Lifecycle {
-    event: string;
-    version: string | null;
-    occurred_at: string;
+interface CategoryDistItem {
+    category: string;
+    count: number;
+    percentage: number;
+    avgRisk: number;
 }
 
 interface ClientShowProps {
@@ -98,7 +100,7 @@ interface ClientShowProps {
     };
     recent_visits: RecentVisit[];
     recent_egress: RecentEgress[];
-    lifecycles: Lifecycle[];
+    category_distribution: CategoryDistItem[];
     date_from: string;
     date_to: string;
 }
@@ -144,14 +146,6 @@ function blockedCount(d: DailyRow): number {
     return d.egress_denied + d.egress_blocked;
 }
 
-function blockedRate(d: DailyRow): number | null {
-    if (d.egress === 0) {
-        return null;
-    }
-
-    return Math.round((blockedCount(d) / d.egress) * 100);
-}
-
 function riskTone(risk: number | null): string {
     if (risk === null) {
         return 'bg-black/5 text-muted-foreground dark:bg-white/5';
@@ -168,22 +162,16 @@ function riskTone(risk: number | null): string {
     return 'bg-able-green/15 text-able-green';
 }
 
-function RateBar({ rate }: { rate: number | null }) {
-    if (rate === null) {
-        return <span className="text-muted-foreground">—</span>;
+function getRiskScoreBadgeClass(score: number): string {
+    if (score >= 76) {
+        return 'border border-[#ff4d4d] bg-[rgba(255,77,77,0.2)] text-[#ff4d4d]';
     }
 
-    return (
-        <span className="inline-flex min-w-[110px] items-center gap-2">
-            <span className="h-1.5 w-14 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
-                <span
-                    className="block h-full rounded-full bg-able-green"
-                    style={{ width: `${rate}%` }}
-                />
-            </span>
-            <span className="tabular-nums">{rate}%</span>
-        </span>
-    );
+    if (score >= 41) {
+        return 'border border-[#f59e0b] bg-[rgba(245,158,11,0.2)] text-[#f59e0b]';
+    }
+
+    return 'border border-[#00ff66] bg-[rgba(0,255,102,0.2)] text-[#00ff66]';
 }
 
 function applyRange(userId: string, from: string, to: string) {
@@ -202,7 +190,7 @@ export default function ClientTelemetryPage({
     risk_breakdown,
     recent_visits = [],
     recent_egress = [],
-    lifecycles = [],
+    category_distribution = [],
     date_from,
     date_to,
 }: ClientShowProps) {
@@ -255,7 +243,6 @@ export default function ClientTelemetryPage({
         totals.egress > 0
             ? Math.round((totals.blocked / totals.egress) * 100)
             : null;
-    const maxVisits = Math.max(...top_domains.map((t) => t.visits), 1);
 
     return (
         <>
@@ -324,45 +311,57 @@ export default function ClientTelemetryPage({
                     </dl>
                 </header>
 
-                <div
-                    className={`${glassCard} mb-5 flex flex-wrap items-center gap-3 p-5`}
-                >
-                    <CalendarDays size={16} className="text-muted-foreground" />
-                    <input
-                        type="date"
-                        value={from}
-                        max={to}
-                        onChange={(e) => setFrom(e.target.value)}
-                        className="rounded-full border border-black/10 bg-black/5 px-3.5 py-2 text-[0.85rem] outline-none dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]"
-                    />
-                    <span className="text-sm text-muted-foreground">to</span>
-                    <input
-                        type="date"
-                        value={to}
-                        min={from}
-                        onChange={(e) => setTo(e.target.value)}
-                        className="rounded-full border border-black/10 bg-black/5 px-3.5 py-2 text-[0.85rem] outline-none dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]"
-                    />
-                    <Button
-                        size="sm"
-                        onClick={() => applyRange(profile.user_id, from, to)}
-                    >
-                        Apply
-                    </Button>
-                    <div className="flex items-center gap-2">
-                        {[7, 30, 90].map((days) => (
-                            <button
-                                key={days}
-                                onClick={() => setPreset(days)}
-                                className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-                                    rangeDays === days
-                                        ? 'bg-able-green/20 text-able-green'
-                                        : 'bg-black/5 text-muted-foreground hover:bg-black/10 dark:bg-white/5'
-                                }`}
-                            >
-                                {days}d
-                            </button>
-                        ))}
+                <div className={`${glassCard} mb-5 p-5`}>
+                    <div className="mb-4">
+                        <h2 className="flex items-center gap-2 text-sm font-semibold tracking-wide text-foreground uppercase">
+                            <CalendarDays
+                                size={15}
+                                className="text-muted-foreground"
+                            />
+                            Activity time range
+                        </h2>
+                        <p className="mt-1 text-[0.85rem] text-muted-foreground">
+                            Pick the dates you want to review — everything
+                            below updates to match the window you choose.
+                        </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <input
+                            type="date"
+                            value={from}
+                            max={to}
+                            onChange={(e) => setFrom(e.target.value)}
+                            className="rounded-full border border-black/10 bg-black/5 px-3.5 py-2 text-[0.85rem] outline-none dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]"
+                        />
+                        <span className="text-sm text-muted-foreground">to</span>
+                        <input
+                            type="date"
+                            value={to}
+                            min={from}
+                            onChange={(e) => setTo(e.target.value)}
+                            className="rounded-full border border-black/10 bg-black/5 px-3.5 py-2 text-[0.85rem] outline-none dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]"
+                        />
+                        <Button
+                            size="sm"
+                            onClick={() => applyRange(profile.user_id, from, to)}
+                        >
+                            Apply
+                        </Button>
+                        <div className="flex items-center gap-2">
+                            {[7, 30, 90].map((days) => (
+                                <button
+                                    key={days}
+                                    onClick={() => setPreset(days)}
+                                    className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                                        rangeDays === days
+                                            ? 'bg-able-green/20 text-able-green'
+                                            : 'bg-black/5 text-muted-foreground hover:bg-black/10 dark:bg-white/5'
+                                    }`}
+                                >
+                                    {days}d
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
 
@@ -414,265 +413,158 @@ export default function ClientTelemetryPage({
                 </div>
 
                 <PanelCard
-                    title="Daily Web Activity"
+                    title="Shadow Activity Timeline"
                     subtitle={`Domain visits and egress attempts, ${date_from} → ${date_to}`}
                     className="mb-5"
                 >
                     <ActivityTrendChart data={daily_series} />
                 </PanelCard>
 
-                <PanelCard
-                    title="Daily Breakdown"
-                    subtitle="Visits by classification, egress outcomes, and nudges per day"
-                    className="mb-5"
-                >
-                    {daily_series.length === 0 ? (
-                        <p className="py-8 text-center text-sm text-muted-foreground">
-                            No activity in this range.
-                        </p>
-                    ) : (
-                        <div className="max-h-[400px] overflow-auto">
-                            <table className="w-full border-collapse text-[0.85rem]">
-                                <thead className="sticky top-0 bg-background">
-                                    <tr className="text-muted-foreground">
-                                        <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
-                                            Date
-                                        </th>
-                                        <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
-                                            Visits
-                                        </th>
-                                        <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
-                                            Classification
-                                        </th>
-                                        <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
-                                            Egress
-                                        </th>
-                                        <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
-                                            Stop rate
-                                        </th>
-                                        <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
-                                            Avg risk
-                                        </th>
-                                        <th className="border-b border-[rgba(34,197,94,0.7)] pb-4 text-right font-medium">
-                                            Nudges
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {daily_series.map((d) => (
-                                        <tr
-                                            key={d.date}
-                                            className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0"
-                                        >
-                                            <td className="py-2.5 pr-2.5 font-medium whitespace-nowrap tabular-nums">
-                                                {d.label}
-                                            </td>
-                                            <td className="py-2.5 pr-2.5 font-semibold tabular-nums">
-                                                {d.visits.toLocaleString()}
-                                                <span className="ml-1.5 font-normal text-muted-foreground">
-                                                    {d.distinct_domains} sites
-                                                </span>
-                                            </td>
-                                            <td className="py-2.5 pr-2.5">
-                                                <span className="inline-flex flex-wrap gap-1 text-[11px] tabular-nums">
-                                                    <span className="rounded-full bg-able-green/15 px-2 py-0.5 text-able-green">
-                                                        {d.visits_safe} safe
-                                                    </span>
-                                                    {d.visits_unsafe > 0 && (
-                                                        <span className="rounded-full bg-rose-500/10 px-2 py-0.5 text-rose-500 dark:text-rose-400">
-                                                            {d.visits_unsafe}{' '}
-                                                            unsafe
-                                                        </span>
-                                                    )}
-                                                    {d.visits_unlisted > 0 && (
-                                                        <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-amber-600 dark:text-amber-400">
-                                                            {d.visits_unlisted}{' '}
-                                                            new
-                                                        </span>
-                                                    )}
-                                                </span>
-                                            </td>
-                                            <td className="py-2.5 pr-2.5 tabular-nums">
-                                                <span className="font-semibold">
-                                                    {d.egress.toLocaleString()}
-                                                </span>{' '}
-                                                <span className="text-[11px] text-muted-foreground">
-                                                    {blockedCount(d)} blocked ·{' '}
-                                                    {d.egress_proceeded}{' '}
-                                                    released
-                                                </span>
-                                            </td>
-                                            <td className="py-2.5 pr-2.5 tabular-nums">
-                                                <RateBar
-                                                    rate={blockedRate(d)}
-                                                />
-                                            </td>
-                                            <td className="py-2.5 pr-2.5 tabular-nums">
-                                                {d.avg_risk === null ? (
-                                                    <span className="text-muted-foreground">
-                                                        —
-                                                    </span>
-                                                ) : (
-                                                    <>
-                                                        <span className="font-semibold">
-                                                            {d.avg_risk}
-                                                        </span>
-                                                        {d.max_risk !==
-                                                            null && (
-                                                            <span className="ml-1 text-[11px] text-muted-foreground">
-                                                                peak{' '}
-                                                                {d.max_risk}
-                                                            </span>
-                                                        )}
-                                                    </>
-                                                )}
-                                            </td>
-                                            <td className="py-2.5 text-right tabular-nums">
-                                                {d.nudges_cancelled === 0 &&
-                                                d.nudges_proceeded === 0 ? (
-                                                    <span className="text-muted-foreground">
-                                                        —
-                                                    </span>
-                                                ) : (
-                                                    <>
-                                                        <span className="font-semibold text-able-green">
-                                                            {d.nudges_cancelled}{' '}
-                                                            prevented
-                                                        </span>{' '}
-                                                        {d.nudges_proceeded >
-                                                            0 && (
-                                                            <span className="text-[11px] text-muted-foreground">
-                                                                {
-                                                                    d.nudges_proceeded
-                                                                }{' '}
-                                                                released
-                                                            </span>
-                                                        )}
-                                                    </>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </PanelCard>
-
                 <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
                     <PanelCard
                         title="Top Domains"
                         subtitle="Most visited in range"
+                        className="flex h-[500px] flex-col"
                     >
                         {top_domains.length === 0 ? (
-                            <p className="py-8 text-center text-sm text-muted-foreground">
+                            <p className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
                                 No activity in this range.
                             </p>
                         ) : (
-                            <table className="w-full border-collapse text-[0.85rem]">
-                                <thead>
-                                    <tr className="text-muted-foreground">
-                                        <th className="w-8 border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
-                                            #
-                                        </th>
-                                        <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
-                                            Domain
-                                        </th>
-                                        <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
-                                            Visits
-                                        </th>
-                                        <th className="border-b border-[rgba(34,197,94,0.7)] pb-4 text-right font-medium">
-                                            Risk
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {top_domains.map((t, rank) => (
-                                        <tr
-                                            key={t.domain}
-                                            className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0"
-                                        >
-                                            <td className="py-2.5 pr-2.5 text-muted-foreground tabular-nums">
-                                                {rank + 1}
-                                            </td>
-                                            <td className="max-w-[200px] py-2.5 pr-2.5">
-                                                <span className="block truncate font-mono">
-                                                    {t.domain}
-                                                </span>
-                                                <span className="text-[11px] text-muted-foreground tabular-nums">
-                                                    {t.egress.toLocaleString()}{' '}
-                                                    egress
-                                                </span>
-                                            </td>
-                                            <td className="py-2.5 pr-2.5">
-                                                <span className="flex items-center gap-2 tabular-nums">
-                                                    <span className="h-1.5 w-16 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
-                                                        <span
-                                                            className="block h-full rounded-full bg-sky-400"
-                                                            style={{
-                                                                width: `${Math.round((t.visits / maxVisits) * 100)}%`,
-                                                            }}
-                                                        />
-                                                    </span>
-                                                    {t.visits.toLocaleString()}
-                                                </span>
-                                            </td>
-                                            <td className="py-2.5 text-right">
-                                                <Badge
-                                                    className={riskTone(
-                                                        t.avg_risk,
-                                                    )}
-                                                >
-                                                    {t.avg_risk === null
-                                                        ? 'unscored'
-                                                        : `avg ${t.avg_risk}`}
-                                                </Badge>
-                                            </td>
+                            <div className="min-h-0 flex-1 overflow-auto">
+                                <table className="w-full border-collapse text-[0.85rem]">
+                                    <thead>
+                                        <tr className="text-muted-foreground">
+                                            <th className="w-8 border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
+                                                #
+                                            </th>
+                                            <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
+                                                Domain
+                                            </th>
+                                            <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
+                                                Visits
+                                            </th>
+                                            <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
+                                                Egress
+                                            </th>
+                                            <th className="border-b border-[rgba(34,197,94,0.7)] pb-4 text-right font-medium">
+                                                Risk
+                                            </th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        {top_domains.map((t, rank) => (
+                                            <tr
+                                                key={t.domain}
+                                                className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0"
+                                            >
+                                                <td className="py-2.5 pr-2.5 text-muted-foreground tabular-nums">
+                                                    {rank + 1}
+                                                </td>
+                                                <td className="max-w-[200px] py-2.5 pr-2.5">
+                                                    <span className="block truncate font-mono">
+                                                        {t.domain}
+                                                    </span>
+                                                </td>
+                                                <td className="py-2.5 pr-2.5 tabular-nums">
+                                                    {t.visits.toLocaleString()}
+                                                </td>
+                                                <td className="py-2.5 pr-2.5 tabular-nums">
+                                                    {t.egress.toLocaleString()}
+                                                </td>
+                                                <td className="py-2.5 text-right">
+                                                    <Badge
+                                                        className={riskTone(
+                                                            t.avg_risk,
+                                                        )}
+                                                    >
+                                                        {t.avg_risk === null
+                                                            ? 'unscored'
+                                                            : `avg ${t.avg_risk}`}
+                                                    </Badge>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         )}
                     </PanelCard>
 
                     <PanelCard
-                        title="Lifecycle"
-                        subtitle="Extension install and update history"
+                        title="Category Breakdown"
+                        subtitle="Discovered applications grouped by risk category & average threat weight"
+                        className="flex h-[500px] flex-col"
+                        action={
+                            <Link
+                                href={`/security-analytics/shadow-apps?user_id=${encodeURIComponent(profile.user_id)}`}
+                            >
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 border-[rgba(34,197,94,0.5)] px-2.5 text-xs hover:bg-[rgba(34,197,94,0.1)]"
+                                >
+                                    View Catalog
+                                </Button>
+                            </Link>
+                        }
                     >
-                        {lifecycles.length === 0 ? (
-                            <p className="py-8 text-center text-sm text-muted-foreground">
-                                No lifecycle events recorded.
-                            </p>
+                        {category_distribution.length === 0 ? (
+                            <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground italic">
+                                No categorized applications found yet.
+                            </div>
                         ) : (
-                            <ul className="flex max-h-[320px] flex-col gap-2.5 overflow-auto">
-                                {lifecycles.map((l, i) => (
-                                    <li
-                                        key={`${l.event}-${l.occurred_at}-${i}`}
-                                        className="flex items-center justify-between gap-2 text-[0.85rem]"
+                            <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-auto py-1">
+                                {category_distribution.map((item) => (
+                                    <div
+                                        key={item.category}
+                                        className="flex flex-col gap-1.5 rounded-lg border border-black/5 bg-black/[0.02] p-2.5 dark:border-white/5 dark:bg-white/[0.02]"
                                     >
-                                        <span className="flex items-center gap-2">
-                                            <Badge
-                                                className={
-                                                    l.event === 'uninstalled'
-                                                        ? 'bg-rose-500/10 text-rose-500 dark:text-rose-400'
-                                                        : l.event ===
-                                                            'installed'
-                                                          ? 'bg-able-green/15 text-able-green'
-                                                          : 'bg-sky-500/10 text-sky-500 dark:text-sky-400'
-                                                }
-                                            >
-                                                {l.event}
-                                            </Badge>
-                                            <span className="font-mono text-xs text-muted-foreground">
-                                                {l.version ?? '—'}
-                                            </span>
-                                        </span>
-                                        <span className="text-xs whitespace-nowrap text-muted-foreground tabular-nums">
-                                            {formatTimestamp(l.occurred_at)}
-                                        </span>
-                                    </li>
+                                        <div className="flex items-center justify-between text-xs">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-semibold text-foreground">
+                                                    {item.category}
+                                                </span>
+                                                <span className="rounded-full bg-black/5 px-2 py-0.5 text-[10px] text-muted-foreground dark:bg-white/10">
+                                                    {item.count}{' '}
+                                                    {item.count === 1
+                                                        ? 'app'
+                                                        : 'apps'}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span
+                                                    className={cn(
+                                                        'rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                                                        getRiskScoreBadgeClass(
+                                                            item.avgRisk,
+                                                        ),
+                                                    )}
+                                                >
+                                                    Avg Risk: {item.avgRisk}%
+                                                </span>
+                                                <span className="font-medium text-muted-foreground tabular-nums">
+                                                    {item.percentage}%
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="h-2 w-full overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
+                                            <div
+                                                className="h-full rounded-full transition-all duration-500"
+                                                style={{
+                                                    width: `${Math.max(item.percentage, 5)}%`,
+                                                    backgroundColor:
+                                                        item.avgRisk >= 76
+                                                            ? '#ff4d4d'
+                                                            : item.avgRisk >= 41
+                                                              ? '#f59e0b'
+                                                              : '#00ff66',
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
                                 ))}
-                            </ul>
+                            </div>
                         )}
                     </PanelCard>
                 </div>
@@ -687,59 +579,62 @@ export default function ClientTelemetryPage({
                                 No activity in this range.
                             </p>
                         ) : (
-                            <div className="max-h-[320px] overflow-auto">
-                                <table className="w-full border-collapse text-[0.85rem]">
-                                    <thead className="sticky top-0 bg-background">
-                                        <tr className="text-muted-foreground">
-                                            <th className="border-b border-[rgba(34,197,94,0.3)] pr-2.5 pb-2.5 text-left text-xs font-medium">
-                                                Domain
-                                            </th>
-                                            <th className="border-b border-[rgba(34,197,94,0.3)] pr-2.5 pb-2.5 text-left text-xs font-medium">
-                                                Verdict
-                                            </th>
-                                            <th className="border-b border-[rgba(34,197,94,0.3)] pb-2.5 text-right text-xs font-medium">
-                                                Time
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {recent_visits.map((v, i) => (
-                                            <tr
-                                                key={`${v.domain}-${v.visited_at}-${i}`}
-                                                className="border-b border-[rgba(34,197,94,0.15)] last:border-b-0"
-                                            >
-                                                <td className="max-w-[200px] truncate py-2 pr-2.5 font-mono">
+                            <table className="w-full border-collapse text-[0.85rem]">
+                                <thead>
+                                    <tr className="text-muted-foreground">
+                                        <th className="w-8 border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
+                                            #
+                                        </th>
+                                        <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
+                                            Date and Time
+                                        </th>
+                                        <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
+                                            Domain Name
+                                        </th>
+                                        <th className="border-b border-[rgba(34,197,94,0.7)] pb-4 text-right font-medium">
+                                            Policy
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {recent_visits.map((v, i) => (
+                                        <tr
+                                            key={`${v.domain}-${v.visited_at}-${i}`}
+                                            className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0"
+                                        >
+                                            <td className="py-2.5 pr-2.5 text-muted-foreground tabular-nums">
+                                                {i + 1}
+                                            </td>
+                                            <td className="py-2.5 pr-2.5 whitespace-nowrap text-muted-foreground tabular-nums">
+                                                {formatShortDate(v.visited_at)}
+                                            </td>
+                                            <td className="max-w-[200px] py-2.5 pr-2.5">
+                                                <span className="block truncate font-mono">
                                                     {v.domain}
-                                                </td>
-                                                <td className="py-2 pr-2.5">
-                                                    <Badge
-                                                        className={
-                                                            v.status === 'safe'
-                                                                ? 'bg-able-green/15 text-able-green'
-                                                                : v.status ===
-                                                                    'unsafe'
-                                                                  ? 'bg-rose-500/10 text-rose-500 dark:text-rose-400'
-                                                                  : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                                                        }
-                                                    >
-                                                        {v.status === 'safe'
-                                                            ? 'safe'
+                                                </span>
+                                            </td>
+                                            <td className="py-2.5 text-right">
+                                                <Badge
+                                                    className={
+                                                        v.status === 'safe'
+                                                            ? 'bg-able-green/15 text-able-green'
                                                             : v.status ===
                                                                 'unsafe'
-                                                              ? 'unsafe'
-                                                              : 'new domain'}
-                                                    </Badge>
-                                                </td>
-                                                <td className="py-2 text-right text-xs whitespace-nowrap text-muted-foreground tabular-nums">
-                                                    {formatShortDate(
-                                                        v.visited_at,
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
+                                                              ? 'bg-rose-500/10 text-rose-500 dark:text-rose-400'
+                                                              : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                                                    }
+                                                >
+                                                    {v.status === 'safe'
+                                                        ? 'safe'
+                                                        : v.status === 'unsafe'
+                                                          ? 'unsafe'
+                                                          : 'new domain'}
+                                                </Badge>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         )}
                     </PanelCard>
 
@@ -754,15 +649,18 @@ export default function ClientTelemetryPage({
                         ) : (
                             <div className="max-h-[320px] overflow-auto">
                                 <table className="w-full border-collapse text-[0.85rem]">
-                                    <thead className="sticky top-0 bg-background">
+                                    <thead>
                                         <tr className="text-muted-foreground">
-                                            <th className="border-b border-[rgba(34,197,94,0.3)] pr-2.5 pb-2.5 text-left text-xs font-medium">
+                                            <th className="w-8 border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
+                                                #
+                                            </th>
+                                            <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
                                                 Domain
                                             </th>
-                                            <th className="border-b border-[rgba(34,197,94,0.3)] pr-2.5 pb-2.5 text-left text-xs font-medium">
+                                            <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
                                                 Outcome
                                             </th>
-                                            <th className="border-b border-[rgba(34,197,94,0.3)] pb-2.5 text-right text-xs font-medium">
+                                            <th className="border-b border-[rgba(34,197,94,0.7)] pb-4 text-right font-medium">
                                                 Risk
                                             </th>
                                         </tr>
@@ -771,20 +669,23 @@ export default function ClientTelemetryPage({
                                         {recent_egress.map((e, i) => (
                                             <tr
                                                 key={`${e.domain}-${e.occurred_at}-${i}`}
-                                                className="border-b border-[rgba(34,197,94,0.15)] last:border-b-0"
+                                                className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0"
                                             >
-                                                <td className="max-w-[180px] py-2 pr-2.5">
+                                                <td className="py-2.5 pr-2.5 text-muted-foreground tabular-nums">
+                                                    {i + 1}
+                                                </td>
+                                                <td className="max-w-[200px] py-2.5 pr-2.5">
                                                     <span className="block truncate font-mono">
                                                         {e.domain}
                                                     </span>
-                                                    <span className="block max-w-[180px] truncate text-[11px] text-muted-foreground">
+                                                    <span className="block max-w-[200px] truncate text-[11px] text-muted-foreground">
                                                         {e.file_name ?? '—'} ·{' '}
                                                         {formatShortDate(
                                                             e.occurred_at,
                                                         )}
                                                     </span>
                                                 </td>
-                                                <td className="py-2 pr-2.5">
+                                                <td className="py-2.5 pr-2.5">
                                                     <Badge
                                                         className={
                                                             e.action ===
@@ -802,7 +703,7 @@ export default function ClientTelemetryPage({
                                                             : 'released'}
                                                     </Badge>
                                                 </td>
-                                                <td className="py-2 text-right">
+                                                <td className="py-2.5 text-right">
                                                     <Badge
                                                         className={riskTone(
                                                             e.risk_score,

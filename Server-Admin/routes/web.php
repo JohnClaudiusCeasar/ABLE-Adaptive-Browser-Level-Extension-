@@ -68,72 +68,92 @@ Route::post('session/terminate-beacon', [SessionSecurityController::class, 'term
     ->name('session.terminate-beacon');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('reports/preview', [DashboardReportController::class, 'preview'])->name('reports.preview');
-    Route::get('dashboard/report-preview', [DashboardReportController::class, 'preview'])->name('dashboard.report-preview');
-    Route::get('dashboard/report/pdf', [DashboardReportController::class, 'pdf'])->name('dashboard.report.pdf');
-    Route::get('dashboard/report/excel', [DashboardReportController::class, 'excel'])->name('dashboard.report.excel');
-    Route::get('egress-logs', fn () => redirect()->route('security-analytics.egress-incidents'))->name('egress-logs');
-    Route::get('domain-visits', [DomainVisitController::class, 'index'])->name('domain-visits');
-    Route::get('security-analytics', [SecurityAnalyticsController::class, 'index'])->name('security-analytics');
-    Route::get('shadow-analytics', [SecurityAnalyticsController::class, 'index'])->name('shadow-analytics');
-    Route::get('security-analytics/nudge-effectiveness', [SecurityAnalyticsController::class, 'nudgeEffectiveness'])
-        ->name('security-analytics.nudge-effectiveness');
-    Route::get('shadow-analytics/nudge-effectiveness', [SecurityAnalyticsController::class, 'nudgeEffectiveness'])
-        ->name('shadow-analytics.nudge-effectiveness');
-    Route::get('security-analytics/shadow-apps', [SecurityAnalyticsController::class, 'shadowApps'])
-        ->name('security-analytics.shadow-apps');
-    Route::get('shadow-analytics/shadow-apps', [SecurityAnalyticsController::class, 'shadowApps'])
-        ->name('shadow-analytics.shadow-apps');
-    Route::get('security-analytics/egress-incidents', [SecurityAnalyticsController::class, 'egressIncidents'])
-        ->name('security-analytics.egress-incidents');
-    Route::get('shadow-analytics/egress-incidents', [SecurityAnalyticsController::class, 'egressIncidents'])
-        ->name('shadow-analytics.egress-incidents');
-    Route::get('risk-algorithm/{view}', [RiskPatternController::class, 'index'])
-        ->whereIn('view', ['single', 'criteria'])
-        ->name('risk-algorithm.view');
-    Route::get('risk-algorithm/criteria/create', [RiskPatternController::class, 'createCriteria'])
-        ->name('risk-algorithm.create-criteria');
-    Route::get('risk-algorithm/criteria/{riskPattern}/edit', [RiskPatternController::class, 'editCriteria'])
-        ->name('risk-algorithm.edit-criteria');
-    Route::get('risk-algorithm', [RiskPatternController::class, 'index'])->name('risk-algorithm');
-    Route::post('risk-algorithm', [RiskPatternController::class, 'store'])->name('risk-algorithm.store');
-    Route::patch('risk-algorithm/{riskPattern}', [RiskPatternController::class, 'update'])->name('risk-algorithm.update');
-    Route::delete('risk-algorithm/{riskPattern}', [RiskPatternController::class, 'destroy'])->name('risk-algorithm.destroy');
-    Route::delete('risk-algorithm-all', [RiskPatternController::class, 'destroyAll'])->name('risk-algorithm.destroyAll');
-    Route::get('policy-algorithm', [DomainPolicyController::class, 'index'])->name('policy-algorithm');
-    Route::post('policy-algorithm', [DomainPolicyController::class, 'store'])->name('policy-algorithm.store');
-    Route::patch('policy-algorithm/{domainPolicy}', [DomainPolicyController::class, 'update'])->name('policy-algorithm.update');
-    Route::delete('policy-algorithm/{domainPolicy}', [DomainPolicyController::class, 'destroy'])->name('policy-algorithm.destroy');
-    Route::delete('policy-algorithm-all', [DomainPolicyController::class, 'destroyAll'])->name('policy-algorithm.destroyAll');
+    Route::middleware('module:dashboard')->group(function () {
+        Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
+        Route::get('reports/preview', [DashboardReportController::class, 'preview'])->name('reports.preview');
+        Route::get('dashboard/report-preview', [DashboardReportController::class, 'preview'])->name('dashboard.report-preview');
+        Route::get('dashboard/report/pdf', [DashboardReportController::class, 'pdf'])->name('dashboard.report.pdf');
+        Route::get('dashboard/report/excel', [DashboardReportController::class, 'excel'])->name('dashboard.report.excel');
+    });
+
+    Route::middleware('module:analytics')->group(function () {
+        Route::get('egress-logs', fn () => redirect()->route('security-analytics.egress-incidents'))->name('egress-logs');
+        Route::get('domain-visits', [DomainVisitController::class, 'index'])->name('domain-visits');
+        Route::get('security-analytics', [SecurityAnalyticsController::class, 'index'])->name('security-analytics');
+        Route::get('shadow-analytics', [SecurityAnalyticsController::class, 'index'])->name('shadow-analytics');
+        Route::get('security-analytics/nudge-effectiveness', [SecurityAnalyticsController::class, 'nudgeEffectiveness'])
+            ->name('security-analytics.nudge-effectiveness');
+        Route::get('shadow-analytics/nudge-effectiveness', [SecurityAnalyticsController::class, 'nudgeEffectiveness'])
+            ->name('shadow-analytics.nudge-effectiveness');
+        Route::get('security-analytics/shadow-apps', [SecurityAnalyticsController::class, 'shadowApps'])
+            ->name('security-analytics.shadow-apps');
+        Route::get('shadow-analytics/shadow-apps', [SecurityAnalyticsController::class, 'shadowApps'])
+            ->name('shadow-analytics.shadow-apps');
+        Route::get('security-analytics/egress-incidents', [SecurityAnalyticsController::class, 'egressIncidents'])
+            ->name('security-analytics.egress-incidents');
+        Route::get('shadow-analytics/egress-incidents', [SecurityAnalyticsController::class, 'egressIncidents'])
+            ->name('shadow-analytics.egress-incidents');
+    });
+
+    Route::middleware('module:policy')->group(function () {
+        Route::get('risk-algorithm/{view}', [RiskPatternController::class, 'index'])
+            ->whereIn('view', ['single', 'criteria'])
+            ->name('risk-algorithm.view');
+        Route::get('risk-algorithm/criteria/create', [RiskPatternController::class, 'createCriteria'])
+            ->name('risk-algorithm.create-criteria');
+        Route::get('risk-algorithm/criteria/{riskPattern}/edit', [RiskPatternController::class, 'editCriteria'])
+            ->name('risk-algorithm.edit-criteria');
+        Route::get('risk-algorithm', [RiskPatternController::class, 'index'])->name('risk-algorithm');
+        Route::post('risk-algorithm', [RiskPatternController::class, 'store'])->name('risk-algorithm.store');
+        Route::patch('risk-algorithm/{riskPattern}', [RiskPatternController::class, 'update'])->name('risk-algorithm.update');
+        Route::delete('risk-algorithm/{riskPattern}', [RiskPatternController::class, 'destroy'])->name('risk-algorithm.destroy');
+        Route::delete('risk-algorithm-all', [RiskPatternController::class, 'destroyAll'])->name('risk-algorithm.destroyAll');
+        Route::get('policy-algorithm', [DomainPolicyController::class, 'index'])->name('policy-algorithm');
+        Route::post('policy-algorithm', [DomainPolicyController::class, 'store'])->name('policy-algorithm.store');
+        Route::patch('policy-algorithm/{domainPolicy}', [DomainPolicyController::class, 'update'])->name('policy-algorithm.update');
+        Route::delete('policy-algorithm/{domainPolicy}', [DomainPolicyController::class, 'destroy'])->name('policy-algorithm.destroy');
+        Route::delete('policy-algorithm-all', [DomainPolicyController::class, 'destroyAll'])->name('policy-algorithm.destroyAll');
+    });
+
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications');
     Route::post('notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
     Route::post('notifications/{notification}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
     Route::delete('notifications-all', [NotificationController::class, 'destroyAll'])->name('notifications.destroyAll');
     Route::delete('notifications/{notification}', [NotificationController::class, 'destroy'])->name('notifications.destroy');
 
-    Route::get('community-messages', [CommunityMessageController::class, 'adminIndex'])->name('community-messages.index');
-    Route::patch('community-messages/{communityMessage}/approve', [CommunityMessageController::class, 'approve'])->name('community-messages.approve');
-    Route::patch('community-messages/{communityMessage}/reject', [CommunityMessageController::class, 'reject'])->name('community-messages.reject');
-    Route::patch('community-messages/{communityMessage}', [CommunityMessageController::class, 'update'])->name('community-messages.update');
-    Route::delete('community-messages/{communityMessage}', [CommunityMessageController::class, 'destroy'])->name('community-messages.destroy');
+    Route::middleware('module:feedback')->group(function () {
+        Route::get('community-messages', [CommunityMessageController::class, 'adminIndex'])->name('community-messages.index');
+        Route::patch('community-messages/{communityMessage}/approve', [CommunityMessageController::class, 'approve'])->name('community-messages.approve');
+        Route::patch('community-messages/{communityMessage}/reject', [CommunityMessageController::class, 'reject'])->name('community-messages.reject');
+        Route::patch('community-messages/{communityMessage}', [CommunityMessageController::class, 'update'])->name('community-messages.update');
+        Route::delete('community-messages/{communityMessage}', [CommunityMessageController::class, 'destroy'])->name('community-messages.destroy');
+    });
 
-    Route::get('chat', [ChatController::class, 'index'])->name('chat.index');
-    Route::get('chat/unread-count', [ChatController::class, 'unreadCount'])->name('chat.unread-count');
-    Route::post('chat/read-all', [ChatController::class, 'markAllAsRead'])->name('chat.read-all');
-    Route::get('chat/{conversation}', [ChatController::class, 'show'])->name('chat.show');
-    Route::get('chat/{conversation}/messages', [ChatController::class, 'indexMessages'])->name('chat.messages.index');
-    Route::post('chat/{conversation}/messages', [ChatController::class, 'store'])->name('chat.messages.store');
-    Route::post('chat/with/{user}', [ChatController::class, 'startConversation'])->name('chat.start');
-    Route::delete('chat/{conversation}', [ChatController::class, 'destroy'])->name('chat.destroy');
-    Route::delete('chat-all', [ChatController::class, 'destroyAll'])->name('chat.destroyAll');
+    Route::middleware('module:chat')->group(function () {
+        Route::get('chat', [ChatController::class, 'index'])->name('chat.index');
+        Route::get('chat/unread-count', [ChatController::class, 'unreadCount'])->name('chat.unread-count');
+        Route::post('chat/read-all', [ChatController::class, 'markAllAsRead'])->name('chat.read-all');
+        Route::get('chat/{conversation}', [ChatController::class, 'show'])->name('chat.show');
+        Route::get('chat/{conversation}/messages', [ChatController::class, 'indexMessages'])->name('chat.messages.index');
+        Route::post('chat/{conversation}/messages', [ChatController::class, 'store'])->name('chat.messages.store');
+        Route::post('chat/with/{user}', [ChatController::class, 'startConversation'])->name('chat.start');
+        Route::delete('chat/{conversation}', [ChatController::class, 'destroy'])->name('chat.destroy');
+        Route::delete('chat-all', [ChatController::class, 'destroyAll'])->name('chat.destroyAll');
+    });
 
-    Route::get('users/client', [ClientUserController::class, 'index'])->name('users.client.index');
-    Route::get('users/client/{userId}/telemetry', [ClientUserController::class, 'telemetry'])->name('users.client.telemetry');
-    Route::get('users/client/{userId}', [ClientUserController::class, 'show'])->name('users.client.show');
-    Route::get('users/team', [TeamUserController::class, 'index'])->name('users.team.index');
-    Route::patch('users/team/{user}', [TeamUserController::class, 'update'])->name('users.team.update');
-    Route::patch('users/team/{user}/toggle-block', [TeamUserController::class, 'toggleBlock'])->name('users.team.toggle-block');
+    Route::middleware('module:clients')->group(function () {
+        Route::get('users/client', [ClientUserController::class, 'index'])->name('users.client.index');
+        Route::get('users/client/{userId}/telemetry', [ClientUserController::class, 'telemetry'])->name('users.client.telemetry');
+        Route::get('users/client/{userId}', [ClientUserController::class, 'show'])->name('users.client.show');
+    });
+
+    Route::middleware('module:team')->group(function () {
+        Route::get('users/team', [TeamUserController::class, 'index'])->name('users.team.index');
+        Route::get('users/team/{user}', [TeamUserController::class, 'show'])->name('users.team.show');
+        Route::patch('users/team/{user}', [TeamUserController::class, 'update'])->name('users.team.update');
+        Route::patch('users/team/{user}/toggle-block', [TeamUserController::class, 'toggleBlock'])->name('users.team.toggle-block');
+    });
+
     Route::post('session/heartbeat', [SessionSecurityController::class, 'heartbeat'])->name('session.heartbeat');
     Route::post('session/dismiss-recommendation', [SessionSecurityController::class, 'dismissRecommendation'])->name('session.dismiss-recommendation');
 });

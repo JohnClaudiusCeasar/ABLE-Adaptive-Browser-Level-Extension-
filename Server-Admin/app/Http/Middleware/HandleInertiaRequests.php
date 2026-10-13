@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Enums\UserRole;
 use App\Models\ChatConversation;
 use App\Models\ChatMessage;
 use App\Models\Notification;
@@ -45,6 +46,9 @@ class HandleInertiaRequests extends Middleware
             'name' => config('app.name'),
             'auth' => [
                 'user' => $request->user(),
+                'modules' => $request->user()
+                    ? UserRole::fromValue($request->user()->role)->modules()
+                    : [],
                 'recommendPasswordChange' => (bool) $request->session()->get('recommend_password_change', false),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',

@@ -42,11 +42,13 @@ export const mainNavItems: NavItem[] = [
                 title: 'Dashboard',
                 href: dashboard(),
                 icon: LayoutGrid,
+                permission: 'dashboard',
             },
             {
                 title: 'Shadow Analytics',
                 href: '/security-analytics',
                 icon: TrendingUp,
+                permission: 'analytics',
                 items: [
                     {
                         title: 'Shadow Overview',
@@ -79,6 +81,7 @@ export const mainNavItems: NavItem[] = [
                 title: 'Policy Administration',
                 href: '/risk-algorithm/criteria',
                 icon: Shield,
+                permission: 'policy',
                 items: [
                     {
                         title: 'Risk Policy',
@@ -106,11 +109,13 @@ export const mainNavItems: NavItem[] = [
                         title: 'Client',
                         href: '/users/client',
                         icon: Laptop,
+                        permission: 'clients',
                     },
                     {
                         title: 'Team',
                         href: '/users/team',
                         icon: UsersRound,
+                        permission: 'team',
                     },
                 ],
             },
@@ -118,20 +123,53 @@ export const mainNavItems: NavItem[] = [
                 title: 'Chat',
                 href: '/chat',
                 icon: MessageSquareText,
+                permission: 'chat',
             },
             {
                 title: 'Community Feedback',
                 href: '/community-messages',
                 icon: MessageSquareText,
+                permission: 'feedback',
             },
         ],
     },
 ];
 
+function filterNavByPermission(
+    items: NavItem[],
+    modules: string[] | undefined,
+): NavItem[] {
+    if (modules === undefined) {
+        return items;
+    }
+
+    return items
+        .map((item) => {
+            if (item.permission && !modules.includes(item.permission)) {
+                return null;
+            }
+
+            if (item.items) {
+                const children = filterNavByPermission(item.items, modules);
+
+                if (children.length === 0) {
+                    return null;
+                }
+
+                return { ...item, items: children };
+            }
+
+            return item;
+        })
+        .filter((item): item is NavItem => item !== null);
+}
+
 export function AppSidebar() {
     const { unreadNotificationsCount = 0 } = usePage<{
         unreadNotificationsCount?: number;
     }>().props;
+    const { auth } = usePage<{ auth?: { modules?: string[] } }>().props;
+    const navItems = filterNavByPermission(mainNavItems, auth?.modules);
 
     useEffect(() => {
         const unsubscribe = subscribeToNotifications(() => {
@@ -188,14 +226,14 @@ export function AppSidebar() {
                 </div>
 
                 {/* Search Bar */}
-                <SidebarSearch items={mainNavItems} />
+                <SidebarSearch items={navItems} />
 
                 {/* Divider */}
                 <div className="mx-auto my-2 w-4/5 border-t border-black/10 dark:border-white/10" />
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={mainNavItems} />
+                <NavMain items={navItems} />
             </SidebarContent>
         </Sidebar>
     );

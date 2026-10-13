@@ -45,6 +45,24 @@ class DashboardController extends Controller
             ->havingRaw('COUNT(*) > 3')
             ->count();
 
+        // Detail list behind the Active Shadow Apps card (same >3 proceeded definition)
+        $activeShadowAppsList = EgressEvent::select(
+            'egress_events.domain',
+            'domain_policies.id',
+            DB::raw('COUNT(*) as usage_count')
+        )
+            ->leftJoin('domain_policies', 'domain_policies.domain', '=', 'egress_events.domain')
+            ->where('action', 'proceeded')
+            ->groupBy('egress_events.domain', 'domain_policies.id')
+            ->havingRaw('COUNT(*) > 3')
+            ->orderByDesc('usage_count')
+            ->get()
+            ->map(fn ($row) => [
+                'id' => $row->id !== null ? (int) $row->id : null,
+                'domain' => $row->domain,
+                'usage_count' => (int) $row->usage_count,
+            ]);
+
         // Total Egress Count - egress events for domains with policies
         $totalEgressCount = EgressEvent::whereIn('domain', function ($query) {
             $query->select('domain')->from('domain_policies');
@@ -156,6 +174,7 @@ class DashboardController extends Controller
             'inactiveUsers' => $inactiveUsers,
             'totalDomainVisits' => $totalDomainVisits,
             'activeShadowApps' => $activeShadowApps,
+            'activeShadowAppsList' => $activeShadowAppsList,
             'totalEgressCount' => $totalEgressCount,
             'criticalEgressCount' => $criticalEgressCount,
             'dataSaved' => $this->formatBytes((int) $dataStats->data_saved),

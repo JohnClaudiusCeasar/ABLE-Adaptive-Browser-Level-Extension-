@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnforceInactivityTimeout;
+use App\Http\Middleware\EnsureModuleAccess;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\ResetPasswordConfirmationOnNavigation;
@@ -43,6 +44,10 @@ return Application::configure(basePath: dirname(__DIR__))
             AddLinkHeadersForPreloadedAssets::class,
             ResetPasswordConfirmationOnNavigation::class,
             EnforceInactivityTimeout::class,
+        ]);
+
+        $middleware->alias([
+            'module' => EnsureModuleAccess::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

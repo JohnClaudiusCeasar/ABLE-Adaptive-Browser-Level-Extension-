@@ -1,9 +1,15 @@
 import { Head, Link } from '@inertiajs/react';
-import { ArrowLeft, Search, Filter, ArrowUpDown, Users } from 'lucide-react';
+import {
+    ArrowLeft,
+    Search,
+    Filter,
+    ArrowUpDown,
+    Eye,
+    Users,
+} from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { TablePagination } from '@/components/pagination';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { formatMetricNumber } from '@/lib/utils';
 
 const glassCard =
@@ -17,6 +23,8 @@ interface ShadowCatalogItem {
     risk_score: number;
     users: number;
     visit_count: number;
+    user_visits: number;
+    user_incidents: number;
     status: string;
     policy: string;
     domain_status: string;
@@ -24,6 +32,7 @@ interface ShadowCatalogItem {
 
 interface ShadowAppsProps {
     shadowCatalog: ShadowCatalogItem[];
+    scoped_user: string | null;
 }
 
 function getRiskScoreBadgeClass(score: number): string {
@@ -54,11 +63,19 @@ function getPolicyBadgeVariant(
 
 const ROWS_PER_PAGE = 10;
 
-export default function ShadowApps({ shadowCatalog }: ShadowAppsProps) {
+export default function ShadowApps({
+    shadowCatalog,
+    scoped_user,
+}: ShadowAppsProps) {
+    const isScoped = scoped_user !== null;
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('all');
     const [sortOption, setSortOption] = useState<
-        'risk_desc' | 'risk_asc' | 'users_desc' | 'visits_desc'
+        | 'risk_desc'
+        | 'risk_asc'
+        | 'users_desc'
+        | 'visits_desc'
+        | 'incidents_desc'
     >('risk_desc');
     const [currentPage, setCurrentPage] = useState(1);
 
@@ -103,14 +120,24 @@ export default function ShadowApps({ shadowCatalog }: ShadowAppsProps) {
                 case 'users_desc':
                     return b.users - a.users;
                 case 'visits_desc':
-                    return b.visit_count - a.visit_count;
+                    return isScoped
+                        ? b.user_visits - a.user_visits
+                        : b.visit_count - a.visit_count;
+                case 'incidents_desc':
+                    return b.user_incidents - a.user_incidents;
                 default:
                     return 0;
             }
         });
 
         return items;
-    }, [shadowCatalog, searchQuery, selectedCategory, sortOption]);
+    }, [
+        shadowCatalog,
+        searchQuery,
+        selectedCategory,
+        sortOption,
+        isScoped,
+    ]);
 
     const totalPages = Math.max(
         1,
@@ -130,11 +157,17 @@ export default function ShadowApps({ shadowCatalog }: ShadowAppsProps) {
                 {/* Header */}
                 <header>
                     <Link
-                        href="/security-analytics"
+                        href={
+                            isScoped
+                                ? `/users/client/${scoped_user}/telemetry`
+                                : '/security-analytics'
+                        }
                         className="mb-4 inline-flex items-center gap-1.5 text-xs font-semibold text-able-green transition-colors hover:text-able-green-muted"
                     >
                         <ArrowLeft size={14} />
-                        Back to Shadow Overview
+                        {isScoped
+                            ? 'Back to Client Telemetry'
+                            : 'Back to Shadow Overview'}
                     </Link>
                     <div className="flex flex-wrap items-start justify-between gap-4">
                         <div>
@@ -147,9 +180,9 @@ export default function ShadowApps({ shadowCatalog }: ShadowAppsProps) {
                                 SHADOW CATALOG
                             </h1>
                             <p className="max-w-[760px] text-[1.05rem] leading-relaxed text-muted-foreground">
-                                Complete catalog of unapproved, unlisted, and
-                                reviewed cloud applications intercepted across
-                                your network.
+                                {isScoped
+                                    ? 'Every cloud application this client has been tracked on, with its visit and incident counts per site.'
+                                    : 'Complete catalog of unapproved, unlisted, and reviewed cloud applications intercepted across your network.'}
                             </p>
                         </div>
                     </div>
@@ -226,12 +259,25 @@ export default function ShadowApps({ shadowCatalog }: ShadowAppsProps) {
                                     <option value="risk_asc">
                                         Sort: Risk (Low-High)
                                     </option>
-                                    <option value="users_desc">
-                                        Sort: Users (Most)
-                                    </option>
-                                    <option value="visits_desc">
-                                        Sort: Visits (Most)
-                                    </option>
+                                    {isScoped ? (
+                                        <>
+                                            <option value="visits_desc">
+                                                Sort: Visits (Most)
+                                            </option>
+                                            <option value="incidents_desc">
+                                                Sort: Incidents (Most)
+                                            </option>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <option value="users_desc">
+                                                Sort: Users (Most)
+                                            </option>
+                                            <option value="visits_desc">
+                                                Sort: Visits (Most)
+                                            </option>
+                                        </>
+                                    )}
                                 </select>
                                 <ArrowUpDown
                                     size={13}
@@ -256,10 +302,12 @@ export default function ShadowApps({ shadowCatalog }: ShadowAppsProps) {
                                         Risk Score
                                     </th>
                                     <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
-                                        Adopters
+                                        {isScoped ? 'Total Visits' : 'Adopters'}
                                     </th>
                                     <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
-                                        Total Visits
+                                        {isScoped
+                                            ? 'Total Incidents'
+                                            : 'Total Visits'}
                                     </th>
                                     <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
                                         Policy Status
@@ -311,27 +359,44 @@ export default function ShadowApps({ shadowCatalog }: ShadowAppsProps) {
                                                 </span>
                                             </td>
                                             <td className="py-3.5 pr-2.5">
-                                                <div className="flex items-center gap-1.5 text-foreground">
-                                                    <Users
-                                                        size={13}
-                                                        className="text-muted-foreground"
-                                                    />
+                                                {isScoped ? (
                                                     <span
-                                                        className="font-semibold tabular-nums"
-                                                        title={row.users.toLocaleString()}
+                                                        className="font-semibold text-foreground tabular-nums"
+                                                        title={row.user_visits.toLocaleString()}
                                                     >
                                                         {formatMetricNumber(
-                                                            row.users,
+                                                            row.user_visits,
                                                         )}
                                                     </span>
-                                                </div>
+                                                ) : (
+                                                    <div className="flex items-center gap-1.5 text-foreground">
+                                                        <Users
+                                                            size={13}
+                                                            className="text-muted-foreground"
+                                                        />
+                                                        <span
+                                                            className="font-semibold tabular-nums"
+                                                            title={row.users.toLocaleString()}
+                                                        >
+                                                            {formatMetricNumber(
+                                                                row.users,
+                                                            )}
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </td>
                                             <td
                                                 className="py-3.5 pr-2.5 text-foreground tabular-nums"
-                                                title={row.visit_count.toLocaleString()}
+                                                title={(
+                                                    isScoped
+                                                        ? row.user_incidents
+                                                        : row.visit_count
+                                                ).toLocaleString()}
                                             >
                                                 {formatMetricNumber(
-                                                    row.visit_count,
+                                                    isScoped
+                                                        ? row.user_incidents
+                                                        : row.visit_count,
                                                 )}
                                             </td>
                                             <td className="py-3.5 pr-2.5">
@@ -344,14 +409,12 @@ export default function ShadowApps({ shadowCatalog }: ShadowAppsProps) {
                                                 </Badge>
                                             </td>
                                             <td className="py-3.5">
-                                                <Link href="/policy-algorithm">
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="h-7 border-[rgba(34,197,94,0.5)] px-2.5 text-xs hover:bg-[rgba(34,197,94,0.1)]"
-                                                    >
-                                                        Policy
-                                                    </Button>
+                                                <Link
+                                                    href="/policy-algorithm"
+                                                    title="View Policy"
+                                                    className="inline-flex cursor-pointer rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-[rgba(34,197,94,0.1)] hover:text-able-green"
+                                                >
+                                                    <Eye size={16} />
                                                 </Link>
                                             </td>
                                         </tr>

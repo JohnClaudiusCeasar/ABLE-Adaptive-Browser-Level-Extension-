@@ -1,5 +1,5 @@
 import { Head, router, usePage } from '@inertiajs/react';
-import { Search, Plus, X, Copy, ArrowLeft, Info } from 'lucide-react';
+import { Search, Plus, X, Trash2, Copy, ArrowLeft, Info } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useState, Fragment, useMemo } from 'react';
 import AlertError from '@/components/alert-error';
@@ -950,11 +950,7 @@ export default function EditCriteriaPattern() {
                                                                         className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-[rgba(34,197,94,0.1)] hover:text-able-green"
                                                                         title="Add Sub-Item"
                                                                     >
-                                                                        <Plus
-                                                                            size={
-                                                                                14
-                                                                            }
-                                                                        />
+                                                                        <Plus size={16} />
                                                                     </button>
                                                                     <button
                                                                         type="button"
@@ -964,12 +960,9 @@ export default function EditCriteriaPattern() {
                                                                             )
                                                                         }
                                                                         className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-[rgba(248,113,113,0.1)] hover:text-[#f87171]"
+                                                                        title="Remove Item"
                                                                     >
-                                                                        <X
-                                                                            size={
-                                                                                14
-                                                                            }
-                                                                        />
+                                                                        <Trash2 size={16} />
                                                                     </button>
                                                                 </div>
                                                             </td>
@@ -1115,12 +1108,9 @@ export default function EditCriteriaPattern() {
                                                                                     )
                                                                                 }
                                                                                 className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-[rgba(248,113,113,0.1)] hover:text-[#f87171]"
+                                                                                title="Remove Sub-Item"
                                                                             >
-                                                                                <X
-                                                                                    size={
-                                                                                        14
-                                                                                    }
-                                                                                />
+                                                                                <Trash2 size={16} />
                                                                             </button>
                                                                         </td>
                                                                     </tr>

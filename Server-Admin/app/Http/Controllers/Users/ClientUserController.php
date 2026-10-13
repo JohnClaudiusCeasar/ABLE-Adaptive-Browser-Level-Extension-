@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Users;
 
 use App\Http\Controllers\Controller;
+use App\Models\DomainPolicy;
 use App\Models\DomainVisit;
 use App\Models\EgressEvent;
 use App\Models\ExtensionLifecycle;
@@ -236,7 +237,7 @@ class ClientUserController extends Controller
             ->selectRaw('domain, COUNT(*) as visits')
             ->groupBy('domain')
             ->orderByDesc('visits')
-            ->limit(10)
+            ->limit(5)
             ->get();
 
         $topEgress = EgressEvent::where('user_id', $userId)
@@ -256,7 +257,7 @@ class ClientUserController extends Controller
         $recentVisits = DomainVisit::where('user_id', $userId)
             ->whereBetween('visited_at', [$from, $to])
             ->orderByDesc('visited_at')
-            ->limit($limit)
+            ->limit(min($limit, 15))
             ->get(['domain', 'visited_at', 'status']);
 
         $recentEgress = EgressEvent::where('user_id', $userId)
@@ -265,9 +266,28 @@ class ClientUserController extends Controller
             ->limit($limit)
             ->get(['domain', 'file_name', 'action', 'risk_score', 'occurred_at']);
 
-        $lifecycles = ExtensionLifecycle::where('user_id', $userId)
-            ->orderByDesc('occurred_at')
-            ->get(['event', 'version', 'occurred_at']);
+        $userVisitedDomains = DomainVisit::where('user_id', $userId)
+            ->whereBetween('visited_at', [$from, $to])
+            ->select('domain');
+
+        $totalCategorized = DomainPolicy::whereIn('domain', $userVisitedDomains)->count();
+
+        $categoryDistribution = DomainPolicy::whereIn('domain', $userVisitedDomains)
+            ->select(
+                DB::raw("COALESCE(NULLIF(category, ''), 'General Cloud') as category_name"),
+                DB::raw('COUNT(*) as count'),
+                DB::raw('ROUND(AVG(risk_score)) as avg_risk')
+            )
+            ->groupByRaw("COALESCE(NULLIF(category, ''), 'General Cloud')")
+            ->orderByDesc('count')
+            ->limit(5)
+            ->get()
+            ->map(fn ($row) => [
+                'category' => $row->category_name,
+                'count' => (int) $row->count,
+                'percentage' => $totalCategorized > 0 ? round(((int) $row->count / $totalCategorized) * 100) : 0,
+                'avgRisk' => (int) $row->avg_risk,
+            ]);
 
         return [
             'profile' => $this->resolveProfile($userId),
@@ -286,7 +306,7 @@ class ClientUserController extends Controller
             ],
             'recent_visits' => $recentVisits,
             'recent_egress' => $recentEgress,
-            'lifecycles' => $lifecycles,
+            'category_distribution' => $categoryDistribution,
         ];
     }
 

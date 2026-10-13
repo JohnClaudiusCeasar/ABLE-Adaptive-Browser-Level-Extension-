@@ -2,26 +2,15 @@ import { Head, router, useForm } from '@inertiajs/react';
 import {
     ArrowUpDown,
     Ban,
-    Check,
-    CheckCircle2,
-    Edit3,
     Eye,
-    KeyRound,
     Layers,
-    Mail,
-    MoreVertical,
+    Pencil,
     Search,
-    Shield,
-    ShieldAlert,
-    ShieldCheck,
     Unlock,
-    User as UserIcon,
-    XCircle,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import InputError from '@/components/input-error';
 import { TablePagination } from '@/components/pagination';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -31,18 +20,26 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 
 const glassCard =
     'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
+
+const ROLE_OPTIONS = [
+    { value: 'superadmin', label: 'Super Admin' },
+    { value: 'admin', label: 'Admin' },
+] as const;
+
+const roleLabel = (role: string | null): string =>
+    ROLE_OPTIONS.find((option) => option.value === role)?.label ?? role ?? '—';
 
 interface TeamUser {
     id: number;
@@ -64,27 +61,6 @@ type SortField = 'id' | 'name' | 'email' | 'role' | 'status';
 type SortDir = 'asc' | 'desc';
 type GroupField = 'none' | 'role' | 'status';
 
-function formatTimestamp(ts: string | null): string {
-    if (!ts) {
-        return '—';
-    }
-
-    const d = new Date(ts);
-
-    if (isNaN(d.getTime())) {
-        return ts;
-    }
-
-    return d.toLocaleString(undefined, {
-        year: 'numeric',
-        month: 'short',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-    });
-}
-
 export default function TeamUsersPage({ team = [] }: TeamPageProps) {
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
@@ -93,7 +69,6 @@ export default function TeamUsersPage({ team = [] }: TeamPageProps) {
     const [groupField, setGroupField] = useState<GroupField>('none');
 
     // Modals
-    const [viewingUser, setViewingUser] = useState<TeamUser | null>(null);
     const [editingUser, setEditingUser] = useState<TeamUser | null>(null);
     const [blockingUser, setBlockingUser] = useState<TeamUser | null>(null);
 
@@ -109,7 +84,7 @@ export default function TeamUsersPage({ team = [] }: TeamPageProps) {
         editForm.setData({
             name: user.name,
             email: user.email,
-            role: user.role ?? '',
+            role: user.role ?? 'admin',
         });
         editForm.clearErrors();
     };
@@ -198,7 +173,7 @@ export default function TeamUsersPage({ team = [] }: TeamPageProps) {
                         ? 'BLOCKED'
                         : 'ACTIVE'
                     : item.role
-                      ? item.role.toUpperCase()
+                      ? roleLabel(item.role).toUpperCase()
                       : 'NO ROLE';
 
             if (!groups[key]) {
@@ -269,7 +244,7 @@ export default function TeamUsersPage({ team = [] }: TeamPageProps) {
                 <td className={`py-3 pr-2.5 ${isGrouped ? 'w-[15%]' : ''}`}>
                     {member.role ? (
                         <span className="rounded-full bg-sky-500/10 px-2.5 py-0.5 text-xs font-medium text-sky-500 dark:bg-sky-500/20 dark:text-sky-400">
-                            {member.role}
+                            {roleLabel(member.role)}
                         </span>
                     ) : (
                         <span className="text-xs text-muted-foreground/60 italic">
@@ -278,60 +253,48 @@ export default function TeamUsersPage({ team = [] }: TeamPageProps) {
                     )}
                 </td>
 
-                {/* Action Dropdown */}
+                {/* Action Buttons */}
                 <td
                     className={`py-3 text-right ${
                         isGrouped ? 'w-[14%] pr-4' : ''
                     }`}
                 >
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                            >
-                                <MoreVertical size={16} />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-40">
-                            <DropdownMenuItem
-                                onClick={() => setViewingUser(member)}
-                                className="cursor-pointer gap-2"
-                            >
-                                <Eye size={14} />
-                                <span>View Details</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                                onClick={() => openEditModal(member)}
-                                className="cursor-pointer gap-2"
-                            >
-                                <Edit3 size={14} />
-                                <span>Edit Member</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                                onClick={() => setBlockingUser(member)}
-                                className={
-                                    member.is_blocked
-                                        ? 'cursor-pointer gap-2 text-able-green focus:text-able-green'
-                                        : 'cursor-pointer gap-2 text-rose-500 focus:text-rose-500'
-                                }
-                            >
-                                {member.is_blocked ? (
-                                    <>
-                                        <Unlock size={14} />
-                                        <span>Unblock</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <Ban size={14} />
-                                        <span>Block User</span>
-                                    </>
-                                )}
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                    <div className="flex items-center justify-end gap-2">
+                        <button
+                            type="button"
+                            onClick={() =>
+                                router.visit(`/users/team/${member.id}`)
+                            }
+                            title="View Details"
+                            className="cursor-pointer rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-[rgba(34,197,94,0.1)] hover:text-able-green"
+                        >
+                            <Eye size={16} />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => openEditModal(member)}
+                            title="Edit Member"
+                            className="cursor-pointer rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-[rgba(34,197,94,0.1)] hover:text-able-green"
+                        >
+                            <Pencil size={16} />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setBlockingUser(member)}
+                            title={member.is_blocked ? 'Unblock' : 'Block User'}
+                            className={`cursor-pointer rounded-md p-1.5 text-muted-foreground transition-colors ${
+                                member.is_blocked
+                                    ? 'hover:bg-[rgba(34,197,94,0.1)] hover:text-able-green'
+                                    : 'hover:bg-[rgba(248,113,113,0.1)] hover:text-[#f87171]'
+                            }`}
+                        >
+                            {member.is_blocked ? (
+                                <Unlock size={16} />
+                            ) : (
+                                <Ban size={16} />
+                            )}
+                        </button>
+                    </div>
                 </td>
             </tr>
         ));
@@ -592,101 +555,6 @@ export default function TeamUsersPage({ team = [] }: TeamPageProps) {
                 </div>
             </div>
 
-            {/* View Modal */}
-            <Dialog
-                open={viewingUser !== null}
-                onOpenChange={(open) => !open && setViewingUser(null)}
-            >
-                <DialogContent className="max-w-md border border-[rgba(34,197,94,0.4)] bg-background/95 backdrop-blur-xl">
-                    <DialogHeader>
-                        <DialogTitle
-                            className="text-xl font-bold tracking-wide uppercase"
-                            style={{ fontFamily: "'Unbounded', sans-serif" }}
-                        >
-                            Team Member Profile
-                        </DialogTitle>
-                        <DialogDescription className="text-sm text-muted-foreground">
-                            Account information and security status.
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    {viewingUser && (
-                        <div className="flex flex-col gap-4 pt-2 text-sm">
-                            <div className="flex items-center gap-3 rounded-lg border border-black/10 bg-black/5 p-3.5 dark:border-white/10 dark:bg-white/5">
-                                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-able-green/15 text-lg font-bold text-able-green">
-                                    {viewingUser.name.charAt(0).toUpperCase()}
-                                </div>
-                                <div className="flex flex-col">
-                                    <span className="text-base font-semibold text-foreground">
-                                        {viewingUser.name}
-                                    </span>
-                                    <span className="font-mono text-xs text-muted-foreground">
-                                        {viewingUser.email}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col gap-2 rounded-lg border border-black/10 bg-black/5 p-3.5 text-xs dark:border-white/10 dark:bg-white/5">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-muted-foreground">
-                                        Account Role:
-                                    </span>
-                                    <span className="font-semibold text-foreground">
-                                        {viewingUser.role ??
-                                            'Unassigned (None)'}
-                                    </span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-muted-foreground">
-                                        Account Status:
-                                    </span>
-                                    <span
-                                        className={
-                                            viewingUser.is_blocked
-                                                ? 'font-semibold text-rose-500'
-                                                : 'font-semibold text-able-green'
-                                        }
-                                    >
-                                        {viewingUser.is_blocked
-                                            ? 'Blocked'
-                                            : 'Active'}
-                                    </span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-muted-foreground">
-                                        Two-Factor Auth:
-                                    </span>
-                                    <span className="font-semibold text-foreground">
-                                        {viewingUser.two_factor_enabled
-                                            ? 'Enabled'
-                                            : 'Disabled'}
-                                    </span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-muted-foreground">
-                                        Created Date:
-                                    </span>
-                                    <span className="font-semibold text-foreground tabular-nums">
-                                        {formatTimestamp(
-                                            viewingUser.created_at,
-                                        )}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <DialogFooter className="pt-2">
-                                <Button
-                                    variant="outline"
-                                    onClick={() => setViewingUser(null)}
-                                >
-                                    Close
-                                </Button>
-                            </DialogFooter>
-                        </div>
-                    )}
-                </DialogContent>
-            </Dialog>
-
             {/* Edit Modal */}
             <Dialog
                 open={editingUser !== null}
@@ -737,15 +605,27 @@ export default function TeamUsersPage({ team = [] }: TeamPageProps) {
                         </div>
 
                         <div className="space-y-1.5">
-                            <Label htmlFor="role">Role (Optional)</Label>
-                            <Input
-                                id="role"
-                                placeholder="e.g. Admin, Analyst, Auditor"
+                            <Label htmlFor="role">Role</Label>
+                            <Select
                                 value={editForm.data.role}
-                                onChange={(e) =>
-                                    editForm.setData('role', e.target.value)
+                                onValueChange={(value) =>
+                                    editForm.setData('role', value)
                                 }
-                            />
+                            >
+                                <SelectTrigger id="role" className="w-full">
+                                    <SelectValue placeholder="Select a role" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {ROLE_OPTIONS.map((option) => (
+                                        <SelectItem
+                                            key={option.value}
+                                            value={option.value}
+                                        >
+                                            {option.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                             <InputError message={editForm.errors.role} />
                         </div>
 

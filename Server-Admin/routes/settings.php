@@ -17,9 +17,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::inertia('settings/appearance', 'settings/appearance')->name('appearance.edit');
 
-    Route::get('settings/extension', [ExtensionSettingsController::class, 'edit'])->name('extension-settings.edit');
-    Route::put('settings/extension', [ExtensionSettingsController::class, 'update'])->name('extension-settings.update');
+    Route::middleware('module:settings')->group(function () {
+        Route::get('settings/extension', [ExtensionSettingsController::class, 'edit'])->name('extension-settings.edit');
+        Route::put('settings/extension', [ExtensionSettingsController::class, 'update'])->name('extension-settings.update');
 
-    Route::get('settings/server', [ServerSettingsController::class, 'edit'])->name('server-settings.edit');
-    Route::put('settings/server', [ServerSettingsController::class, 'update'])->name('server-settings.update');
+        Route::get('settings/server', [ServerSettingsController::class, 'edit'])->name('server-settings.edit');
+        Route::put('settings/server', [ServerSettingsController::class, 'update'])->name('server-settings.update');
+    });
 });

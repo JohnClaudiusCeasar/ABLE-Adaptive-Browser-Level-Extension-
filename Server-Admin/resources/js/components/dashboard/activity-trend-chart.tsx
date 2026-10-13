@@ -119,7 +119,12 @@ export function ActivityTrendChart({ data, className }: ActivityTrendChartProps)
         PAD_TOP + innerHeight - (v / yMax) * innerHeight;
 
     const tickStep = Math.max(1, Math.ceil(data.length / 7));
-    const tickIdxs = data.map((_, i) => i).filter((i) => i % tickStep === 0);
+    const tickIdxs = Array.from(
+        new Set([
+            ...data.map((_, i) => i).filter((i) => i % tickStep === 0),
+            data.length - 1,
+        ]),
+    );
     const shortTick = (p: TrendPoint) => {
         const d = new Date(`${p.date}T12:00:00`);
 
@@ -368,28 +373,46 @@ export function ActivityTrendChart({ data, className }: ActivityTrendChartProps)
                             </div>
                         )}
 
-                        <div
-                            className="relative z-10 mt-1 flex"
-                            style={{
-                                paddingLeft: PAD_LEFT,
-                                paddingRight: PAD_RIGHT,
-                            }}
-                        >
-                            {data.map((d, i) => (
-                                <div
-                                    key={d.date}
-                                    className="flex-1 text-center"
-                                    style={{
-                                        visibility: tickIdxs.includes(i)
-                                            ? 'visible'
-                                            : 'hidden',
-                                    }}
-                                >
-                                    <span className="text-[10px] font-medium whitespace-nowrap text-muted-foreground tabular-nums">
-                                        {shortTick(d)}
-                                    </span>
-                                </div>
-                            ))}
+                        <div className="relative z-10 mt-1 overflow-hidden">
+                            <div
+                                className="relative"
+                                style={{
+                                    marginLeft: PAD_LEFT,
+                                    marginRight: PAD_RIGHT,
+                                    height: 16,
+                                }}
+                            >
+                                {tickIdxs.map((i) => {
+                                    const pct =
+                                        data.length === 1
+                                            ? 50
+                                            : (i / (data.length - 1)) * 100;
+                                    const align =
+                                        pct <= 8
+                                            ? 'left'
+                                            : pct >= 92
+                                              ? 'right'
+                                              : 'center';
+
+                                    return (
+                                        <span
+                                            key={data[i].date}
+                                            className="absolute top-0 text-[10px] font-medium whitespace-nowrap text-muted-foreground tabular-nums"
+                                            style={{
+                                                left: `${pct}%`,
+                                                transform:
+                                                    align === 'left'
+                                                        ? 'translateX(0)'
+                                                        : align === 'right'
+                                                          ? 'translateX(-100%)'
+                                                          : 'translateX(-50%)',
+                                            }}
+                                        >
+                                            {shortTick(data[i])}
+                                        </span>
+                                    );
+                                })}
+                            </div>
                         </div>
                     </div>
                 )}

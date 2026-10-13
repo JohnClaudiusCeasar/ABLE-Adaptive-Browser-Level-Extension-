@@ -4,22 +4,12 @@ import {
     Check,
     Copy,
     Eye,
-    Globe,
     Layers,
     Search,
-    ShieldAlert,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { telemetry } from '@/actions/App/Http/Controllers/Users/ClientUserController';
 import { TablePagination } from '@/components/pagination';
-import { Button } from '@/components/ui/button';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
 
 const glassCard =
     'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
@@ -72,9 +62,6 @@ export default function ClientUsersPage({ clients = [] }: ClientPageProps) {
     const [sortField, setSortField] = useState<SortField>('id');
     const [sortDir, setSortDir] = useState<SortDir>('asc');
     const [groupField, setGroupField] = useState<GroupField>('none');
-    const [selectedClient, setSelectedClient] = useState<ClientUser | null>(
-        null,
-    );
     const [copiedId, setCopiedId] = useState<string | null>(null);
 
     // Search and sort logic
@@ -212,15 +199,13 @@ export default function ClientUsersPage({ clients = [] }: ClientPageProps) {
                         isGrouped ? 'w-[15%] pr-4' : ''
                     }`}
                 >
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSelectedClient(client)}
-                        className="h-8 gap-1.5 border-[rgba(34,197,94,0.7)] text-xs hover:bg-[rgba(34,197,94,0.1)]"
+                    <Link
+                        href={telemetry.url(client.user_id)}
+                        title="View"
+                        className="inline-flex cursor-pointer rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-[rgba(34,197,94,0.1)] hover:text-able-green"
                     >
-                        <Eye size={14} />
-                        View
-                    </Button>
+                        <Eye size={16} />
+                    </Link>
                 </td>
             </tr>
         ));
@@ -468,135 +453,6 @@ export default function ClientUsersPage({ clients = [] }: ClientPageProps) {
                     )}
                 </div>
             </div>
-
-            {/* View Details Modal */}
-            <Dialog
-                open={selectedClient !== null}
-                onOpenChange={(open) => !open && setSelectedClient(null)}
-            >
-                <DialogContent className="max-w-lg border border-[rgba(34,197,94,0.4)] bg-background/95 backdrop-blur-xl">
-                    <DialogHeader>
-                        <DialogTitle
-                            className="text-xl font-bold tracking-wide uppercase"
-                            style={{ fontFamily: "'Unbounded', sans-serif" }}
-                        >
-                            Client Telemetry Profile
-                        </DialogTitle>
-                        <DialogDescription className="text-sm text-muted-foreground">
-                            Telemetry overview for this sanitized extension
-                            client.
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    {selectedClient && (
-                        <div className="flex flex-col gap-5 pt-2">
-                            {/* User ID block */}
-                            <div className="rounded-lg border border-black/10 bg-black/5 p-3.5 dark:border-white/10 dark:bg-white/5">
-                                <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                                    Sanitized Extension User ID
-                                </span>
-                                <div className="mt-1 flex items-center justify-between gap-2">
-                                    <code className="font-mono text-sm font-semibold break-all text-foreground">
-                                        {selectedClient.user_id}
-                                    </code>
-                                    <button
-                                        onClick={() =>
-                                            copyToClipboard(
-                                                selectedClient.user_id,
-                                            )
-                                        }
-                                        className="shrink-0 rounded p-1.5 text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5"
-                                    >
-                                        {copiedId === selectedClient.user_id ? (
-                                            <Check
-                                                size={16}
-                                                className="text-able-green"
-                                            />
-                                        ) : (
-                                            <Copy size={16} />
-                                        )}
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Stat cards grid */}
-                            <div className="grid grid-cols-2 gap-3 text-sm">
-                                <div className="rounded-lg border border-black/10 bg-black/5 p-3 dark:border-white/10 dark:bg-white/5">
-                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                        <Globe
-                                            size={14}
-                                            className="text-sky-400"
-                                        />
-                                        <span>Total Domain Visits</span>
-                                    </div>
-                                    <p className="mt-1 text-lg font-bold text-foreground tabular-nums">
-                                        {selectedClient.total_visits.toLocaleString()}
-                                    </p>
-                                </div>
-
-                                <div className="rounded-lg border border-black/10 bg-black/5 p-3 dark:border-white/10 dark:bg-white/5">
-                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                        <ShieldAlert
-                                            size={14}
-                                            className="text-rose-400"
-                                        />
-                                        <span>Egress Events</span>
-                                    </div>
-                                    <p className="mt-1 text-lg font-bold text-foreground tabular-nums">
-                                        {selectedClient.total_egress.toLocaleString()}
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Timestamps & details */}
-                            <div className="flex flex-col gap-2 rounded-lg border border-black/10 bg-black/5 p-3.5 text-xs dark:border-white/10 dark:bg-white/5">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-muted-foreground">
-                                        ID Registered:
-                                    </span>
-                                    <span className="font-semibold text-foreground tabular-nums">
-                                        {formatTimestamp(
-                                            selectedClient.registered_at,
-                                        )}
-                                    </span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-muted-foreground">
-                                        Last Active Telemetry:
-                                    </span>
-                                    <span className="font-semibold text-foreground tabular-nums">
-                                        {formatTimestamp(
-                                            selectedClient.last_active_at,
-                                        )}
-                                    </span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-muted-foreground">
-                                        Client Version:
-                                    </span>
-                                    <span className="font-mono font-semibold text-foreground">
-                                        {selectedClient.version}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div className="flex justify-end gap-2 pt-2">
-                                <Link
-                                    href={telemetry.url(selectedClient.user_id)}
-                                >
-                                    <Button>Open full telemetry</Button>
-                                </Link>
-                                <Button
-                                    variant="outline"
-                                    onClick={() => setSelectedClient(null)}
-                                >
-                                    Close
-                                </Button>
-                            </div>
-                        </div>
-                    )}
-                </DialogContent>
-            </Dialog>
         </>
     );
 }
