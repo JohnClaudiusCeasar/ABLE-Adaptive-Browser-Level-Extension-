@@ -23,10 +23,18 @@ class NotificationController extends Controller
             ->map(function (Notification $notification) {
                 $unread = $notification->read_at === null;
 
+                $typeTitle = match ($notification->type) {
+                    'false_positive_report' => 'False Positive Report',
+                    'community_feedback' => 'Community Feedback',
+                    'community_feedback_approved' => 'Community Feedback Approved',
+                    'community_feedback_rejected' => 'Community Feedback Rejected',
+                    default => $notification->type,
+                };
+
                 return [
                     'id' => $notification->id,
                     'source' => $notification->source,
-                    'type' => $notification->type,
+                    'type' => $typeTitle,
                     'description' => $notification->description,
                     'domain' => $notification->domain,
                     'user' => $notification->user_id,
@@ -37,7 +45,7 @@ class NotificationController extends Controller
                         : null,
                     'status' => $notification->status,
                     'message' => $notification->message,
-                    'occurred_at' => $notification->occurred_at->toIso8601String(),
+                    'occurred_at' => $notification->occurred_at ? $notification->occurred_at->toIso8601String() : now()->toIso8601String(),
                     'unread' => $unread,
                 ];
             });

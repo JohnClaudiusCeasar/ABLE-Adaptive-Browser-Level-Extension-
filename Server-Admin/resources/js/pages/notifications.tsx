@@ -3,16 +3,18 @@ import {
     AlertTriangle,
     CheckCheck,
     Globe,
+    MessageSquare,
     Plug,
     Search,
     Trash2,
     X,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { formatRelativeTime } from '@/lib/date';
+import { subscribeToNotifications } from '@/lib/echo';
 
 const glassCard =
     'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
@@ -22,7 +24,7 @@ const readCard =
 
 interface NotificationItem {
     id: number;
-    source: 'egress' | 'domain' | 'extension';
+    source: 'egress' | 'domain' | 'extension' | 'community';
     type: string;
     description: string | null;
     domain: string | null;
@@ -45,36 +47,43 @@ const sourceLabels: Record<NotificationItem['source'], string> = {
     egress: 'Egress',
     domain: 'Domain',
     extension: 'Extension',
+    community: 'Community',
 };
 
 const sourceIcons: Record<NotificationItem['source'], React.ElementType> = {
     egress: AlertTriangle,
     domain: Globe,
     extension: Plug,
+    community: MessageSquare,
 };
 
 const sourceColors: Record<NotificationItem['source'], string> = {
     egress: 'text-red-400',
     domain: 'text-purple-400',
     extension: 'text-blue-400',
+    community: 'text-emerald-400',
 };
 
 const sourceBorderColors: Record<NotificationItem['source'], string> = {
     egress: 'border-l-red-500/60',
     domain: 'border-l-purple-500/60',
     extension: 'border-l-blue-500/60',
+    community: 'border-l-emerald-500/60',
 };
 
 const sourceBadgeClasses: Record<NotificationItem['source'], string> = {
     egress: 'bg-[rgba(255,77,77,0.12)] text-[rgba(255,77,77,0.85)]',
     domain: 'bg-[rgba(204,102,255,0.12)] text-[rgba(204,102,255,0.85)]',
     extension: 'bg-[rgba(59,130,246,0.12)] text-[rgba(59,130,246,0.85)]',
+    community:
+        'bg-[rgba(34,197,94,0.12)] text-able-green dark:text-emerald-300',
 };
 
 const allSources: NotificationItem['source'][] = [
     'egress',
     'domain',
     'extension',
+    'community',
 ];
 
 export default function Notifications() {
@@ -88,6 +97,39 @@ export default function Notifications() {
     const [optimisticReadIds, setOptimisticReadIds] = useState<Set<number>>(
         new Set(),
     );
+
+    // Auto-update notifications whenever CRUD operations occur
+    useEffect(() => {
+        // 1. WebSocket listener for instant real-time notification events
+        const unsubscribe = subscribeToNotifications(() => {
+            router.reload({
+                only: ['notifications', 'unreadCount'],
+            });
+        });
+
+        // 2. Resilient polling fallback (every 5 seconds) when active
+        const intervalId = setInterval(() => {
+            if (typeof document !== 'undefined' && !document.hidden) {
+                router.reload({
+                    only: ['notifications', 'unreadCount'],
+                });
+            }
+        }, 5000);
+
+        // 3. Tab focus reload
+        const handleFocus = () => {
+            router.reload({
+                only: ['notifications', 'unreadCount'],
+            });
+        };
+        window.addEventListener('focus', handleFocus);
+
+        return () => {
+            unsubscribe();
+            clearInterval(intervalId);
+            window.removeEventListener('focus', handleFocus);
+        };
+    }, []);
 
     const effectiveUnreadCount = useMemo(() => {
         return notifications.filter(
@@ -120,6 +162,7 @@ export default function Notifications() {
             egress: 0,
             domain: 0,
             extension: 0,
+            community: 0,
         };
         const base = searchQuery
             ? (() => {

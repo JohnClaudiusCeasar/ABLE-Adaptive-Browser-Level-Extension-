@@ -2,6 +2,7 @@ import { Link, router } from '@inertiajs/react';
 import { ChevronRight, LogOut } from 'lucide-react';
 import { Fragment } from 'react';
 import { getBreadcrumbsWithIcons } from '@/lib/breadcrumb-utils';
+import { dashboard } from '@/routes';
 import type { BreadcrumbItem } from '@/types';
 
 export function AppSidebarHeader({
@@ -9,55 +10,47 @@ export function AppSidebarHeader({
 }: {
     breadcrumbs?: BreadcrumbItem[];
 }) {
-    const breadcrumbsWithIcons = getBreadcrumbsWithIcons(breadcrumbs);
+    const effectiveBreadcrumbs =
+        breadcrumbs.length > 0
+            ? breadcrumbs
+            : [{ title: 'Dashboard', href: dashboard() }];
+    const breadcrumbsWithIcons = getBreadcrumbsWithIcons(effectiveBreadcrumbs);
 
     return (
         <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center justify-between border-b border-[rgba(34,197,94,0.3)] bg-white/80 px-6 shadow-[0_4px_12px_-2px_rgba(34,197,94,0.15)] backdrop-blur-[10px] transition-[width,height] ease-linear md:px-4 dark:border-[rgba(34,197,94,0.7)] dark:bg-[#1e4b3e] dark:shadow-[0_8px_20px_-5px_rgba(34,197,94,0.4)]">
             {/* Breadcrumb with Icons */}
             <nav className="flex items-center gap-1.5">
-                {breadcrumbsWithIcons.length > 0 ? (
-                    breadcrumbsWithIcons.map((item, index) => {
-                        const isLast =
-                            index === breadcrumbsWithIcons.length - 1;
-                        const href =
-                            typeof item.href === 'string'
-                                ? item.href
-                                : item.href.url;
+                {breadcrumbsWithIcons.map((item, index) => {
+                    const isLast = index === breadcrumbsWithIcons.length - 1;
+                    const href =
+                        typeof item.href === 'string'
+                            ? item.href
+                            : item.href.url;
 
-                        return (
-                            <Fragment key={index}>
-                                {index > 0 && (
-                                    <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+                    return (
+                        <Fragment key={index}>
+                            {index > 0 && (
+                                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+                            )}
+                            <Link
+                                href={href}
+                                className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-sm transition-colors ${
+                                    isLast
+                                        ? 'font-semibold text-foreground'
+                                        : 'font-medium text-muted-foreground hover:bg-able-green/10 hover:text-foreground'
+                                }`}
+                                style={{
+                                    fontFamily: "'Unbounded', sans-serif",
+                                }}
+                            >
+                                {item.icon && (
+                                    <item.icon className="h-4 w-4 shrink-0" />
                                 )}
-                                <Link
-                                    href={href}
-                                    className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-sm transition-colors ${
-                                        isLast
-                                            ? 'font-semibold text-foreground'
-                                            : 'font-medium text-muted-foreground hover:bg-able-green/10 hover:text-foreground'
-                                    }`}
-                                    style={{
-                                        fontFamily: "'Unbounded', sans-serif",
-                                    }}
-                                >
-                                    {item.icon && (
-                                        <item.icon className="h-4 w-4 shrink-0" />
-                                    )}
-                                    <span className="truncate">
-                                        {item.title}
-                                    </span>
-                                </Link>
-                            </Fragment>
-                        );
-                    })
-                ) : (
-                    <h2
-                        className="text-lg font-semibold text-foreground"
-                        style={{ fontFamily: "'Unbounded', sans-serif" }}
-                    >
-                        Dashboard
-                    </h2>
-                )}
+                                <span className="truncate">{item.title}</span>
+                            </Link>
+                        </Fragment>
+                    );
+                })}
             </nav>
 
             {/* Logout Button */}

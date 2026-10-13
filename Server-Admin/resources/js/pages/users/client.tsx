@@ -1,20 +1,17 @@
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import {
-    Activity,
     ArrowUpDown,
     Check,
     Copy,
     Eye,
     Globe,
-    Laptop,
     Layers,
     Search,
     ShieldAlert,
-    X,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
+import { telemetry } from '@/actions/App/Http/Controllers/Users/ClientUserController';
 import { TablePagination } from '@/components/pagination';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -583,7 +580,12 @@ export default function ClientUsersPage({ clients = [] }: ClientPageProps) {
                                 </div>
                             </div>
 
-                            <div className="flex justify-end pt-2">
+                            <div className="flex justify-end gap-2 pt-2">
+                                <Link
+                                    href={telemetry.url(selectedClient.user_id)}
+                                >
+                                    <Button>Open full telemetry</Button>
+                                </Link>
                                 <Button
                                     variant="outline"
                                     onClick={() => setSelectedClient(null)}
@@ -598,3 +600,10 @@ export default function ClientUsersPage({ clients = [] }: ClientPageProps) {
         </>
     );
 }
+
+ClientUsersPage.layout = {
+    breadcrumbs: [
+        { title: 'Users', href: '/users/client' },
+        { title: 'Client', href: '/users/client' },
+    ],
+};

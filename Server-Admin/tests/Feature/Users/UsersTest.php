@@ -70,7 +70,58 @@ class UsersTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('user_id', 'usr_test_client_2')
-            ->assertJsonCount(1, 'recent_visits');
+            ->assertJsonCount(1, 'recent_visits')
+            ->assertJsonPath('profile.user_id', 'usr_test_client_2')
+            ->assertJsonStructure([
+                'profile',
+                'summary',
+                'daily_series',
+                'top_domains',
+                'risk_breakdown',
+                'recent_egress',
+                'lifecycles',
+            ]);
+    }
+
+    public function test_client_users_telemetry_page_renders_with_range()
+    {
+        $admin = User::factory()->create();
+
+        $policy = DomainPolicy::create([
+            'domain' => 'example.org',
+            'domain_status' => 'safe',
+        ]);
+
+        DomainVisit::create([
+            'domain_policy_id' => $policy->id,
+            'user_id' => 'usr_test_client_3',
+            'domain' => 'example.org',
+            'visited_at' => now()->subDays(2),
+        ]);
+
+        DomainVisit::create([
+            'domain_policy_id' => $policy->id,
+            'user_id' => 'usr_test_client_3',
+            'domain' => 'example.org',
+            'visited_at' => now(),
+        ]);
+
+        $from = now()->subDays(2)->toDateString();
+        $to = now()->toDateString();
+
+        $response = $this->actingAs($admin)
+            ->get(route('users.client.telemetry', ['userId' => 'usr_test_client_3', 'date_from' => $from, 'date_to' => $to]));
+
+        $response->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('users/client-show')
+                ->where('profile.user_id', 'usr_test_client_3')
+                ->where('date_from', $from)
+                ->where('date_to', $to)
+                ->has('daily_series', 3)
+                ->has('top_domains', 1)
+                ->where('summary.visits', 2),
+            );
     }
 
     public function test_team_users_page_can_be_rendered()

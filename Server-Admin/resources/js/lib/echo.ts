@@ -125,3 +125,36 @@ export function subscribeToUser(
         instance.leaveChannel(`private-user.${userId}`);
     };
 }
+
+export interface NotificationUpdatePayload {
+    action: string;
+    notificationId?: number | null;
+    communityMessageId?: number | null;
+    unreadCount?: number;
+    occurred_at?: string;
+}
+
+/**
+ * Subscribe to the public notifications channel to receive real-time notifications
+ * whenever notifications are created, updated, or removed (e.g. via Feedback panel CRUD).
+ */
+export function subscribeToNotifications(
+    onNotificationChange: (payload: NotificationUpdatePayload) => void,
+): () => void {
+    const instance = getEcho();
+
+    if (!instance) {
+        return () => {};
+    }
+
+    const channel = instance.channel('notifications');
+    channel.listen('.notification.updated', (payload: NotificationUpdatePayload) => {
+        onNotificationChange(payload);
+    });
+
+    return () => {
+        channel.stopListening('.notification.updated');
+        instance.leaveChannel('notifications');
+    };
+}
+

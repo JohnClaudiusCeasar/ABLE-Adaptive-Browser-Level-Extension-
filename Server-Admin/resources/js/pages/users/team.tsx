@@ -823,3 +823,10 @@ export default function TeamUsersPage({ team = [] }: TeamPageProps) {
         </>
     );
 }
+
+TeamUsersPage.layout = {
+    breadcrumbs: [
+        { title: 'Users', href: '/users/client' },
+        { title: 'Team', href: '/users/team' },
+    ],
+};

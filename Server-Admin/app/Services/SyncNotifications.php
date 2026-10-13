@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\CommunityMessage;
 use App\Models\DomainVisit;
 use App\Models\EgressEvent;
 use App\Models\ExtensionLifecycle;
@@ -14,7 +15,7 @@ class SyncNotifications
      * Sync notifications from extension-related source tables. Idempotent: a
      * notification is only created once per source event.
      *
-     * Captured sources: egress events, domain visits, extension lifecycle.
+     * Captured sources: egress events, domain visits, extension lifecycle, community feedback.
      */
     public function sync(): void
     {
@@ -25,6 +26,7 @@ class SyncNotifications
         $this->syncEgressEvents();
         $this->syncDomainVisits();
         $this->syncExtensionLifecycles();
+        $this->syncCommunityMessages();
     }
 
     private function syncEgressEvents(): void
@@ -248,4 +250,65 @@ class SyncNotifications
             default => $bytes.' B',
         };
     }
+
+    private function syncCommunityMessages(): void
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('community_messages')) {
+            return;
+        }
+
+        $existing = Notification::withTrashed()
+            ->where('source', 'community')
+            ->pluck('message')
+            ->flip();
+
+        $now = now();
+
+        CommunityMessage::query()
+            ->orderBy('id')
+            ->chunkById(250, function ($messages) use ($existing, $now) {
+                $records = [];
+
+                foreach ($messages as $msg) {
+                    $messageKey = 'community-message-'.$msg->id;
+                    if (isset($existing[$messageKey])) {
+                        continue;
+                    }
+
+                    $status = match ($msg->status) {
+                        'approved' => 'glass-safe',
+                        'rejected' => 'glass-unsafe',
+                        default => 'glass-unlisted',
+                    };
+
+                    $type = match ($msg->status) {
+                        'approved' => 'community_feedback_approved',
+                        'rejected' => 'community_feedback_rejected',
+                        default => $msg->category === 'false-positive' ? 'false_positive_report' : 'community_feedback',
+                    };
+
+                    $records[] = [
+                        'source' => 'community',
+                        'type' => $type,
+                        'description' => "Community message from {$msg->author} ({$msg->category})",
+                        'domain' => $msg->domain,
+                        'user_id' => null,
+                        'email' => null,
+                        'ip_address' => $msg->ip_address,
+                        'risk_score' => null,
+                        'status' => $status,
+                        'message' => $messageKey,
+                        'occurred_at' => $msg->created_at ?? $now,
+                        'read_at' => null,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+
+                if (! empty($records)) {
+                    Notification::insert($records);
+                }
+            });
+    }
 }
+

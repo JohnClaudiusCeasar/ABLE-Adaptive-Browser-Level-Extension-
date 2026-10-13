@@ -115,6 +115,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('community-messages', [CommunityMessageController::class, 'adminIndex'])->name('community-messages.index');
     Route::patch('community-messages/{communityMessage}/approve', [CommunityMessageController::class, 'approve'])->name('community-messages.approve');
     Route::patch('community-messages/{communityMessage}/reject', [CommunityMessageController::class, 'reject'])->name('community-messages.reject');
+    Route::patch('community-messages/{communityMessage}', [CommunityMessageController::class, 'update'])->name('community-messages.update');
     Route::delete('community-messages/{communityMessage}', [CommunityMessageController::class, 'destroy'])->name('community-messages.destroy');
 
     Route::get('chat', [ChatController::class, 'index'])->name('chat.index');
@@ -128,6 +129,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('chat-all', [ChatController::class, 'destroyAll'])->name('chat.destroyAll');
 
     Route::get('users/client', [ClientUserController::class, 'index'])->name('users.client.index');
+    Route::get('users/client/{userId}/telemetry', [ClientUserController::class, 'telemetry'])->name('users.client.telemetry');
     Route::get('users/client/{userId}', [ClientUserController::class, 'show'])->name('users.client.show');
     Route::get('users/team', [TeamUserController::class, 'index'])->name('users.team.index');
     Route::patch('users/team/{user}', [TeamUserController::class, 'update'])->name('users.team.update');

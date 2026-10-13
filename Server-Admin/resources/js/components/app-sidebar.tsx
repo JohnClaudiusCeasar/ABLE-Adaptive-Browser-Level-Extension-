@@ -18,6 +18,7 @@ import {
     Users,
     UsersRound,
 } from 'lucide-react';
+import { useEffect } from 'react';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
 import { SidebarSearch } from '@/components/sidebar-search';
@@ -26,6 +27,7 @@ import {
     SidebarContent,
     SidebarHeader,
 } from '@/components/ui/sidebar';
+import { subscribeToNotifications } from '@/lib/echo';
 import { dashboard, notifications } from '@/routes';
 import type { NavItem } from '@/types';
 
@@ -130,6 +132,16 @@ export function AppSidebar() {
     const { unreadNotificationsCount = 0 } = usePage<{
         unreadNotificationsCount?: number;
     }>().props;
+
+    useEffect(() => {
+        const unsubscribe = subscribeToNotifications(() => {
+            router.reload({
+                only: ['unreadNotificationsCount'],
+            });
+        });
+
+        return unsubscribe;
+    }, []);
 
     return (
         <Sidebar

@@ -2,17 +2,28 @@ import { Head, router } from '@inertiajs/react';
 import {
     CheckCircle2,
     Clock,
+    Edit2,
     Globe,
     Layers,
     MessageSquare,
+    Plus,
     Search,
     Trash2,
     XCircle,
 } from 'lucide-react';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import { subscribeToNotifications } from '@/lib/echo';
 
 const glassCard =
     'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
@@ -106,6 +117,50 @@ export default function CommunityMessagesPage({
     const [searchQuery, setSearchQuery] = useState('');
     const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
 
+    // Create Feedback state
+    const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [createForm, setCreateForm] = useState({
+        author: '',
+        category: 'suggestion' as CommunityMessageItem['category'],
+        domain: '',
+        message: '',
+    });
+    const [isSubmittingCreate, setIsSubmittingCreate] = useState(false);
+
+    // Edit Feedback state
+    const [editTarget, setEditTarget] = useState<CommunityMessageItem | null>(null);
+    const [editForm, setEditForm] = useState({
+        author: '',
+        category: 'suggestion' as CommunityMessageItem['category'],
+        domain: '',
+        message: '',
+        status: 'pending' as CommunityMessageItem['status'],
+    });
+    const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
+
+    // Auto-update feedback list when changes occur
+    useEffect(() => {
+        const unsubscribe = subscribeToNotifications(() => {
+            router.reload({
+                only: ['messages', 'counts'],
+            });
+        });
+
+        return unsubscribe;
+    }, []);
+
+    useEffect(() => {
+        if (editTarget) {
+            setEditForm({
+                author: editTarget.author,
+                category: editTarget.category,
+                domain: editTarget.domain ?? '',
+                message: editTarget.message,
+                status: editTarget.status,
+            });
+        }
+    }, [editTarget]);
+
     const filteredMessages = useMemo(() => {
         if (!searchQuery.trim()) {
             return messages.data;
@@ -156,6 +211,41 @@ export default function CommunityMessagesPage({
             onFinish: () => setDeleteTargetId(null),
         });
     };
+
+    const handleCreateSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!createForm.message.trim()) return;
+
+        setIsSubmittingCreate(true);
+        router.post('/community-messages', createForm, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setIsCreateOpen(false);
+                setCreateForm({
+                    author: '',
+                    category: 'suggestion',
+                    domain: '',
+                    message: '',
+                });
+            },
+            onFinish: () => setIsSubmittingCreate(false),
+        });
+    };
+
+    const handleEditSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editTarget || !editForm.message.trim()) return;
+
+        setIsSubmittingEdit(true);
+        router.patch(`/community-messages/${editTarget.id}`, editForm, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setEditTarget(null);
+            },
+            onFinish: () => setIsSubmittingEdit(false),
+        });
+    };
+
 
     return (
         <>
@@ -223,21 +313,33 @@ export default function CommunityMessagesPage({
                         })}
                     </div>
 
-                    {/* Standardized Search Bar Layout (Consistent with Notifications, Clients & Domain Visits) */}
+                    {/* Standardized Search Bar Layout & Actions */}
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="relative w-[260px]">
-                            <Search
-                                size={16}
-                                className="absolute top-1/2 left-3.5 -translate-y-1/2 text-muted-foreground"
-                            />
-                            <input
-                                type="text"
-                                placeholder="Search feedback..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full rounded-full border border-black/10 bg-black/5 py-2.5 pr-3.5 pl-11 text-[0.9rem] text-foreground outline-none placeholder:text-muted-foreground dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]"
+                        <div className="flex flex-wrap items-center gap-3">
+                            <div className="relative w-[260px]">
+                                <Search
+                                    size={16}
+                                    className="absolute top-1/2 left-3.5 -translate-y-1/2 text-muted-foreground"
+                                />
+                                <input
+                                    type="text"
+                                    placeholder="Search feedback..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full rounded-full border border-black/10 bg-black/5 py-2.5 pr-3.5 pl-11 text-[0.9rem] text-foreground outline-none placeholder:text-muted-foreground dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]"
+                                    style={{ fontFamily: "'Archivo', sans-serif" }}
+                                />
+                            </div>
+
+                            <Button
+                                size="sm"
+                                onClick={() => setIsCreateOpen(true)}
+                                className="cursor-pointer gap-1.5 rounded-full bg-able-green px-4 py-2 text-xs font-semibold text-black hover:bg-emerald-400"
                                 style={{ fontFamily: "'Archivo', sans-serif" }}
-                            />
+                            >
+                                <Plus size={14} />
+                                <span>Add Feedback</span>
+                            </Button>
                         </div>
 
                         {counts.pending > 0 && (
@@ -436,6 +538,20 @@ export default function CommunityMessagesPage({
                                     <Button
                                         size="sm"
                                         variant="outline"
+                                        onClick={() => setEditTarget(item)}
+                                        className="cursor-pointer gap-1.5 rounded-full border-cyan-500/30 text-xs text-cyan-400 hover:bg-cyan-500/10"
+                                        style={{
+                                            fontFamily:
+                                                "'Archivo', sans-serif",
+                                        }}
+                                    >
+                                        <Edit2 size={13} />
+                                        <span>Edit</span>
+                                    </Button>
+
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
                                         onClick={() =>
                                             setDeleteTargetId(item.id)
                                         }
@@ -453,6 +569,226 @@ export default function CommunityMessagesPage({
                     </div>
                 )}
             </div>
+
+            {/* Create Feedback Modal */}
+            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle style={{ fontFamily: "'Unbounded', sans-serif" }}>
+                            Create Feedback
+                        </DialogTitle>
+                        <DialogDescription style={{ fontFamily: "'Archivo', sans-serif" }}>
+                            Add a new community feedback submission directly to the moderation feed.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <form onSubmit={handleCreateSubmit} className="space-y-4">
+                        <div>
+                            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                                Author Name
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="Anonymous"
+                                value={createForm.author}
+                                onChange={(e) =>
+                                    setCreateForm((prev) => ({ ...prev, author: e.target.value }))
+                                }
+                                className="w-full rounded-md border border-black/10 bg-black/5 px-3 py-2 text-sm text-foreground outline-none focus:border-able-green dark:border-white/10 dark:bg-black/30"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                                Category
+                            </label>
+                            <select
+                                value={createForm.category}
+                                onChange={(e) =>
+                                    setCreateForm((prev) => ({
+                                        ...prev,
+                                        category: e.target.value as CommunityMessageItem['category'],
+                                    }))
+                                }
+                                className="w-full rounded-md border border-black/10 bg-black/5 px-3 py-2 text-sm text-foreground outline-none focus:border-able-green dark:border-white/10 dark:bg-black/30"
+                            >
+                                <option value="suggestion">Suggestion</option>
+                                <option value="comment">Comment</option>
+                                <option value="complaint">Complaint</option>
+                                <option value="false-positive">False Positive</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                                Domain (optional)
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="e.g. example.com"
+                                value={createForm.domain}
+                                onChange={(e) =>
+                                    setCreateForm((prev) => ({ ...prev, domain: e.target.value }))
+                                }
+                                className="w-full rounded-md border border-black/10 bg-black/5 px-3 py-2 text-sm text-foreground outline-none focus:border-able-green dark:border-white/10 dark:bg-black/30"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                                Message Body *
+                            </label>
+                            <textarea
+                                required
+                                rows={4}
+                                placeholder="Write feedback details..."
+                                value={createForm.message}
+                                onChange={(e) =>
+                                    setCreateForm((prev) => ({ ...prev, message: e.target.value }))
+                                }
+                                className="w-full rounded-md border border-black/10 bg-black/5 px-3 py-2 text-sm text-foreground outline-none focus:border-able-green dark:border-white/10 dark:bg-black/30"
+                            />
+                        </div>
+
+                        <DialogFooter className="gap-2 sm:gap-0">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setIsCreateOpen(false)}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={isSubmittingCreate || !createForm.message.trim()}
+                                className="bg-able-green text-black hover:bg-emerald-400"
+                            >
+                                {isSubmittingCreate ? 'Saving...' : 'Submit Feedback'}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Edit Feedback Modal */}
+            <Dialog open={editTarget !== null} onOpenChange={(open) => !open && setEditTarget(null)}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle style={{ fontFamily: "'Unbounded', sans-serif" }}>
+                            Edit Feedback
+                        </DialogTitle>
+                        <DialogDescription style={{ fontFamily: "'Archivo', sans-serif" }}>
+                            Update feedback details and moderation status.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <form onSubmit={handleEditSubmit} className="space-y-4">
+                        <div>
+                            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                                Author Name
+                            </label>
+                            <input
+                                type="text"
+                                value={editForm.author}
+                                onChange={(e) =>
+                                    setEditForm((prev) => ({ ...prev, author: e.target.value }))
+                                }
+                                className="w-full rounded-md border border-black/10 bg-black/5 px-3 py-2 text-sm text-foreground outline-none focus:border-able-green dark:border-white/10 dark:bg-black/30"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                                    Category
+                                </label>
+                                <select
+                                    value={editForm.category}
+                                    onChange={(e) =>
+                                        setEditForm((prev) => ({
+                                            ...prev,
+                                            category: e.target.value as CommunityMessageItem['category'],
+                                        }))
+                                    }
+                                    className="w-full rounded-md border border-black/10 bg-black/5 px-3 py-2 text-sm text-foreground outline-none focus:border-able-green dark:border-white/10 dark:bg-black/30"
+                                >
+                                    <option value="suggestion">Suggestion</option>
+                                    <option value="comment">Comment</option>
+                                    <option value="complaint">Complaint</option>
+                                    <option value="false-positive">False Positive</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                                    Status
+                                </label>
+                                <select
+                                    value={editForm.status}
+                                    onChange={(e) =>
+                                        setEditForm((prev) => ({
+                                            ...prev,
+                                            status: e.target.value as CommunityMessageItem['status'],
+                                        }))
+                                    }
+                                    className="w-full rounded-md border border-black/10 bg-black/5 px-3 py-2 text-sm text-foreground outline-none focus:border-able-green dark:border-white/10 dark:bg-black/30"
+                                >
+                                    <option value="pending">Pending</option>
+                                    <option value="approved">Approved</option>
+                                    <option value="rejected">Rejected</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                                Domain (optional)
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="e.g. example.com"
+                                value={editForm.domain}
+                                onChange={(e) =>
+                                    setEditForm((prev) => ({ ...prev, domain: e.target.value }))
+                                }
+                                className="w-full rounded-md border border-black/10 bg-black/5 px-3 py-2 text-sm text-foreground outline-none focus:border-able-green dark:border-white/10 dark:bg-black/30"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                                Message Body *
+                            </label>
+                            <textarea
+                                required
+                                rows={4}
+                                value={editForm.message}
+                                onChange={(e) =>
+                                    setEditForm((prev) => ({ ...prev, message: e.target.value }))
+                                }
+                                className="w-full rounded-md border border-black/10 bg-black/5 px-3 py-2 text-sm text-foreground outline-none focus:border-able-green dark:border-white/10 dark:bg-black/30"
+                            />
+                        </div>
+
+                        <DialogFooter className="gap-2 sm:gap-0">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setEditTarget(null)}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={isSubmittingEdit || !editForm.message.trim()}
+                                className="bg-able-green text-black hover:bg-emerald-400"
+                            >
+                                {isSubmittingEdit ? 'Saving...' : 'Update Feedback'}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
 
             {/* Delete Confirmation Modal */}
             <ConfirmDialog
