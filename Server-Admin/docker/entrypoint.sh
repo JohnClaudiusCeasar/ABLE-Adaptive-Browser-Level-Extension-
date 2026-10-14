@@ -47,6 +47,13 @@ do
     sleep 3
 done
 
+# Guarantee at least one Super Admin exists. The Team module is Super Admin
+# only, so without this the roles could all settle on 'admin' and nobody
+# would be able to promote anyone. Safe to re-run: it also repairs an
+# account that was demoted or blocked.
+echo "Ensuring bootstrap Super Admin..."
+php artisan app:bootstrap-superadmin || true
+
 # Seed default risk patterns only on first boot. RiskPatternSeeder uses
 # create(), so re-running it on every restart would duplicate all patterns.
 echo "Checking seeders..."

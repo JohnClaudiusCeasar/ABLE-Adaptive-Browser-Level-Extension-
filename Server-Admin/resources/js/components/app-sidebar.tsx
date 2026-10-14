@@ -115,7 +115,6 @@ export const mainNavItems: NavItem[] = [
                         title: 'Team',
                         href: '/users/team',
                         icon: UsersRound,
-                        permission: 'team',
                     },
                 ],
             },

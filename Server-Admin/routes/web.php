@@ -13,8 +13,10 @@ use App\Http\Controllers\SessionSecurityController;
 use App\Http\Controllers\Users\ClientUserController;
 use App\Http\Controllers\Users\TeamUserController;
 use App\Models\CommunityMessage;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 
 Route::get('/', function () {
@@ -23,11 +25,12 @@ Route::get('/', function () {
     }
 
     try {
-        if (! \Illuminate\Support\Facades\Schema::hasTable('community_messages')) {
-            \Illuminate\Support\Facades\Artisan::call('app:baseline-migrations');
-            \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
-            if (\Illuminate\Support\Facades\Schema::hasTable('community_messages')) {
-                \Illuminate\Support\Facades\Artisan::call('db:seed', [
+        if (! Schema::hasTable('community_messages')) {
+            Artisan::call('app:baseline-migrations');
+            Artisan::call('migrate', ['--force' => true]);
+            Artisan::call('app:bootstrap-superadmin');
+            if (Schema::hasTable('community_messages')) {
+                Artisan::call('db:seed', [
                     '--class' => 'CommunityMessageSeeder',
                     '--force' => true,
                 ]);
