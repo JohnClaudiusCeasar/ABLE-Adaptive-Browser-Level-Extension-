@@ -94,18 +94,18 @@ class ActiveSessionSecurityTest extends TestCase
         $response->assertSessionHasErrors(['break_glass_password']);
     }
 
-    public function test_inactivity_middleware_terminates_session_after_5_minutes_idle(): void
+    public function test_inactivity_middleware_terminates_session_after_40_minutes_idle(): void
     {
         $user = User::factory()->create();
 
-        // Simulate a session with last activity 301 seconds ago (exceeding 300s limit)
+        // Simulate a session with last activity 2401 seconds ago (exceeding 2400s limit)
         $response = $this->actingAs($user)
-            ->withSession(['able_last_activity_time' => now()->timestamp - 301])
+            ->withSession(['able_last_activity_time' => now()->timestamp - 2401])
             ->get(route('dashboard'));
 
         $this->assertGuest();
         $response->assertRedirect(route('login'));
-        $response->assertSessionHas('status', __('You were logged out due to 5 minutes of inactivity.'));
+        $response->assertSessionHas('status', __('You were logged out due to 40 minutes of inactivity.'));
     }
 
     public function test_inactivity_middleware_allows_active_requests_and_updates_timestamp(): void

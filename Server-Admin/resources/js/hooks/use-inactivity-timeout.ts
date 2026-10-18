@@ -1,7 +1,7 @@
 import { router } from '@inertiajs/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-const IDLE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+const IDLE_TIMEOUT_MS = 40 * 60 * 1000; // 40 minutes
 const WARNING_WINDOW_MS = 30 * 1000; // 30 seconds
 const HEARTBEAT_INTERVAL_MS = 30 * 1000; // 30 seconds
 const CHANNEL_NAME = 'able_session_sync';
@@ -44,7 +44,7 @@ export function useInactivityTimeout(enabled: boolean = true) {
                     window.location.href =
                         '/login?status=' +
                         encodeURIComponent(
-                            'You were logged out due to 5 minutes of inactivity.',
+                            'You were logged out due to 40 minutes of inactivity.',
                         );
                 },
             },

@@ -13,9 +13,9 @@ use Symfony\Component\HttpFoundation\Response;
 class EnforceInactivityTimeout
 {
     /**
-     * Maximum idle duration in seconds (5 minutes = 300 seconds).
+     * Maximum idle duration in seconds (40 minutes = 2400 seconds).
      */
-    public const int INACTIVITY_TIMEOUT_SECONDS = 300;
+    public const int INACTIVITY_TIMEOUT_SECONDS = 2400;
 
     public function __construct(
         private readonly ActiveSessionService $activeSessionService,
@@ -33,7 +33,7 @@ class EnforceInactivityTimeout
             $now = now()->getTimestamp();
             $lastActivity = $request->session()->get('able_last_activity_time');
 
-            // If last activity exists and has exceeded 5 minutes (300 seconds)
+            // If last activity exists and has exceeded 40 minutes (2400 seconds)
             if ($lastActivity !== null && ($now - (int) $lastActivity) > self::INACTIVITY_TIMEOUT_SECONDS) {
                 $this->loginAuditService->log(
                     email: $user->email,
@@ -51,12 +51,12 @@ class EnforceInactivityTimeout
 
                 if ($request->expectsJson() || $request->is('api/*')) {
                     return response()->json([
-                        'message' => __('Your session has timed out due to 5 minutes of inactivity.'),
+                        'message' => __('Your session has timed out due to 40 minutes of inactivity.'),
                         'timeout' => true,
                     ], 401);
                 }
 
-                return redirect()->route('login')->with('status', __('You were logged out due to 5 minutes of inactivity.'));
+                return redirect()->route('login')->with('status', __('You were logged out due to 40 minutes of inactivity.'));
             }
 
             // Exclude termination beacon requests from resetting the activity timer
