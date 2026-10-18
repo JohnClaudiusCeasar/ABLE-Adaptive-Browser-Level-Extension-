@@ -261,6 +261,22 @@ body {
   color: #c62828;
 }
 
+.sync-warning {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid #f44336;
+  border-radius: 8px;
+  background-color: rgba(244, 67, 54, 0.08);
+  color: #c62828;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.sync-warning strong {
+  display: block;
+  margin-bottom: 2px;
+}
+
 .status-unlisted .info-card {
   border-color: #ff6b9d;
   box-shadow: var(--card-shadow), 0 0 12px rgba(255, 107, 157, 0.25);

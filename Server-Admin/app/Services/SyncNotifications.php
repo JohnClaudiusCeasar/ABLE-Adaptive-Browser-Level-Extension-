@@ -8,6 +8,7 @@ use App\Models\EgressEvent;
 use App\Models\ExtensionLifecycle;
 use App\Models\Notification;
 use App\Models\NudgeInteraction;
+use Illuminate\Support\Facades\Schema;
 
 class SyncNotifications
 {
@@ -253,7 +254,7 @@ class SyncNotifications
 
     private function syncCommunityMessages(): void
     {
-        if (! \Illuminate\Support\Facades\Schema::hasTable('community_messages')) {
+        if (! Schema::hasTable('community_messages')) {
             return;
         }
 
@@ -311,4 +312,3 @@ class SyncNotifications
             });
     }
 }
-

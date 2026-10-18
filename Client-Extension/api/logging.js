@@ -127,6 +127,39 @@ async function queueVisitLog(domain, status, source, userId, visitedAt, eventId)
   }
 }
 
+// Remove one accepted visit entry from the persisted queue. Re-reads storage
+// so entries enqueued while this flush was in-flight are never clobbered.
+async function removeQueuedVisit(entry) {
+  try {
+    var result = await chrome.storage.local.get(PENDING_VISITS_KEY);
+    var queue = result[PENDING_VISITS_KEY] || [];
+    var next = queue.filter(function (e) {
+      return !(e.domain === entry.domain && e.user_id === entry.user_id && e.visited_at === entry.visited_at);
+    });
+    if (next.length !== queue.length) {
+      await chrome.storage.local.set({ [PENDING_VISITS_KEY]: next });
+    }
+  } catch {
+    // Worst case the entry is retried; the server dedupes by event_id.
+  }
+}
+
+// Remove one accepted egress entry from the persisted queue (keyed by event_id).
+async function removeQueuedEgress(entry) {
+  try {
+    var result = await chrome.storage.local.get(PENDING_EGRESS_KEY);
+    var queue = result[PENDING_EGRESS_KEY] || [];
+    var next = queue.filter(function (e) {
+      return e.event_id !== entry.event_id;
+    });
+    if (next.length !== queue.length) {
+      await chrome.storage.local.set({ [PENDING_EGRESS_KEY]: next });
+    }
+  } catch {
+    // Worst case the entry is retried; the server dedupes by event_id.
+  }
+}
+
 async function processVisitLogQueue() {
   if (visitFlushInProgress) return;
   visitFlushInProgress = true;
@@ -139,7 +172,7 @@ async function processVisitLogQueue() {
 
     for (var i = 0; i < queue.length; i++) {
       var entry = queue[i];
-      var keep = true;
+      var accepted = false;
       var rateLimited = false;
       try {
         var response = await ABLESecurity.secureFetch(
@@ -165,17 +198,18 @@ async function processVisitLogQueue() {
         } else if (!response.ok) {
           console.warn("ABLE: Failed to flush queued visit log:", response.status);
         } else {
-          keep = false;
+          accepted = true;
         }
       } catch {
-        // keep = true
+        // accepted stays false: the entry remains queued for retry.
       }
 
-      // Crash-safe: persist the remaining slice immediately so a worker kill
-      // after a successful POST cannot re-send that entry.
-      await chrome.storage.local.set({
-        [PENDING_VISITS_KEY]: keep ? queue.slice(i) : queue.slice(i + 1),
-      });
+      // Crash-safe: persist the removal immediately so a worker kill after a
+      // successful POST cannot re-send that entry. Failed entries are never
+      // touched, so they cannot be dropped by a later iteration.
+      if (accepted) {
+        await removeQueuedVisit(entry);
+      }
 
       if (rateLimited) break;
     }
@@ -258,7 +292,7 @@ async function processEgressLogQueue() {
 
     for (var i = 0; i < queue.length; i++) {
       var entry = queue[i];
-      var keep = true;
+      var accepted = false;
       var rateLimited = false;
       try {
         var response = await ABLESecurity.secureFetch(
@@ -289,15 +323,17 @@ async function processEgressLogQueue() {
         } else if (!response.ok) {
           console.warn("ABLE: Failed to flush queued egress event:", response.status);
         } else {
-          keep = false;
+          accepted = true;
         }
       } catch {
-        // keep = true
+        // accepted stays false: the entry remains queued for retry.
       }
 
-      await chrome.storage.local.set({
-        [PENDING_EGRESS_KEY]: keep ? queue.slice(i) : queue.slice(i + 1),
-      });
+      // Persist the removal immediately; failed entries are never touched,
+      // so a later iteration cannot drop them.
+      if (accepted) {
+        await removeQueuedEgress(entry);
+      }
 
       if (rateLimited) break;
     }

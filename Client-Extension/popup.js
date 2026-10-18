@@ -242,11 +242,44 @@ function setupEventListeners() {
 }
 
 /**
+ * Surface a persistent warning when server signature verification is
+ * failing (see security.js noteSignatureFailure). Without this the
+ * extension silently degrades to defaults and looks "broken".
+ */
+async function refreshSyncWarning() {
+  const warning = document.getElementById("syncWarning");
+  const warningText = document.getElementById("syncWarningText");
+  if (!warning || !warningText || typeof ABLEStorage === "undefined") return;
+
+  try {
+    const result = await chrome.storage.local.get(ABLEStorage.SIGNATURE_FAILURE);
+    const failure = result[ABLEStorage.SIGNATURE_FAILURE];
+
+    if (failure) {
+      const when = new Date(failure.last_failed_at || Date.now()).toLocaleString();
+      warningText.textContent =
+        "Data from the server is being rejected because its signing key does not " +
+        `match this extension (${failure.count || "?"} failed checks, last: ${when}). ` +
+        "Policies, risk scoring and telemetry sync are degraded until an administrator " +
+        "aligns the server's ABLE_SIGNING_KEY with the extension build.";
+      warning.hidden = false;
+    } else {
+      warning.hidden = true;
+    }
+  } catch {
+    warning.hidden = true;
+  }
+}
+
+/**
  * Initialize popup when DOM is ready
  */
 document.addEventListener("DOMContentLoaded", () => {
   // Initial analysis
   initializeExtension();
+
+  // Surface any signature-verification failures
+  refreshSyncWarning();
 
   // Set up event listeners
   setupEventListeners();
@@ -258,5 +291,6 @@ document.addEventListener("DOMContentLoaded", () => {
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) {
     initializeExtension();
+    refreshSyncWarning();
   }
 });

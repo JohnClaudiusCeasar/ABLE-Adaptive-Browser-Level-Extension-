@@ -10,6 +10,12 @@ class RiskPatternSeeder extends Seeder
 {
     public function run(): void
     {
+        if (app()->isProduction()) {
+            // Seed data never ships to the production cloud database.
+            // Production data changes ship via migrations with the DB layout.
+            return;
+        }
+
         // ─── Single Patterns ───────────────────────────────────────
 
         $singles = [
@@ -94,99 +100,117 @@ class RiskPatternSeeder extends Seeder
         ];
 
         foreach ($singles as $pattern) {
-            RiskPattern::create([
-                'title' => $pattern['title'],
-                'type' => 'single',
-                'regex' => $pattern['regex'],
-                'score' => $pattern['score'],
-                'priority' => $pattern['priority'],
-            ]);
+            RiskPattern::updateOrCreate(
+                ['title' => $pattern['title']],
+                [
+                    'type' => 'single',
+                    'regex' => $pattern['regex'],
+                    'score' => $pattern['score'],
+                    'priority' => $pattern['priority'],
+                ]
+            );
         }
 
         // ─── Criteria Patterns ─────────────────────────────────────
 
         // Credential Assignment
-        $credPattern = RiskPattern::create([
-            'title' => 'Credential Assignment',
-            'type' => 'criteria',
-            'regex' => null,
-            'score' => 45,
-            'priority' => 'high',
-        ]);
-        CriteriaPatternItem::create([
-            'criteria_pattern_id' => $credPattern->id,
-            'title' => 'Credential Keyword',
-            'regex' => '(?:password|passwd|pwd|secret|api[_-]?key|token|credential|auth[_-]?(?:key|token|secret))',
-            'score' => 0,
-        ]);
-        CriteriaPatternItem::create([
-            'criteria_pattern_id' => $credPattern->id,
-            'title' => 'Credential Value Pattern',
-            'regex' => '[=:]\s*["\']?[A-Za-z0-9_\-!@#$%^&*]{8,}["\']?',
-            'score' => 0,
-        ]);
+        $credPattern = RiskPattern::updateOrCreate(
+            ['title' => 'Credential Assignment'],
+            [
+                'type' => 'criteria',
+                'regex' => null,
+                'score' => 45,
+                'priority' => 'high',
+            ]
+        );
+        CriteriaPatternItem::updateOrCreate(
+            ['criteria_pattern_id' => $credPattern->id, 'title' => 'Credential Keyword'],
+            [
+                'regex' => '(?:password|passwd|pwd|secret|api[_-]?key|token|credential|auth[_-]?(?:key|token|secret))',
+                'score' => 0,
+            ]
+        );
+        CriteriaPatternItem::updateOrCreate(
+            ['criteria_pattern_id' => $credPattern->id, 'title' => 'Credential Value Pattern'],
+            [
+                'regex' => '[=:]\s*["\']?[A-Za-z0-9_\-!@#$%^&*]{8,}["\']?',
+                'score' => 0,
+            ]
+        );
 
         // Financial Statement with Account Data
-        $financialPattern = RiskPattern::create([
-            'title' => 'Financial Statement with Account Data',
-            'type' => 'criteria',
-            'regex' => null,
-            'score' => 35,
-            'priority' => 'medium',
-        ]);
-        CriteriaPatternItem::create([
-            'criteria_pattern_id' => $financialPattern->id,
-            'title' => 'Financial Document Indicator',
-            'regex' => '(?:financial\s?statement|balance\s?sheet|income\s?statement|cash\s?flow|10-[KQ]|quarterly\s?report|annual\s?report)',
-            'score' => 0,
-        ]);
-        CriteriaPatternItem::create([
-            'criteria_pattern_id' => $financialPattern->id,
-            'title' => 'Sensitive Financial Data',
-            'regex' => '(?:account\s?(?:number|no|#)|routing\s?(?:number|no|#)|EIN|tax\s?id|revenue|profit|net\s?income)',
-            'score' => 0,
-        ]);
+        $financialPattern = RiskPattern::updateOrCreate(
+            ['title' => 'Financial Statement with Account Data'],
+            [
+                'type' => 'criteria',
+                'regex' => null,
+                'score' => 35,
+                'priority' => 'medium',
+            ]
+        );
+        CriteriaPatternItem::updateOrCreate(
+            ['criteria_pattern_id' => $financialPattern->id, 'title' => 'Financial Document Indicator'],
+            [
+                'regex' => '(?:financial\s?statement|balance\s?sheet|income\s?statement|cash\s?flow|10-[KQ]|quarterly\s?report|annual\s?report)',
+                'score' => 0,
+            ]
+        );
+        CriteriaPatternItem::updateOrCreate(
+            ['criteria_pattern_id' => $financialPattern->id, 'title' => 'Sensitive Financial Data'],
+            [
+                'regex' => '(?:account\s?(?:number|no|#)|routing\s?(?:number|no|#)|EIN|tax\s?id|revenue|profit|net\s?income)',
+                'score' => 0,
+            ]
+        );
 
         // Cloud Provider Credentials
-        $cloudPattern = RiskPattern::create([
-            'title' => 'Cloud Provider Credentials',
-            'type' => 'criteria',
-            'regex' => null,
-            'score' => 45,
-            'priority' => 'high',
-        ]);
-        CriteriaPatternItem::create([
-            'criteria_pattern_id' => $cloudPattern->id,
-            'title' => 'Cloud Provider Context',
-            'regex' => '(?:aws|amazon|azure|gcp|google\s?cloud|digital\s?ocean|heroku|vercel|netlify)',
-            'score' => 0,
-        ]);
-        CriteriaPatternItem::create([
-            'criteria_pattern_id' => $cloudPattern->id,
-            'title' => 'Credential Type',
-            'regex' => '(?:access[_-]?key|secret[_-]?key|api[_-]?key|token|credential|iam)',
-            'score' => 0,
-        ]);
+        $cloudPattern = RiskPattern::updateOrCreate(
+            ['title' => 'Cloud Provider Credentials'],
+            [
+                'type' => 'criteria',
+                'regex' => null,
+                'score' => 45,
+                'priority' => 'high',
+            ]
+        );
+        CriteriaPatternItem::updateOrCreate(
+            ['criteria_pattern_id' => $cloudPattern->id, 'title' => 'Cloud Provider Context'],
+            [
+                'regex' => '(?:aws|amazon|azure|gcp|google\s?cloud|digital\s?ocean|heroku|vercel|netlify)',
+                'score' => 0,
+            ]
+        );
+        CriteriaPatternItem::updateOrCreate(
+            ['criteria_pattern_id' => $cloudPattern->id, 'title' => 'Credential Type'],
+            [
+                'regex' => '(?:access[_-]?key|secret[_-]?key|api[_-]?key|token|credential|iam)',
+                'score' => 0,
+            ]
+        );
 
         // Payroll with SSN
-        $payrollPattern = RiskPattern::create([
-            'title' => 'Payroll with SSN',
-            'type' => 'criteria',
-            'regex' => null,
-            'score' => 35,
-            'priority' => 'medium',
-        ]);
-        CriteriaPatternItem::create([
-            'criteria_pattern_id' => $payrollPattern->id,
-            'title' => 'HR/Payroll Context',
-            'regex' => '(?:payroll|w-4|w-2|adp|benefits|onboarding|termination|separation)',
-            'score' => 0,
-        ]);
-        CriteriaPatternItem::create([
-            'criteria_pattern_id' => $payrollPattern->id,
-            'title' => 'Personal Identifier',
-            'regex' => '(?:\d{3}-\d{2}-\d{4}|\d{9}|(?:SSN|social\s?security))',
-            'score' => 0,
-        ]);
+        $payrollPattern = RiskPattern::updateOrCreate(
+            ['title' => 'Payroll with SSN'],
+            [
+                'type' => 'criteria',
+                'regex' => null,
+                'score' => 35,
+                'priority' => 'medium',
+            ]
+        );
+        CriteriaPatternItem::updateOrCreate(
+            ['criteria_pattern_id' => $payrollPattern->id, 'title' => 'HR/Payroll Context'],
+            [
+                'regex' => '(?:payroll|w-4|w-2|adp|benefits|onboarding|termination|separation)',
+                'score' => 0,
+            ]
+        );
+        CriteriaPatternItem::updateOrCreate(
+            ['criteria_pattern_id' => $payrollPattern->id, 'title' => 'Personal Identifier'],
+            [
+                'regex' => '(?:\d{3}-\d{2}-\d{4}|\d{9}|(?:SSN|social\s?security))',
+                'score' => 0,
+            ]
+        );
     }
 }

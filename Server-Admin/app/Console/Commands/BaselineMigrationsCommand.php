@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Schema;
 class BaselineMigrationsCommand extends Command
 {
     protected $signature = 'app:baseline-migrations';
+
     protected $description = 'Baselines existing database tables into the migrations tracking table';
 
     public function handle(): int

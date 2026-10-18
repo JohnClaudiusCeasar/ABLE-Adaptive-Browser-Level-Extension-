@@ -54,20 +54,12 @@ done
 echo "Ensuring bootstrap Super Admin..."
 php artisan app:bootstrap-superadmin || true
 
-# Seed default risk patterns only on first boot. RiskPatternSeeder uses
-# create(), so re-running it on every restart would duplicate all patterns.
+# Seed reference/demo data. Every seeder self-skips when APP_ENV=production,
+# so these calls are no-ops on Render and only populate local/dev containers.
+# RiskPatternSeeder uses updateOrCreate(), so re-running each boot is safe.
 echo "Checking seeders..."
-PATTERN_COUNT=$(php artisan tinker --execute='echo \App\Models\RiskPattern::count();' 2>/dev/null | tail -n 1)
-if [ "$PATTERN_COUNT" = "0" ]; then
-    echo "Seeding default risk patterns..."
-    php artisan db:seed --class=RiskPatternSeeder --force --no-interaction || true
-else
-    echo "Risk patterns already present (${PATTERN_COUNT:-unknown}), skipping."
-fi
-# DomainBrandSeeder uses firstOrCreate(), so it is safe to run every boot.
+php artisan db:seed --class=RiskPatternSeeder --force --no-interaction || true
 php artisan db:seed --class=DomainBrandSeeder --force --no-interaction || true
-
-# CommunityMessageSeeder uses firstOrCreate(), so it is safe to run every boot.
 php artisan db:seed --class=CommunityMessageSeeder --force --no-interaction || true
 
 # Cache configurations, routes, and views for optimal performance

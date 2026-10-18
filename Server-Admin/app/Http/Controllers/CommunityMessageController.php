@@ -8,7 +8,11 @@ use App\Models\Notification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -20,18 +24,18 @@ class CommunityMessageController extends Controller
      */
     private function ensureTableExists(): void
     {
-        if (! \Illuminate\Support\Facades\Schema::hasTable('community_messages')) {
+        if (! Schema::hasTable('community_messages')) {
             try {
-                \Illuminate\Support\Facades\Artisan::call('app:baseline-migrations');
-                \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
-                if (\Illuminate\Support\Facades\Schema::hasTable('community_messages')) {
-                    \Illuminate\Support\Facades\Artisan::call('db:seed', [
+                Artisan::call('app:baseline-migrations');
+                Artisan::call('migrate', ['--force' => true]);
+                if (Schema::hasTable('community_messages')) {
+                    Artisan::call('db:seed', [
                         '--class' => 'CommunityMessageSeeder',
                         '--force' => true,
                     ]);
                 }
             } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::warning('CommunityMessage auto-migration failed: ' . $e->getMessage());
+                Log::warning('CommunityMessage auto-migration failed: '.$e->getMessage());
             }
         }
     }
@@ -79,7 +83,7 @@ class CommunityMessageController extends Controller
 
             event(new NotificationUpdated('created', $notification, $record->id));
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('Failed to create notification for community message: ' . $e->getMessage());
+            Log::warning('Failed to create notification for community message: '.$e->getMessage());
         }
 
         if ($request->header('X-Inertia')) {
@@ -126,8 +130,8 @@ class CommunityMessageController extends Controller
                 'rejected' => CommunityMessage::where('status', 'rejected')->count(),
             ];
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error('Failed to query community messages: ' . $e->getMessage());
-            $messages = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 20);
+            Log::error('Failed to query community messages: '.$e->getMessage());
+            $messages = new LengthAwarePaginator([], 0, 20);
             $counts = [
                 'all' => 0,
                 'pending' => 0,
@@ -185,8 +189,8 @@ class CommunityMessageController extends Controller
             $notification = Notification::where('source', 'community')
                 ->where(function ($q) use ($communityMessage) {
                     $q->where('message', 'community-message-'.$communityMessage->id)
-                      ->orWhere('message', Str::limit($communityMessage->message, 255))
-                      ->orWhere('message', $communityMessage->message);
+                        ->orWhere('message', Str::limit($communityMessage->message, 255))
+                        ->orWhere('message', $communityMessage->message);
                 })
                 ->first();
 
@@ -212,7 +216,7 @@ class CommunityMessageController extends Controller
 
             event(new NotificationUpdated('updated', $notification, $communityMessage->id));
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('Failed to update notification on feedback edit: ' . $e->getMessage());
+            Log::warning('Failed to update notification on feedback edit: '.$e->getMessage());
         }
 
         return Redirect::back()->with('success', 'Message updated successfully.');
@@ -229,8 +233,8 @@ class CommunityMessageController extends Controller
             $notification = Notification::where('source', 'community')
                 ->where(function ($q) use ($communityMessage) {
                     $q->where('message', 'community-message-'.$communityMessage->id)
-                      ->orWhere('message', Str::limit($communityMessage->message, 255))
-                      ->orWhere('message', $communityMessage->message);
+                        ->orWhere('message', Str::limit($communityMessage->message, 255))
+                        ->orWhere('message', $communityMessage->message);
                 })
                 ->first();
 
@@ -255,7 +259,7 @@ class CommunityMessageController extends Controller
 
             event(new NotificationUpdated('approved', $notification, $communityMessage->id));
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('Failed to update notification on approve: ' . $e->getMessage());
+            Log::warning('Failed to update notification on approve: '.$e->getMessage());
         }
 
         return Redirect::back()->with('success', 'Message approved and published to the live landing feed.');
@@ -272,8 +276,8 @@ class CommunityMessageController extends Controller
             $notification = Notification::where('source', 'community')
                 ->where(function ($q) use ($communityMessage) {
                     $q->where('message', 'community-message-'.$communityMessage->id)
-                      ->orWhere('message', Str::limit($communityMessage->message, 255))
-                      ->orWhere('message', $communityMessage->message);
+                        ->orWhere('message', Str::limit($communityMessage->message, 255))
+                        ->orWhere('message', $communityMessage->message);
                 })
                 ->first();
 
@@ -298,7 +302,7 @@ class CommunityMessageController extends Controller
 
             event(new NotificationUpdated('rejected', $notification, $communityMessage->id));
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('Failed to update notification on reject: ' . $e->getMessage());
+            Log::warning('Failed to update notification on reject: '.$e->getMessage());
         }
 
         return Redirect::back()->with('success', 'Message marked as rejected.');
@@ -318,22 +322,22 @@ class CommunityMessageController extends Controller
             $deletedNotification = Notification::where('source', 'community')
                 ->where(function ($q) use ($id, $limitBody, $body) {
                     $q->where('message', 'community-message-'.$id)
-                      ->orWhere('message', $limitBody)
-                      ->orWhere('message', $body);
+                        ->orWhere('message', $limitBody)
+                        ->orWhere('message', $body);
                 })
                 ->first();
 
             Notification::where('source', 'community')
                 ->where(function ($q) use ($id, $limitBody, $body) {
                     $q->where('message', 'community-message-'.$id)
-                      ->orWhere('message', $limitBody)
-                      ->orWhere('message', $body);
+                        ->orWhere('message', $limitBody)
+                        ->orWhere('message', $body);
                 })
                 ->delete();
 
             event(new NotificationUpdated('deleted', $deletedNotification, $id));
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('Failed to delete notification on feedback destroy: ' . $e->getMessage());
+            Log::warning('Failed to delete notification on feedback destroy: '.$e->getMessage());
         }
 
         return Redirect::back()->with('success', 'Message permanently deleted.');

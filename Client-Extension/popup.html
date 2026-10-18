@@ -32,6 +32,11 @@
       <span class="status-text" id="statusText">Status: Analyzing...</span>
     </div>
 
+    <div class="sync-warning" id="syncWarning" hidden>
+      <strong>Server sync error:</strong>
+      <span id="syncWarningText"></span>
+    </div>
+
     <hr class="divider">
 
     <section class="card info-card">
@@ -61,6 +66,7 @@
   </main>
 
   <script src="config.js"></script>
+  <script src="core/storage.js"></script>
   <script src="runtime-settings.js"></script>
   <script src="popup.js"></script>
 </body>

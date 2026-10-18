@@ -12,6 +12,12 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        if (app()->isProduction()) {
+            // Seed data never ships to the production cloud database.
+            // Production data changes ship via migrations with the DB layout.
+            return;
+        }
+
         User::factory()->create([
             'name' => 'Test User',
             'email' => 'test@example.com',

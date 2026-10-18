@@ -26,6 +26,10 @@ const ABLEStorage = {
   // Rate limiting
   RATE_LIMIT: "able:rate_limit",
 
+  // Signature verification failures (set when the server's signing key
+  // does not match PUBLIC_KEYS — surfaced loudly in the popup)
+  SIGNATURE_FAILURE: "able:signature_failure",
+
   // Daily egress cap
   DAILY_EGRESS_COUNT: "able:daily_egress_count",
   DAILY_EGRESS_DATE: "able:daily_egress_date",

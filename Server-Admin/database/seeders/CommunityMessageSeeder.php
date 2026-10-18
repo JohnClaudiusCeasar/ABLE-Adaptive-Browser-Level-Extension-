@@ -12,6 +12,12 @@ class CommunityMessageSeeder extends Seeder
      */
     public function run(): void
     {
+        if (app()->isProduction()) {
+            // Seed data never ships to the production cloud database.
+            // Production data changes ship via migrations with the DB layout.
+            return;
+        }
+
         $initialMessages = [
             [
                 'author' => 'SecurityResearch_01',

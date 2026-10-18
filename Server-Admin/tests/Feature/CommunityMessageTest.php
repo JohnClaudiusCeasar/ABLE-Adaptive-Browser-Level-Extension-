@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Events\NotificationUpdated;
 use App\Models\CommunityMessage;
 use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
 use Tests\TestCase;
 
 class CommunityMessageTest extends TestCase
@@ -129,7 +131,7 @@ class CommunityMessageTest extends TestCase
 
     public function test_crud_operations_sync_notifications_and_dispatch_events(): void
     {
-        \Illuminate\Support\Facades\Event::fake([\App\Events\NotificationUpdated::class]);
+        Event::fake([NotificationUpdated::class]);
 
         $user = User::factory()->create();
 
@@ -156,7 +158,7 @@ class CommunityMessageTest extends TestCase
             'message' => 'community-message-'.$message->id,
         ]);
 
-        \Illuminate\Support\Facades\Event::assertDispatched(\App\Events\NotificationUpdated::class, function ($event) use ($message) {
+        Event::assertDispatched(NotificationUpdated::class, function ($event) use ($message) {
             return $event->action === 'created' && $event->communityMessageId === $message->id;
         });
 
@@ -171,7 +173,7 @@ class CommunityMessageTest extends TestCase
         $updateResponse->assertRedirect();
         $this->assertSame('SecEngineerUpdated', $message->fresh()->author);
 
-        \Illuminate\Support\Facades\Event::assertDispatched(\App\Events\NotificationUpdated::class, function ($event) use ($message) {
+        Event::assertDispatched(NotificationUpdated::class, function ($event) use ($message) {
             return $event->action === 'updated' && $event->communityMessageId === $message->id;
         });
 
@@ -188,7 +190,7 @@ class CommunityMessageTest extends TestCase
             'message' => 'community-message-'.$message->id,
         ]);
 
-        \Illuminate\Support\Facades\Event::assertDispatched(\App\Events\NotificationUpdated::class, function ($event) use ($message) {
+        Event::assertDispatched(NotificationUpdated::class, function ($event) use ($message) {
             return $event->action === 'approved' && $event->communityMessageId === $message->id;
         });
 
@@ -205,7 +207,7 @@ class CommunityMessageTest extends TestCase
             'message' => 'community-message-'.$message->id,
         ]);
 
-        \Illuminate\Support\Facades\Event::assertDispatched(\App\Events\NotificationUpdated::class, function ($event) use ($message) {
+        Event::assertDispatched(NotificationUpdated::class, function ($event) use ($message) {
             return $event->action === 'rejected' && $event->communityMessageId === $message->id;
         });
 
@@ -220,7 +222,7 @@ class CommunityMessageTest extends TestCase
             'deleted_at' => null,
         ]);
 
-        \Illuminate\Support\Facades\Event::assertDispatched(\App\Events\NotificationUpdated::class, function ($event) use ($message) {
+        Event::assertDispatched(NotificationUpdated::class, function ($event) use ($message) {
             return $event->action === 'deleted' && $event->communityMessageId === $message->id;
         });
     }

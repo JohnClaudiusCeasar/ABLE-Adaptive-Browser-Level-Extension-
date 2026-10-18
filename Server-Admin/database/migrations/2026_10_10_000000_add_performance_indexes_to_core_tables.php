@@ -50,7 +50,7 @@ return new class extends Migration
                             }
                         });
                     }
-                } catch (\Throwable $e) {
+                } catch (Throwable $e) {
                     // Index already exists or cannot be created, ignore safely
                 }
             }
@@ -77,7 +77,7 @@ return new class extends Migration
             foreach ($tableIndexes as $indexName) {
                 try {
                     DB::statement("DROP INDEX IF EXISTS {$indexName}");
-                } catch (\Throwable $e) {
+                } catch (Throwable $e) {
                     // Ignore safely
                 }
             }

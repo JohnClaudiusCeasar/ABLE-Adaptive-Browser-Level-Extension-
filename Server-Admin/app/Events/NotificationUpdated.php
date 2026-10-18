@@ -20,8 +20,7 @@ class NotificationUpdated implements ShouldBroadcastNow
         public string $action,
         public ?Notification $notification = null,
         public ?int $communityMessageId = null
-    ) {
-    }
+    ) {}
 
     /**
      * Get the channels the event should broadcast on.

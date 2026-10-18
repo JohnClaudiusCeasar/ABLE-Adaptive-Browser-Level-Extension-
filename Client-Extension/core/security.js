@@ -68,6 +68,49 @@ async function importHmacKey(rawKeyHex) {
 }
 
 /**
+ * Record a signature-verification failure so it is impossible to miss:
+ * console.error with an actionable message plus a persistent storage flag
+ * the popup surfaces. A mismatch almost always means the server's
+ * ABLE_SIGNING_KEY does not match PUBLIC_KEYS in config.js.
+ */
+async function noteSignatureFailure(detail, keyVersion) {
+  console.error(
+    "ABLE: SERVER SIGNATURE VERIFICATION FAILED — " + detail +
+    ". The server's ABLE_SIGNING_KEY likely does not match PUBLIC_KEYS in config.js; " +
+    "signed server data will be rejected until this is fixed."
+  );
+  try {
+    var result = await chrome.storage.local.get(ABLEStorage.SIGNATURE_FAILURE);
+    var prev = result[ABLEStorage.SIGNATURE_FAILURE] || {};
+    await chrome.storage.local.set({
+      [ABLEStorage.SIGNATURE_FAILURE]: {
+        detail: detail,
+        key_version: keyVersion == null ? null : keyVersion,
+        count: (prev.count || 0) + 1,
+        first_failed_at: prev.first_failed_at || Date.now(),
+        last_failed_at: Date.now(),
+      },
+    });
+  } catch {
+    // Storage failure must never mask the console.error above.
+  }
+}
+
+// Clear the failure flag after a successful verification so the popup
+// warning disappears once the keys are realigned.
+async function clearSignatureFailure() {
+  try {
+    var result = await chrome.storage.local.get(ABLEStorage.SIGNATURE_FAILURE);
+    if (result[ABLEStorage.SIGNATURE_FAILURE]) {
+      await chrome.storage.local.remove(ABLEStorage.SIGNATURE_FAILURE);
+      console.info("ABLE: Signature verification restored; clearing failure flag.");
+    }
+  } catch {
+    // Ignore — flag will be overwritten on the next failure.
+  }
+}
+
+/**
  * Verify a signed payload envelope:
  *   { payload: <object>, signature: <hex>, key_version: <number> }
  *
@@ -81,13 +124,22 @@ async function verifySignedCache(envelope) {
   if (typeof signature !== "string") return false;
 
   const keyConfig = typeof PUBLIC_KEYS !== "undefined" ? PUBLIC_KEYS[key_version] : null;
-  if (!keyConfig || !keyConfig.key) return false;
+  if (!keyConfig || !keyConfig.key) {
+    await noteSignatureFailure("no public key configured for key_version " + key_version, key_version);
+    return false;
+  }
 
   try {
     const key = await importHmacKey(keyConfig.key);
     const payloadBytes = new TextEncoder().encode(canonicalize(payload));
     const signatureBytes = hexToBytes(signature);
-    return crypto.subtle.verify("HMAC", key, signatureBytes, payloadBytes);
+    const ok = await crypto.subtle.verify("HMAC", key, signatureBytes, payloadBytes);
+    if (ok) {
+      await clearSignatureFailure();
+    } else {
+      await noteSignatureFailure("HMAC mismatch for key_version " + key_version, key_version);
+    }
+    return ok;
   } catch (error) {
     console.warn("ABLE: Signature verification error:", error);
     return false;
