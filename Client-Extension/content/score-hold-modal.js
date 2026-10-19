@@ -30,6 +30,35 @@ async function showScoreHoldModal(data) {
     // Non-fatal — the modal renders without the reference line.
   }
 
+  // The hold reason differs: only an unreachable server is fixed by retrying
+  // later. A rejected request or an unverifiable verdict will fail again the
+  // same way, so the message must not promise that a retry will help.
+  var reason = data.failure || "unreachable";
+  var explanation;
+  if (reason === "rejected") {
+    explanation =
+      'ABLE could not get a score for' +
+      ' "<span class="able-highlight-text">' + escapeHtml(data.fileName) + '</span>"' +
+      ' from the risk scoring server, which rejected the request.' +
+      ' This upload is on hold and <span class="able-highlight-text">will not proceed unscored</span>.' +
+      ' Please cancel the upload.';
+  } else if (reason === "unverified") {
+    explanation =
+      'ABLE received a score for' +
+      ' "<span class="able-highlight-text">' + escapeHtml(data.fileName) + '</span>"' +
+      ' but could not verify its signature, so it was rejected.' +
+      ' This upload is on hold and <span class="able-highlight-text">will not proceed unscored</span>.' +
+      ' Please cancel the upload.';
+  } else {
+    explanation =
+      'ABLE cannot reach the risk scoring server right now, so' +
+      ' "<span class="able-highlight-text">' + escapeHtml(data.fileName) + '</span>"' +
+      ' cannot be scored before it is sent to' +
+      ' <span class="able-highlight-text">' + escapeHtml(data.domain) + '</span>.' +
+      ' This upload is on hold and <span class="able-highlight-text">will not proceed unscored</span>.' +
+      ' Please retry once the connection is restored, or cancel the upload.';
+  }
+
   var html =
     '<div class="able-modal-card">' +
       '<div class="able-banner-edge"></div>' +
@@ -37,12 +66,7 @@ async function showScoreHoldModal(data) {
         '<h1 class="able-modal-title">UPLOAD HELD</h1>' +
         '<div class="able-modal-body">' +
           '<p>' +
-            'ABLE cannot reach the risk scoring server right now, so' +
-            ' "<span class="able-highlight-text">' + escapeHtml(data.fileName) + '</span>"' +
-            ' cannot be scored before it is sent to' +
-            ' <span class="able-highlight-text">' + escapeHtml(data.domain) + '</span>.' +
-            ' This upload is on hold and <span class="able-highlight-text">will not proceed unscored</span>.' +
-            ' Please retry once the connection is restored, or cancel the upload.' +
+            explanation +
           '</p>' +
           snapshotRef +
         '</div>' +

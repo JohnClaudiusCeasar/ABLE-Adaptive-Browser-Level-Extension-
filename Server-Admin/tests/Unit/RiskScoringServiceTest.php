@@ -281,6 +281,39 @@ class RiskScoringServiceTest extends TestCase
         $this->assertSame(1.4, $this->service->fileTypeMultiplier('bin', 'xlsx'));
     }
 
+    public function test_synthetic_file_names_are_detected(): void
+    {
+        foreach (['blob', 'blob.csv', 'blob.xlsx', 'BLOB.PDF', 'upload.png', 'upload.', 'binary-upload', 'websocket-upload', 'stream-upload.bin', 'form-upload', 'unknown'] as $name) {
+            $this->assertTrue(
+                RiskScoringService::isSyntheticFileName($name),
+                "Expected '{$name}' to be recognised as a synthetic placeholder name."
+            );
+        }
+
+        foreach (['payroll.csv', 'report.pdf', 'salaries.xlsx', 'myblob.csv', 'blobby.txt', 'upload-report.pdf'] as $name) {
+            $this->assertFalse(
+                RiskScoringService::isSyntheticFileName($name),
+                "Expected '{$name}' to be treated as a real file name."
+            );
+        }
+
+        // A missing name carries no real file type either.
+        $this->assertTrue(RiskScoringService::isSyntheticFileName(''));
+        $this->assertTrue(RiskScoringService::isSyntheticFileName(null));
+    }
+
+    public function test_synthetic_file_name_does_not_receive_extension_multiplier(): void
+    {
+        // A MIME-derived extension on a placeholder name gets no boost.
+        $this->assertSame(1.0, $this->service->fileTypeMultiplier('csv', null, 'blob.csv'));
+        $this->assertSame(1.0, $this->service->fileTypeMultiplier('xlsx', null, 'upload.xlsx'));
+        // A genuine name keeps its multiplier.
+        $this->assertSame(1.5, $this->service->fileTypeMultiplier('csv', null, 'payroll.csv'));
+        // A content-verified container format is still honoured for a
+        // synthetic name, because it comes from the file's own bytes.
+        $this->assertSame(1.4, $this->service->fileTypeMultiplier('csv', 'xlsx', 'blob.csv'));
+    }
+
     public function test_real_corpus_fixtures_are_scorable(): void
     {
         $corpus = dirname(base_path()).DIRECTORY_SEPARATOR.'Implementation'.DIRECTORY_SEPARATOR.'Mock Test Corpus';

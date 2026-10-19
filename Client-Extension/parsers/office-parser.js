@@ -27,18 +27,58 @@ const OFFICE_FORMATS = {
   },
 };
 
+// Placeholder names the extension invents when it could not recover the
+// user's real filename (blob, upload.<mime>, stream-upload<ext>, ...). A name
+// like "upload.xlsx" ends with .xlsx but says nothing about the content: it
+// was derived from the MIME type. Treating it as an Office document made the
+// scanner try to parse a non-Office blob as one.
+//
+// Shared with content/file-scanner.js (both are content scripts, so they share
+// one scope) and with the page-world copy in inject/file-extractor.js.
+const SYNTHETIC_NAME_BASES = [
+  'upload',
+  'blob',
+  'binary-upload',
+  'websocket-upload',
+  'stream-upload',
+  'form-upload',
+  'unknown',
+];
+
+function isSyntheticFileName(name) {
+  if (!name || typeof name !== 'string') return false;
+  const base = (name.split('.')[0] || '').toLowerCase();
+  return SYNTHETIC_NAME_BASES.indexOf(base) !== -1;
+}
+
+// The name is only evidence of the container type when it is a real
+// filename. A synthetic placeholder is ignored, so detection falls back to
+// the declared MIME type (which the server also cross-checks against the
+// file's ZIP signature before parsing).
 function detectOfficeFormat(file) {
   const name = file.name.toLowerCase();
   const mime = file.type;
+  const nameIsSynthetic = isSyntheticFileName(file.name);
 
   for (const [format, config] of Object.entries(OFFICE_FORMATS)) {
-    if (config.extensions.some(ext => name.endsWith(ext))) {
+    if (!nameIsSynthetic && config.extensions.some(ext => name.endsWith(ext))) {
       return format;
     }
     if (config.mimeTypes.includes(mime)) {
       return format;
     }
   }
+  return null;
+}
+
+// Authoritative Office detection: read the container's own entries. An
+// Office file is identified by the parts it contains, so this works for a
+// synthetic name ("upload.docx" guessed from ZIP magic bytes) and for a real
+// file whose extension lies. Returns null when the ZIP holds no Office part.
+function detectOfficeFormatFromZip(zip) {
+  if (zip.hasFile('word/document.xml')) return 'docx';
+  if (zip.hasFile('xl/workbook.xml') || zip.hasFile('xl/sharedStrings.xml')) return 'xlsx';
+  if (zip.hasFile('ppt/presentation.xml')) return 'pptx';
   return null;
 }
 
@@ -574,10 +614,7 @@ async function extractPptxText(zip) {
 const MAX_OFFICE_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 
 async function extractOfficeText(file) {
-  const format = detectOfficeFormat(file);
-  if (!format) {
-    throw new Error(`Unsupported office format: ${file.name}`);
-  }
+  const nameFormat = detectOfficeFormat(file);
 
   if (file.size > MAX_OFFICE_FILE_SIZE) {
     throw new Error(
@@ -610,6 +647,14 @@ async function extractOfficeText(file) {
   // Parse ZIP structure
   const zip = new ZipReader(buffer);
   zip.parse();
+
+  // The container's own entries decide the format. The name is only a hint:
+  // a synthetic name ("upload.docx" guessed from ZIP magic bytes) must not
+  // decide it, and a real file whose extension lies must not fool it.
+  const format = detectOfficeFormatFromZip(zip) || nameFormat;
+  if (!format) {
+    throw new Error(`Unsupported office format: ${file.name}`);
+  }
 
   // Extract text based on format
   let text;

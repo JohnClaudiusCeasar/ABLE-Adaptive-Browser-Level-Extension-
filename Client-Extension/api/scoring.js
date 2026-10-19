@@ -15,6 +15,24 @@ const SCORE_TEXT_MAX_LENGTH = 200000;
 const SCORE_REQUEST_TIMEOUT_MS = 15000;
 
 /**
+ * Why the last score request produced no verdict. The HOLD modal tells the
+ * user which of these happened — "the server is unreachable" and "the server
+ * rejected the request" call for very different responses.
+ */
+var SCORE_FAILURE = {
+  UNREACHABLE: "unreachable",
+  REJECTED: "rejected",
+  UNVERIFIED: "unverified",
+  ERROR: "error",
+};
+
+var lastScoreFailure = null;
+
+function getLastScoreFailure() {
+  return lastScoreFailure;
+}
+
+/**
  * Request a server-computed score for extracted content.
  *
  * @param {object} payload
@@ -38,11 +56,16 @@ async function requestContentScore(payload) {
         payload: payload,
       });
       if (response && response.success && response.verdict) {
+        lastScoreFailure = null;
         return response.verdict;
       }
+      // The worker reports why it produced no verdict, so the caller can tell
+      // "server unreachable" apart from "server rejected the request".
+      lastScoreFailure = (response && response.failure) || SCORE_FAILURE.UNREACHABLE;
       return null;
     } catch (e) {
       console.debug("ABLE: scoreContent relay failed:", e.message);
+      lastScoreFailure = SCORE_FAILURE.UNREACHABLE;
       return null;
     }
   }
@@ -76,6 +99,9 @@ async function requestContentScoreDirect(payload) {
 
     if (!response.ok) {
       console.warn("ABLE: score-content returned status", response.status);
+      // The server answered — it is reachable. A 4xx means the request was
+      // rejected (e.g. validation), which is not an outage.
+      lastScoreFailure = SCORE_FAILURE.REJECTED;
       if (typeof ABLERiskPatterns !== "undefined" && ABLERiskPatterns.markOfflineEpisode) {
         await ABLERiskPatterns.markOfflineEpisode();
       }
@@ -86,6 +112,7 @@ async function requestContentScoreDirect(payload) {
     const verified = await ABLESecurity.verifySignedCache(envelope);
     if (!verified) {
       console.warn("ABLE: Scoring verdict failed signature verification — rejecting.");
+      lastScoreFailure = SCORE_FAILURE.UNVERIFIED;
       return null;
     }
 
@@ -101,6 +128,7 @@ async function requestContentScoreDirect(payload) {
     }
 
     const v = envelope.payload || {};
+    lastScoreFailure = null;
     return {
       score: v.total_score,
       patternScore: v.pattern_score,
@@ -112,6 +140,7 @@ async function requestContentScoreDirect(payload) {
     };
   } catch (error) {
     console.warn("ABLE: Scoring request failed (server unreachable?):", error.message);
+    lastScoreFailure = SCORE_FAILURE.UNREACHABLE;
     try {
       if (typeof ABLERiskPatterns !== "undefined" && ABLERiskPatterns.markOfflineEpisode) {
         await ABLERiskPatterns.markOfflineEpisode();
@@ -125,7 +154,11 @@ if (typeof globalThis !== "undefined") {
   globalThis.ABLEScoring = {
     requestContentScore: requestContentScore,
     requestContentScoreDirect: requestContentScoreDirect,
+    getLastScoreFailure: getLastScoreFailure,
+    SCORE_FAILURE: SCORE_FAILURE,
   };
   globalThis.requestContentScore = requestContentScore;
   globalThis.requestContentScoreDirect = requestContentScoreDirect;
+  globalThis.getLastScoreFailure = getLastScoreFailure;
+  globalThis.ABLE_SCORE_FAILURE = SCORE_FAILURE;
 }

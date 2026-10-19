@@ -138,12 +138,27 @@ async function scanFile(file) {
   const contentHash = await computeContentHash(file);
   var fileExt = (file.name.split('.').pop() || '').toLowerCase();
 
+  // A synthetic placeholder name ("blob.csv", "upload.xlsx") carries an
+  // extension derived from the MIME type or magic bytes — not from the file
+  // the user actually chose. Reporting it as the real file type lets the
+  // server's file-type heuristic boost a nameless blob as if it were a real
+  // spreadsheet, which can trip the upload warning on its own. Send the
+  // extension only when the name is a genuine one.
+  // isSyntheticFileName() is defined in parsers/office-parser.js, which is
+  // loaded in this same content-script scope ahead of this file.
+  var isSyntheticName = isSyntheticFileName(file.name);
+  var reportedFileType = isSyntheticName ? null : fileExt;
+
+  if (isSyntheticName) {
+    console.debug("ABLE: Synthetic file name, not reporting extension as file type:", file.name);
+  }
+
   // Server-authoritative scoring (returns null when unreachable/unverifiable).
   const verdict = await requestContentScore({
     text: text,
     fileName: file.name,
     fileSize: file.size,
-    fileType: fileExt,
+    fileType: reportedFileType,
     fileFormat: fileFormat,
     contentHash: contentHash,
     pageContext: pageContext,
@@ -153,9 +168,11 @@ async function scanFile(file) {
   const scanDurationMs = Date.now() - scanStartTime;
 
   if (!verdict) {
-    console.warn("ABLE: Scoring server unreachable — upload must be held:", file.name);
+    var failure = (typeof getLastScoreFailure === "function" ? getLastScoreFailure() : null) || "unreachable";
+    console.warn("ABLE: Scoring request produced no verdict (" + failure + ") — upload must be held:", file.name);
     return {
       ok: false,
+      failure: failure,
       fileName: file.name,
       fileSize: file.size,
       contentHash: contentHash,

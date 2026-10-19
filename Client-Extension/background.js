@@ -241,8 +241,18 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
   }
   if (message.type === "scoreContent") {
     requestContentScoreDirect(message.payload)
-      .then(function (verdict) { sendResponse({ success: !!verdict, verdict: verdict }); })
-      .catch(function () { sendResponse({ success: false, verdict: null }); });
+      .then(function (verdict) {
+        sendResponse({
+          success: !!verdict,
+          verdict: verdict,
+          // Why there is no verdict, so the content script can tell an
+          // unreachable server apart from a rejected request.
+          failure: verdict ? null : getLastScoreFailure(),
+        });
+      })
+      .catch(function () {
+        sendResponse({ success: false, verdict: null, failure: "error" });
+      });
     return true;
   }
   if (message.type === "logEgress") {

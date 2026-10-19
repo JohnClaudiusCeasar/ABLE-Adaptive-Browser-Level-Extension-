@@ -275,6 +275,7 @@ async function handleInterceptedFiles(fileInfos, requestId) {
       domain: domainStatus.domain,
       fileName: failed.fileName,
       fileSize: failed.fileSize,
+      failure: failed.failure,
       onRetry: function () {
         removeModal();
         handleInterceptedFiles(fileInfos, requestId);
@@ -417,17 +418,9 @@ async function handleTextCheck(checkId, text, inputType, url) {
 
     if (!verdict) {
       // Scoring server unreachable: uploads are held instead, but typed text
-      // fails open. Never fabricate a 0% score in the logs.
+      // fails open. Never fabricate a 0% score in the logs — and since nothing
+      // was blocked, no "[text-input]" audit row is written either.
       console.warn("ABLE: Scoring server unreachable — text check allowed at domain baseline.");
-      logEgressEvent({
-        domain: domain,
-        fileName: "[text-input]",
-        fileSize: text.length,
-        riskScore: currentDomainBaseline(),
-        action: "allowed",
-        userAction: "typing",
-        source: "text-intercept",
-      });
       sendTextDecision(checkId, "allow");
       return;
     }
@@ -444,19 +437,24 @@ async function handleTextCheck(checkId, text, inputType, url) {
       flaggedItems: verdict.flaggedItems,
     });
 
-    logEgressEvent({
-      domain: domain,
-      fileName: "[text-input]",
-      fileSize: text.length,
-      riskScore: totalScore,
-      action: totalScore >= riskThreshold ? "blocked" : "proceeded",
-      userAction: "typing",
-      source: "text-intercept",
-      flaggedItems: verdict.flaggedItems,
-      scanToken: verdict.scanToken,
-    });
+    // "[text-input]" stays as the placeholder file name for typed text, but the
+    // row is audited only on the exact condition that raises the warning modal
+    // below — routine typing never reaches the database.
+    var showTextWarning = totalScore >= riskThreshold && verdict.flaggedItems.length > 0;
 
-    if (totalScore >= riskThreshold && verdict.flaggedItems.length > 0) {
+    if (showTextWarning) {
+      logEgressEvent({
+        domain: domain,
+        fileName: "[text-input]",
+        fileSize: text.length,
+        riskScore: totalScore,
+        action: "blocked",
+        userAction: "typing",
+        source: "text-intercept",
+        flaggedItems: verdict.flaggedItems,
+        scanToken: verdict.scanToken,
+      });
+
       showTextWarningModal({
         domain: domain,
         totalScore: totalScore,

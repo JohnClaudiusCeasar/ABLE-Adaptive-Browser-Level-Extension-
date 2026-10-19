@@ -810,12 +810,60 @@ class RiskScoringService
     }
 
     /**
-     * (6) File-type heuristic multiplier resolution.
+     * Synthetic file-name prefixes the extension assigns when it could not
+     * recover the user's real name (nameless blobs, MIME-only uploads,
+     * non-Office streams). The trailing extension of such a name is derived
+     * from the MIME type or magic bytes, not from the document the user
+     * actually chose — so it must not drive the file-type heuristic.
+     *
+     * @var list<string>
      */
-    public function fileTypeMultiplier(?string $fileExt, ?string $fileFormat = null): float
+    public const SYNTHETIC_NAME_PREFIXES = [
+        'upload',
+        'blob',
+        'binary-upload',
+        'websocket-upload',
+        'stream-upload',
+        'form-upload',
+        'unknown',
+    ];
+
+    /**
+     * True when the file name is one of the extension's synthetic placeholders
+     * (e.g. "blob.csv", "upload.xlsx", "stream-upload.png").
+     */
+    public static function isSyntheticFileName(?string $fileName): bool
+    {
+        $name = mb_strtolower(trim((string) $fileName), 'UTF-8');
+
+        if ($name === '') {
+            return true;
+        }
+
+        $base = explode('.', $name)[0];
+
+        return in_array($base, self::SYNTHETIC_NAME_PREFIXES, true);
+    }
+
+    /**
+     * (6) File-type heuristic multiplier resolution.
+     *
+     * A synthetic file name (see isSyntheticFileName) carries a MIME-derived
+     * extension, not the user's real file type, so that extension never
+     * receives a multiplier — the heuristic would otherwise boost a nameless
+     * blob as if it were a real spreadsheet.
+     *
+     * The resolved container format is still honoured: it comes from
+     * verifying the file's magic bytes and successfully parsing it as an
+     * Office container, so it reflects the real content regardless of what
+     * the file is called.
+     */
+    public function fileTypeMultiplier(?string $fileExt, ?string $fileFormat = null, ?string $fileName = null): float
     {
         $ext = mb_strtolower((string) $fileExt, 'UTF-8');
-        $mult = self::FILE_TYPE_MULTIPLIERS[$ext] ?? 1.0;
+        $synthetic = $fileName !== null && self::isSyntheticFileName($fileName);
+
+        $mult = $synthetic ? 1.0 : (self::FILE_TYPE_MULTIPLIERS[$ext] ?? 1.0);
 
         if ($mult === 1.0 && $fileFormat && $fileFormat !== 'plain') {
             $mult = self::FILE_TYPE_MULTIPLIERS[$fileFormat] ?? 1.0;

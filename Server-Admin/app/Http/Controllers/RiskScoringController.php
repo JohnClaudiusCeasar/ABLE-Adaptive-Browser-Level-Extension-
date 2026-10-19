@@ -57,9 +57,13 @@ class RiskScoringController extends Controller
         }
 
         // (6) File-type heuristic multiplier on the pattern score only.
+        // The file name is passed along so a synthetic placeholder name
+        // ("blob.csv", "upload.xlsx") is not mistaken for the user's real
+        // file type — its extension comes from the MIME type, not the file.
         $fileTypeMult = app(RiskScoringService::class)->fileTypeMultiplier(
             $validated['file_type'] ?? null,
             $validated['file_format'] ?? null,
+            $validated['file_name'] ?? null,
         );
         $adjustedPatternScore = $fileTypeMult !== 1.0
             ? min(100, (int) round($patternScore * $fileTypeMult))

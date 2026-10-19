@@ -100,6 +100,43 @@ class ScoreContentTest extends TestCase
         $this->assertSame(30, $csv['pattern_score']);
     }
 
+    /**
+     * A synthetic blob name ("blob.csv", "upload.xlsx") is not the user's
+     * document — the extension only knows its MIME type. The file-type
+     * heuristic (⑥) must not treat a MIME-derived extension as the real
+     * file type, otherwise a nameless blob gets a csv/xlsx boost it never
+     * earned and can trip the upload warning threshold on its own.
+     */
+    public function test_synthetic_blob_names_do_not_receive_file_type_multiplier(): void
+    {
+        RiskPattern::create([
+            'title' => 'SSN - Standard Format',
+            'type' => 'single',
+            'regex' => '\b\d{3}-\d{2}-\d{4}\b',
+            'score' => 10,
+            'priority' => 'high',
+        ]);
+
+        $real = $this->postJson('/api/score-content', [
+            'domain' => 'unknown-site.test',
+            'text' => '123-45-6789',
+            'file_name' => 'payroll.csv',
+            'file_type' => 'csv',
+        ])->json();
+
+        $blob = $this->postJson('/api/score-content', [
+            'domain' => 'unknown-site.test',
+            'text' => '123-45-6789',
+            'file_name' => 'blob.csv',
+            'file_type' => 'csv',
+        ])->json();
+
+        $this->assertSame(30, $real['payload']['pattern_score']);
+        $this->assertSame(20, $blob['payload']['pattern_score']);
+        $this->assertEquals(1.0, $blob['file_type_multiplier']);
+        $this->assertEquals(1.5, $real['file_type_multiplier']);
+    }
+
     public function test_scan_token_overrides_client_supplied_score_on_log_egress(): void
     {
         $score = $this->postJson('/api/score-content', [

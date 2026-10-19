@@ -345,6 +345,18 @@ async function processEgressLogQueue() {
 }
 
 async function logEgressEvent(args) {
+  // Skip events with generic filenames (no real file uploaded)
+  // These are typically analytics/tracking endpoints or failed filename recovery.
+  // Central filter covering every audit path (intercept modals, timeouts,
+  // fallbacks). Matched on the base name so modern synthetic names like
+  // "blob.png" / "stream-upload.png" are skipped too.
+  var genericNames = ["binary-upload", "blob", "websocket-upload", "stream-upload", "unknown"];
+  var fileNameBase = String(args.fileName || "").toLowerCase().split(".")[0];
+  if (genericNames.includes(fileNameBase)) {
+    console.debug("ABLE: Skipping generic filename:", args.fileName);
+    return;
+  }
+
   // If running in a content script, delegate to background service worker so HTTPS pages don't block http:// backend via Mixed Content
   if (typeof window !== 'undefined' && window.document && chrome.runtime && chrome.runtime.sendMessage) {
     try {
