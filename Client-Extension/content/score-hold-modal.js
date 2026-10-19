@@ -64,6 +64,7 @@ async function showScoreHoldModal(data) {
       '<div class="able-banner-edge"></div>' +
       '<div class="able-modal-content">' +
         '<h1 class="able-modal-title">UPLOAD HELD</h1>' +
+        '<div class="able-modal-divider"><div class="able-modal-divider-circle"></div></div>' +
         '<div class="able-modal-body">' +
           '<p>' +
             explanation +

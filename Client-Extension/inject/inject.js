@@ -140,6 +140,15 @@
         clearTimeout(activePending.timeout);
         activePending.timeout = null;
       }
+      // A held text check keeps its own pending entry. Suspend the
+      // auto-allow timeout while the modal is open so it cannot release the
+      // send behind the user's back.
+      var textCheckId = event.data.payload && event.data.payload.checkId;
+      var activeText = textCheckId && pendingTextChecks && pendingTextChecks.get(textCheckId);
+      if (activeText && activeText.timeout) {
+        clearTimeout(activeText.timeout);
+        activeText.timeout = null;
+      }
       return;
     }
   });
@@ -219,7 +228,83 @@
   var pendingTextChecks = null;
   var textCheckPending = false;
 
+  // Set while ABLE re-dispatches a held Enter so our own capture-phase
+  // listener does not intercept (and re-hold) its own replay.
+  var replayingEnter = false;
+
+  // Targets whose Enter was held and is waiting on the current check.
+  // A second Enter while a check is pending would otherwise slip through
+  // and send the text, defeating the hold.
+  var heldEnters = [];
+
+  /**
+   * Re-dispatch a held Enter keydown on its original target.
+   *
+   * The original event object cannot be reused: its dispatch flags are
+   * already spent, so re-dispatching it would never reach the page's own
+   * handler. A fresh event is required.
+   *
+   * A synthetic keydown does not carry the browser's default action, so
+   * the default behaviour is restored explicitly:
+   *   - a textarea / contenteditable gets its newline back
+   *   - a form control gets its implicit submit back
+   * Pages that handle Enter themselves (chat composers) are left alone:
+   * the page's own handler consumes the event and the browser's default
+   * action never applied in the first place.
+   */
+  function replayEnterOnTarget(target) {
+    if (!target || !target.isConnected) return;
+
+    var event = new KeyboardEvent('keydown', {
+      key: 'Enter',
+      code: 'Enter',
+      keyCode: 13,
+      which: 13,
+      bubbles: true,
+      cancelable: true,
+    });
+
+    replayingEnter = true;
+    try {
+      target.dispatchEvent(event);
+    } finally {
+      replayingEnter = false;
+    }
+
+    // The page did not consume the Enter itself, so nothing else will
+    // perform the default action. Restore it.
+    if (event.defaultPrevented) return;
+
+    try {
+      if (target instanceof HTMLTextAreaElement) {
+        target.focus();
+        document.execCommand('insertText', false, '\n');
+      } else if (target instanceof HTMLInputElement) {
+        if (typeof target.form !== 'undefined' && target.form) {
+          target.form.requestSubmit();
+        }
+      } else if (target.isContentEditable) {
+        target.focus();
+        document.execCommand('insertText', false, '\n');
+      }
+    } catch (e) {
+      // Best effort: the text stays in the field and the user can retry.
+    }
+  }
+
+  function releaseHeldEnters() {
+    var targets = heldEnters.splice(0, heldEnters.length);
+    for (var i = 0; i < targets.length; i++) {
+      replayEnterOnTarget(targets[i]);
+    }
+  }
+
+  function dropHeldEnters() {
+    heldEnters.splice(0, heldEnters.length);
+  }
+
   document.addEventListener('keydown', function (event) {
+    if (replayingEnter) return;
     if (event.key !== 'Enter' || event.shiftKey) return;
 
     var target = event.target;
@@ -241,29 +326,54 @@
     }
 
     if (!text || text.trim().length === 0) return;
+
+    // Hold the Enter synchronously. The page's own handler must not run
+    // until the score is known, otherwise the text is already gone by the
+    // time the advisory modal appears.
+    event.preventDefault();
+    event.stopPropagation();
+    heldEnters.push(target);
+
+    // A second Enter while this check is pending joins the same hold
+    // instead of slipping through and sending the text.
     if (textCheckPending) return;
 
     textCheckPending = true;
     var checkId = generateId();
 
     pendingTextChecks = pendingTextChecks || new Map();
-    pendingTextChecks.set(checkId, {
+    var entry = {
+      target: target,
+      timeout: null,
       resolve: function (decision) {
         textCheckPending = false;
+        if (entry.timeout) {
+          clearTimeout(entry.timeout);
+          entry.timeout = null;
+        }
+        pendingTextChecks.delete(checkId);
         if (decision === 'block') {
-          event.preventDefault();
-          event.stopPropagation();
+          dropHeldEnters();
           window.postMessage({
             source: 'ABLE_INJECT',
             type: 'ABLE_TEXT_BLOCKED',
             payload: { checkId: checkId }
           }, '*');
+        } else {
+          releaseHeldEnters();
         }
       },
       reject: function () {
         textCheckPending = false;
+        if (entry.timeout) {
+          clearTimeout(entry.timeout);
+          entry.timeout = null;
+        }
+        pendingTextChecks.delete(checkId);
+        dropHeldEnters();
       }
-    });
+    };
+    pendingTextChecks.set(checkId, entry);
 
     window.postMessage({
       source: 'ABLE_INJECT',
@@ -277,7 +387,7 @@
       }
     }, '*');
 
-    setTimeout(function () {
+    entry.timeout = setTimeout(function () {
       if (pendingTextChecks && pendingTextChecks.has(checkId)) {
         var pending = pendingTextChecks.get(checkId);
         pendingTextChecks.delete(checkId);
@@ -291,9 +401,8 @@
       if (!ableNonce || event.data.nonce !== ableNonce) return;
       var id = event.data.payload?.checkId;
       var action = event.data.payload?.action;
-      if (pendingTextChecks && pendingTextChecks.has(id)) {
-        var pending = pendingTextChecks.get(id);
-        pendingTextChecks.delete(id);
+      var pending = pendingTextChecks && pendingTextChecks.get(id);
+      if (pending) {
         pending.resolve(action || 'allow');
       }
     }

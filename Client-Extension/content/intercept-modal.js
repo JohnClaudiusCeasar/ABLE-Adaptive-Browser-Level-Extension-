@@ -2,79 +2,21 @@
  * ABLE Extension - Intercept Modal
  *
  * File upload intercept modal with risk score visualization.
+ *
+ * The score ring and score breakdown markup are shared with the sensitive
+ * content (text) modal via ABLEModalContainer so both surfaces stay identical.
  */
-
-var PIE_COLORS = {
-  "Credit Card Number": "var(--pie-cc)",
-  "Social Security Number (SSN)": "var(--pie-ssn)",
-  "API Key / Token": "var(--pie-api-key)",
-  "Private Key": "var(--pie-private-key)",
-  "Plaintext Password": "var(--pie-password)",
-  "Database Connection String": "var(--pie-db-string)",
-};
-
-var DYNAMIC_PALETTE = [
-  "var(--pie-cc)",
-  "var(--pie-ssn)",
-  "var(--pie-api-key)",
-  "var(--pie-private-key)",
-  "var(--pie-password)",
-  "var(--pie-db-string)",
-  "#EC4899",
-  "#10B981",
-  "#6366F1",
-  "#F43F5E",
-  "#14B8A6",
-  "#EAB308",
-];
-
-function getPieColor(label, index) {
-  if (label && PIE_COLORS[label]) {
-    return PIE_COLORS[label];
-  }
-  if (typeof index === "number" && index >= 0) {
-    return DYNAMIC_PALETTE[index % DYNAMIC_PALETTE.length];
-  }
-  return "var(--score-orange)";
-}
 
 function showInterceptModal(data) {
   var statusLabel = data.status === "unsafe" ? "Unsafe" : "Unlisted";
-  var totalWeight = data.flaggedItems.reduce(function (sum, item) { return sum + item.weight; }, 0);
-
-  var stops = [];
-  var currentAngle = 0;
-
-  for (var i = 0; i < data.flaggedItems.length; i++) {
-    var item = data.flaggedItems[i];
-    var sliceAngle = totalWeight > 0 ? (item.weight / totalWeight) * 360 : 0;
-    var color = getPieColor(item.label, i);
-    if (sliceAngle > 0) {
-      stops.push(color + " " + currentAngle + "deg " + (currentAngle + sliceAngle) + "deg");
-    }
-    currentAngle += sliceAngle;
-  }
-
-  var gapEnd = Math.min(currentAngle + 11, 360);
-
-  var gradient = "conic-gradient(" +
-    stops.join(", ") +
-    ", var(--dark-gray) " + currentAngle + "deg " + gapEnd + "deg, " +
-    "var(--track-gray) " + gapEnd + "deg 360deg)";
 
   var html =
     '<div class="able-modal-card">' +
       '<div class="able-banner-edge"></div>' +
       '<div class="able-modal-content">' +
         '<h1 class="able-modal-title">HOLD IT RIGHT THERE!</h1>' +
-        '<div class="able-score-ring-wrapper" role="button" tabindex="0">' +
-          '<div class="able-score-ring-chart" style="background: ' + gradient + ';">' +
-            '<div class="able-score-ring-inner">' +
-              '<span class="able-score-percentage">' + data.score + '%</span>' +
-              '<span class="able-score-label">Risk Score</span>' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
+        '<div class="able-modal-divider"><div class="able-modal-divider-circle"></div></div>' +
+        ABLEModalContainer.buildScoreRingMarkup(data.score, data.flaggedItems) +
         '<div class="able-modal-body">' +
           '<p>' +
             'ABLE has detected sensitive information from' +
@@ -186,29 +128,11 @@ function showInterceptScoreDetails(data) {
   var modalCard = (shadow && shadow.querySelector(".able-modal-card")) || document.querySelector(".able-modal-card");
   if (!modalCard) return;
 
-  var totalWeight = data.flaggedItems.reduce(function (sum, item) { return sum + item.weight; }, 0);
-
-  var itemsHtml = data.flaggedItems.map(function (item, i) {
-    var color = getPieColor(item.label, i);
-    var pct = totalWeight > 0 ? ((item.weight / totalWeight) * 100).toFixed(0) : 0;
-    return '<div class="able-detail-item">' +
-      '<span class="able-detail-swatch" style="background: ' + color + ';"></span>' +
-      '<span class="able-detail-label"><span class="able-highlight-text">' + escapeHtml(item.label) + '</span></span>' +
-      '<span class="able-detail-count">x<span class="able-highlight-text">' + item.count + '</span></span>' +
-      '<span class="able-detail-weight">+<span class="able-highlight-text">' + item.weight + '</span></span>' +
-      '<span class="able-detail-pct"><span class="able-highlight-text">' + pct + '%</span></span>' +
-    '</div>';
-  }).join("");
-
   modalCard.innerHTML =
     '<div class="able-banner-edge"></div>' +
     '<div class="able-modal-content">' +
       '<h1 class="able-modal-title">SCORE BREAKDOWN</h1>' +
-      '<div class="able-detail-list">' + itemsHtml + '</div>' +
-      '<div class="able-detail-total">' +
-        '<span>Total Risk Score</span>' +
-        '<span class="able-detail-total-score"><span class="able-highlight-text">' + data.score + '%</span></span>' +
-      '</div>' +
+      ABLEModalContainer.buildScoreBreakdownMarkup(data.score, data.flaggedItems) +
       '<div class="able-modal-actions">' +
         '<button class="able-btn able-btn-proceed" id="ableDetailBackBtn">Back to Warning</button>' +
         '<button class="able-btn able-btn-cancel" id="ableDetailCancelBtn">Cancel Upload</button>' +

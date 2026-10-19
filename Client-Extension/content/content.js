@@ -455,13 +455,29 @@ async function handleTextCheck(checkId, text, inputType, url) {
         scanToken: verdict.scanToken,
       });
 
+      // Keep the page-side check open while the modal is up. Without this
+      // the page side auto-allows after its timeout and releases the held
+      // send behind the modal.
+      window.postMessage({
+        source: "ABLE_CONTENT",
+        type: "ABLE_MODAL_ACTIVE",
+        nonce: pageNonceHex,
+        payload: { checkId: checkId }
+      }, "*");
+
       showTextWarningModal({
         domain: domain,
         totalScore: totalScore,
         flaggedItems: verdict.flaggedItems,
         inputType: inputType,
+        checkId: checkId,
+        onProceed: function () {
+          sendTextDecision(checkId, "allow");
+        },
+        onCancel: function () {
+          sendTextDecision(checkId, "block");
+        },
       });
-      sendTextDecision(checkId, "block");
     } else {
       sendTextDecision(checkId, "allow");
     }

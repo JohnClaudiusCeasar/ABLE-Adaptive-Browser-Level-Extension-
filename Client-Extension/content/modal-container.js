@@ -26,6 +26,115 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
+// ─── Shared score visualization ─────────────────────────────────
+//
+// The intercept (file upload) modal and the sensitive-content (text) modal
+// render the same score ring and the same breakdown table. Building both here
+// keeps the two surfaces identical by construction rather than by copy-paste.
+
+var PIE_COLORS = {
+  "Credit Card Number": "var(--pie-cc)",
+  "Social Security Number (SSN)": "var(--pie-ssn)",
+  "API Key / Token": "var(--pie-api-key)",
+  "Private Key": "var(--pie-private-key)",
+  "Plaintext Password": "var(--pie-password)",
+  "Database Connection String": "var(--pie-db-string)",
+};
+
+var DYNAMIC_PALETTE = [
+  "var(--pie-cc)",
+  "var(--pie-ssn)",
+  "var(--pie-api-key)",
+  "var(--pie-private-key)",
+  "var(--pie-password)",
+  "var(--pie-db-string)",
+  "#EC4899",
+  "#10B981",
+  "#6366F1",
+  "#F43F5E",
+  "#14B8A6",
+  "#EAB308",
+];
+
+function getPieColor(label, index) {
+  if (label && PIE_COLORS[label]) {
+    return PIE_COLORS[label];
+  }
+  if (typeof index === "number" && index >= 0) {
+    return DYNAMIC_PALETTE[index % DYNAMIC_PALETTE.length];
+  }
+  return "var(--score-orange)";
+}
+
+function totalFlaggedWeight(flaggedItems) {
+  var items = Array.isArray(flaggedItems) ? flaggedItems : [];
+  return items.reduce(function (sum, item) { return sum + (item.weight || 0); }, 0);
+}
+
+/**
+ * Builds the conic-gradient ring markup used by the intercept and text modals.
+ * The ring is a button: callers bind the click to open the breakdown view.
+ */
+function buildScoreRingMarkup(score, flaggedItems) {
+  var items = Array.isArray(flaggedItems) ? flaggedItems : [];
+  var totalWeight = totalFlaggedWeight(items);
+
+  var stops = [];
+  var currentAngle = 0;
+
+  for (var i = 0; i < items.length; i++) {
+    var item = items[i];
+    var sliceAngle = totalWeight > 0 ? ((item.weight || 0) / totalWeight) * 360 : 0;
+    var color = getPieColor(item.label, i);
+    if (sliceAngle > 0) {
+      stops.push(color + " " + currentAngle + "deg " + (currentAngle + sliceAngle) + "deg");
+    }
+    currentAngle += sliceAngle;
+  }
+
+  var gapEnd = Math.min(currentAngle + 11, 360);
+
+  var gradient = "conic-gradient(" +
+    stops.join(", ") +
+    ", var(--dark-gray) " + currentAngle + "deg " + gapEnd + "deg, " +
+    "var(--track-gray) " + gapEnd + "deg 360deg)";
+
+  return '<div class="able-score-ring-wrapper" role="button" tabindex="0">' +
+    '<div class="able-score-ring-chart" style="background: ' + gradient + ';">' +
+      '<div class="able-score-ring-inner">' +
+        '<span class="able-score-percentage">' + score + '%</span>' +
+        '<span class="able-score-label">Risk Score</span>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+/**
+ * Builds the breakdown rows + total footer shared by both score breakdown views.
+ */
+function buildScoreBreakdownMarkup(score, flaggedItems) {
+  var items = Array.isArray(flaggedItems) ? flaggedItems : [];
+  var totalWeight = totalFlaggedWeight(items);
+
+  var itemsHtml = items.map(function (item, i) {
+    var color = getPieColor(item.label, i);
+    var pct = totalWeight > 0 ? (((item.weight || 0) / totalWeight) * 100).toFixed(0) : 0;
+    return '<div class="able-detail-item">' +
+      '<span class="able-detail-swatch" style="background: ' + color + ';"></span>' +
+      '<span class="able-detail-label"><span class="able-highlight-text">' + escapeHtml(item.label) + '</span></span>' +
+      '<span class="able-detail-count">x<span class="able-highlight-text">' + item.count + '</span></span>' +
+      '<span class="able-detail-weight">+<span class="able-highlight-text">' + item.weight + '</span></span>' +
+      '<span class="able-detail-pct"><span class="able-highlight-text">' + pct + '%</span></span>' +
+    '</div>';
+  }).join("");
+
+  return '<div class="able-detail-list">' + itemsHtml + '</div>' +
+    '<div class="able-detail-total">' +
+      '<span>Total Risk Score</span>' +
+      '<span class="able-detail-total-score"><span class="able-highlight-text">' + score + '%</span></span>' +
+    '</div>';
+}
+
 var MODAL_STYLES = `
 :host {
   all: initial;
@@ -355,54 +464,6 @@ var MODAL_STYLES = `
   border-radius: 16px;
 }
 
-/* Text Warning Modal styles */
-.able-intercept-header {
-  width: 100%;
-  padding: 16px 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-top-left-radius: 24px;
-  border-top-right-radius: 24px;
-}
-
-.able-intercept-title {
-  font-family: 'Unbounded', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-weight: 700;
-  font-size: 16px;
-  color: #ffffff;
-  text-align: center;
-}
-
-.able-intercept-modal {
-  width: 360px;
-  max-width: 90vw;
-  max-height: 90vh;
-  background-color: var(--bg-white, #FFFFFF);
-  border-radius: 24px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-}
-
-.able-intercept-body {
-  padding: 20px 24px;
-  flex-grow: 1;
-}
-
-.able-intercept-footer {
-  display: flex;
-  gap: 10px;
-  padding: 16px 24px;
-  justify-content: center;
-}
-
-.able-intercept-footer .able-btn-proceed,
-.able-intercept-footer .able-btn-cancel {
-  width: 50%;
-}
-
 /* Greeting Modal (Install Introduction) */
 .able-modal-card.able-modal-large {
   width: 660px;
@@ -700,6 +761,9 @@ if (typeof globalThis !== "undefined") {
     removeModal: removeModal,
     registerModalCleanup: registerModalCleanup,
     escapeHtml: escapeHtml,
+    getPieColor: getPieColor,
+    buildScoreRingMarkup: buildScoreRingMarkup,
+    buildScoreBreakdownMarkup: buildScoreBreakdownMarkup,
     MODAL_STYLES: MODAL_STYLES,
   };
   globalThis.removeModal = removeModal;

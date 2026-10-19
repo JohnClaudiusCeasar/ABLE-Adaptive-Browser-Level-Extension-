@@ -4,7 +4,8 @@
   "description": "ABLE - Adaptive Browser Level Extension",
   "private": true,
   "scripts": {
-    "build": "node Client-Extension/scripts/build.js",
-    "hash": "node Client-Extension/scripts/hash-assets.js"
+    "build": "node scripts/build.js",
+    "hash": "node scripts/hash-assets.js",
+    "verify:modals": "node scripts/verify-modals.js"
   }
 }

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ABLE - Adaptive Browser-Level Extension",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Detects website safety status and provides security warnings for unsafe and unlisted domains",
   "permissions": [
     "scripting",
@@ -39,6 +39,7 @@
         "content/intercept-modal.js",
         "content/text-warning-modal.js",
         "content/site-warning-modal.js",
+        "content/blocked-access-modal.js",
         "content/repeat-visit-modal.js",
         "content/greeting-modal.js",
         "content/content.js"
