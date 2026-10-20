@@ -1,9 +1,12 @@
 import { Form, Head, usePage } from '@inertiajs/react';
+import { useState } from 'react';
 import ServerSettingsController from '@/actions/App/Http/Controllers/Settings/ServerSettingsController';
 import Heading from '@/components/heading';
 import { AdvancedDisclosure } from '@/components/settings/advanced-disclosure';
 import { ArrayField } from '@/components/settings/array-field';
 import { BooleanField } from '@/components/settings/boolean-field';
+import ClearRecordsDialog from '@/components/settings/clear-records-dialog';
+import type { RecordCount } from '@/components/settings/clear-records-dialog';
 import { KeyValueField } from '@/components/settings/key-value-field';
 import { NumberField } from '@/components/settings/number-field';
 import { PolicySelect } from '@/components/settings/policy-select';
@@ -36,6 +39,7 @@ type ServerStatus = {
     api_rate_limit: number;
     extension_threshold: number;
     server_threshold: number;
+    record_counts?: RecordCount[];
 };
 
 type PageProps = {
@@ -45,6 +49,7 @@ type PageProps = {
 
 export default function ServerSettings() {
     const { settings, status } = usePage<PageProps>().props;
+    const [showClearRecords, setShowClearRecords] = useState(false);
 
     const ut1 = status?.ut1_last_run;
     const thresholdsMatch =
@@ -345,7 +350,33 @@ export default function ServerSettings() {
                         </>
                     )}
                 </Form>
+
+                <SettingsSection
+                    title="Danger zone"
+                    description="Irreversible actions on this server"
+                    className="border-red-500/30 bg-red-500/5 dark:border-red-500/20 dark:bg-red-500/5"
+                >
+                    <SettingsField
+                        label="Clear all records"
+                        description="Permanently delete every record in the app: site policies, risk patterns, visits, egress events, notifications, chat and logs. Accounts and settings are kept. This cannot be undone."
+                    >
+                        <Button
+                            type="button"
+                            variant="destructive"
+                            onClick={() => setShowClearRecords(true)}
+                            data-test="clear-records-button"
+                        >
+                            Clear all records
+                        </Button>
+                    </SettingsField>
+                </SettingsSection>
             </div>
+
+            <ClearRecordsDialog
+                open={showClearRecords}
+                onOpenChange={setShowClearRecords}
+                counts={status?.record_counts ?? []}
+            />
         </>
     );
 }

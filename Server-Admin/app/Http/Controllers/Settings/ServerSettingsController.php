@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers\Settings;
 
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Settings\ClearRecordsRequest;
 use App\Services\AbleSettingsService;
+use App\Services\RecordPurgeService;
 use App\Services\SettingsStatusService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -37,6 +40,23 @@ class ServerSettingsController extends Controller
         );
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Server settings updated.')]);
+
+        return to_route('server-settings.edit');
+    }
+
+    /**
+     * Permanently delete every record in the app.
+     */
+    public function clearRecords(ClearRecordsRequest $request, RecordPurgeService $purge): RedirectResponse
+    {
+        // The module middleware already keeps the settings page away from
+        // regular admins, but the purge is destructive enough to be guarded
+        // explicitly as well.
+        abort_unless(UserRole::fromValue($request->user()->role) === UserRole::SuperAdmin, 403);
+
+        $purge->purge();
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('All records cleared.')]);
 
         return to_route('server-settings.edit');
     }

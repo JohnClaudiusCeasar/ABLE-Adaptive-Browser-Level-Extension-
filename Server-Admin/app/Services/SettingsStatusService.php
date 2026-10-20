@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 
 class SettingsStatusService
 {
-    public function __construct(private AbleSettingsService $settings) {}
+    public function __construct(private AbleSettingsService $settings, private RecordPurgeService $purge) {}
 
     /**
      * @return array<string, mixed>
@@ -50,6 +50,7 @@ class SettingsStatusService
             'api_rate_limit' => (int) $this->settings->value('server', 'runtime.api_rate_limit', 120),
             'extension_threshold' => (int) $this->settings->value('extension', 'behavior.risk_threshold', 85),
             'server_threshold' => (int) $this->settings->value('server', 'algorithm.default_risk_threshold', 85),
+            'record_counts' => $this->purge->counts(),
         ];
     }
 
