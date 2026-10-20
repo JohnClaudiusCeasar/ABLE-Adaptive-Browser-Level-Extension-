@@ -1,7 +1,7 @@
 import { Head, router, usePage } from '@inertiajs/react';
 import { Search, Plus, X, Trash2, Copy, ArrowLeft, Info } from 'lucide-react';
 import type { FormEvent } from 'react';
-import { useState, Fragment, useMemo } from 'react';
+import { useState, Fragment, useMemo, useEffect, useRef } from 'react';
 import AlertError from '@/components/alert-error';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { ContextIntelligenceSection } from './context-intelligence-section';
@@ -73,6 +73,24 @@ function nextTempId(): number {
     return tempIdCounter;
 }
 
+// Copy only the leaf items of a pattern. A source pattern may itself contain
+// groups, and the items table supports a single level of sub-items, so nested
+// groups are flattened into their leaves.
+function collectLeafItems(items: CriteriaPatternItem[]): CriteriaPatternItem[] {
+    return items.flatMap((item) => {
+        const subItems = item.sub_items ?? [];
+
+        if (subItems.length === 0) {
+            return [{ ...item, sub_items: [] }];
+        }
+
+        return collectLeafItems(subItems).map((leaf) => ({
+            ...leaf,
+            sub_items: [],
+        }));
+    });
+}
+
 export default function EditCriteriaPattern() {
     const { riskPattern, existingPatterns } = usePage<PageProps>().props;
 
@@ -87,15 +105,33 @@ export default function EditCriteriaPattern() {
     });
 
     const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-    // Treat existing saved score as manually set unless it is 0
+    // The persisted score is only a manual override when it is non-zero and
+    // differs from the sum of the item scores. A score of 0 means "never
+    // computed" (the scoring engine falls back to the item sum for it), and a
+    // score matching the sum was auto-computed — both must stay live and keep
+    // tracking the items table.
     const [compositeScoreManual, setCompositeScoreManual] = useState(
-        riskPattern.score !== 0,
+        riskPattern.score !== 0 &&
+            riskPattern.score !==
+                sumAllItemScores(riskPattern.criteria_pattern_items || []),
     );
     const [showExistingPicker, setShowExistingPicker] = useState(false);
     const [existingSearch, setExistingSearch] = useState('');
     const [existingSort, setExistingSort] = useState<ExistingSort>('newest');
     const [confirmUpdate, setConfirmUpdate] = useState(false);
     const [confirmCancel, setConfirmCancel] = useState(false);
+    const formErrorRef = useRef<HTMLDivElement>(null);
+
+    // The error banner sits at the top of a long form, so bring it into view
+    // when a save is rejected instead of leaving the operator at the button.
+    useEffect(() => {
+        if (Object.keys(formErrors).length > 0) {
+            formErrorRef.current?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+            });
+        }
+    }, [formErrors]);
 
     // Available patterns for existing picker (exclude self to avoid cycles)
     const availablePatterns = useMemo(() => {
@@ -146,6 +182,7 @@ export default function EditCriteriaPattern() {
 
     const isDirty =
         criteriaForm.title !== riskPattern.title ||
+        criteriaForm.score !== String(riskPattern.score) ||
         criteriaForm.priority !== riskPattern.priority ||
         criteriaForm.negation_context_regex !==
             (riskPattern.negation_context_regex ?? '') ||
@@ -234,6 +271,10 @@ export default function EditCriteriaPattern() {
                 operator: 'and',
             },
         ];
+        // The item becomes a group: the table renders its regex as blank, so
+        // drop the value it had to keep the saved pattern in step with the
+        // row the operator actually sees.
+        parentItem.regex = '';
         parentItem.score = sumSubItemsScore(parentItem.sub_items);
         updatedItems[parentIndex] = parentItem;
         setCriteriaForm({
@@ -259,9 +300,9 @@ export default function EditCriteriaPattern() {
             parentItem.sub_items = [...parentItem.sub_items];
             parentItem.sub_items.splice(subIndex, 1);
 
-            if (parentItem.sub_items.length > 0) {
-                parentItem.score = sumSubItemsScore(parentItem.sub_items);
-            }
+            // Recompute the group score; falls back to 0 once the last
+            // sub-item is removed so the composite does not keep a stale sum.
+            parentItem.score = sumSubItemsScore(parentItem.sub_items);
 
             updatedItems[parentIndex] = parentItem;
             setCriteriaForm({
@@ -314,15 +355,15 @@ export default function EditCriteriaPattern() {
     }
 
     function addExistingPattern(pattern: RiskPattern) {
-        const subItems = pattern.criteria_pattern_items || [];
-        const hasSub = subItems.length > 0;
+        const leaves = collectLeafItems(pattern.criteria_pattern_items || []);
+        const hasSub = leaves.length > 0;
         const newItem: CriteriaPatternItem = {
             id: nextTempId(),
             title: pattern.title,
-            regex: pattern.regex || '',
-            score: hasSub ? sumSubItemsScore(subItems) : pattern.score,
+            regex: hasSub ? '' : pattern.regex || '',
+            score: hasSub ? sumSubItemsScore(leaves) : pattern.score,
             operator: 'and',
-            sub_items: subItems,
+            sub_items: leaves,
         };
         setCriteriaForm({
             ...criteriaForm,
@@ -367,10 +408,12 @@ export default function EditCriteriaPattern() {
                 {/* Form */}
                 <form onSubmit={handleSubmit}>
                     {Object.keys(formErrors).length > 0 && (
-                        <AlertError
-                            errors={Object.values(formErrors)}
-                            title="Unable to update criteria pattern"
-                        />
+                        <div ref={formErrorRef}>
+                            <AlertError
+                                errors={Object.values(formErrors)}
+                                title="Unable to update criteria pattern"
+                            />
+                        </div>
                     )}
 
                     {/* Title & Score row */}

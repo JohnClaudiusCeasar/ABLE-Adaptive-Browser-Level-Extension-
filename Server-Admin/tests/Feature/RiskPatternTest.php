@@ -7,6 +7,7 @@ use App\Models\EgressEvent;
 use App\Models\RiskPattern;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use RuntimeException;
 use Tests\TestCase;
 
 class RiskPatternTest extends TestCase
@@ -498,6 +499,233 @@ class RiskPatternTest extends TestCase
         )->get();
         $this->assertCount(1, $linkedSingles);
         $this->assertSame('Nested Item', $linkedSingles->first()->title);
+    }
+
+    public function test_criteria_pattern_with_more_than_two_scored_items_persists()
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        // The composite score is the sum of the item scores, so a pattern with
+        // three scored items exceeds the 0-100 range of a single pattern.
+        $response = $this->post(route('risk-algorithm.store'), [
+            'title' => 'Three Scored Items',
+            'type' => 'criteria',
+            'score' => 120,
+            'criteria_pattern_items' => [
+                ['title' => 'Item A', 'regex' => 'alpha', 'operator' => 'and', 'score' => 40],
+                ['title' => 'Item B', 'regex' => 'beta', 'operator' => 'and', 'score' => 40],
+                ['title' => 'Item C', 'regex' => 'gamma', 'operator' => 'and', 'score' => 40],
+            ],
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHasNoErrors();
+
+        $criteria = RiskPattern::where('type', 'criteria')->first();
+        $this->assertNotNull($criteria);
+        $this->assertSame(120, $criteria->score);
+        $this->assertSame(3, CriteriaPatternItem::where('criteria_pattern_id', $criteria->id)->count());
+    }
+
+    public function test_group_item_score_may_exceed_the_single_pattern_range()
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        // A group item's score is the sum of its sub-item scores.
+        $response = $this->post(route('risk-algorithm.store'), [
+            'title' => 'Large Group',
+            'type' => 'criteria',
+            'score' => 120,
+            'criteria_pattern_items' => [
+                [
+                    'title' => 'Group',
+                    'regex' => '',
+                    'operator' => 'and',
+                    'score' => 120,
+                    'sub_items' => [
+                        ['title' => 'Sub A', 'regex' => 'suba', 'operator' => 'and', 'score' => 60],
+                        ['title' => 'Sub B', 'regex' => 'subb', 'operator' => 'and', 'score' => 60],
+                    ],
+                ],
+            ],
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHasNoErrors();
+
+        $group = CriteriaPatternItem::where('title', 'Group')->first();
+        $this->assertNotNull($group);
+        $this->assertSame(120, $group->score);
+    }
+
+    public function test_failed_criteria_save_does_not_persist_a_partial_pattern()
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        CriteriaPatternItem::creating(function (CriteriaPatternItem $item): void {
+            if ($item->title === 'Fails Midway') {
+                throw new RuntimeException('simulated persistence failure');
+            }
+        });
+
+        try {
+            $this->withoutExceptionHandling()->post(route('risk-algorithm.store'), [
+                'title' => 'Atomic Criteria',
+                'type' => 'criteria',
+                'score' => 60,
+                'criteria_pattern_items' => [
+                    ['title' => 'Created First', 'regex' => 'first', 'operator' => 'and', 'score' => 20],
+                    ['title' => 'Fails Midway', 'regex' => 'boom', 'operator' => 'and', 'score' => 20],
+                ],
+            ]);
+        } catch (RuntimeException) {
+            // The simulated failure is expected to abort the request.
+        }
+
+        $this->assertSame(0, RiskPattern::count(), 'A failed save must not leave a criteria pattern behind.');
+        $this->assertSame(0, CriteriaPatternItem::count(), 'A failed save must not leave pattern items behind.');
+    }
+
+    public function test_failed_criteria_update_keeps_the_existing_items()
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $pattern = RiskPattern::create([
+            'title' => 'Existing Criteria',
+            'type' => 'criteria',
+            'priority' => 'medium',
+            'score' => 40,
+        ]);
+        CriteriaPatternItem::create([
+            'criteria_pattern_id' => $pattern->id,
+            'title' => 'Original Item',
+            'regex' => 'original',
+            'operator' => 'and',
+            'score' => 40,
+        ]);
+
+        CriteriaPatternItem::creating(function (CriteriaPatternItem $item): void {
+            if ($item->title === 'Fails Midway') {
+                throw new RuntimeException('simulated persistence failure');
+            }
+        });
+
+        try {
+            $this->withoutExceptionHandling()->patch(route('risk-algorithm.update', $pattern), [
+                'title' => 'Existing Criteria',
+                'type' => 'criteria',
+                'priority' => 'medium',
+                'score' => 60,
+                'criteria_pattern_items' => [
+                    ['title' => 'Replacement Item', 'regex' => 'replacement', 'operator' => 'and', 'score' => 20],
+                    ['title' => 'Fails Midway', 'regex' => 'boom', 'operator' => 'and', 'score' => 20],
+                ],
+            ]);
+        } catch (RuntimeException) {
+            // The simulated failure is expected to abort the request.
+        }
+
+        $items = CriteriaPatternItem::where('criteria_pattern_id', $pattern->id)->get();
+        $this->assertCount(1, $items, 'A failed update must not delete the existing pattern items.');
+        $this->assertSame('Original Item', $items->first()->title);
+    }
+
+    public function test_criteria_item_without_a_regex_key_is_stored_with_a_null_regex()
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $response = $this->post(route('risk-algorithm.store'), [
+            'title' => 'Missing Regex Key',
+            'type' => 'criteria',
+            'score' => 40,
+            'criteria_pattern_items' => [
+                ['title' => 'No Regex', 'operator' => 'and', 'score' => 20],
+                ['title' => 'Has Regex', 'regex' => 'hasregex', 'operator' => 'and', 'score' => 20],
+            ],
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHasNoErrors();
+
+        $item = CriteriaPatternItem::where('title', 'No Regex')->first();
+        $this->assertNotNull($item);
+        $this->assertNull($item->regex);
+    }
+
+    public function test_criteria_items_nested_deeper_than_one_sub_level_are_rejected()
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $response = $this->post(route('risk-algorithm.store'), [
+            'title' => 'Too Deep',
+            'type' => 'criteria',
+            'score' => 30,
+            'criteria_pattern_items' => [
+                [
+                    'title' => 'Outer',
+                    'regex' => '',
+                    'operator' => 'and',
+                    'score' => 30,
+                    'sub_items' => [
+                        [
+                            'title' => 'Middle',
+                            'regex' => '',
+                            'operator' => 'and',
+                            'score' => 30,
+                            'sub_items' => [
+                                ['title' => 'Inner', 'regex' => 'inner', 'operator' => 'and', 'score' => 30],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $response->assertSessionHasErrors('criteria_pattern_items');
+        $this->assertSame(0, RiskPattern::count());
+    }
+
+    public function test_group_wrapper_without_a_regex_is_accepted_as_a_sub_item()
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        // "Add Existing" copies the source pattern's items as sub-items. A
+        // group item carries no regex of its own.
+        $response = $this->post(route('risk-algorithm.store'), [
+            'title' => 'Imported Group',
+            'type' => 'criteria',
+            'score' => 30,
+            'criteria_pattern_items' => [
+                [
+                    'title' => 'Imported Criteria',
+                    'regex' => '',
+                    'operator' => 'and',
+                    'score' => 30,
+                    'sub_items' => [
+                        [
+                            'title' => 'Source Group',
+                            'regex' => null,
+                            'operator' => 'and',
+                            'score' => 30,
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHasNoErrors();
+
+        $group = CriteriaPatternItem::where('title', 'Source Group')->first();
+        $this->assertNotNull($group);
+        $this->assertNull($group->regex);
     }
 
     public function test_egress_stats_groups_events_by_new_risk_buckets()

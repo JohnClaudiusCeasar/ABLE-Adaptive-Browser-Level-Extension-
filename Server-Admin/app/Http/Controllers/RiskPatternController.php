@@ -10,12 +10,20 @@ use App\Support\JsCanonical;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class RiskPatternController extends Controller
 {
+    /**
+     * Maximum nesting depth of a criteria item tree: an item plus one level
+     * of sub-items. The admin UI renders exactly this shape.
+     */
+    private const MAX_ITEM_DEPTH = 2;
+
     /**
      * Display a listing of the risk patterns.
      */
@@ -219,46 +227,125 @@ class RiskPatternController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        $validated = $request->validate([
+        $validated = $request->validate($this->riskPatternRules($request));
+
+        if ($validated['type'] === 'criteria') {
+            $this->validateCriteriaItemTree($request->input('criteria_pattern_items', []));
+        }
+
+        // Everything is written in one transaction: a failure half way through
+        // (bad regex, constraint violation) must not leave a pattern row
+        // behind without its items.
+        DB::transaction(function () use ($validated): void {
+            $riskPattern = RiskPattern::create([
+                'title' => $validated['title'],
+                'type' => $validated['type'],
+                'regex' => $validated['type'] === 'single' ? $validated['regex'] : null,
+                'negation_context_regex' => $validated['negation_context_regex'] ?? null,
+                'amplifier_context_regex' => $validated['amplifier_context_regex'] ?? null,
+                'negation_window' => isset($validated['negation_window']) ? (int) $validated['negation_window'] : null,
+                'score' => $validated['score'] ?? 0,
+                'priority' => $validated['priority'] ?? 'medium',
+            ]);
+
+            if ($validated['type'] === 'criteria' && isset($validated['criteria_pattern_items'])) {
+                $this->createCriteriaItems($riskPattern->id, $validated['criteria_pattern_items']);
+                $this->syncAutoCreatedSingles($riskPattern->id, $validated['criteria_pattern_items'], $riskPattern->priority);
+            }
+        });
+
+        return Redirect::back()->with('success', 'Risk pattern created successfully.');
+    }
+
+    /**
+     * Validation rules shared by the create and update endpoints.
+     *
+     * @return array<string, mixed>
+     */
+    private function riskPatternRules(Request $request): array
+    {
+        return [
             'title' => 'required|string|max:255',
             'type' => 'required|in:single,criteria',
             'regex' => ['required_if:type,single', 'nullable', 'string', 'max:1000', new CompilableRegex],
             'negation_context_regex' => ['nullable', 'string', 'max:1000', new CompilableRegex],
             'amplifier_context_regex' => ['nullable', 'string', 'max:1000', new CompilableRegex],
             'negation_window' => 'nullable|integer|min:50|max:1000',
-            'score' => 'required_if:type,single|nullable|integer|min:0|max:100',
+            // A criteria composite score is the sum of its item scores and may
+            // legitimately exceed 100 once a pattern has more than a couple of
+            // scored items. Only standalone regex patterns are capped at 100.
+            'score' => $request->input('type') === 'single'
+                ? ['required', 'integer', 'min:0', 'max:100']
+                : ['nullable', 'integer', 'min:0', 'max:1000'],
             'priority' => 'nullable|in:low,medium,high',
             'criteria_pattern_items' => 'required_if:type,criteria|nullable|array|min:1',
             'criteria_pattern_items.*.title' => 'required|string|max:255',
             'criteria_pattern_items.*.regex' => ['nullable', 'string', 'max:1000', new CompilableRegex],
             'criteria_pattern_items.*.operator' => 'nullable|in:and,or',
-            'criteria_pattern_items.*.score' => 'required|integer|min:0|max:100',
+            // Item scores are summed into the composite, so a group item whose
+            // score is derived from its sub-items may exceed a single weight.
+            'criteria_pattern_items.*.score' => 'required|integer|min:0|max:1000',
             'criteria_pattern_items.*.risk_weight' => 'nullable|in:low,medium,high',
             'criteria_pattern_items.*.sub_items' => 'nullable|array',
             'criteria_pattern_items.*.sub_items.*.title' => 'required|string|max:255',
-            'criteria_pattern_items.*.sub_items.*.regex' => ['required', 'string', 'max:1000', new CompilableRegex],
+            'criteria_pattern_items.*.sub_items.*.regex' => ['nullable', 'string', 'max:1000', new CompilableRegex],
             'criteria_pattern_items.*.sub_items.*.operator' => 'nullable|in:and,or',
-            'criteria_pattern_items.*.sub_items.*.score' => 'required|integer|min:0|max:100',
+            'criteria_pattern_items.*.sub_items.*.score' => 'required|integer|min:0|max:1000',
             'criteria_pattern_items.*.sub_items.*.risk_weight' => 'nullable|in:low,medium,high',
-        ]);
+        ];
+    }
 
-        $riskPattern = RiskPattern::create([
-            'title' => $validated['title'],
-            'type' => $validated['type'],
-            'regex' => $validated['type'] === 'single' ? $validated['regex'] : null,
-            'negation_context_regex' => $validated['negation_context_regex'] ?? null,
-            'amplifier_context_regex' => $validated['amplifier_context_regex'] ?? null,
-            'negation_window' => isset($validated['negation_window']) ? (int) $validated['negation_window'] : null,
-            'score' => $validated['score'] ?? 0,
-            'priority' => $validated['priority'] ?? 'medium',
-        ]);
+    /**
+     * Validate a criteria item tree at every level.
+     *
+     * Laravel's wildcard rules only reach two levels deep, so sub-items below
+     * that would be stripped from the validated payload and silently dropped
+     * on save. Walking the tree here keeps each level validated and rejects
+     * trees deeper than the admin UI can render.
+     *
+     * @param  array<int, array<string, mixed>>  $items
+     */
+    private function validateCriteriaItemTree(array $items, int $depth = 1): void
+    {
+        if ($depth > self::MAX_ITEM_DEPTH) {
+            Validator::make(
+                ['criteria_pattern_items' => $items],
+                ['criteria_pattern_items' => 'array'],
+            )->after(function ($validator): void {
+                $validator->errors()->add(
+                    'criteria_pattern_items',
+                    'Pattern items may only contain one level of sub-items.',
+                );
+            })->validate();
 
-        if ($validated['type'] === 'criteria' && isset($validated['criteria_pattern_items'])) {
-            $this->createCriteriaItems($riskPattern->id, $validated['criteria_pattern_items']);
-            $this->syncAutoCreatedSingles($riskPattern->id, $validated['criteria_pattern_items'], $riskPattern->priority);
+            return;
         }
 
-        return Redirect::back()->with('success', 'Risk pattern created successfully.');
+        Validator::make(
+            ['items' => $items],
+            [
+                'items' => ['required', 'array'],
+                'items.*.title' => 'required|string|max:255',
+                'items.*.regex' => ['nullable', 'string', 'max:1000', new CompilableRegex],
+                'items.*.operator' => 'nullable|in:and,or',
+                'items.*.score' => 'required|integer|min:0|max:1000',
+                'items.*.risk_weight' => 'nullable|in:low,medium,high',
+                'items.*.sub_items' => ['nullable', 'array'],
+                'items.*.sub_items.*.title' => 'required|string|max:255',
+                'items.*.sub_items.*.regex' => ['nullable', 'string', 'max:1000', new CompilableRegex],
+                'items.*.sub_items.*.operator' => 'nullable|in:and,or',
+                'items.*.sub_items.*.score' => 'required|integer|min:0|max:1000',
+                'items.*.sub_items.*.risk_weight' => 'nullable|in:low,medium,high',
+            ],
+        )->validate();
+
+        foreach ($items as $item) {
+            $subItems = $item['sub_items'] ?? null;
+
+            if (is_array($subItems) && $subItems !== []) {
+                $this->validateCriteriaItemTree($subItems, $depth + 1);
+            }
+        }
     }
 
     /**
@@ -270,10 +357,10 @@ class RiskPatternController extends Controller
             $criteriaItem = CriteriaPatternItem::create([
                 'criteria_pattern_id' => $patternId,
                 'parent_id' => $parentId,
-                'title' => $item['title'],
-                'regex' => $item['regex'],
+                'title' => $item['title'] ?? '',
+                'regex' => $item['regex'] ?? null,
                 'operator' => $item['operator'] ?? 'and',
-                'score' => $item['score'],
+                'score' => $item['score'] ?? 0,
                 'risk_weight' => $item['risk_weight'] ?? 'medium',
             ]);
 
@@ -291,10 +378,10 @@ class RiskPatternController extends Controller
         foreach ($items as $item) {
             if (($item['regex'] ?? '') !== '') {
                 RiskPattern::create([
-                    'title' => $item['title'],
+                    'title' => $item['title'] ?? '',
                     'type' => 'single',
                     'regex' => $item['regex'],
-                    'score' => $item['score'],
+                    'score' => $item['score'] ?? 0,
                     'priority' => $item['risk_weight'] ?? $fallbackPriority,
                     'parent_criteria_id' => $criteriaId,
                 ]);
@@ -308,46 +395,31 @@ class RiskPatternController extends Controller
 
     public function update(Request $request, RiskPattern $riskPattern): RedirectResponse
     {
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'type' => 'required|in:single,criteria',
-            'regex' => ['required_if:type,single', 'nullable', 'string', 'max:1000', new CompilableRegex],
-            'negation_context_regex' => ['nullable', 'string', 'max:1000', new CompilableRegex],
-            'amplifier_context_regex' => ['nullable', 'string', 'max:1000', new CompilableRegex],
-            'negation_window' => 'nullable|integer|min:50|max:1000',
-            'score' => 'required_if:type,single|nullable|integer|min:0|max:100',
-            'priority' => 'nullable|in:low,medium,high',
-            'criteria_pattern_items' => 'required_if:type,criteria|nullable|array|min:1',
-            'criteria_pattern_items.*.title' => 'required|string|max:255',
-            'criteria_pattern_items.*.regex' => ['nullable', 'string', 'max:1000', new CompilableRegex],
-            'criteria_pattern_items.*.operator' => 'nullable|in:and,or',
-            'criteria_pattern_items.*.score' => 'required|integer|min:0|max:100',
-            'criteria_pattern_items.*.risk_weight' => 'nullable|in:low,medium,high',
-            'criteria_pattern_items.*.sub_items' => 'nullable|array',
-            'criteria_pattern_items.*.sub_items.*.title' => 'required|string|max:255',
-            'criteria_pattern_items.*.sub_items.*.regex' => ['required', 'string', 'max:1000', new CompilableRegex],
-            'criteria_pattern_items.*.sub_items.*.operator' => 'nullable|in:and,or',
-            'criteria_pattern_items.*.sub_items.*.score' => 'required|integer|min:0|max:100',
-            'criteria_pattern_items.*.sub_items.*.risk_weight' => 'nullable|in:low,medium,high',
-        ]);
+        $validated = $request->validate($this->riskPatternRules($request));
 
-        $riskPattern->update([
-            'title' => $validated['title'],
-            'type' => $validated['type'],
-            'regex' => $validated['type'] === 'single' ? $validated['regex'] : null,
-            'negation_context_regex' => $validated['negation_context_regex'] ?? null,
-            'amplifier_context_regex' => $validated['amplifier_context_regex'] ?? null,
-            'negation_window' => isset($validated['negation_window']) ? (int) $validated['negation_window'] : null,
-            'score' => $validated['score'] ?? 0,
-            'priority' => $validated['priority'] ?? $riskPattern->priority,
-        ]);
-
-        if ($validated['type'] === 'criteria' && isset($validated['criteria_pattern_items'])) {
-            CriteriaPatternItem::where('criteria_pattern_id', $riskPattern->id)->delete();
-            $this->createCriteriaItems($riskPattern->id, $validated['criteria_pattern_items']);
-            RiskPattern::where('parent_criteria_id', $riskPattern->id)->delete();
-            $this->syncAutoCreatedSingles($riskPattern->id, $validated['criteria_pattern_items'], $riskPattern->fresh()->priority);
+        if ($validated['type'] === 'criteria') {
+            $this->validateCriteriaItemTree($request->input('criteria_pattern_items', []));
         }
+
+        DB::transaction(function () use ($validated, $riskPattern): void {
+            $riskPattern->update([
+                'title' => $validated['title'],
+                'type' => $validated['type'],
+                'regex' => $validated['type'] === 'single' ? $validated['regex'] : null,
+                'negation_context_regex' => $validated['negation_context_regex'] ?? null,
+                'amplifier_context_regex' => $validated['amplifier_context_regex'] ?? null,
+                'negation_window' => isset($validated['negation_window']) ? (int) $validated['negation_window'] : null,
+                'score' => $validated['score'] ?? 0,
+                'priority' => $validated['priority'] ?? $riskPattern->priority,
+            ]);
+
+            if ($validated['type'] === 'criteria' && isset($validated['criteria_pattern_items'])) {
+                CriteriaPatternItem::where('criteria_pattern_id', $riskPattern->id)->delete();
+                $this->createCriteriaItems($riskPattern->id, $validated['criteria_pattern_items']);
+                RiskPattern::where('parent_criteria_id', $riskPattern->id)->delete();
+                $this->syncAutoCreatedSingles($riskPattern->id, $validated['criteria_pattern_items'], $riskPattern->fresh()->priority);
+            }
+        });
 
         return Redirect::back()->with('success', 'Risk pattern updated successfully.');
     }

@@ -41,8 +41,8 @@ export function PatternItemsModal({
     return (
         <Dialog>
             <DialogTrigger asChild>{trigger}</DialogTrigger>
-            <DialogContent className="max-w-2xl">
-                <DialogHeader>
+            <DialogContent className="flex h-[30rem] max-h-[calc(100vh-3rem)] max-w-2xl flex-col">
+                <DialogHeader className="shrink-0">
                     <div className="flex flex-col gap-1 pr-6 sm:flex-row sm:items-center sm:justify-between">
                         <DialogTitle>{pattern.title}</DialogTitle>
                         <span
@@ -56,20 +56,20 @@ export function PatternItemsModal({
                         trigger if any one or more match.
                     </p>
                 </DialogHeader>
-                <div className="overflow-x-auto">
+                <div className="min-h-0 flex-1 overflow-auto">
                     <table className="w-full text-sm">
                         <thead>
                             <tr className="border-b border-[rgba(56,193,73,0.3)]">
-                                <th className="px-4 py-2.5 text-left font-semibold text-foreground">
+                                <th className="sticky top-0 z-10 bg-background px-4 py-2.5 text-left font-semibold text-foreground">
                                     Pattern Name
                                 </th>
-                                <th className="w-28 px-4 py-2.5 text-left font-semibold text-foreground">
+                                <th className="sticky top-0 z-10 w-28 bg-background px-4 py-2.5 text-left font-semibold text-foreground">
                                     Requirement
                                 </th>
-                                <th className="w-24 px-4 py-2.5 text-left font-semibold text-foreground">
+                                <th className="sticky top-0 z-10 w-24 bg-background px-4 py-2.5 text-left font-semibold text-foreground">
                                     Risk Score
                                 </th>
-                                <th className="w-28 px-4 py-2.5 text-left font-semibold text-foreground">
+                                <th className="sticky top-0 z-10 w-28 bg-background px-4 py-2.5 text-left font-semibold text-foreground">
                                     Risk Weight
                                 </th>
                             </tr>
