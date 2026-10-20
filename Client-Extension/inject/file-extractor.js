@@ -252,21 +252,33 @@ function guessExtensionFromMagicBytes(bytes) {
 //
 // The base name (before the first dot) must match a placeholder exactly, so a
 // real file called "upload-report.pdf" or "myblob.csv" is still intercepted.
-// Mirrors RiskScoringService::isSyntheticFileName() on the server.
-var SYNTHETIC_NAME_BASES = [
-  'upload',
-  'blob',
-  'binary-upload',
-  'websocket-upload',
-  'stream-upload',
-  'form-upload',
-  'unknown',
-];
+//
+// The list itself lives in core/synthetic-names.js, which inject.js loads into
+// the page world ahead of this file. It mirrors App\Support\SyntheticFileName
+// on the server.
+var ABLE_NAME_SOURCE = (typeof ABLESyntheticNames !== 'undefined' && ABLESyntheticNames.NAME_SOURCE)
+  ? ABLESyntheticNames.NAME_SOURCE
+  : { USER: 'user', PAGE: 'page', SYNTHETIC: 'synthetic' };
 
-function isSyntheticFileName(name) {
-  if (!name || typeof name !== 'string') return false;
-  var base = (name.split('.')[0] || '').toLowerCase();
-  return SYNTHETIC_NAME_BASES.indexOf(base) !== -1;
+function ableIsPlaceholderName(name) {
+  if (typeof ABLESyntheticNames === 'undefined') return false;
+  return ABLESyntheticNames.isSyntheticFileName(name);
+}
+
+/**
+ * The name of the tracked file this payload came from, looked up WITHOUT
+ * consuming the tracked entry — a probe must never take the user's file away
+ * from the branch that gets there next.
+ */
+function lookupTrackedName(size, mimeType) {
+  if (typeof window === 'undefined' || !window.__ableLookupTrackedFilename) return null;
+  try {
+    return window.__ableLookupTrackedFilename(size, function (candidateName) {
+      return trackedNameAgreesWithBlob(candidateName, mimeType, null);
+    });
+  } catch (e) {
+    return null;
+  }
 }
 
 function isDocumentOrMediaMime(mimeType) {
@@ -308,8 +320,29 @@ function extractFiles(body, context) {
   var candidateFilename = headerFilename || urlFilename;
 
   if (body instanceof File) {
+    // A File carries its own name, but the page may have built one itself
+    // (new File([blob], 'upload.csv')) instead of handing over the file the
+    // user picked. The tracker tells the two apart: only a file the user
+    // actually selected has an entry behind it.
+    var fileTrackedName = lookupTrackedName(body.size, body.type);
     var fname = (body.name && body.name !== 'blob') ? body.name : (candidateFilename || body.name);
-    return [{ file: fname !== body.name ? new File([body], fname, { type: body.type }) : body, source: 'file', contentSize: body.size }];
+    var fileNameSource = fileTrackedName ? ABLE_NAME_SOURCE.USER : ABLE_NAME_SOURCE.PAGE;
+    if (fname !== body.name) {
+      // The name was replaced by one taken from the request (URL or header),
+      // so it belongs to the page whatever the file itself is.
+      fileNameSource = ABLE_NAME_SOURCE.PAGE;
+    }
+    // A placeholder name with no user file behind it describes a page-generated
+    // payload, not the user's egress.
+    if (fileNameSource !== ABLE_NAME_SOURCE.USER && ableIsPlaceholderName(fname)) {
+      return [];
+    }
+    return [{
+      file: fname !== body.name ? new File([body], fname, { type: body.type }) : body,
+      source: 'file',
+      contentSize: body.size,
+      nameSource: fileNameSource,
+    }];
   }
 
   if (body instanceof Blob) {
@@ -369,10 +402,19 @@ function extractFiles(body, context) {
       ? window.__ableMatchFilename(body.size, null, agreesWith)
       : null;
     var blobName = candidateFilename || trackedName;
+    // The source follows the name that was actually chosen: a name taken from
+    // the URL or a Content-Disposition header belongs to the page, a name
+    // recovered from the user's own file selection belongs to the user.
+    var blobNameSource = candidateFilename
+      ? ABLE_NAME_SOURCE.PAGE
+      : (trackedName ? ABLE_NAME_SOURCE.USER : ABLE_NAME_SOURCE.PAGE);
 
     if (!blobName && isDocumentOrMediaMime(body.type)) {
       var mimeExt = (body.type.split('/')[1] || '').split(';')[0];
       blobName = mimeExt ? 'upload.' + mimeExt : null;
+      // The name was fabricated from the MIME type — it says nothing about the
+      // document the user chose.
+      blobNameSource = ABLE_NAME_SOURCE.SYNTHETIC;
     }
 
     if (!blobName) {
@@ -385,11 +427,17 @@ function extractFiles(body, context) {
     // may genuinely have a file called "upload.csv". Only names WE invented
     // (or took from the URL) describe a page-generated payload, which is not
     // the user's egress and must not be intercepted.
-    if (!trackedName && isSyntheticFileName(blobName)) {
+    if (blobNameSource === ABLE_NAME_SOURCE.SYNTHETIC ||
+      (blobNameSource !== ABLE_NAME_SOURCE.USER && ableIsPlaceholderName(blobName))) {
       return [];
     }
 
-    return [{ file: new File([body], blobName, { type: body.type }), source: 'blob', contentSize: body.size }];
+    return [{
+      file: new File([body], blobName, { type: body.type }),
+      source: 'blob',
+      contentSize: body.size,
+      nameSource: blobNameSource,
+    }];
   }
 
   if (body instanceof FormData) {
@@ -398,8 +446,25 @@ function extractFiles(body, context) {
       var fieldName = entry[0];
       var val = entry[1];
       if (val instanceof File) {
+        // As with a bare File body, the page may have built this one itself
+        // rather than handing over the file the user picked.
+        var entryTrackedName = lookupTrackedName(val.size, val.type);
         var fname = (val.name && val.name !== 'blob') ? val.name : (candidateFilename || val.name);
-        results.push({ file: fname !== val.name ? new File([val], fname, { type: val.type }) : val, source: 'formdata', contentSize: val.size });
+        var entryNameSource = entryTrackedName ? ABLE_NAME_SOURCE.USER : ABLE_NAME_SOURCE.PAGE;
+        if (fname !== val.name) {
+          // The name was replaced by one taken from the request (URL or
+          // header), so it belongs to the page whatever the file itself is.
+          entryNameSource = ABLE_NAME_SOURCE.PAGE;
+        }
+        if (entryNameSource !== ABLE_NAME_SOURCE.USER && ableIsPlaceholderName(fname)) {
+          continue;
+        }
+        results.push({
+          file: fname !== val.name ? new File([val], fname, { type: val.type }) : val,
+          source: 'formdata',
+          contentSize: val.size,
+          nameSource: entryNameSource,
+        });
       } else if (val instanceof Blob) {
         var formAgreesWith = function (candidateName) {
           return trackedNameAgreesWithBlob(candidateName, val.type, null);
@@ -410,16 +475,27 @@ function extractFiles(body, context) {
         // Names we invent ourselves (form field + MIME extension) describe a
         // site-generated payload, not the user's document.
         var blobName = candidateFilename || formTrackedName;
+        var nameSource = candidateFilename
+          ? ABLE_NAME_SOURCE.PAGE
+          : (formTrackedName ? ABLE_NAME_SOURCE.USER : ABLE_NAME_SOURCE.PAGE);
         var nameIsFabricated = false;
         if (!blobName && isDocumentOrMediaMime(val.type)) {
           var mimeExt = (val.type.split('/')[1] || '').split(';')[0];
           blobName = fieldName ? fieldName + '.' + mimeExt : 'upload.' + mimeExt;
           nameIsFabricated = true;
+          nameSource = ABLE_NAME_SOURCE.SYNTHETIC;
         }
         // A name recovered from the user's own file selection is evidence of a
         // real upload even when it looks like a placeholder.
-        if (blobName && (formTrackedName || (!nameIsFabricated && !isSyntheticFileName(blobName)))) {
-          results.push({ file: new File([val], blobName, { type: val.type }), source: 'formdata', contentSize: val.size });
+        var keep = nameSource === ABLE_NAME_SOURCE.USER ||
+          (!nameIsFabricated && !ableIsPlaceholderName(blobName));
+        if (blobName && keep) {
+          results.push({
+            file: new File([val], blobName, { type: val.type }),
+            source: 'formdata',
+            contentSize: val.size,
+            nameSource: nameSource,
+          });
         }
       }
     }
@@ -439,6 +515,9 @@ function extractFiles(body, context) {
     };
     var matchedFilename = (window.__ableMatchFilename ? window.__ableMatchFilename(byteLength, bodyHash, abAgreesWith) : null);
     var arrayBufferName = candidateFilename || matchedFilename || (ext ? 'upload' + ext : null);
+    var arrayBufferNameSource = candidateFilename
+      ? ABLE_NAME_SOURCE.PAGE
+      : (matchedFilename ? ABLE_NAME_SOURCE.USER : ABLE_NAME_SOURCE.SYNTHETIC);
 
     if (!arrayBufferName) {
       // Raw binary protocol, WebSocket message, or unknown stream without recognized file magic bytes or tracked file
@@ -447,7 +526,7 @@ function extractFiles(body, context) {
 
     // A name recovered from the user's own file selection is evidence of a
     // real upload even when it looks like a placeholder.
-    if (!matchedFilename && isSyntheticFileName(arrayBufferName)) {
+    if (arrayBufferNameSource !== ABLE_NAME_SOURCE.USER && ableIsPlaceholderName(arrayBufferName)) {
       // Magic-byte-derived name with no user file behind it.
       return [];
     }
@@ -455,7 +534,8 @@ function extractFiles(body, context) {
     return [{
       file: new File([underlyingBuffer.slice(byteOffset, byteOffset + byteLength)], arrayBufferName, { type: 'application/octet-stream' }),
       source: body instanceof ArrayBuffer ? 'arraybuffer' : 'typedarray',
-      contentSize: byteLength
+      contentSize: byteLength,
+      nameSource: arrayBufferNameSource,
     }];
   }
 
@@ -466,11 +546,12 @@ function extractFiles(body, context) {
   if (typeof body === 'string' && body.length >= 100) {
     // Check for multipart form-data encoded as string
     var cdMatch = body.match(/Content-Disposition:\s*form-data;\s*name="([^"]+)";\s*filename="([^"]+)"/i);
-    if (cdMatch && cdMatch[2] && cdMatch[2] !== 'blob') {
+    if (cdMatch && cdMatch[2] && cdMatch[2] !== 'blob' && !ableIsPlaceholderName(cdMatch[2])) {
       return [{
         file: new File([body], cdMatch[2], { type: 'text/plain' }),
         source: 'string-multipart',
-        contentSize: body.length
+        contentSize: body.length,
+        nameSource: ABLE_NAME_SOURCE.PAGE,
       }];
     }
     // Check for JSON containing explicit file upload structure with file extension
@@ -478,13 +559,14 @@ function extractFiles(body, context) {
       try {
         var json = JSON.parse(body);
         var rawFileName = json.fileName || json.filename;
-        if (rawFileName && typeof rawFileName === 'string' && /\.[a-zA-Z0-9]{2,5}$/.test(rawFileName)) {
+        if (rawFileName && typeof rawFileName === 'string' && /\.[a-zA-Z0-9]{2,5}$/.test(rawFileName) && !ableIsPlaceholderName(rawFileName)) {
           var fileContent = json.file || json.fileData || json.content || json.data || json.payload;
           if (typeof fileContent === 'string' && fileContent.length > 100) {
             return [{
               file: new File([fileContent], rawFileName, { type: 'text/plain' }),
               source: 'json-upload',
-              contentSize: fileContent.length
+              contentSize: fileContent.length,
+              nameSource: ABLE_NAME_SOURCE.PAGE,
             }];
           }
         }
@@ -512,6 +594,9 @@ async function extractFilesAsync(body, context) {
         ? window.__ableMatchFilename(peeked.bytesRead, null, streamAgreesWith)
         : null;
       var streamName = candidateFilename || streamTrackedName || (ext ? 'stream-upload' + ext : null);
+      var streamNameSource = candidateFilename
+        ? ABLE_NAME_SOURCE.PAGE
+        : (streamTrackedName ? ABLE_NAME_SOURCE.USER : ABLE_NAME_SOURCE.SYNTHETIC);
 
       if (!streamName) {
         return [];
@@ -519,7 +604,7 @@ async function extractFilesAsync(body, context) {
 
       // A name recovered from the user's own file selection is evidence of a
       // real upload even when it looks like a placeholder.
-      if (!streamTrackedName && isSyntheticFileName(streamName)) {
+      if (streamNameSource !== ABLE_NAME_SOURCE.USER && ableIsPlaceholderName(streamName)) {
         // Magic-byte-derived name with no user file behind it.
         return [];
       }
@@ -527,7 +612,8 @@ async function extractFilesAsync(body, context) {
       return [{
         file: new File([peeked.buffer], streamName, { type: 'application/octet-stream' }),
         source: 'readablestream',
-        contentSize: peeked.bytesRead
+        contentSize: peeked.bytesRead,
+        nameSource: streamNameSource,
       }];
     }
   }
@@ -788,7 +874,6 @@ if (typeof globalThis !== "undefined") {
     computeBodyHashSync,
     parseContentDisposition,
     trackedNameAgreesWithBlob,
-    isSyntheticFileName,
   };
 }
 

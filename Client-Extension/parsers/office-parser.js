@@ -33,23 +33,9 @@ const OFFICE_FORMATS = {
 // was derived from the MIME type. Treating it as an Office document made the
 // scanner try to parse a non-Office blob as one.
 //
-// Shared with content/file-scanner.js (both are content scripts, so they share
-// one scope) and with the page-world copy in inject/file-extractor.js.
-const SYNTHETIC_NAME_BASES = [
-  'upload',
-  'blob',
-  'binary-upload',
-  'websocket-upload',
-  'stream-upload',
-  'form-upload',
-  'unknown',
-];
-
-function isSyntheticFileName(name) {
-  if (!name || typeof name !== 'string') return false;
-  const base = (name.split('.')[0] || '').toLowerCase();
-  return SYNTHETIC_NAME_BASES.indexOf(base) !== -1;
-}
+// The list and isSyntheticFileName() live in core/synthetic-names.js, which
+// is loaded ahead of this file in the content-script scope and is also
+// loaded by the service worker and the page world.
 
 // The name is only evidence of the container type when it is a real
 // filename. A synthetic placeholder is ignored, so detection falls back to

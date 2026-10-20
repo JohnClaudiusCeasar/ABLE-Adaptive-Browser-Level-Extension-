@@ -235,28 +235,38 @@ function sendTextDecision(checkId, action) {
 async function handleInterceptedFiles(fileInfos, requestId) {
   if (classifyReady) await classifyReady;
 
-  var files = fileInfos.map(function (info) { return info.file; }).filter(Boolean);
+  // The name source travels with the file: it says whether the name came from
+  // the user's own file selection or was fabricated from the MIME type, which
+  // decides whether the event may be audited at all.
+  var entries = [];
+  for (var i = 0; i < fileInfos.length; i++) {
+    var info = fileInfos[i];
+    if (!info || !info.file) continue;
+    entries.push({ file: info.file, source: info.source, nameSource: info.nameSource || null });
+  }
+
   var sources = fileInfos.map(function (info) { return info.source; });
   var primarySource = sources[0] || 'unknown';
 
   if (!shouldActivate()) {
     sendDecision(requestId, "proceed");
-    for (var i = 0; i < files.length; i++) {
+    for (var j = 0; j < entries.length; j++) {
       logEgressEvent({
         domain: domainStatus?.domain || new URL(window.location.href).hostname.replace(/^www\./, ""),
-        fileName: files[i].name,
-        fileSize: files[i].size,
+        fileName: entries[j].file.name,
+        fileSize: entries[j].file.size,
         riskScore: currentDomainBaseline(),
         action: "allowed",
         userAction: "allowed",
-        source: fileInfos[i].source,
+        source: entries[j].source,
+        nameSource: entries[j].nameSource,
       });
     }
     return;
   }
 
   // Parallel file scanning instead of sequential
-  var scanPromises = files.map(function (file) { return scanFile(file); });
+  var scanPromises = entries.map(function (entry) { return scanFile(entry.file, entry.nameSource); });
   var scanResults = await Promise.all(scanPromises);
 
   // Scoring server unreachable/unverifiable: HOLD the upload — never proceed unscored.
@@ -290,6 +300,7 @@ async function handleInterceptedFiles(fileInfos, requestId) {
           action: "denied",
           userAction: "cancelled",
           source: primarySource,
+          nameSource: failed.nameSource,
           scanDurationMs: failed.scanDurationMs,
         });
         removeModal();
@@ -349,9 +360,11 @@ async function handleInterceptedFiles(fileInfos, requestId) {
   } else {
     sendDecision(requestId, "proceed");
     if (highestRisk) {
-      var isSynthetic = /^(upload\.|binary-upload|blob-upload|form-upload|stream-upload)/i.test(highestRisk.fileName);
-      var hasRisk = highestRisk.score > 0 || (highestRisk.flaggedItems && highestRisk.flaggedItems.length > 0);
-      if (!isSynthetic || hasRisk) {
+      // A placeholder name is not the user's egress: the extension fabricated
+      // it from the MIME type, and nothing was uploaded behind it. The score
+      // cannot decide this — it carries the domain baseline, so it is
+      // non-zero for every unlisted or unsafe domain.
+      if (isAuditableFileName(highestRisk.fileName, highestRisk.nameSource)) {
         logEgressEvent({
           domain: domainStatus.domain,
           fileName: highestRisk.fileName,
@@ -360,6 +373,7 @@ async function handleInterceptedFiles(fileInfos, requestId) {
           action: "proceeded",
           userAction: "proceeded",
           source: primarySource,
+          nameSource: highestRisk.nameSource,
           contentHash: highestRisk.contentHash,
           scanDurationMs: highestRisk.scanDurationMs,
           contentSize: highestRisk.fileSize,
@@ -367,19 +381,20 @@ async function handleInterceptedFiles(fileInfos, requestId) {
           scanToken: highestRisk.scanToken,
         });
       }
-    } else if (fileInfos.length > 0) {
-      var firstInfo = fileInfos[0];
-      var fallbackName = firstInfo.file?.name || firstInfo.source || 'unknown';
-      if (!/^(upload\.|binary-upload|blob-upload|form-upload|stream-upload|unknown)/i.test(fallbackName)) {
+    } else if (entries.length > 0) {
+      var firstEntry = entries[0];
+      var fallbackName = firstEntry.file.name || firstEntry.source || 'unknown';
+      if (isAuditableFileName(fallbackName, firstEntry.nameSource)) {
         logEgressEvent({
           domain: domainStatus.domain,
           fileName: fallbackName,
-          fileSize: firstInfo.contentSize || firstInfo.file?.size || 0,
+          fileSize: firstEntry.file.size || 0,
           riskScore: currentDomainBaseline(),
           action: "proceeded",
           userAction: "proceeded",
           source: primarySource,
-          contentSize: firstInfo.contentSize || firstInfo.file?.size || 0,
+          nameSource: firstEntry.nameSource,
+          contentSize: firstEntry.file.size || 0,
         });
       }
     }
@@ -537,7 +552,7 @@ function setupInterceptionListener() {
         var domain = domainStatus?.domain || new URL(window.location.href).hostname.replace(/^www\./, "");
         var firstInfo = fileInfos$1[0];
         var timeoutFileName = firstInfo.file?.name || firstInfo.source || 'unknown';
-        if (!/^(upload\.|binary-upload|blob-upload|form-upload|stream-upload|unknown)/i.test(timeoutFileName)) {
+        if (isAuditableFileName(timeoutFileName, firstInfo.nameSource)) {
           logEgressEvent({
             domain: domain,
             fileName: timeoutFileName,
@@ -546,6 +561,7 @@ function setupInterceptionListener() {
             action: "proceeded",
             userAction: "proceeded",
             source: firstInfo.source,
+            nameSource: firstInfo.nameSource,
           });
         }
       }
@@ -558,7 +574,7 @@ function setupInterceptionListener() {
         var domain$1 = new URL(window.location.href).hostname.replace(/^www\./, "");
         var firstInfo$1 = fileInfos$2[0];
         var nonceFailedName = firstInfo$1.file?.name || firstInfo$1.source || 'unknown';
-        if (!/^(upload\.|binary-upload|blob-upload|form-upload|stream-upload|unknown)/i.test(nonceFailedName)) {
+        if (isAuditableFileName(nonceFailedName, firstInfo$1.nameSource)) {
           logEgressEvent({
             domain: domain$1,
             fileName: nonceFailedName,
@@ -567,6 +583,7 @@ function setupInterceptionListener() {
             action: "proceeded",
             userAction: "proceeded",
             source: firstInfo$1.source,
+            nameSource: firstInfo$1.nameSource,
           });
         }
       }
@@ -837,7 +854,9 @@ function setupFallbackDetection() {
     var scan = null;
     try {
       if (typeof scanFile === "function") {
-        scan = await scanFile(file);
+        // The file came straight from a file input, so its name is the user's
+        // own — a user file is audited even when it looks like a placeholder.
+        scan = await scanFile(file, ABLE_NAME_SOURCE.USER);
       }
     } catch (err) {
       console.warn("ABLE: Fallback file scan failed:", err.message || err);
@@ -852,6 +871,7 @@ function setupFallbackDetection() {
         action: "proceeded",
         userAction: "proceeded",
         source: "fallback",
+        nameSource: scan.nameSource,
         contentHash: scan.contentHash,
         scanDurationMs: scan.scanDurationMs,
         contentSize: scan.fileSize,
@@ -869,6 +889,7 @@ function setupFallbackDetection() {
       action: "proceeded",
       userAction: "proceeded",
       source: "fallback",
+      nameSource: ABLE_NAME_SOURCE.USER,
     });
   }
 

@@ -8,6 +8,11 @@
 (function () {
   'use strict';
 
+  // Tells the shared modules they are running in the page world, so they keep
+  // their helpers under the ABLESyntheticNames namespace instead of claiming
+  // bare globals the page may already use.
+  window.__ABLE_PAGE_WORLD = true;
+
   var pendingRequests = new Map();
   var ableNonce = null;
   var nonceReady = false;
@@ -159,6 +164,7 @@
   // initFileTracking / extractFiles / ABLENetworkInterceptor are available.
 
   var INJECT_SCRIPTS = [
+    'core/synthetic-names.js',
     'inject/file-extractor.js',
     'inject/network-interceptor.js',
     'inject/file-tracker.js'

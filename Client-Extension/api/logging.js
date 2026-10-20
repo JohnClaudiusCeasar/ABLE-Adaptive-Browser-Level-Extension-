@@ -309,6 +309,7 @@ async function processEgressLogQueue() {
               action: entry.action,
               user_action: entry.user_action,
               occurred_at: entry.occurred_at,
+              name_source: entry.name_source || null,
               flagged_items: entry.flagged_items || null,
               scan_token: entry.scan_token || null,
               event_id: entry.event_id || null,
@@ -345,15 +346,19 @@ async function processEgressLogQueue() {
 }
 
 async function logEgressEvent(args) {
-  // Skip events with generic filenames (no real file uploaded)
-  // These are typically analytics/tracking endpoints or failed filename recovery.
-  // Central filter covering every audit path (intercept modals, timeouts,
-  // fallbacks). Matched on the base name so modern synthetic names like
-  // "blob.png" / "stream-upload.png" are skipped too.
-  var genericNames = ["binary-upload", "blob", "websocket-upload", "stream-upload", "unknown"];
-  var fileNameBase = String(args.fileName || "").toLowerCase().split(".")[0];
-  if (genericNames.includes(fileNameBase)) {
-    console.debug("ABLE: Skipping generic filename:", args.fileName);
+  // A placeholder file name is not an egress incident. The extension
+  // fabricates one from the MIME type when it cannot recover the user's real
+  // file name, and nothing was uploaded behind it — auditing it would report a
+  // file that does not exist.
+  //
+  // The caller says where the name came from ("user" when it was recovered
+  // from the user's own file selection, "synthetic" when we fabricated it);
+  // anything we cannot place falls back to the placeholder check. This is the
+  // central filter covering every audit path (intercept modals, timeouts,
+  // fallbacks).
+  var nameSource = args.nameSource || null;
+  if (!isAuditableFileName(args.fileName, nameSource)) {
+    console.debug("ABLE: Skipping synthetic filename:", args.fileName);
     return;
   }
 
@@ -386,6 +391,7 @@ async function logEgressEvent(args) {
     user_action: userAction,
     occurred_at: timestamp,
     source: source || 'unknown',
+    name_source: nameSource,
     content_hash: contentHash || null,
     scan_duration_ms: scanDurationMs || null,
     content_size: contentSize || fileSize || null,

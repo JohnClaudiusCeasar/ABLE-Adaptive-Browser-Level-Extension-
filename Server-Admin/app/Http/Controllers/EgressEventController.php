@@ -7,6 +7,7 @@ use App\Models\DomainVisit;
 use App\Models\EgressEvent;
 use App\Models\NudgeInteraction;
 use App\Support\ScanToken;
+use App\Support\SyntheticFileName;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -76,11 +77,29 @@ class EgressEventController extends Controller
             'content_hash' => 'nullable|string',
             'event_id' => 'nullable|string|max:255',
             'scan_token' => 'nullable|string',
+            'name_source' => 'nullable|in:user,page,synthetic',
         ]);
 
         // Skip excluded domains (defense-in-depth)
         if (in_array($validated['domain'], config('able.excluded_domains', []))) {
             return response()->json(['success' => true, 'egress_event_id' => null]);
+        }
+
+        // A placeholder file name is not an egress incident. The extension
+        // fabricates one from the MIME type when it cannot recover the user's
+        // real file name, and nothing was uploaded behind it — auditing it
+        // would report a file that does not exist and pollute the incident
+        // list with a MIME type dressed up as a file name.
+        //
+        // The client marks the names it knows are synthetic. A name recovered
+        // from the user's own file selection is always audited, even when it
+        // happens to look like a placeholder — the user may genuinely have a
+        // file called "upload.csv". Older clients that send no marker fall
+        // back to the name itself.
+        $nameSource = $validated['name_source'] ?? null;
+        if ($nameSource === 'synthetic'
+            || ($nameSource !== 'user' && SyntheticFileName::isPlaceholder($validated['file_name']))) {
+            return response()->json(['success' => true, 'egress_event_id' => null, 'skipped' => true]);
         }
 
         // A valid scan token carries the server-computed verdict from

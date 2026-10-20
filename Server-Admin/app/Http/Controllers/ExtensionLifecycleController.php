@@ -23,9 +23,9 @@ class ExtensionLifecycleController extends Controller
 
         ExtensionLifecycle::create([
             'user_id' => $validated['user_id'],
-            'extension_id' => $validated['extension_id'],
+            'extension_id' => $validated['extension_id'] ?? null,
             'event' => $validated['event'],
-            'version' => $validated['version'],
+            'version' => $validated['version'] ?? null,
             'occurred_at' => now(),
         ]);
 
@@ -46,9 +46,9 @@ class ExtensionLifecycleController extends Controller
 
         ExtensionLifecycle::create([
             'user_id' => $validated['user_id'],
-            'extension_id' => $validated['extension_id'],
+            'extension_id' => $validated['extension_id'] ?? null,
             'event' => 'uninstalled',
-            'version' => $validated['version'],
+            'version' => $validated['version'] ?? null,
             'occurred_at' => now(),
         ]);
 

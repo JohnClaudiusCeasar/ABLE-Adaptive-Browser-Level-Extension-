@@ -62,7 +62,7 @@ function detectFileTypeFromMagicBytes(file) {
 // (RiskScoringService::fileTypeMultiplier); the extension only reports the
 // extension/container it detected.
 
-async function scanFile(file) {
+async function scanFile(file, nameSource) {
   const scanStartTime = Date.now();
   const MAX_TEXT_FILE_SIZE = 100 * 1024 * 1024;
   const MAX_BINARY_SCAN_SIZE = 10 * 1024 * 1024;
@@ -144,7 +144,7 @@ async function scanFile(file) {
   // server's file-type heuristic boost a nameless blob as if it were a real
   // spreadsheet, which can trip the upload warning on its own. Send the
   // extension only when the name is a genuine one.
-  // isSyntheticFileName() is defined in parsers/office-parser.js, which is
+  // isSyntheticFileName() is defined in core/synthetic-names.js, which is
   // loaded in this same content-script scope ahead of this file.
   var isSyntheticName = isSyntheticFileName(file.name);
   var reportedFileType = isSyntheticName ? null : fileExt;
@@ -175,6 +175,7 @@ async function scanFile(file) {
       failure: failure,
       fileName: file.name,
       fileSize: file.size,
+      nameSource: nameSource || null,
       contentHash: contentHash,
       scanDurationMs: scanDurationMs,
     };
@@ -203,6 +204,7 @@ async function scanFile(file) {
     fileName: file.name,
     fileSize: file.size,
     fileType: fileFormat,
+    nameSource: nameSource || null,
     contentHash,
     scanDurationMs,
   };

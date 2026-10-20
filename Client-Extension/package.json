@@ -6,6 +6,8 @@
   "scripts": {
     "build": "node scripts/build.js",
     "hash": "node scripts/hash-assets.js",
-    "verify:modals": "node scripts/verify-modals.js"
+    "verify:modals": "node scripts/verify-modals.js",
+    "verify:synthetic-names": "node scripts/verify-synthetic-names.js",
+    "verify:extractor-names": "node scripts/verify-extractor-names.js"
   }
 }

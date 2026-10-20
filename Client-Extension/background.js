@@ -3,6 +3,7 @@ self.importScripts(
   "core/storage.js",
   "core/security.js",
   "core/runtime-settings.js",
+  "core/synthetic-names.js",
   "api/rate-limiter.js",
   "api/classification.js",
   "api/risk-patterns.js",

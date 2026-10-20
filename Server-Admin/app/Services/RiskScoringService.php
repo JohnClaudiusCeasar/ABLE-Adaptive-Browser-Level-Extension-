@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Support\JsRegex;
+use App\Support\SyntheticFileName;
 
 /**
  * Server-authoritative risk scoring engine.
@@ -810,39 +811,20 @@ class RiskScoringService
     }
 
     /**
-     * Synthetic file-name prefixes the extension assigns when it could not
-     * recover the user's real name (nameless blobs, MIME-only uploads,
-     * non-Office streams). The trailing extension of such a name is derived
-     * from the MIME type or magic bytes, not from the document the user
-     * actually chose — so it must not drive the file-type heuristic.
-     *
-     * @var list<string>
-     */
-    public const SYNTHETIC_NAME_PREFIXES = [
-        'upload',
-        'blob',
-        'binary-upload',
-        'websocket-upload',
-        'stream-upload',
-        'form-upload',
-        'unknown',
-    ];
-
-    /**
      * True when the file name is one of the extension's synthetic placeholders
-     * (e.g. "blob.csv", "upload.xlsx", "stream-upload.png").
+     * (e.g. "blob.csv", "upload.xlsx", "stream-upload.png"), or when no name
+     * was supplied at all — a missing name carries no real file type either.
+     *
+     * The placeholder list itself lives in App\Support\SyntheticFileName, which
+     * the egress audit uses to keep these names out of the database.
      */
     public static function isSyntheticFileName(?string $fileName): bool
     {
-        $name = mb_strtolower(trim((string) $fileName), 'UTF-8');
-
-        if ($name === '') {
+        if (trim((string) $fileName) === '') {
             return true;
         }
 
-        $base = explode('.', $name)[0];
-
-        return in_array($base, self::SYNTHETIC_NAME_PREFIXES, true);
+        return SyntheticFileName::isPlaceholder($fileName);
     }
 
     /**

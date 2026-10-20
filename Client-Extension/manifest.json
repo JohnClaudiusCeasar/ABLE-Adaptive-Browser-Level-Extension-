@@ -24,6 +24,7 @@
         "core/storage.js",
         "core/security.js",
         "core/runtime-settings.js",
+        "core/synthetic-names.js",
         "parsers/office-parser.js",
         "api/rate-limiter.js",
         "api/classification.js",
@@ -53,6 +54,7 @@
       "resources": [
         "content.css",
         "inject/inject.js",
+        "core/synthetic-names.js",
         "inject/file-extractor.js",
         "inject/network-interceptor.js",
         "inject/file-tracker.js",

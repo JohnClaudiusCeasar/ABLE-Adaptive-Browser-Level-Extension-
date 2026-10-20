@@ -534,7 +534,7 @@ class DashboardReportController extends Controller
             SUM(CASE WHEN domain_status = 'safe' THEN 1 ELSE 0 END) as safe,
             SUM(CASE WHEN domain_status = 'unsafe' THEN 1 ELSE 0 END) as unsafe,
             SUM(CASE WHEN domain_status = 'unlisted' THEN 1 ELSE 0 END) as unlisted,
-            SUM(CASE WHEN block_access = 1 THEN 1 ELSE 0 END) as blocked
+            SUM(CASE WHEN block_access = true THEN 1 ELSE 0 END) as blocked
         ")->first();
         $domainUsage = [
             'safe' => (int) ($statusCounts->safe ?? 0),

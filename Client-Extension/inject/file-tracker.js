@@ -150,6 +150,27 @@ function matchTrackedFilename(size, quickHash, validator) {
   return null;
 }
 
+/**
+ * Find a tracked file name for a payload WITHOUT consuming the tracked entry.
+ *
+ * matchTrackedFilename splices the entry out, so calling it to merely probe
+ * would steal the user's file from whichever branch gets there next. This
+ * lookup only reads, and requires the entry to carry a quick hash — which
+ * only a real file-selection event produces.
+ */
+function lookupTrackedFilename(size, validator) {
+  cleanupTrackedFiles();
+
+  for (var i = trackedFiles.length - 1; i >= 0; i--) {
+    if (trackedFiles[i].size !== size) continue;
+    if (!trackedFiles[i].hash) continue;
+    if (typeof validator === 'function' && !validator(trackedFiles[i].name)) continue;
+    return trackedFiles[i].name;
+  }
+
+  return null;
+}
+
 // ─── File input detection ───────────────────────────────────
 
 var reportedInputs = new WeakSet();
@@ -311,6 +332,7 @@ function initFileTracking() {
   // Expose for use in extractFiles
   window.__ableTrackFiles = trackSelectedFiles;
   window.__ableMatchFilename = matchTrackedFilename;
+  window.__ableLookupTrackedFilename = lookupTrackedFilename;
   window.__ableHasTrackedFiles = hasTrackedFiles;
 
   // Check existing elements
@@ -404,6 +426,7 @@ if (typeof globalThis !== "undefined") {
   globalThis.ABLEFileTracker = {
     trackSelectedFiles,
     matchTrackedFilename,
+    lookupTrackedFilename,
     initFileTracking,
   };
 }
