@@ -6,6 +6,7 @@ use App\Events\MessageSent;
 use App\Models\ChatConversation;
 use App\Models\ChatMessage;
 use App\Models\User;
+use App\Services\ChatService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -222,7 +223,23 @@ class ChatController extends Controller
         $user = $this->authUser();
 
         return response()->json([
-            'count' => $this->unreadCountFor($user),
+            'count' => app(ChatService::class)->unreadCountFor($user),
+        ]);
+    }
+
+    /**
+     * The users available to start a conversation with.
+     *
+     * The Quick Chat widget fetches this when it is opened rather than
+     * receiving it with every page, so the user table is not read on every
+     * page view.
+     */
+    public function users(): JsonResponse
+    {
+        $user = $this->authUser();
+
+        return response()->json([
+            'users' => app(ChatService::class)->usersFor($user),
         ]);
     }
 
@@ -244,15 +261,7 @@ class ChatController extends Controller
      */
     private function conversationsFor(User $user): array
     {
-        return ChatConversation::query()
-            ->where('user_one_id', $user->id)
-            ->orWhere('user_two_id', $user->id)
-            ->orderByDesc('last_message_at')
-            ->with(['userOne', 'userTwo', 'messages' => fn ($query) => $query->orderByDesc('created_at')])
-            ->get()
-            ->map(fn (ChatConversation $conversation) => $this->conversationData($conversation, $user))
-            ->values()
-            ->all();
+        return app(ChatService::class)->conversationsFor($user);
     }
 
     /**
@@ -262,13 +271,7 @@ class ChatController extends Controller
      */
     private function usersFor(User $user): array
     {
-        return User::query()
-            ->whereKeyNot($user->id)
-            ->orderBy('name')
-            ->get()
-            ->map(fn (User $other) => $this->userData($other))
-            ->values()
-            ->all();
+        return app(ChatService::class)->usersFor($user);
     }
 
     /**
@@ -315,70 +318,17 @@ class ChatController extends Controller
      */
     private function unreadCountFor(User $user): int
     {
-        return ChatMessage::query()
-            ->whereHas('conversation', function ($query) use ($user) {
-                $query->where('user_one_id', $user->id)
-                    ->orWhere('user_two_id', $user->id);
-            })
-            ->where('sender_id', '!=', $user->id)
-            ->whereNull('read_at')
-            ->count();
+        return app(ChatService::class)->unreadCountFor($user);
     }
 
     /**
      * Serializable conversation data from the perspective of the given user.
      *
-     * The messages relation must be loaded (see conversationsFor) so the
-     * last message and unread count can be derived without extra queries.
-     * When it isn't loaded yet (single-conversation endpoints), it is
-     * fetched here.
-     *
      * @return array<string, mixed>
      */
     private function conversationData(ChatConversation $conversation, User $user): array
     {
-        $conversation->loadMissing(['userOne', 'userTwo']);
-        $otherUser = $conversation->otherUser($user);
-
-        $messages = $conversation->relationLoaded('messages')
-            ? $conversation->messages
-            : $conversation->messages()->orderByDesc('created_at')->get();
-
-        $lastMessage = $messages->first();
-        $unreadCount = $messages
-            ->where('sender_id', '!=', $user->id)
-            ->whereNull('read_at')
-            ->count();
-
-        $lastMessageText = null;
-        if ($lastMessage instanceof ChatMessage) {
-            $lastMessageText = ! empty($lastMessage->body)
-                ? $lastMessage->body
-                : ($lastMessage->attachment_name ? '📎 '.$lastMessage->attachment_name : 'Attachment');
-        }
-
-        return [
-            'id' => $conversation->id,
-            'path' => route('chat.show', $conversation),
-            'other_user' => $otherUser !== null ? $this->userData($otherUser) : null,
-            'last_message' => $lastMessageText,
-            'last_message_at' => $conversation->last_message_at?->toIso8601String(),
-            'unread_count' => $unreadCount,
-        ];
-    }
-
-    /**
-     * Serializable user data.
-     *
-     * @return array<string, mixed>
-     */
-    private function userData(User $user): array
-    {
-        return [
-            'id' => $user->id,
-            'name' => $user->name,
-            'email' => $user->email,
-        ];
+        return app(ChatService::class)->conversationData($conversation, $user);
     }
 
     /**

@@ -440,7 +440,6 @@ export default function ReportPreview({
         let tempContainer: HTMLElement | null = null;
 
         try {
-            // @ts-ignore
             const html2pdfModule = await import('html2pdf.js');
             const html2pdf = html2pdfModule.default || html2pdfModule;
 

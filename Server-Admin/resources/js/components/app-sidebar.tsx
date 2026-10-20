@@ -1,6 +1,5 @@
 import { router, usePage } from '@inertiajs/react';
 import {
-    BarChart3,
     Bell,
     CheckCircle2,
     FileCode2,
@@ -27,7 +26,6 @@ import {
     SidebarContent,
     SidebarHeader,
 } from '@/components/ui/sidebar';
-import { subscribeToNotifications } from '@/lib/echo';
 import { dashboard, notifications } from '@/routes';
 import type { NavItem } from '@/types';
 
@@ -177,13 +175,38 @@ export function AppSidebar() {
     const navItems = filterNavByPermission(mainNavItems, auth?.modules);
 
     useEffect(() => {
-        const unsubscribe = subscribeToNotifications(() => {
-            router.reload({
-                only: ['unreadNotificationsCount'],
-            });
-        });
+        // Without a Reverb key there is no real-time server to reach, and the
+        // realtime chunk is not fetched at all. The default deployment has
+        // no Reverb server, so this is the common path.
+        if (!import.meta.env.VITE_REVERB_APP_KEY) {
+            return;
+        }
 
-        return unsubscribe;
+        // The realtime client is loaded on demand rather than imported
+        // statically, so it is not part of the initial page load.
+        let unsubscribe: (() => void) | undefined;
+        let cancelled = false;
+
+        import('@/lib/echo')
+            .then(({ subscribeToNotifications }) => {
+                if (cancelled) {
+                    return;
+                }
+
+                unsubscribe = subscribeToNotifications(() => {
+                    router.reload({
+                        only: ['unreadNotificationsCount'],
+                    });
+                });
+            })
+            .catch(() => {
+                // Real-time notifications are optional.
+            });
+
+        return () => {
+            cancelled = true;
+            unsubscribe?.();
+        };
     }, []);
 
     return (

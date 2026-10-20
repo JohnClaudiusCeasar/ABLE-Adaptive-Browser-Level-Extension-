@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Concerns\BoundsAdminRows;
 use App\Models\DomainPolicy;
 use App\Models\DomainVisit;
 use App\Models\EgressEvent;
@@ -13,6 +14,8 @@ use Inertia\Response;
 
 class SecurityAnalyticsController extends Controller
 {
+    use BoundsAdminRows;
+
     /**
      * Display the Shadow Analytics page with live data.
      */
@@ -218,7 +221,7 @@ class SecurityAnalyticsController extends Controller
                 ->keyBy('domain');
         }
 
-        $shadowCatalog = $catalogQuery->get()->map(function ($row) use ($visitsByDomain, $incidentsByDomain) {
+        $shadowCatalog = $catalogQuery->limit($this->rowLimit())->get()->map(function ($row) use ($visitsByDomain, $incidentsByDomain) {
             /** @var object{id: int, domain: string, category: string|null, risk_score: int, domain_status: string, policy: string, block_access: bool, visit_count: int, active_users: int} $row */
             $domainParts = explode('.', $row->domain);
             $appName = ucfirst($domainParts[0]);
@@ -249,6 +252,8 @@ class SecurityAnalyticsController extends Controller
         return Inertia::render('security-analytics/shadow-apps', [
             'shadowCatalog' => $shadowCatalog,
             'scoped_user' => $scopedUserId,
+            'truncated' => $shadowCatalog->count() >= $this->rowLimit(),
+            'rowLimit' => $this->rowLimit(),
         ]);
     }
 
@@ -257,7 +262,10 @@ class SecurityAnalyticsController extends Controller
      */
     public function egressIncidents(): Response
     {
+        $limit = $this->rowLimit();
+
         $recentShadowEgress = EgressEvent::orderByDesc('occurred_at')
+            ->limit($limit)
             ->get()
             ->map(function ($event) {
                 return [
@@ -275,6 +283,8 @@ class SecurityAnalyticsController extends Controller
 
         return Inertia::render('security-analytics/egress-incidents', [
             'recentShadowEgress' => $recentShadowEgress,
+            'truncated' => $recentShadowEgress->count() >= $limit,
+            'rowLimit' => $limit,
         ]);
     }
 

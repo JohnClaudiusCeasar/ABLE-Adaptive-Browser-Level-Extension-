@@ -1,6 +1,6 @@
 import { Link, usePage } from '@inertiajs/react';
 import { Printer } from 'lucide-react';
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { AppContent } from '@/components/app-content';
 import { AppShell } from '@/components/app-shell';
 import { AppSidebar } from '@/components/app-sidebar';
@@ -33,15 +33,22 @@ export default function AppSidebarLayout({
 
     const { isWarningOpen, secondsRemaining, stayLoggedIn } =
         useInactivityTimeout(true);
-    const [isRecommendationOpen, setIsRecommendationOpen] = useState(
-        Boolean(auth?.recommendPasswordChange),
-    );
+    const [isRecommendationDismissed, setIsRecommendationDismissed] =
+        useState(false);
 
-    useEffect(() => {
-        if (auth?.recommendPasswordChange) {
-            setIsRecommendationOpen(true);
-        }
-    }, [auth?.recommendPasswordChange]);
+    // The recommendation is opened by a server flag, so the open state is
+    // derived from that flag rather than written from an effect. Writing it
+    // from an effect re-renders the whole layout whenever the flag changes.
+    const recommendPasswordChange = Boolean(auth?.recommendPasswordChange);
+
+    if (!recommendPasswordChange && isRecommendationDismissed) {
+        // A cleared recommendation resets the dismissal, so a later one can
+        // still be shown.
+        setIsRecommendationDismissed(false);
+    }
+
+    const isRecommendationOpen =
+        recommendPasswordChange && !isRecommendationDismissed;
 
     return (
         <AppShell variant="sidebar">
@@ -88,7 +95,7 @@ export default function AppSidebarLayout({
 
             <SecurityRecommendationModal
                 isOpen={isRecommendationOpen}
-                onClose={() => setIsRecommendationOpen(false)}
+                onClose={() => setIsRecommendationDismissed(true)}
             />
         </AppShell>
     );

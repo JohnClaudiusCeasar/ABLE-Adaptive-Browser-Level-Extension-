@@ -111,4 +111,91 @@ return [
 
     'extension_version' => env('ABLE_EXTENSION_VERSION', '0.1.2'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | ABLE Extension - Domain Policy Feed
+    |--------------------------------------------------------------------------
+    |
+    | The fields the browser extension consumes from the signed domain-policy
+    | feed. The extension reads exactly these and nothing else, so the feed
+    | carries exactly these.
+    |
+    | Keeping the feed this narrow has two effects that matter for a small
+    | server. The payload shrinks, and the feed stops depending on the
+    | volatile visit counters — logging a visit no longer changes what the
+    | extension sees, so it no longer invalidates the cached feed.
+    |
+    | This is the single place the feed's payload is defined. Adding a
+    | column back widens both the signed and the unsigned feed, and with it
+    | the memory the server needs to build them.
+    |
+    */
+
+    'feed_fields' => [
+        'domain',
+        'domain_status',
+        'category',
+        'policy',
+        'block_access',
+        'risk_score',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | ABLE Extension - Feed Cache
+    |--------------------------------------------------------------------------
+    |
+    | The extension polls the signed feed every 15 minutes from every
+    | installed copy. The built feed is cached and rebuilt only when a policy
+    | changes in a way the extension can see.
+    |
+    | The feed is stored in the file cache store regardless of the default
+    | store: a large policy set does not fit the `mediumText` column of the
+    | database cache, and reading it from the database would turn every
+    | request into a multi-megabyte round trip.
+    |
+    | The TTL is only a safety net for writes that bypass the model layer,
+    | such as the bulk delete in the record purge.
+    |
+    */
+
+    'feed_cache_store' => env('ABLE_FEED_CACHE_STORE', 'file'),
+
+    'feed_cache_ttl' => (int) env('ABLE_FEED_CACHE_TTL', 3600),
+
+    /*
+    |--------------------------------------------------------------------------
+    | ABLE - Research Data Retention
+    |--------------------------------------------------------------------------
+    |
+    | How long research telemetry — visit events, egress events, scan
+    | records and the notifications derived from them — is kept before it is
+    | deleted. The window matches the retention period published in
+    | PRIVACY.md.
+    |
+    | The prune runs from the scheduler and, on hosts without a cron, from
+    | the container entrypoint.
+    |
+    */
+
+    'retention_days' => (int) env('ABLE_RETENTION_DAYS', 365),
+
+    /*
+    |--------------------------------------------------------------------------
+    | ABLE - Admin Page Row Limit
+    |--------------------------------------------------------------------------
+    |
+    | The admin pages filter, sort and paginate their rows in the browser,
+    | so the server sends the newest rows rather than paginating them. This
+    | is how many rows it sends.
+    |
+    | Without a limit, a telemetry table that grew for a year would be read
+    | in full on every page view and could exhaust the server's memory. When
+    | the limit is reached the page says so, rather than silently showing a
+    | truncated list.
+    |
+    */
+
+    'admin_page_limit' => (int) env('ABLE_ADMIN_PAGE_LIMIT', 500),
+
 ];

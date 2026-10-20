@@ -10,9 +10,20 @@ export function useInactivityTimeout(enabled: boolean = true) {
     const [isWarningOpen, setIsWarningOpen] = useState(false);
     const [secondsRemaining, setSecondsRemaining] = useState(30);
 
-    const lastActivityRef = useRef<number>(Date.now());
-    const lastHeartbeatRef = useRef<number>(Date.now());
+    // The clock must not be read during render, so the refs start empty and
+    // are seeded once on mount instead.
+    const lastActivityRef = useRef<number>(0);
+    const lastHeartbeatRef = useRef<number>(0);
     const channelRef = useRef<BroadcastChannel | null>(null);
+
+    // Seed the activity clock once. This is deliberately a separate effect:
+    // the main effect below re-runs when the warning window opens or closes,
+    // and re-seeding the clock there would reset the idle countdown.
+    useEffect(() => {
+        const startedAt = Date.now();
+        lastActivityRef.current = startedAt;
+        lastHeartbeatRef.current = startedAt;
+    }, []);
 
     // Send heartbeat to backend
     const sendHeartbeat = useCallback(async () => {

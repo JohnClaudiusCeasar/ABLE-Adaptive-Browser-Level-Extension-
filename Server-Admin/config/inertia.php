@@ -13,10 +13,15 @@ return [
     |
     | See: https://inertiajs.com/server-side-rendering
     |
+    | Server side rendering is off. The bundle is never built — the container
+    | image has no Node runtime — so leaving it enabled only means that
+    | adding the bundle later would make every page view wait on an HTTP
+    | round trip to a port nothing is listening on.
+    |
     */
 
     'ssr' => [
-        'enabled' => true,
+        'enabled' => false,
         'url' => 'http://127.0.0.1:13714',
         // 'bundle' => base_path('bootstrap/ssr/ssr.mjs'),
 

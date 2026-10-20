@@ -61,7 +61,7 @@ export default function Chat() {
                 next_cursor ?? null,
             );
         }
-    }, [conversation?.id, messages, next_cursor]);
+    }, [conversation, messages, next_cursor]);
 
     const activeConversation =
         (conversation?.id ? conversation : null) ??
@@ -93,7 +93,7 @@ export default function Chat() {
 
         return [];
     }, [
-        activeConversation?.id,
+        activeConversation,
         store.activeConversation?.id,
         store.activeMessages,
         conversation?.id,

@@ -2,33 +2,43 @@
 
 namespace App\Http\Controllers;
 
+use App\Concerns\BoundsAdminRows;
 use App\Models\DomainPolicy;
 use App\Models\DomainVisit;
 use App\Models\EgressEvent;
 use App\Services\AbleSettingsService;
+use App\Services\DomainPolicyFeed;
 use App\Support\DomainBrandMap;
 use App\Support\DomainRiskResolver;
 use App\Support\HeuristicClassifier;
-use App\Support\JsCanonical;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class DomainPolicyController extends Controller
 {
+    use BoundsAdminRows;
+
     /**
      * Display a listing of the domain policies.
      */
     public function index(): Response
     {
-        $domainPolicies = DomainPolicy::orderBy('created_at', 'desc')->get();
+        $limit = $this->rowLimit();
+
+        $domainPolicies = DomainPolicy::orderBy('created_at', 'desc')
+            ->limit($limit)
+            ->get();
 
         return Inertia::render('policy-algorithm', [
             'domainPolicies' => $domainPolicies,
+            'truncated' => $domainPolicies->count() >= $limit,
+            'rowLimit' => $limit,
         ]);
     }
 
@@ -155,124 +165,126 @@ class DomainPolicyController extends Controller
             default => 0,
         };
 
-        $policy = DomainPolicy::firstOrCreate(
-            ['domain' => $domain],
-            [
-                'domain_status' => $status,
-                'policy' => $status === 'unsafe' ? 'blacklisted' : 'under_review',
-                'risk_score' => $defaultRiskScore,
-                'visit_count' => 0,
-                'last_visited_at' => now(),
-                'last_source' => $source,
-            ]
-        );
+        // The policy counter and the visit row are written together, so the
+        // counter cannot drift away from the visits it counts.
+        return DB::transaction(function () use ($domain, $status, $source, $userId, $eventId, $defaultRiskScore, $visitTime) {
+            $policy = DomainPolicy::firstOrCreate(
+                ['domain' => $domain],
+                [
+                    'domain_status' => $status,
+                    'policy' => $status === 'unsafe' ? 'blacklisted' : 'under_review',
+                    'risk_score' => $defaultRiskScore,
+                    'visit_count' => 0,
+                    'last_visited_at' => now(),
+                    'last_source' => $source,
+                ]
+            );
 
-        // Idempotency: a client-provided event_id is unique, so a retry of the
-        // same logical visit (e.g. after an offline reconnect) is a duplicate.
-        if ($eventId && DomainVisit::where('event_id', $eventId)->exists()) {
-            return response()->json([
-                'success' => true,
-                'visit_count' => $policy->visit_count,
-                'duplicate' => true,
-            ]);
-        }
-
-        $debounceMs = (int) app(AbleSettingsService::class)->value('extension', 'logging.visit_debounce_ms', 5000);
-
-        if ($debounceMs > 0) {
-            $duplicate = DomainVisit::where('domain_policy_id', $policy->id)
-                ->where('domain', $domain)
-                ->where('visited_at', '>', $visitTime->copy()->subMilliseconds($debounceMs))
-                ->exists();
-
-            if ($duplicate) {
+            // Idempotency: a client-provided event_id is unique, so a retry of the
+            // same logical visit (e.g. after an offline reconnect) is a duplicate.
+            if ($eventId && DomainVisit::where('event_id', $eventId)->exists()) {
                 return response()->json([
                     'success' => true,
                     'visit_count' => $policy->visit_count,
                     'duplicate' => true,
                 ]);
             }
-        }
 
-        $policy->increment('visit_count', 1, [
-            'last_visited_at' => now(),
-            'last_source' => $source,
-        ]);
+            $debounceMs = (int) app(AbleSettingsService::class)->value('extension', 'logging.visit_debounce_ms', 5000);
 
-        $visitStatus = $policy->domain_status ?? $status ?? 'unlisted';
+            if ($debounceMs > 0) {
+                $duplicate = DomainVisit::where('domain_policy_id', $policy->id)
+                    ->where('domain', $domain)
+                    ->where('visited_at', '>', $visitTime->copy()->subMilliseconds($debounceMs))
+                    ->exists();
 
-        DomainVisit::create([
-            'domain_policy_id' => $policy->id,
-            'domain' => $domain,
-            'status' => $visitStatus,
-            'user_id' => $userId,
-            'event_id' => $eventId,
-            'visited_at' => $visitTime,
-        ]);
+                if ($duplicate) {
+                    return response()->json([
+                        'success' => true,
+                        'visit_count' => $policy->visit_count,
+                        'duplicate' => true,
+                    ]);
+                }
+            }
 
-        $policy->refresh();
+            $policy->increment('visit_count', 1, [
+                'last_visited_at' => now(),
+                'last_source' => $source,
+            ]);
 
-        return response()->json([
-            'success' => true,
-            'visit_count' => $policy->visit_count,
-            'duplicate' => false,
-        ]);
+            $visitStatus = $policy->domain_status ?? $status ?? 'unlisted';
+
+            DomainVisit::create([
+                'domain_policy_id' => $policy->id,
+                'domain' => $domain,
+                'status' => $visitStatus,
+                'user_id' => $userId,
+                'event_id' => $eventId,
+                'visited_at' => $visitTime,
+            ]);
+
+            $policy->refresh();
+
+            return response()->json([
+                'success' => true,
+                'visit_count' => $policy->visit_count,
+                'duplicate' => false,
+            ]);
+        });
     }
 
     /**
      * API endpoint: Return all domain policies for extension offline cache.
      */
-    public function all(): JsonResponse
+    public function all(): \Illuminate\Http\Response
     {
-        $policies = DomainPolicy::all();
+        $feed = app(DomainPolicyFeed::class)->feed();
 
-        return response()->json([
-            'policies' => $policies,
-            'count' => $policies->count(),
-        ]);
+        return $this->feedResponse($feed['unsigned']);
     }
 
     /**
      * API endpoint: Return all domain policies wrapped in an HMAC-signed envelope.
      * The extension verifies this signature before trusting the offline cache.
      */
-    public function signed(): JsonResponse
+    public function signed(): \Illuminate\Http\Response
     {
-        $payload = [
-            'policies' => DomainPolicy::all()->toArray(),
-            'issued_at' => now()->timestamp,
-        ];
+        $feed = app(DomainPolicyFeed::class)->feed();
 
-        return response()->json($this->signEnvelope($payload));
-    }
-
-    /**
-     * Sign a payload with the server's HMAC secret and return the envelope.
-     * Format: { payload, signature, key_version }
-     *
-     * @param  array<string, mixed>  $payload
-     * @return array<string, mixed>
-     */
-    private function signEnvelope(array $payload): array
-    {
-        $key = $this->signingKey();
-        $signature = JsCanonical::sign($payload, $key);
-
-        return [
-            'payload' => $payload,
-            'signature' => $signature,
-            'key_version' => (int) config('able.signing_key_version', 1),
-        ];
-    }
-
-    private function signingKey(): string
-    {
-        $key = config('able.signing_key');
-        if (! $key || strlen($key) < 32) {
+        if ($feed['signed']['body'] === '') {
             abort(500, 'ABLE signing key not configured');
         }
 
-        return $key;
+        return $this->feedResponse($feed['signed']);
+    }
+
+    /**
+     * Serve a prebuilt feed body.
+     *
+     * The body is built once and cached, so serving it is a cache read plus
+     * a response write instead of reading, canonicalizing and signing the
+     * whole policy set on every request. The ETag lets a client that already
+     * holds the current copy revalidate it with a 304 rather than
+     * downloading it again.
+     *
+     * @param  array{body: string, etag: string}  $body
+     */
+    private function feedResponse(array $body): \Illuminate\Http\Response
+    {
+        $response = response($body['body'], 200, [
+            'Content-Type' => 'application/json',
+            'ETag' => $body['etag'],
+            // The feed carries an administrator's blocking decisions, so it
+            // must be revalidated rather than reused blindly.
+            'Cache-Control' => 'private, no-cache',
+        ]);
+
+        if ($response->isNotModified(request())) {
+            $response->setStatusCode(304);
+            $response->setContent(null);
+        }
+
+        return $response;
     }
 
     /**
@@ -318,13 +330,10 @@ class DomainPolicyController extends Controller
             $hostname = parse_url($request->input('url'), PHP_URL_HOST);
             $domain = preg_replace('/^www\./', '', strtolower((string) $hostname));
 
-            // Query the database - exact match first
-            $policy = DomainPolicy::where('domain', $domain)->first();
-
-            // If no exact match, check for subdomain match (e.g. mail.google.com → google.com)
-            if (! $policy) {
-                $policy = DomainPolicy::whereRaw("? LIKE CONCAT('%.', domain)", [$domain])->first();
-            }
+            // Query the database - exact match first, then a parent domain
+            // (e.g. mail.google.com → google.com). The lookup is a set of
+            // exact matches so it can use the unique index on the domain.
+            $policy = DomainRiskResolver::findPolicy($domain);
 
             if ($policy) {
                 $policy = $this->maybeUpgradeHeuristic($policy, $request);
@@ -552,7 +561,9 @@ class DomainPolicyController extends Controller
      */
     public function getDomainVisits(Request $request, DomainPolicy $domainPolicy): JsonResponse
     {
-        $perPage = $request->input('per_page', 10);
+        // The endpoint is public, so the page size is clamped: an unbounded
+        // per_page would let one request pull the whole visit history.
+        $perPage = min(100, max(1, (int) $request->input('per_page', 10)));
         $search = $request->input('search');
 
         $query = DomainVisit::where('domain_policy_id', $domainPolicy->id)

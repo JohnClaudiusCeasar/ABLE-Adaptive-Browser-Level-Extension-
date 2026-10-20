@@ -1,16 +1,6 @@
 import { Head, router, usePage } from '@inertiajs/react';
-import {
-    ChevronDown,
-    Pencil,
-    Search,
-    Trash2,
-    Plus,
-    X,
-    Trash,
-    Copy,
-} from 'lucide-react';
+import { ChevronDown, Pencil, Search, Trash2, Plus, Trash } from 'lucide-react';
 import { useState, useMemo } from 'react';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { PatternItemsModal } from './pattern-items-modal';
 
 const glassCard =

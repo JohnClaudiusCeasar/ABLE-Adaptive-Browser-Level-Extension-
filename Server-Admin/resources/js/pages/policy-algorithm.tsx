@@ -17,6 +17,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useRef, useState, useMemo } from 'react';
 import DomainPolicyController from '@/actions/App/Http/Controllers/DomainPolicyController';
 import { TablePagination } from '@/components/pagination';
+import { RowLimitNotice } from '@/components/row-limit-notice';
 import { Badge } from '@/components/ui/badge';
 
 const glassCard =
@@ -41,6 +42,8 @@ interface DomainPolicy {
 
 interface PageProps {
     domainPolicies: DomainPolicy[];
+    truncated?: boolean;
+    rowLimit?: number;
     [key: string]: unknown;
 }
 
@@ -358,7 +361,7 @@ function CategoryPicker({
 }
 
 export default function PolicyAlgorithm() {
-    const { domainPolicies } = usePage<PageProps>().props;
+    const { domainPolicies, truncated, rowLimit } = usePage<PageProps>().props;
 
     const initialHighlight =
         typeof window !== 'undefined'
@@ -546,7 +549,8 @@ export default function PolicyAlgorithm() {
             domain: policy.domain,
             domain_status: policy.domain_status,
             policy: policy.policy,
-            block_access: policy.policy === 'blacklisted' && !!policy.block_access,
+            block_access:
+                policy.policy === 'blacklisted' && !!policy.block_access,
             category: policy.category || '',
             classification_source: policy.classification_source || '',
             confidence: policy.confidence,
@@ -903,6 +907,8 @@ export default function PolicyAlgorithm() {
                         Domain Management for website security checking.
                     </p>
 
+                    <RowLimitNotice truncated={truncated} limit={rowLimit} />
+
                     {/* Search + Sort + Group row */}
                     <div className="flex flex-wrap items-center gap-3">
                         <div className="relative w-[260px]">
@@ -1224,7 +1230,11 @@ export default function PolicyAlgorithm() {
                                                         strokeWidth="2.5"
                                                         aria-hidden="true"
                                                     >
-                                                        <circle cx="12" cy="12" r="10" />
+                                                        <circle
+                                                            cx="12"
+                                                            cy="12"
+                                                            r="10"
+                                                        />
                                                         <line
                                                             x1="4.93"
                                                             y1="4.93"
@@ -1248,7 +1258,8 @@ export default function PolicyAlgorithm() {
                                                         setForm({
                                                             ...form,
                                                             block_access:
-                                                                e.target.checked,
+                                                                e.target
+                                                                    .checked,
                                                         })
                                                     }
                                                 />

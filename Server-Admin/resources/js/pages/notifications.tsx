@@ -10,6 +10,7 @@ import {
     X,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { RowLimitNotice } from '@/components/row-limit-notice';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -39,7 +40,8 @@ interface NotificationItem {
 
 interface PageProps {
     notifications: NotificationItem[];
-    unreadCount: number;
+    truncated?: boolean;
+    rowLimit?: number;
     [key: string]: unknown;
 }
 
@@ -87,7 +89,7 @@ const allSources: NotificationItem['source'][] = [
 ];
 
 export default function Notifications() {
-    const { notifications, unreadCount } = usePage<PageProps>().props;
+    const { notifications, truncated, rowLimit } = usePage<PageProps>().props;
 
     const [searchQuery, setSearchQuery] = useState('');
     const [activeSources, setActiveSources] = useState<
@@ -245,6 +247,8 @@ export default function Notifications() {
                         Real-time alerts from the ABLE extension — egress
                         events, domain visits, and extension lifecycle changes.
                     </p>
+
+                    <RowLimitNotice truncated={truncated} limit={rowLimit} />
 
                     {/* Source Filter Pills */}
                     <div className="mb-4 flex flex-wrap items-center gap-2.5">

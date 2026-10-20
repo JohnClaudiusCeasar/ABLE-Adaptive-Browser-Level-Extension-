@@ -11,9 +11,15 @@ return [
     | API, giving you convenient access to each backend using identical
     | syntax for each. The default queue connection is defined below.
     |
+    | The default is the synchronous driver on purpose. A database queue
+    | without a worker process behind it does not run anything: the jobs
+    | accumulate in the jobs table and the login audit trail silently stops
+    | being written. The only queued job is a single insert, so running it
+    | inline costs nothing.
+    |
     */
 
-    'default' => env('QUEUE_CONNECTION', 'database'),
+    'default' => env('QUEUE_CONNECTION', 'sync'),
 
     /*
     |--------------------------------------------------------------------------

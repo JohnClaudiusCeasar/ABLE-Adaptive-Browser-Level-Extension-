@@ -1,5 +1,5 @@
 import { Form, Head, usePage } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ActiveSessionConflictModal } from '@/components/auth/active-session-conflict-modal';
 import InputError from '@/components/input-error';
 import PasskeyVerify from '@/components/passkey-verify';
@@ -31,15 +31,17 @@ export default function Login({
 }: Props) {
     const { errors: pageErrors } = usePage().props;
     const [typedEmail, setTypedEmail] = useState('');
-    const [isConflictModalOpen, setIsConflictModalOpen] = useState(
-        Boolean(activeConflict || pageErrors?.active_conflict),
-    );
+    const [isConflictDismissed, setIsConflictDismissed] = useState(false);
 
-    useEffect(() => {
-        if (activeConflict || pageErrors?.active_conflict) {
-            setIsConflictModalOpen(true);
-        }
-    }, [activeConflict, pageErrors?.active_conflict]);
+    // The conflict modal is opened by a server flag, so the open state is
+    // derived from that flag rather than written from an effect.
+    const hasConflict = Boolean(activeConflict || pageErrors?.active_conflict);
+
+    if (!hasConflict && isConflictDismissed) {
+        setIsConflictDismissed(false);
+    }
+
+    const isConflictModalOpen = hasConflict && !isConflictDismissed;
 
     return (
         <>
@@ -154,7 +156,7 @@ export default function Login({
 
             <ActiveSessionConflictModal
                 isOpen={isConflictModalOpen}
-                onClose={() => setIsConflictModalOpen(false)}
+                onClose={() => setIsConflictDismissed(true)}
                 email={activeConflictEmail || typedEmail}
                 token={breakGlassToken}
                 errorMessage={

@@ -7,6 +7,7 @@ use App\Models\DomainVisit;
 use App\Models\EgressEvent;
 use App\Models\ExtensionLifecycle;
 use App\Models\NudgeInteraction;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -45,8 +46,12 @@ class DashboardController extends Controller
             ->havingRaw('COUNT(*) > 3')
             ->count();
 
-        // Detail list behind the Active Shadow Apps card (same >3 proceeded definition)
-        $activeShadowAppsList = EgressEvent::select(
+        // Detail list behind the Active Shadow Apps card (same >3 proceeded definition).
+        // The aggregation covers the whole egress history, so the list is
+        // capped: without a cap the card would read and hold every domain
+        // that ever had more than three uploads.
+        /** @var Collection<int, object{id: int|null, domain: string, usage_count: int|string}> $activeShadowAppRows */
+        $activeShadowAppRows = EgressEvent::select(
             'egress_events.domain',
             'domain_policies.id',
             DB::raw('COUNT(*) as usage_count')
@@ -56,12 +61,14 @@ class DashboardController extends Controller
             ->groupBy('egress_events.domain', 'domain_policies.id')
             ->havingRaw('COUNT(*) > 3')
             ->orderByDesc('usage_count')
-            ->get()
-            ->map(fn ($row) => [
-                'id' => $row->id !== null ? (int) $row->id : null,
-                'domain' => $row->domain,
-                'usage_count' => (int) $row->usage_count,
-            ]);
+            ->limit(100)
+            ->get();
+
+        $activeShadowAppsList = $activeShadowAppRows->map(fn ($row) => [
+            'id' => $row->id !== null ? (int) $row->id : null,
+            'domain' => $row->domain,
+            'usage_count' => (int) $row->usage_count,
+        ]);
 
         // Total Egress Count - egress events for domains with policies
         $totalEgressCount = EgressEvent::whereIn('domain', function ($query) {

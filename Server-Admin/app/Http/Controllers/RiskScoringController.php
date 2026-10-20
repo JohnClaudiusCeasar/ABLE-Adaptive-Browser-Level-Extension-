@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\RiskPattern;
+use App\Services\RiskPatternRepository;
 use App\Services\RiskScoringService;
 use App\Support\DomainRiskResolver;
 use App\Support\JsCanonical;
@@ -45,7 +45,7 @@ class RiskScoringController extends Controller
         $suppressed = [];
         $text = $validated['text'] ?? null;
         if (is_string($text) && $text !== '') {
-            $patterns = RiskPattern::with('criteriaPatternItems')->get()->toArray();
+            $patterns = app(RiskPatternRepository::class)->corpus();
             $result = app(RiskScoringService::class)->score(
                 $text,
                 $patterns,

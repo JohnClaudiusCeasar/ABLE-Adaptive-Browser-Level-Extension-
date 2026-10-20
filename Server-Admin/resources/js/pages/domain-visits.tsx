@@ -2,6 +2,7 @@ import { Head, Link, usePage } from '@inertiajs/react';
 import { ArrowLeft, Search, ArrowUpDown, Layers } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { TablePagination } from '@/components/pagination';
+import { RowLimitNotice } from '@/components/row-limit-notice';
 import { Badge } from '@/components/ui/badge';
 import { formatMetricNumber } from '@/lib/utils';
 
@@ -18,6 +19,8 @@ interface DomainVisit {
 
 interface PageProps {
     domainVisits: DomainVisit[];
+    truncated?: boolean;
+    rowLimit?: number;
     [key: string]: unknown;
 }
 
@@ -52,7 +55,7 @@ function formatTimestamp(ts: string): { date: string; time: string } {
 }
 
 export default function DomainVisits() {
-    const { domainVisits } = usePage<PageProps>().props;
+    const { domainVisits, truncated, rowLimit } = usePage<PageProps>().props;
 
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
@@ -327,6 +330,8 @@ export default function DomainVisits() {
 
                 {/* Main Table Card */}
                 <div className={`${glassCard} p-6`}>
+                    <RowLimitNotice truncated={truncated} limit={rowLimit} />
+
                     {/* Card Header Toolbar */}
                     <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
                         <div className="flex items-center gap-2">

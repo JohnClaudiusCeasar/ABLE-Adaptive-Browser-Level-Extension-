@@ -10,6 +10,13 @@ storage/logs/*
 storage/framework/cache/*
 storage/framework/sessions/*
 storage/framework/views/*
+# Uploaded files and the PDF scratch space are runtime data, not source.
+# Without this they are copied into the image by the `COPY . .` step, which
+# would ship local chat attachments into the deployed container.
+storage/app/public/**
+storage/app/private/**
+storage/app/dompdf/**
+storage/fonts/**
 database/database.sqlite
 database/database.sqlite-journal
 .env

@@ -3,12 +3,7 @@
 <head>
     <meta charset="utf-8">
     <title>ABLE Security Analysis</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400..700&family=Unbounded:wght@600;700;800;900&display=swap" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400..700&family=Unbounded:wght@600;700;800;900&display=swap');
-
         * {
             margin: 0;
             padding: 0;

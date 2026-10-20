@@ -11,6 +11,10 @@ mkdir -p /var/www/html/storage/framework/cache/data \
          /var/www/html/storage/framework/sessions \
          /var/www/html/storage/framework/views \
          /var/www/html/storage/logs \
+         /var/www/html/storage/fonts \
+         /var/www/html/storage/app/dompdf \
+         /var/www/html/storage/app/public/chat-attachments \
+         /var/www/html/storage/app/private \
          /var/www/html/bootstrap/cache \
          /var/www/html/database
 
@@ -73,11 +77,24 @@ php artisan db:seed --class=RiskPatternSeeder --force --no-interaction || true
 php artisan db:seed --class=DomainBrandSeeder --force --no-interaction || true
 php artisan db:seed --class=CommunityMessageSeeder --force --no-interaction || true
 
-# Cache configurations, routes, and views for optimal performance
+# Cache configurations, routes, and views for optimal performance.
+# These must succeed: an uncached config means every config() call re-parses
+# a file from disk on every request, an uncached route table means the router
+# is rebuilt per request. Failing the boot surfaces the problem in the deploy
+# log instead of silently serving a much slower app.
 echo "Caching configurations..."
-php artisan config:cache || true
-php artisan route:cache || true
-php artisan view:cache || true
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+
+# Prune the research telemetry in the background. The retention window keeps
+# the telemetry tables from growing without bound, and running it off the
+# request path keeps a large backlog from delaying the boot. Hosts with a
+# cron run the same command from the scheduler instead.
+if [ "${ABLE_PRUNE_ON_BOOT:-1}" = "1" ]; then
+    echo "Pruning research telemetry in the background..."
+    php artisan able:prune-telemetry --no-interaction &
+fi
 
 echo "Starting Apache on port ${PORT}..."
 exec apache2-foreground

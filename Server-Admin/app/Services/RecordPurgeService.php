@@ -175,6 +175,12 @@ class RecordPurgeService
         // last successful import is no longer true.
         Cache::forget(self::UT1_CACHE_KEY);
 
+        // Bulk deletes bypass model events, so the cached feeds have to be
+        // dropped explicitly. Both the policy rows and the pattern rows are
+        // gone, and the feeds would otherwise keep serving them.
+        app(DomainPolicyFeed::class)->forget();
+        app(RiskPatternRepository::class)->forget();
+
         return $deleted;
     }
 

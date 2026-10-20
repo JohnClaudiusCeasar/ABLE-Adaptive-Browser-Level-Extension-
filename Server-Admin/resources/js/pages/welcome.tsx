@@ -37,7 +37,11 @@ export default function Welcome({
     // Message Board State (pre-filled when redirected by the extension's
     // "Request Access" button: /?category=access-request&domain=...#contact)
     const [selectedCat, setSelectedCat] = useState<
-        'suggestion' | 'comment' | 'complaint' | 'false-positive' | 'access-request'
+        | 'suggestion'
+        | 'comment'
+        | 'complaint'
+        | 'false-positive'
+        | 'access-request'
     >(() =>
         requestCategory === 'access-request' ? 'access-request' : 'suggestion',
     );
@@ -56,48 +60,46 @@ export default function Welcome({
     );
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-    const [streamMessages, setStreamMessages] = useState<StreamMessage[]>(
-        () => {
-            if (initialMessages && initialMessages.length > 0) {
-                return initialMessages;
-            }
+    const [streamMessages] = useState<StreamMessage[]>(() => {
+        if (initialMessages && initialMessages.length > 0) {
+            return initialMessages;
+        }
 
-            return [
-                {
-                    id: 1,
-                    author: 'SecurityResearch_01',
-                    category: 'suggestion',
-                    domain: 'chat.openai.com',
-                    time: '15m ago',
-                    body: 'Holding the request at the DOM event level completely prevents token exfiltration into AI chat contexts. Would love to see an automated preset for GCP service accounts.',
-                },
-                {
-                    id: 2,
-                    author: 'AuditAnalyst_PH',
-                    category: 'comment',
-                    domain: 'claude.ai',
-                    time: '1h ago',
-                    body: 'The pseudonymous device IDs (ABLE-XXXXXXXX) make this much easier to evaluate internally without worrying about employee tracking or surveillance friction.',
-                },
-                {
-                    id: 3,
-                    author: 'DevLead_K',
-                    category: 'false-positive',
-                    domain: 'github.com',
-                    time: '4h ago',
-                    body: 'A 40-character git commit hash triggered a high-entropy secret detection alert. Adding domain-level heuristic weights would prevent this edge case.',
-                },
-                {
-                    id: 4,
-                    author: 'EnterpriseAdmin',
-                    category: 'complaint',
-                    domain: 'internal.corp',
-                    time: '1d ago',
-                    body: 'Would appreciate an instant one-click bypass for internal staging URLs without needing to configure the policy table on the research server.',
-                },
-            ];
-        },
-    );
+        return [
+            {
+                id: 1,
+                author: 'SecurityResearch_01',
+                category: 'suggestion',
+                domain: 'chat.openai.com',
+                time: '15m ago',
+                body: 'Holding the request at the DOM event level completely prevents token exfiltration into AI chat contexts. Would love to see an automated preset for GCP service accounts.',
+            },
+            {
+                id: 2,
+                author: 'AuditAnalyst_PH',
+                category: 'comment',
+                domain: 'claude.ai',
+                time: '1h ago',
+                body: 'The pseudonymous device IDs (ABLE-XXXXXXXX) make this much easier to evaluate internally without worrying about employee tracking or surveillance friction.',
+            },
+            {
+                id: 3,
+                author: 'DevLead_K',
+                category: 'false-positive',
+                domain: 'github.com',
+                time: '4h ago',
+                body: 'A 40-character git commit hash triggered a high-entropy secret detection alert. Adding domain-level heuristic weights would prevent this edge case.',
+            },
+            {
+                id: 4,
+                author: 'EnterpriseAdmin',
+                category: 'complaint',
+                domain: 'internal.corp',
+                time: '1d ago',
+                body: 'Would appreciate an instant one-click bypass for internal staging URLs without needing to configure the policy table on the research server.',
+            },
+        ];
+    });
 
     // Refs
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -412,9 +414,8 @@ export default function Welcome({
                     e.preventDefault();
                     scrollToSection(sections[activeIdx + 1]);
                 }
-            }
-            // Up
-            else if (e.deltaY < -25) {
+            } else if (e.deltaY < -25) {
+                // Up
                 if (viewport.scrollTop > panelTop + 40) {
                     return; // natural scroll inside tall section
                 }

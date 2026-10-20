@@ -4,8 +4,10 @@ use App\Http\Middleware\EnforceInactivityTimeout;
 use App\Http\Middleware\EnsureModuleAccess;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\NormalizeForwardedFor;
 use App\Http\Middleware\ResetPasswordConfirmationOnNavigation;
 use App\Http\Middleware\SecurityHeaders;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -26,6 +28,12 @@ return Application::configure(basePath: dirname(__DIR__))
         // forward plain HTTP to the container. Trusting the proxy makes Laravel
         // honour X-Forwarded-Proto so asset/route URLs are generated as https://.
         $middleware->trustProxies(at: '*');
+
+        // The proxy appends the address it saw to X-Forwarded-For, and the
+        // leftmost value in that list is the one a client controls. Reducing
+        // the header to the address the proxy recorded keeps the client
+        // address — and therefore the rate-limit buckets — honest.
+        $middleware->append(NormalizeForwardedFor::class);
 
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
@@ -49,6 +57,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'module' => EnsureModuleAccess::class,
         ]);
+    })
+    ->withSchedule(function (Schedule $schedule): void {
+        // Keep the research telemetry tables from growing without bound. The
+        // window is the retention period published in PRIVACY.md.
+        $schedule->command('able:prune-telemetry')->dailyAt('03:17');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

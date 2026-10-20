@@ -921,12 +921,29 @@ class RiskScoringService
         }
 
         $hits = [];
+
+        // preg_match_all reports byte offsets in ascending order, so the
+        // character offset can be advanced incrementally. Measuring the
+        // whole prefix for every hit instead made the cost quadratic in the
+        // subject length: a document with many matches copied and re-scanned
+        // the entire text once per match.
+        $consumedBytes = 0;
+        $charOffset = 0;
+
         foreach ($matches as $m) {
             $value = (string) $m[0][0];
             $offsetBytes = (int) $m[0][1];
-            // Convert byte offset to character offset (JS string indexes are character-based)
+
+            if ($offsetBytes > $consumedBytes) {
+                $charOffset += mb_strlen(
+                    substr($text, $consumedBytes, $offsetBytes - $consumedBytes),
+                    'UTF-8'
+                );
+                $consumedBytes = $offsetBytes;
+            }
+
             $hits[] = [
-                'index' => mb_strlen(substr($text, 0, $offsetBytes), 'UTF-8'),
+                'index' => $charOffset,
                 'value' => $value,
             ];
         }

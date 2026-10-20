@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Concerns\BoundsAdminRows;
 use App\Models\DomainPolicy;
 use App\Models\DomainVisit;
 use App\Models\EgressEvent;
@@ -11,17 +12,23 @@ use App\Support\SyntheticFileName;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class EgressEventController extends Controller
 {
+    use BoundsAdminRows;
+
     /**
      * Display the Egress Logs page with live data.
      */
     public function index(): Response
     {
+        $limit = $this->rowLimit();
+
         $egressEvents = EgressEvent::orderByDesc('occurred_at')
+            ->limit($limit)
             ->get()
             ->map(function ($event) {
                 if ($event->action === 'allowed') {
@@ -56,6 +63,8 @@ class EgressEventController extends Controller
 
         return Inertia::render('egress-logs', [
             'egressEvents' => $egressEvents,
+            'truncated' => $egressEvents->count() >= $limit,
+            'rowLimit' => $limit,
         ]);
     }
 
@@ -139,98 +148,103 @@ class EgressEventController extends Controller
             return response()->json(['success' => true, 'egress_event_id' => null, 'duplicate' => true]);
         }
 
-        // Auto-create domain policy if it doesn't exist
-        $policy = DomainPolicy::firstOrCreate(
-            ['domain' => $validated['domain']],
-            [
-                'domain_status' => 'unlisted',
-                'policy' => 'under_review',
-                'risk_score' => 70,
-            ]
-        );
+        // The visit, the egress event and the nudge are written together, so a
+        // failure part way through cannot leave a visit logged without the
+        // event that caused it.
+        return DB::transaction(function () use ($validated, $flaggedItems, $eventId, $occurredAt) {
+            // Auto-create domain policy if it doesn't exist
+            $policy = DomainPolicy::firstOrCreate(
+                ['domain' => $validated['domain']],
+                [
+                    'domain_status' => 'unlisted',
+                    'policy' => 'under_review',
+                    'risk_score' => 70,
+                ]
+            );
 
-        // Correlate with visit: log a DomainVisit if none in last 5 minutes
-        $fiveMinutesAgo = now()->subMinutes(5);
-        $recentVisit = DomainVisit::where('domain', $validated['domain'])
-            ->where('visited_at', '>=', $fiveMinutesAgo)
-            ->exists();
+            // Correlate with visit: log a DomainVisit if none in last 5 minutes
+            $fiveMinutesAgo = now()->subMinutes(5);
+            $recentVisit = DomainVisit::where('domain', $validated['domain'])
+                ->where('visited_at', '>=', $fiveMinutesAgo)
+                ->exists();
 
-        if (! $recentVisit) {
-            DomainVisit::create([
-                'domain_policy_id' => $policy->id,
-                'domain' => $validated['domain'],
-                'status' => $policy->domain_status ?? 'unlisted',
-                'user_id' => $validated['user_id'] ?? null,
-                'visited_at' => now(),
-            ]);
-        }
-
-        // Dedup: one logical event within 60 seconds. When the earlier row was
-        // logged without scan data (fallback/timeout paths) and this event
-        // carries the scanned verdict, upgrade the stored row instead of
-        // silently dropping the pattern data.
-        $contentHash = $validated['content_hash'] ?? null;
-        $existing = EgressEvent::where('domain', $validated['domain'])
-            ->where('file_name', $validated['file_name'])
-            ->where('action', $validated['action'])
-            ->where('occurred_at', '>=', now()->subSeconds(60))
-            ->when($contentHash, function ($q) use ($contentHash) {
-                $q->where(function ($q2) use ($contentHash) {
-                    $q2->where('content_hash', $contentHash)->orWhereNull('content_hash');
-                });
-            })
-            ->orderByDesc('occurred_at')
-            ->first();
-
-        if ($existing) {
-            if ($flaggedItems !== null && $existing->flagged_items === null) {
-                $existing->update([
-                    'risk_score' => $validated['risk_score'],
-                    'flagged_items' => $flaggedItems,
-                    'content_hash' => $existing->content_hash ?? $contentHash,
-                ]);
-
-                return response()->json([
-                    'success' => true,
-                    'egress_event_id' => $existing->id,
-                    'duplicate' => false,
-                    'upgraded' => true,
+            if (! $recentVisit) {
+                DomainVisit::create([
+                    'domain_policy_id' => $policy->id,
+                    'domain' => $validated['domain'],
+                    'status' => $policy->domain_status ?? 'unlisted',
+                    'user_id' => $validated['user_id'] ?? null,
+                    'visited_at' => now(),
                 ]);
             }
 
-            return response()->json(['success' => true, 'egress_event_id' => null, 'duplicate' => true]);
-        }
+            // Dedup: one logical event within 60 seconds. When the earlier row was
+            // logged without scan data (fallback/timeout paths) and this event
+            // carries the scanned verdict, upgrade the stored row instead of
+            // silently dropping the pattern data.
+            $contentHash = $validated['content_hash'] ?? null;
+            $existing = EgressEvent::where('domain', $validated['domain'])
+                ->where('file_name', $validated['file_name'])
+                ->where('action', $validated['action'])
+                ->where('occurred_at', '>=', now()->subSeconds(60))
+                ->when($contentHash, function ($q) use ($contentHash) {
+                    $q->where(function ($q2) use ($contentHash) {
+                        $q2->where('content_hash', $contentHash)->orWhereNull('content_hash');
+                    });
+                })
+                ->orderByDesc('occurred_at')
+                ->first();
 
-        $egressEvent = EgressEvent::create([
-            'domain' => $validated['domain'],
-            'user_id' => $validated['user_id'],
-            'file_name' => $validated['file_name'],
-            'file_size' => $validated['file_size'] ?? 0,
-            'risk_score' => $validated['risk_score'],
-            'action' => $validated['action'],
-            'event_id' => $eventId,
-            'flagged_items' => $flaggedItems,
-            'content_hash' => $contentHash,
-            'occurred_at' => $occurredAt
-                ? Carbon::createFromTimestampMs($occurredAt)
-                : now(),
-        ]);
+            if ($existing) {
+                if ($flaggedItems !== null && $existing->flagged_items === null) {
+                    $existing->update([
+                        'risk_score' => $validated['risk_score'],
+                        'flagged_items' => $flaggedItems,
+                        'content_hash' => $existing->content_hash ?? $contentHash,
+                    ]);
 
-        if (! empty($validated['user_action'])) {
-            NudgeInteraction::create([
-                'egress_event_id' => $egressEvent->id,
+                    return response()->json([
+                        'success' => true,
+                        'egress_event_id' => $existing->id,
+                        'duplicate' => false,
+                        'upgraded' => true,
+                    ]);
+                }
+
+                return response()->json(['success' => true, 'egress_event_id' => null, 'duplicate' => true]);
+            }
+
+            $egressEvent = EgressEvent::create([
                 'domain' => $validated['domain'],
                 'user_id' => $validated['user_id'],
-                'user_action' => $validated['user_action'],
-                'interacted_at' => now(),
+                'file_name' => $validated['file_name'],
+                'file_size' => $validated['file_size'] ?? 0,
+                'risk_score' => $validated['risk_score'],
+                'action' => $validated['action'],
+                'event_id' => $eventId,
+                'flagged_items' => $flaggedItems,
+                'content_hash' => $contentHash,
+                'occurred_at' => $occurredAt
+                    ? Carbon::createFromTimestampMs($occurredAt)
+                    : now(),
             ]);
-        }
 
-        return response()->json([
-            'success' => true,
-            'egress_event_id' => $egressEvent->id,
-            'duplicate' => false,
-        ]);
+            if (! empty($validated['user_action'])) {
+                NudgeInteraction::create([
+                    'egress_event_id' => $egressEvent->id,
+                    'domain' => $validated['domain'],
+                    'user_id' => $validated['user_id'],
+                    'user_action' => $validated['user_action'],
+                    'interacted_at' => now(),
+                ]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'egress_event_id' => $egressEvent->id,
+                'duplicate' => false,
+            ]);
+        });
     }
 
     /**
@@ -262,7 +276,7 @@ class EgressEventController extends Controller
 
         $events = $query->with('nudgeInteractions')
             ->orderByDesc('occurred_at')
-            ->limit($request->input('limit', 100))
+            ->limit(min(100, max(1, (int) $request->input('limit', 100))))
             ->get()
             ->map(function ($event) {
                 return [

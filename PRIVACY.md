@@ -120,7 +120,7 @@ The Extension generates a random identifier locally in your browser (format `ABL
 
 - Locally cached policies, detection patterns, and consent state persist until replaced by a sync or until the Extension is uninstalled
 - Queued events awaiting upload are deleted once successfully delivered
-- Server-side research data (visit events, egress events, scan inputs) is kept while the research project is active — [insert retention period, e.g. "12 months"] — after which it is deleted or aggregated into anonymized statistics
+- Server-side research data (visit events, egress events, scan inputs) is kept for **12 months** while the research project is active, after which it is deleted automatically or aggregated into anonymized statistics
 - Uninstalling the Extension removes all locally stored data from your browser; server-side records follow the retention policy above
 
 ---

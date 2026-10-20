@@ -21,14 +21,66 @@ namespace App\Support;
 class JsCanonical
 {
     /**
+     * Flags shared by every encoder in this class.
+     */
+    private const JSON_FLAGS = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR;
+
+    /**
      * Encode a value into the canonical byte form used for signing.
      */
     public static function encode(mixed $value): string
     {
         return json_encode(
             self::sortKeys($value),
-            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR
+            self::JSON_FLAGS
         );
+    }
+
+    /**
+     * Encode a list into canonical JSON.
+     *
+     * Each member is encoded on its own, so a large collection never has to
+     * exist as a single PHP array. The bytes are identical to encoding the
+     * equivalent array: every member's keys are sorted and the list order is
+     * preserved.
+     *
+     * @param  iterable<array<string, mixed>>  $items
+     */
+    public static function encodeList(iterable $items): string
+    {
+        $encoded = '';
+        $first = true;
+
+        foreach ($items as $item) {
+            if (! $first) {
+                $encoded .= ',';
+            }
+
+            $first = false;
+            $encoded .= self::encode($item);
+        }
+
+        return '['.$encoded.']';
+    }
+
+    /**
+     * Assemble an object from already-encoded JSON values.
+     *
+     * The keys are sorted the same way encode() sorts them, so the result is
+     * byte-identical to encoding the equivalent array.
+     *
+     * @param  array<string, string>  $encoded  key => encoded JSON value
+     */
+    public static function assemble(array $encoded): string
+    {
+        ksort($encoded, SORT_STRING);
+
+        $parts = [];
+        foreach ($encoded as $key => $value) {
+            $parts[] = json_encode((string) $key, self::JSON_FLAGS).':'.$value;
+        }
+
+        return '{'.implode(',', $parts).'}';
     }
 
     /**
@@ -40,9 +92,18 @@ class JsCanonical
      */
     public static function sign(mixed $payload, string $keyHex): string
     {
-        $rawKey = self::hexToRawKey($keyHex);
+        return self::signRaw(self::encode($payload), $keyHex);
+    }
 
-        return hash_hmac('sha256', self::encode($payload), $rawKey);
+    /**
+     * Sign an already-canonicalized JSON string.
+     *
+     * Used by the streamed encoders, which produce the canonical bytes
+     * directly instead of building the payload array first.
+     */
+    public static function signRaw(string $canonicalJson, string $keyHex): string
+    {
+        return hash_hmac('sha256', $canonicalJson, self::hexToRawKey($keyHex));
     }
 
     /**

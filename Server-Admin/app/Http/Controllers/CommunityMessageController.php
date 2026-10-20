@@ -21,24 +21,39 @@ use Inertia\Response;
 class CommunityMessageController extends Controller
 {
     /**
+     * Whether the community_messages table has been confirmed to exist.
+     *
+     * The container entrypoint migrates and seeds the database before Apache
+     * starts, so this is only a fallback for a database that has not been
+     * migrated yet. The check is remembered for the rest of the request.
+     */
+    private static bool $tableReady = false;
+
+    /**
      * Ensure the community_messages table exists and is seeded.
      */
     private function ensureTableExists(): void
     {
+        if (self::$tableReady) {
+            return;
+        }
+
         if (! Schema::hasTable('community_messages')) {
             try {
                 Artisan::call('app:baseline-migrations');
                 Artisan::call('migrate', ['--force' => true]);
-                if (Schema::hasTable('community_messages')) {
-                    Artisan::call('db:seed', [
-                        '--class' => 'CommunityMessageSeeder',
-                        '--force' => true,
-                    ]);
-                }
+                Artisan::call('db:seed', [
+                    '--class' => 'CommunityMessageSeeder',
+                    '--force' => true,
+                ]);
             } catch (\Throwable $e) {
                 Log::warning('CommunityMessage auto-migration failed: '.$e->getMessage());
+
+                return;
             }
         }
+
+        self::$tableReady = true;
     }
 
     /**

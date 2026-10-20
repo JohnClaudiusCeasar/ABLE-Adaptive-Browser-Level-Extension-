@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
     mergeOlderMessages,
     setCursor,
@@ -58,45 +58,44 @@ export function useChatMessages({
         },
     );
 
-    // Synchronize local messages whenever store updates for this conversation or initialMessages arrive
-    useEffect(() => {
-        if (matchesConversation && store.activeMessages.length > 0) {
-            setLocalMessages((prev) => {
-                const optimistic = prev.filter((m) => m.id < 0);
-                const known = new Set(store.activeMessages.map((m) => m.id));
-                const extra = prev.filter(
-                    (m) =>
-                        !known.has(m.id) &&
-                        m.id > 0 &&
-                        m.conversation_id === conversationId,
-                );
+    // Synchronize local messages whenever the source changes: the store for
+    // the active conversation, or the messages the page was rendered with.
+    //
+    // The list is adjusted during render rather than in an effect. An effect
+    // would render the chat window twice for every incoming message, and
+    // writing state from an effect is what the React compiler rules forbid.
+    const source: ChatMessageData[] | null =
+        matchesConversation && store.activeMessages.length > 0
+            ? store.activeMessages
+            : initialMessages.length > 0
+              ? initialMessages
+              : null;
 
-                return dedupe([
-                    ...optimistic,
-                    ...store.activeMessages,
-                    ...extra,
-                ]);
-            });
-        } else if (initialMessages.length > 0) {
-            setLocalMessages((prev) => {
-                const optimistic = prev.filter((m) => m.id < 0);
-                const known = new Set(initialMessages.map((m) => m.id));
-                const extra = prev.filter(
-                    (m) =>
-                        !known.has(m.id) &&
-                        m.id > 0 &&
-                        m.conversation_id === conversationId,
-                );
+    const [syncedSource, setSyncedSource] = useState<ChatMessageData[] | null>(
+        null,
+    );
 
-                return dedupe([...optimistic, ...extra, ...initialMessages]);
-            });
-        }
-    }, [
-        conversationId,
-        matchesConversation,
-        store.activeMessages,
-        initialMessages,
-    ]);
+    if (source && source !== syncedSource) {
+        setSyncedSource(source);
+
+        setLocalMessages((prev) => {
+            const incoming =
+                matchesConversation && store.activeMessages.length > 0
+                    ? store.activeMessages
+                    : initialMessages;
+
+            const optimistic = prev.filter((m) => m.id < 0);
+            const known = new Set(incoming.map((m) => m.id));
+            const extra = prev.filter(
+                (m) =>
+                    !known.has(m.id) &&
+                    m.id > 0 &&
+                    m.conversation_id === conversationId,
+            );
+
+            return dedupe([...optimistic, ...extra, ...incoming]);
+        });
+    }
 
     const cursor = matchesConversation ? store.nextCursor : nextCursor;
     const hasMore = cursor !== null;

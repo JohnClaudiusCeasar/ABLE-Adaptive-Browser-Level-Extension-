@@ -3,14 +3,12 @@
 namespace App\Http\Middleware;
 
 use App\Enums\UserRole;
-use App\Models\ChatConversation;
-use App\Models\ChatMessage;
 use App\Models\ExtensionLifecycle;
 use App\Models\Notification;
 use App\Models\User;
 use App\Services\AbleSettingsService;
+use App\Services\ChatService;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -58,12 +56,17 @@ class HandleInertiaRequests extends Middleware
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'unreadNotificationsCount' => $request->user() ? Notification::whereNull('read_at')->count() : 0,
-            // On the chat page the data is required immediately, so it is
-            // provided eagerly; every other page gets it deferred so the
-            // queries only run if the quick chat widget fetches them.
+            // On the chat page the full data is required immediately, so it is
+            // provided eagerly. Every other page only needs the unread
+            // badge.
+            //
+            // The full data used to be shared as a deferred prop, which made
+            // every page view issue a second request. A deferred request
+            // re-runs the whole route controller, so every dashboard and
+            // report query was executed twice for every page view.
             'chat' => $request->routeIs('chat.*')
                 ? $this->chatProps($request)
-                : Inertia::defer(fn () => $this->chatProps($request)),
+                : $this->chatBadgeProps($request),
         ];
     }
 
@@ -144,19 +147,31 @@ class HandleInertiaRequests extends Middleware
     }
 
     /**
+     * The chat data shared with the pages that are not the chat page.
+     *
+     * Only the unread badge is shared. The conversation list and the user
+     * list are loaded by the chat page itself, and the Quick Chat widget
+     * fetches the user list when it is opened, so neither is paid for on
+     * every page view.
+     *
+     * @return array<string, mixed>
+     */
+    private function chatBadgeProps(Request $request): array
+    {
+        /** @var User|null $user */
+        $user = $request->user();
+
+        return [
+            'unreadCount' => $user === null ? 0 : $this->unreadCountFor($user),
+        ];
+    }
+
+    /**
      * @return array<int, array<string, mixed>>
      */
     private function conversationsFor(User $user): array
     {
-        return ChatConversation::query()
-            ->where('user_one_id', $user->id)
-            ->orWhere('user_two_id', $user->id)
-            ->orderByDesc('last_message_at')
-            ->with(['userOne', 'userTwo', 'messages' => fn ($query) => $query->orderByDesc('created_at')])
-            ->get()
-            ->map(fn (ChatConversation $conversation) => $this->conversationData($conversation, $user))
-            ->values()
-            ->all();
+        return app(ChatService::class)->conversationsFor($user);
     }
 
     /**
@@ -164,68 +179,11 @@ class HandleInertiaRequests extends Middleware
      */
     private function usersFor(User $user): array
     {
-        return User::query()
-            ->whereKeyNot($user->id)
-            ->orderBy('name')
-            ->get()
-            ->map(fn (User $other) => $this->userData($other))
-            ->values()
-            ->all();
+        return app(ChatService::class)->usersFor($user);
     }
 
     private function unreadCountFor(User $user): int
     {
-        return ChatMessage::query()
-            ->whereHas('conversation', function ($query) use ($user) {
-                $query->where('user_one_id', $user->id)
-                    ->orWhere('user_two_id', $user->id);
-            })
-            ->where('sender_id', '!=', $user->id)
-            ->whereNull('read_at')
-            ->count();
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function conversationData(ChatConversation $conversation, User $user): array
-    {
-        $conversation->loadMissing(['userOne', 'userTwo']);
-        $otherUser = $conversation->otherUser($user);
-
-        $messages = $conversation->messages;
-        $lastMessage = $messages->first();
-        $unreadCount = $messages
-            ->where('sender_id', '!=', $user->id)
-            ->whereNull('read_at')
-            ->count();
-
-        $lastMessageText = null;
-        if ($lastMessage instanceof ChatMessage) {
-            $lastMessageText = ! empty($lastMessage->body)
-                ? $lastMessage->body
-                : ($lastMessage->attachment_name ? '📎 '.$lastMessage->attachment_name : 'Attachment');
-        }
-
-        return [
-            'id' => $conversation->id,
-            'path' => route('chat.show', $conversation),
-            'other_user' => $otherUser !== null ? $this->userData($otherUser) : null,
-            'last_message' => $lastMessageText,
-            'last_message_at' => $conversation->last_message_at?->diffForHumans(),
-            'unread_count' => $unreadCount,
-        ];
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function userData(User $user): array
-    {
-        return [
-            'id' => $user->id,
-            'name' => $user->name,
-            'email' => $user->email,
-        ];
+        return app(ChatService::class)->unreadCountFor($user);
     }
 }

@@ -25,8 +25,7 @@ class DomainRiskResolver
     {
         $domain = preg_replace('/^www\./', '', strtolower($domain));
 
-        $policy = DomainPolicy::where('domain', $domain)->first()
-            ?? DomainPolicy::whereRaw("? LIKE CONCAT('%.', domain)", [$domain])->first();
+        $policy = self::findPolicy($domain);
 
         if ($policy) {
             return [
@@ -73,6 +72,61 @@ class DomainRiskResolver
             'risk_score' => self::defaultRiskScore(),
             'source' => 'pending',
         ];
+    }
+
+    /**
+     * Find the policy that applies to a domain.
+     *
+     * The exact domain is checked first, then each parent domain, so
+     * "mail.google.com" matches a policy for "google.com".
+     *
+     * The lookup is a set of exact matches against the unique index on the
+     * domain column. A suffix pattern would need a leading wildcard, which
+     * cannot use that index and would scan the whole policy table on every
+     * classification.
+     */
+    public static function findPolicy(string $domain): ?DomainPolicy
+    {
+        $candidates = self::suffixCandidates($domain);
+
+        if ($candidates === []) {
+            return null;
+        }
+
+        $matches = DomainPolicy::whereIn('domain', $candidates)->get()->keyBy('domain');
+
+        // The candidates are ordered most specific first, so the first hit
+        // is the most specific policy that applies.
+        foreach ($candidates as $candidate) {
+            $policy = $matches->get($candidate);
+
+            if ($policy instanceof DomainPolicy) {
+                return $policy;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The domain and each of its parent domains, most specific first.
+     *
+     * The bare top-level domain is left out: a policy for "com" or "co.uk"
+     * would match every site on the internet and is never a real policy.
+     *
+     * @return list<string>
+     */
+    public static function suffixCandidates(string $domain): array
+    {
+        $parts = explode('.', $domain);
+        $candidates = [];
+
+        while (count($parts) > 1) {
+            $candidates[] = implode('.', $parts);
+            array_shift($parts);
+        }
+
+        return $candidates;
     }
 
     public static function riskForCategory(string $category): int

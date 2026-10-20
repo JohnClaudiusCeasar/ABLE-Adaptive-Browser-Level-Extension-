@@ -21,6 +21,7 @@ import type {
 
 const SCROLL_TO_BOTTOM_THRESHOLD = 120;
 const AUTO_LOAD_TOP_THRESHOLD = 40;
+const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
 export function ChatWindow({
     conversation,
@@ -43,7 +44,6 @@ export function ChatWindow({
     const otherUser: ChatUser | null = conversation.other_user;
     const autoLoadRef = useRef(false);
     const initialScrollDoneRef = useRef(false);
-    const prevConversationIdRef = useRef(conversation.id);
     const prevMessagesLengthRef = useRef(0);
     const prevHeightRef = useRef<number>(0);
     const prevScrollTopRef = useRef<number>(0);
@@ -63,14 +63,17 @@ export function ChatWindow({
         currentUserId,
     });
 
-    // Reset initial scroll marker if conversation ID changes
-    if (prevConversationIdRef.current !== conversation.id) {
-        prevConversationIdRef.current = conversation.id;
+    // Reset the scroll markers when the conversation changes.
+    //
+    // This is an effect rather than a render-time reset because refs must
+    // not be written during render. It is declared before the scroll effect
+    // below so the markers are reset before that effect reads them.
+    useEffect(() => {
         initialScrollDoneRef.current = false;
         prevHeightRef.current = 0;
         prevScrollTopRef.current = 0;
         prevMessagesLengthRef.current = 0;
-    }
+    }, [conversation.id]);
 
     // Subscribe to real-time messages on this conversation.
     useEffect(() => {
@@ -174,29 +177,28 @@ export function ChatWindow({
         return () => scrollEl.removeEventListener('scroll', onScroll);
     }, [hasMore, loadingMore, loadMore]);
 
-    const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
-
     const groupedMessages = useMemo(() => {
+        const grouped: { message: ChatMessageData; showDivider: boolean }[] =
+            [];
         let windowStartTime = 0;
 
-        return messages.map((message, index) => {
+        for (let index = 0; index < messages.length; index++) {
+            const message = messages[index];
             const msgTime = new Date(message.created_at).getTime();
-            let showDivider = false;
 
-            if (
+            const showDivider =
                 index === 0 ||
                 !windowStartTime ||
-                msgTime - windowStartTime >= TWENTY_FOUR_HOURS_MS
-            ) {
-                showDivider = true;
+                msgTime - windowStartTime >= TWENTY_FOUR_HOURS_MS;
+
+            if (showDivider) {
                 windowStartTime = msgTime;
             }
 
-            return {
-                message,
-                showDivider,
-            };
-        });
+            grouped.push({ message, showDivider });
+        }
+
+        return grouped;
     }, [messages]);
 
     function onSend(body: string, attachment?: File | null) {

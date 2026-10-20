@@ -6,6 +6,7 @@ use App\Models\CriteriaPatternItem;
 use App\Models\EgressEvent;
 use App\Models\RiskPattern;
 use App\Rules\CompilableRegex;
+use App\Services\RiskPatternRepository;
 use App\Support\JsCanonical;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -94,50 +95,52 @@ class RiskPatternController extends Controller
 
         EgressEvent::query()
             ->whereNotNull('flagged_items')
-            ->get(['flagged_items'])
-            ->each(function (EgressEvent $event) use (&$flagCounts, $cardIdByTitle, $membersByCard, $singleTitleSet): void {
-                /** @var array<int, mixed> $items */
-                $items = is_array($event->flagged_items) ? $event->flagged_items : [];
+            ->orderBy('id')
+            ->chunkById(500, function ($events) use (&$flagCounts, $cardIdByTitle, $membersByCard, $singleTitleSet): void {
+                $events->each(function (EgressEvent $event) use (&$flagCounts, $cardIdByTitle, $membersByCard, $singleTitleSet): void {
+                    /** @var array<int, mixed> $items */
+                    $items = is_array($event->flagged_items) ? $event->flagged_items : [];
 
-                $labels = [];
-                foreach ($items as $item) {
-                    $label = is_array($item) ? ($item['label'] ?? null) : null;
+                    $labels = [];
+                    foreach ($items as $item) {
+                        $label = is_array($item) ? ($item['label'] ?? null) : null;
 
-                    if (is_string($label) && $label !== '') {
-                        $labels[$label] = true;
-                    }
-                }
-
-                if ($labels === []) {
-                    return;
-                }
-
-                // Non-pattern labels (e.g. Domain Risk) keep a plain per-upload count.
-                foreach ($labels as $label => $_) {
-                    if (! isset($singleTitleSet[$label]) && ! isset($cardIdByTitle[$label])) {
-                        $flagCounts[$label] = ($flagCounts[$label] ?? 0) + 1;
-                    }
-                }
-
-                // Single rows: union of direct hits and parent-card membership,
-                // counted once per upload even if several cards claim the file
-                // or the regex matched it repeatedly.
-                $attributed = [];
-                foreach ($labels as $label => $_) {
-                    if (isset($singleTitleSet[$label])) {
-                        $attributed[$label] = true;
-                    }
-
-                    if (isset($cardIdByTitle[$label])) {
-                        foreach ($membersByCard[$cardIdByTitle[$label]] ?? [] as $memberTitle) {
-                            $attributed[$memberTitle] = true;
+                        if (is_string($label) && $label !== '') {
+                            $labels[$label] = true;
                         }
                     }
-                }
 
-                foreach ($attributed as $title => $_) {
-                    $flagCounts[$title] = ($flagCounts[$title] ?? 0) + 1;
-                }
+                    if ($labels === []) {
+                        return;
+                    }
+
+                    // Non-pattern labels (e.g. Domain Risk) keep a plain per-upload count.
+                    foreach ($labels as $label => $_) {
+                        if (! isset($singleTitleSet[$label]) && ! isset($cardIdByTitle[$label])) {
+                            $flagCounts[$label] = ($flagCounts[$label] ?? 0) + 1;
+                        }
+                    }
+
+                    // Single rows: union of direct hits and parent-card membership,
+                    // counted once per upload even if several cards claim the file
+                    // or the regex matched it repeatedly.
+                    $attributed = [];
+                    foreach ($labels as $label => $_) {
+                        if (isset($singleTitleSet[$label])) {
+                            $attributed[$label] = true;
+                        }
+
+                        if (isset($cardIdByTitle[$label])) {
+                            foreach ($membersByCard[$cardIdByTitle[$label]] ?? [] as $memberTitle) {
+                                $attributed[$memberTitle] = true;
+                            }
+                        }
+                    }
+
+                    foreach ($attributed as $title => $_) {
+                        $flagCounts[$title] = ($flagCounts[$title] ?? 0) + 1;
+                    }
+                });
             });
 
         return $flagCounts;
@@ -163,16 +166,25 @@ class RiskPatternController extends Controller
             ->groupBy('action')
             ->pluck('count', 'action');
 
-        $topFlagged = EgressEvent::whereNotNull('flagged_items')
+        // Counted in the database-sized batches rather than collected in one
+        // array, so a busy day of uploads does not have to fit in memory.
+        $labelCounts = [];
+
+        EgressEvent::whereNotNull('flagged_items')
             ->where('occurred_at', '>=', $since)
-            ->get(['flagged_items'])
-            ->flatMap(function ($event) {
-                return (array) $event->flagged_items;
-            })
-            ->groupBy('label')
-            ->map(function ($items) {
-                return count($items);
-            })
+            ->orderBy('id')
+            ->chunkById(500, function ($events) use (&$labelCounts): void {
+                foreach ($events as $event) {
+                    foreach ((array) $event->flagged_items as $item) {
+                        $label = data_get($item, 'label');
+                        $key = is_string($label) ? $label : '';
+
+                        $labelCounts[$key] = ($labelCounts[$key] ?? 0) + 1;
+                    }
+                }
+            });
+
+        $topFlagged = collect($labelCounts)
             ->sortDesc()
             ->take(10)
             ->toArray();
@@ -441,25 +453,18 @@ class RiskPatternController extends Controller
 
     public function all(): JsonResponse
     {
-        $patterns = RiskPattern::with('criteriaPatternItems')
-            ->orderByRaw("CASE priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END")
-            ->get();
+        $patterns = app(RiskPatternRepository::class)->orderedCorpus();
 
         return response()->json([
             'patterns' => $patterns,
-            'count' => $patterns->count(),
+            'count' => count($patterns),
         ]);
     }
 
     public function signed(): JsonResponse
     {
-        $patterns = RiskPattern::with('criteriaPatternItems')
-            ->orderByRaw("CASE priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END")
-            ->get()
-            ->toArray();
-
         $payload = [
-            'patterns' => $patterns,
+            'patterns' => app(RiskPatternRepository::class)->orderedCorpus(),
             'issued_at' => now()->timestamp,
         ];
 
@@ -468,12 +473,9 @@ class RiskPatternController extends Controller
             abort(500, 'ABLE signing key not configured');
         }
 
-        $payloadJson = JsCanonical::encode($payload);
-        $signature = JsCanonical::sign($payload, $key);
-
         return response()->json([
             'payload' => $payload,
-            'signature' => $signature,
+            'signature' => JsCanonical::sign($payload, $key),
             'key_version' => (int) config('able.signing_key_version', 1),
         ]);
     }

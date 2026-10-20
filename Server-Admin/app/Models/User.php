@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Carbon\CarbonImmutable;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -18,12 +19,12 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property int $id
  * @property string $name
  * @property string $email
- * @property Carbon|null $email_verified_at
- * @property Carbon|null $profile_last_updated_at
+ * @property CarbonImmutable|null $email_verified_at
+ * @property CarbonImmutable|null $profile_last_updated_at
  * @property string $password
  * @property string|null $two_factor_secret
  * @property string|null $two_factor_recovery_codes
- * @property Carbon|null $two_factor_confirmed_at
+ * @property CarbonImmutable|null $two_factor_confirmed_at
  * @property string|null $role
  * @property bool $is_blocked
  * @property Carbon|null $created_at
@@ -44,10 +45,10 @@ class User extends Authenticatable implements PasskeyUser
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
-            'profile_last_updated_at' => 'datetime',
+            'email_verified_at' => 'immutable_datetime',
+            'profile_last_updated_at' => 'immutable_datetime',
             'password' => 'hashed',
-            'two_factor_confirmed_at' => 'datetime',
+            'two_factor_confirmed_at' => 'immutable_datetime',
             'is_blocked' => 'boolean',
         ];
     }

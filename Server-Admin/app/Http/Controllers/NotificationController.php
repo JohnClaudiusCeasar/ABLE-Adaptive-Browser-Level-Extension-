@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Concerns\BoundsAdminRows;
 use App\Models\Notification;
 use App\Services\SyncNotifications;
 use Illuminate\Http\RedirectResponse;
@@ -11,6 +12,8 @@ use Inertia\Response;
 
 class NotificationController extends Controller
 {
+    use BoundsAdminRows;
+
     /**
      * Display the Notifications page with live data.
      */
@@ -18,7 +21,10 @@ class NotificationController extends Controller
     {
         (new SyncNotifications)->sync();
 
+        $limit = $this->rowLimit();
+
         $notifications = Notification::orderByDesc('occurred_at')
+            ->limit($limit)
             ->get()
             ->map(function (Notification $notification) {
                 $unread = $notification->read_at === null;
@@ -53,6 +59,8 @@ class NotificationController extends Controller
         return Inertia::render('notifications', [
             'notifications' => $notifications,
             'unreadCount' => $notifications->where('unread', true)->count(),
+            'truncated' => $notifications->count() >= $limit,
+            'rowLimit' => $limit,
         ]);
     }
 

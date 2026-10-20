@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
 /**
@@ -47,6 +48,19 @@ class ChatConversation extends Model
     public function messages(): HasMany
     {
         return $this->hasMany(ChatMessage::class, 'conversation_id');
+    }
+
+    /**
+     * The newest message in the conversation.
+     *
+     * The conversation list only shows the latest message, so it loads this
+     * relation instead of the whole message history.
+     *
+     * @return HasOne<ChatMessage, $this>
+     */
+    public function latestMessage(): HasOne
+    {
+        return $this->hasOne(ChatMessage::class, 'conversation_id')->latestOfMany();
     }
 
     /**

@@ -2,19 +2,25 @@
 
 namespace App\Http\Controllers;
 
+use App\Concerns\BoundsAdminRows;
 use App\Models\DomainVisit;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class DomainVisitController extends Controller
 {
+    use BoundsAdminRows;
+
     /**
      * Display the Domain Visits page with live data.
      */
     public function index(): Response
     {
+        $limit = $this->rowLimit();
+
         $domainVisits = DomainVisit::with('domainPolicy')
             ->orderByDesc('visited_at')
+            ->limit($limit)
             ->get()
             ->map(function (DomainVisit $visit) {
                 return [
@@ -28,6 +34,8 @@ class DomainVisitController extends Controller
 
         return Inertia::render('domain-visits', [
             'domainVisits' => $domainVisits,
+            'truncated' => $domainVisits->count() >= $limit,
+            'rowLimit' => $limit,
         ]);
     }
 }

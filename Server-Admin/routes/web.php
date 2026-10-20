@@ -6,6 +6,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DashboardReportController;
 use App\Http\Controllers\DomainPolicyController;
 use App\Http\Controllers\DomainVisitController;
+use App\Http\Controllers\EgressEventController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\RiskPatternController;
 use App\Http\Controllers\SecurityAnalyticsController;
@@ -26,16 +27,18 @@ Route::get('/', function (Request $request) {
     }
 
     try {
+        // The container entrypoint migrates and seeds the database before
+        // Apache starts, so this is only a fallback for a database that has
+        // not been migrated yet. The landing page must still render when the
+        // database is not reachable, so a failure is not fatal.
         if (! Schema::hasTable('community_messages')) {
             Artisan::call('app:baseline-migrations');
             Artisan::call('migrate', ['--force' => true]);
             Artisan::call('app:bootstrap-superadmin');
-            if (Schema::hasTable('community_messages')) {
-                Artisan::call('db:seed', [
-                    '--class' => 'CommunityMessageSeeder',
-                    '--force' => true,
-                ]);
-            }
+            Artisan::call('db:seed', [
+                '--class' => 'CommunityMessageSeeder',
+                '--force' => true,
+            ]);
         }
 
         $messages = CommunityMessage::publicFeed()
@@ -86,6 +89,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::middleware('module:analytics')->group(function () {
         Route::get('egress-logs', fn () => redirect()->route('security-analytics.egress-incidents'))->name('egress-logs');
+        // Deleting egress events is an administrative action, so it lives
+        // behind the authenticated admin group rather than the public API.
+        Route::delete('egress-events/{egressEvent}', [EgressEventController::class, 'destroy'])
+            ->middleware('throttle:60,1')
+            ->name('egress-events.destroy');
+        Route::delete('egress-events', [EgressEventController::class, 'destroyAll'])
+            ->middleware('throttle:10,1')
+            ->name('egress-events.destroy-all');
         Route::get('domain-visits', [DomainVisitController::class, 'index'])->name('domain-visits');
         Route::get('security-analytics', [SecurityAnalyticsController::class, 'index'])->name('security-analytics');
         Route::get('shadow-analytics', [SecurityAnalyticsController::class, 'index'])->name('shadow-analytics');
@@ -141,6 +152,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('module:chat')->group(function () {
         Route::get('chat', [ChatController::class, 'index'])->name('chat.index');
         Route::get('chat/unread-count', [ChatController::class, 'unreadCount'])->name('chat.unread-count');
+        Route::get('chat/users', [ChatController::class, 'users'])->name('chat.users');
         Route::post('chat/read-all', [ChatController::class, 'markAllAsRead'])->name('chat.read-all');
         Route::get('chat/{conversation}', [ChatController::class, 'show'])->name('chat.show');
         Route::get('chat/{conversation}/messages', [ChatController::class, 'indexMessages'])->name('chat.messages.index');

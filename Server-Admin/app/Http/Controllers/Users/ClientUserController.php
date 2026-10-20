@@ -12,6 +12,7 @@ use Carbon\CarbonInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -23,15 +24,30 @@ class ClientUserController extends Controller
      */
     public function index(): Response
     {
-        // Gather unique user IDs across all telemetry and lifecycle tables
-        $lifecycleUsers = ExtensionLifecycle::whereNotNull('user_id')->distinct()->pluck('user_id');
-        $visitUsers = DomainVisit::whereNotNull('user_id')->distinct()->pluck('user_id');
-        $egressUsers = EgressEvent::whereNotNull('user_id')->distinct()->pluck('user_id');
-
-        $allUserIds = $lifecycleUsers
-            ->merge($visitUsers)
-            ->merge($egressUsers)
-            ->unique()
+        // Gather unique user IDs across all telemetry and lifecycle tables.
+        //
+        // This is one query rather than three: each of those tables is a
+        // DISTINCT scan over the whole telemetry history, and the three of
+        // them together were the most expensive part of this page.
+        $allUserIds = DB::query()
+            ->fromSub(
+                DB::table('extension_lifecycles')
+                    ->whereNotNull('user_id')
+                    ->select('user_id')
+                    ->union(
+                        DB::table('domain_visits')
+                            ->whereNotNull('user_id')
+                            ->select('user_id')
+                    )
+                    ->union(
+                        DB::table('egress_events')
+                            ->whereNotNull('user_id')
+                            ->select('user_id')
+                    ),
+                'client_users'
+            )
+            ->distinct()
+            ->pluck('user_id')
             ->values();
 
         $thirtyDaysAgo = now()->subDays(30);
@@ -171,6 +187,7 @@ class ClientUserController extends Controller
      */
     private function resolveTelemetry(string $userId, CarbonInterface $from, CarbonInterface $to, int $limit): array
     {
+        /** @var Collection<string, object{d: string, visits: int|string, safe: int|string, unsafe: int|string, unlisted: int|string, domains: int|string}> $visitRows */
         $visitRows = DomainVisit::where('user_id', $userId)
             ->whereBetween('visited_at', [$from, $to])
             ->selectRaw("DATE(visited_at) as d, COUNT(*) as visits, SUM(CASE WHEN status = 'safe' THEN 1 ELSE 0 END) as safe, SUM(CASE WHEN status = 'unsafe' THEN 1 ELSE 0 END) as unsafe, SUM(CASE WHEN status NOT IN ('safe', 'unsafe') THEN 1 ELSE 0 END) as unlisted, COUNT(DISTINCT domain) as domains")
@@ -178,6 +195,7 @@ class ClientUserController extends Controller
             ->get()
             ->keyBy('d');
 
+        /** @var Collection<string, object{d: string, egress: int|string, denied: int|string, proceeded: int|string, allowed: int|string, blocked: int|string, avg_risk: float|int|string|null, max_risk: int|string|null}> $egressRows */
         $egressRows = EgressEvent::where('user_id', $userId)
             ->whereBetween('occurred_at', [$from, $to])
             ->selectRaw("DATE(occurred_at) as d, COUNT(*) as egress, SUM(CASE WHEN action = 'denied' THEN 1 ELSE 0 END) as denied, SUM(CASE WHEN action = 'proceeded' THEN 1 ELSE 0 END) as proceeded, SUM(CASE WHEN action = 'allowed' THEN 1 ELSE 0 END) as allowed, SUM(CASE WHEN action = 'blocked' THEN 1 ELSE 0 END) as blocked, AVG(risk_score) as avg_risk, MAX(risk_score) as max_risk")
@@ -185,6 +203,7 @@ class ClientUserController extends Controller
             ->get()
             ->keyBy('d');
 
+        /** @var Collection<string, object{d: string, cancelled: int|string, proceeded: int|string}> $nudgeRows */
         $nudgeRows = NudgeInteraction::where('user_id', $userId)
             ->whereBetween('interacted_at', [$from, $to])
             ->selectRaw("DATE(interacted_at) as d, SUM(CASE WHEN user_action = 'cancelled' THEN 1 ELSE 0 END) as cancelled, SUM(CASE WHEN user_action = 'proceeded' THEN 1 ELSE 0 END) as proceeded")
@@ -222,16 +241,19 @@ class ClientUserController extends Controller
             ];
         }
 
+        /** @var object{visits: int|string, domains: int|string}|null $visitTotals */
         $visitTotals = DomainVisit::where('user_id', $userId)
             ->whereBetween('visited_at', [$from, $to])
             ->selectRaw('COUNT(*) as visits, COUNT(DISTINCT domain) as domains')
             ->first();
 
+        /** @var object{egress: int|string, avg_risk: float|int|string|null, max_risk: int|string|null, high_risk: int|string}|null $egressTotals */
         $egressTotals = EgressEvent::where('user_id', $userId)
             ->whereBetween('occurred_at', [$from, $to])
             ->selectRaw('COUNT(*) as egress, AVG(risk_score) as avg_risk, MAX(risk_score) as max_risk, SUM(CASE WHEN risk_score >= 70 THEN 1 ELSE 0 END) as high_risk')
             ->first();
 
+        /** @var Collection<int, object{domain: string, visits: int|string}> $topVisits */
         $topVisits = DomainVisit::where('user_id', $userId)
             ->whereBetween('visited_at', [$from, $to])
             ->selectRaw('domain, COUNT(*) as visits')
@@ -240,6 +262,7 @@ class ClientUserController extends Controller
             ->limit(5)
             ->get();
 
+        /** @var Collection<string, object{domain: string, egress: int|string, avg_risk: float|int|string|null}> $topEgress */
         $topEgress = EgressEvent::where('user_id', $userId)
             ->whereBetween('occurred_at', [$from, $to])
             ->selectRaw('domain, COUNT(*) as egress, AVG(risk_score) as avg_risk')
@@ -272,7 +295,8 @@ class ClientUserController extends Controller
 
         $totalCategorized = DomainPolicy::whereIn('domain', $userVisitedDomains)->count();
 
-        $categoryDistribution = DomainPolicy::whereIn('domain', $userVisitedDomains)
+        /** @var Collection<int, object{category_name: string, count: int|string, avg_risk: int|string|null}> $categoryRows */
+        $categoryRows = DomainPolicy::whereIn('domain', $userVisitedDomains)
             ->select(
                 DB::raw("COALESCE(NULLIF(category, ''), 'General Cloud') as category_name"),
                 DB::raw('COUNT(*) as count'),
@@ -281,13 +305,14 @@ class ClientUserController extends Controller
             ->groupByRaw("COALESCE(NULLIF(category, ''), 'General Cloud')")
             ->orderByDesc('count')
             ->limit(5)
-            ->get()
-            ->map(fn ($row) => [
-                'category' => $row->category_name,
-                'count' => (int) $row->count,
-                'percentage' => $totalCategorized > 0 ? round(((int) $row->count / $totalCategorized) * 100) : 0,
-                'avgRisk' => (int) $row->avg_risk,
-            ]);
+            ->get();
+
+        $categoryDistribution = $categoryRows->map(fn ($row) => [
+            'category' => $row->category_name,
+            'count' => (int) $row->count,
+            'percentage' => $totalCategorized > 0 ? round(((int) $row->count / $totalCategorized) * 100) : 0,
+            'avgRisk' => (int) $row->avg_risk,
+        ]);
 
         return [
             'profile' => $this->resolveProfile($userId),
@@ -324,18 +349,20 @@ class ClientUserController extends Controller
         $uninstalledEvent = $userLifecycles->where('event', 'uninstalled')->last();
         $latestLifecycle = $userLifecycles->last();
 
+        /** @var object{total: int|string, last_visited: string|null, first_visited: string|null}|null $visitStat */
         $visitStat = DB::table('domain_visits')->where('user_id', $userId)
             ->selectRaw('count(*) as total, max(visited_at) as last_visited, min(visited_at) as first_visited')
             ->first();
 
+        /** @var object{total: int|string, last_egress: string|null, first_egress: string|null}|null $egressStat */
         $egressStat = DB::table('egress_events')->where('user_id', $userId)
             ->selectRaw('count(*) as total, max(occurred_at) as last_egress, min(occurred_at) as first_egress')
             ->first();
 
-        $registeredAt = $installedEvent?->occurred_at
-            ?? $userLifecycles->first()?->occurred_at
-            ?? $visitStat?->first_visited
-            ?? $egressStat?->first_egress
+        $registeredAt = $installedEvent->occurred_at
+            ?? $userLifecycles?->first()->occurred_at
+            ?? $visitStat->first_visited
+            ?? $egressStat->first_egress
             ?? now();
 
         $dates = array_filter([
@@ -354,7 +381,7 @@ class ClientUserController extends Controller
             'registered_at' => $registeredAt ? (string) $registeredAt : null,
             'last_active_at' => $lastActiveAt ? (string) $lastActiveAt : null,
             'status' => $isActive ? 'active' : ($isUninstalled ? 'uninstalled' : 'inactive'),
-            'version' => $latestLifecycle?->version ?? 'v1.0.0',
+            'version' => $latestLifecycle->version ?? 'v1.0.0',
             'total_visits' => (int) ($visitStat->total ?? 0),
             'total_egress' => (int) ($egressStat->total ?? 0),
         ];

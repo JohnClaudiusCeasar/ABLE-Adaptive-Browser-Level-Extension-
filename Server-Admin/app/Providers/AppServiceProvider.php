@@ -8,6 +8,8 @@ use App\Models\CriteriaPatternItem;
 use App\Models\DomainPolicy;
 use App\Models\RiskPattern;
 use App\Observers\AuditLogObserver;
+use App\Observers\DomainPolicyCacheObserver;
+use App\Observers\RiskPatternCacheObserver;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
@@ -50,6 +52,16 @@ class AppServiceProvider extends ServiceProvider
         RiskPattern::observe(AuditLogObserver::class);
         CriteriaPatternItem::observe(AuditLogObserver::class);
         AbleSetting::observe(AuditLogObserver::class);
+
+        // The cached pattern corpus must never outlive a write to a pattern
+        // or a criteria item, otherwise the scoring engine keeps scoring
+        // uploads against the previous pattern set.
+        RiskPattern::observe(RiskPatternCacheObserver::class);
+        CriteriaPatternItem::observe(RiskPatternCacheObserver::class);
+
+        // The signed policy feed is rebuilt whenever a policy changes in a
+        // way the extension can see.
+        DomainPolicy::observe(DomainPolicyCacheObserver::class);
     }
 
     /**

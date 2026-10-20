@@ -12,6 +12,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -73,13 +74,17 @@ class DashboardReportController extends Controller
         $paperSize = $request->input('paperSize', 'a4');
         $orientation = $request->input('orientation', 'portrait');
 
+        // The options are merged with the configured ones, so the published
+        // config/dompdf.php settings (no remote resources, font subsetting)
+        // still apply. Replacing them outright would put dompdf back into
+        // fetching remote fonts and embedding them whole.
         $pdf = Pdf::loadView('reports.dashboard', $data)
             ->setPaper($paperSize, $orientation)
             ->setOptions([
                 'defaultFont' => 'Helvetica',
-                'isRemoteEnabled' => true,
+                'isRemoteEnabled' => false,
                 'isHtml5ParserEnabled' => true,
-            ]);
+            ], mergeWithDefaults: true);
 
         return $pdf->download('able-security-report-'.now($timezone)->format('Y-m-d').'.pdf');
     }
@@ -108,6 +113,23 @@ class DashboardReportController extends Controller
     protected function getComprehensiveReportData(?string $timezone = null): array
     {
         $tz = $timezone ?: config('app.timezone', 'Asia/Manila');
+
+        // The report runs around sixty aggregate queries over the telemetry
+        // tables. It is a point-in-time view of historical data, so it is
+        // cached briefly: the preview page and the PDF export then read the
+        // same snapshot instead of each rebuilding it from scratch.
+        return Cache::remember(
+            'able:report:comprehensive:'.md5($tz),
+            now()->addMinutes(5),
+            fn (): array => $this->buildComprehensiveReportData($tz),
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function buildComprehensiveReportData(string $tz): array
+    {
         $baseData = $this->getReportData();
 
         // 1.1 Shadow Activity (Daily, Weekly, Monthly, Yearly)
@@ -485,6 +507,20 @@ class DashboardReportController extends Controller
      * @return array<string, mixed>
      */
     protected function getReportData(): array
+    {
+        // Cached for the same reason as the comprehensive report: these are
+        // the same aggregates over the same telemetry tables.
+        return Cache::remember(
+            'able:report:base',
+            now()->addMinutes(5),
+            fn (): array => $this->buildReportData(),
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function buildReportData(): array
     {
         // Active Extension Users
         $thirtyDaysAgo = now()->subDays(30);

@@ -38,10 +38,16 @@ return [
             'database' => env('DB_DATABASE', database_path('database.sqlite')),
             'prefix' => '',
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
-            'busy_timeout' => null,
-            'journal_mode' => null,
-            'synchronous' => null,
-            'transaction_mode' => 'DEFERRED',
+            // These must not be null: the connector skips the pragma when the
+            // key is missing or null, which would leave SQLite without a busy
+            // handler and with the rollback journal, so a concurrent write
+            // fails immediately with "database is locked" instead of waiting.
+            'busy_timeout' => (int) env('DB_BUSY_TIMEOUT', 5000),
+            'journal_mode' => env('DB_JOURNAL_MODE', 'WAL'),
+            'synchronous' => env('DB_SYNCHRONOUS', 'NORMAL'),
+            // IMMEDIATE takes the write lock when the transaction starts, so a
+            // transaction that reads and then writes cannot fail to upgrade.
+            'transaction_mode' => 'IMMEDIATE',
         ],
 
         'mysql' => [
@@ -78,7 +84,9 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'strict' => true,
-            'engine' => null,
+            // InnoDB, so the engine supports the transactions the purge and
+            // the write paths rely on.
+            'engine' => 'InnoDB',
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],

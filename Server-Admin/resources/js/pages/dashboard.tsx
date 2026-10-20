@@ -1,5 +1,4 @@
 import { Head, Link } from '@inertiajs/react';
-import { useState } from 'react';
 import {
     Users,
     UserMinus,
@@ -8,10 +7,9 @@ import {
     Ghost,
     ArrowUpFromLine,
 } from 'lucide-react';
-import {
-    ActiveShadowAppsModal,
-    type ActiveShadowApp,
-} from '@/components/dashboard/active-shadow-apps-modal';
+import { useState } from 'react';
+import { ActiveShadowAppsModal } from '@/components/dashboard/active-shadow-apps-modal';
+import type { ActiveShadowApp } from '@/components/dashboard/active-shadow-apps-modal';
 import { DonutGauge } from '@/components/dashboard/donut-gauge';
 import { GroupedBarChart } from '@/components/dashboard/grouped-bar-chart';
 import { PanelCard } from '@/components/dashboard/panel-card';

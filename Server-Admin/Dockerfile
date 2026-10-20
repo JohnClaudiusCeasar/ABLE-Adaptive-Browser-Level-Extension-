@@ -71,14 +71,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Enable Apache modules and harden security headers
-RUN a2enmod rewrite headers \
+RUN a2enmod rewrite headers deflate \
     && sed -ri -e 's!^ServerTokens .*!ServerTokens Prod!' /etc/apache2/conf-available/security.conf \
     && sed -ri -e 's!^ServerSignature .*!ServerSignature Off!' /etc/apache2/conf-available/security.conf \
     && a2enconf security \
     && echo "expose_php = Off" > /usr/local/etc/php/conf.d/disable-expose-php.ini
 
-# Copy Apache config and entrypoint script
+# Copy Apache config, performance tuning and entrypoint script.
+# apache-performance.conf installs into conf-enabled, which Debian's
+# apache2.conf includes after its own MPM block, so the worker limits
+# there override the stock MaxRequestWorkers 150.
 COPY docker/apache.conf /etc/apache2/sites-available/000-default.conf
+COPY docker/apache-performance.conf /etc/apache2/conf-enabled/zz-able-performance.conf
+COPY docker/php.ini /usr/local/etc/php/php.ini
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 

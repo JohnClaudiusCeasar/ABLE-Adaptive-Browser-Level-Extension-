@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { TablePagination } from '@/components/pagination';
+import { RowLimitNotice } from '@/components/row-limit-notice';
 import { Badge } from '@/components/ui/badge';
 import { formatMetricNumber } from '@/lib/utils';
 
@@ -33,6 +34,8 @@ interface ShadowCatalogItem {
 interface ShadowAppsProps {
     shadowCatalog: ShadowCatalogItem[];
     scoped_user: string | null;
+    truncated?: boolean;
+    rowLimit?: number;
 }
 
 function getRiskScoreBadgeClass(score: number): string {
@@ -66,6 +69,8 @@ const ROWS_PER_PAGE = 10;
 export default function ShadowApps({
     shadowCatalog,
     scoped_user,
+    truncated,
+    rowLimit,
 }: ShadowAppsProps) {
     const isScoped = scoped_user !== null;
     const [searchQuery, setSearchQuery] = useState('');
@@ -131,13 +136,7 @@ export default function ShadowApps({
         });
 
         return items;
-    }, [
-        shadowCatalog,
-        searchQuery,
-        selectedCategory,
-        sortOption,
-        isScoped,
-    ]);
+    }, [shadowCatalog, searchQuery, selectedCategory, sortOption, isScoped]);
 
     const totalPages = Math.max(
         1,
@@ -186,6 +185,8 @@ export default function ShadowApps({
                             </p>
                         </div>
                     </div>
+
+                    <RowLimitNotice truncated={truncated} limit={rowLimit} />
                 </header>
 
                 {/* Main Table Card */}
@@ -387,10 +388,9 @@ export default function ShadowApps({
                                             </td>
                                             <td
                                                 className="py-3.5 pr-2.5 text-foreground tabular-nums"
-                                                title={(
-                                                    isScoped
-                                                        ? row.user_incidents
-                                                        : row.visit_count
+                                                title={(isScoped
+                                                    ? row.user_incidents
+                                                    : row.visit_count
                                                 ).toLocaleString()}
                                             >
                                                 {formatMetricNumber(

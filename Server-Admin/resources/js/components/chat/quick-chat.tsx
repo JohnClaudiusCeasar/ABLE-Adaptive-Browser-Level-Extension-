@@ -34,7 +34,7 @@ import type { ChatConversationData, ChatUser } from '@/types/chat';
 
 type QuickChatProps = {
     conversations?: ChatConversationData[];
-    users: ChatUser[];
+    users?: ChatUser[];
     unreadCount: number;
 };
 
@@ -47,7 +47,12 @@ interface PageProps {
 export function QuickChat() {
     const { auth, chat } = usePage<PageProps>().props;
     const currentUserId = auth.user?.id;
-    const users = chat?.users ?? [];
+
+    // The user list is no longer shared with every page, so it is fetched
+    // the first time the widget actually needs it.
+    const [availableUsers, setAvailableUsers] = useState<ChatUser[]>(
+        chat?.users ?? [],
+    );
 
     const {
         quickChatOpen,
@@ -63,6 +68,34 @@ export function QuickChat() {
     const [passwordError, setPasswordError] = useState<string | null>(null);
 
     const initialSyncedRef = useRef(false);
+    const usersRequestedRef = useRef(false);
+
+    // Load the user list on demand, once the widget is open and unlocked.
+    useEffect(() => {
+        if (!quickChatOpen || !isAuthenticated) {
+            return;
+        }
+
+        if (availableUsers.length > 0 || usersRequestedRef.current) {
+            return;
+        }
+
+        usersRequestedRef.current = true;
+
+        fetch('/chat/users', {
+            headers: { Accept: 'application/json' },
+        })
+            .then((res) => (res.ok ? res.json() : null))
+            .then((data) => {
+                if (Array.isArray(data?.users)) {
+                    setAvailableUsers(data.users);
+                }
+            })
+            .catch(() => {
+                // Allow a retry the next time the widget is opened.
+                usersRequestedRef.current = false;
+            });
+    }, [quickChatOpen, isAuthenticated, availableUsers.length]);
 
     // Sync initial unread count once on mount from server props (if quick chat is closed)
     useEffect(() => {
@@ -351,7 +384,7 @@ export function QuickChat() {
                                     All Users
                                 </div>
                                 <UserList
-                                    users={users}
+                                    users={availableUsers}
                                     onSelect={startConversation}
                                 />
                             </div>

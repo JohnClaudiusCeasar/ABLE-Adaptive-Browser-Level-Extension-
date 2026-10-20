@@ -2,6 +2,7 @@ import { Head, Link } from '@inertiajs/react';
 import { ArrowLeft, ArrowUpDown, Eye, Search } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { TablePagination } from '@/components/pagination';
+import { RowLimitNotice } from '@/components/row-limit-notice';
 import {
     Dialog,
     DialogContent,
@@ -34,6 +35,8 @@ interface RecentShadowEgressItem {
 
 interface EgressIncidentsProps {
     recentShadowEgress: RecentShadowEgressItem[];
+    truncated?: boolean;
+    rowLimit?: number;
 }
 
 function getRiskScoreBadgeClass(score: number): string {
@@ -70,6 +73,8 @@ const ROWS_PER_PAGE = 10;
 
 export default function EgressIncidents({
     recentShadowEgress,
+    truncated,
+    rowLimit,
 }: EgressIncidentsProps) {
     const [searchQuery, setSearchQuery] = useState('');
     const [sortOption, setSortOption] = useState<
@@ -154,6 +159,8 @@ export default function EgressIncidents({
                             </p>
                         </div>
                     </div>
+
+                    <RowLimitNotice truncated={truncated} limit={rowLimit} />
                 </header>
 
                 {/* Main Table Card */}
