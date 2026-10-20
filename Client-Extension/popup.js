@@ -372,34 +372,36 @@ async function refreshSyncWarning() {
 }
 
 /**
- * Surface a persistent warning when an asset failed its integrity check
- * (see security.js noteIntegrityFailure). A mismatch means the extension is
- * running with reduced protection, so it must not stay silent.
+ * Surface a warning when an asset fails its integrity check.
+ *
+ * The check is re-run on demand rather than remembered, so nothing is
+ * written to storage and the answer always reflects the current file.
  */
 async function refreshIntegrityWarning() {
   const warning = document.getElementById("integrityWarning");
   const warningText = document.getElementById("integrityWarningText");
-  if (!warning || !warningText || typeof ABLEStorage === "undefined") return;
+  if (!warning || !warningText) return;
 
   try {
-    const result = await chrome.storage.local.get(ABLEStorage.INTEGRITY_FAILURE);
-    const failures = result[ABLEStorage.INTEGRITY_FAILURE];
-
-    if (failures && Object.keys(failures).length > 0) {
-      const parts = Object.keys(failures).map((asset) => {
-        const failure = failures[asset];
-        const when = new Date(failure.last_failed_at || Date.now()).toLocaleString();
-        return `${asset} (${failure.count || "?"} failed checks, last: ${when})`;
-      });
-      warningText.textContent =
-        "An extension asset no longer matches its expected hash: " +
-        parts.join(", ") +
-        ". Upload interception is degraded until the extension is reinstalled " +
-        "or the expected hash is regenerated.";
-      warning.hidden = false;
-    } else {
+    const response = await chrome.runtime.sendMessage({ type: "checkIntegrity" });
+    if (!response || !response.success || !Array.isArray(response.results)) {
       warning.hidden = true;
+      return;
     }
+
+    const failed = response.results.filter((result) => !result.ok);
+    if (failed.length === 0) {
+      warning.hidden = true;
+      return;
+    }
+
+    warningText.textContent =
+      "The extension's " +
+      failed.map((result) => result.asset.replace("_", " ")).join(" and ") +
+      " file does not match its expected hash. Upload interception is " +
+      "degraded until the extension is reinstalled or the expected hash is " +
+      "regenerated.";
+    warning.hidden = false;
   } catch {
     warning.hidden = true;
   }

@@ -98,11 +98,15 @@ Self-hosted research server (Server-Admin, Laravel)
 
 ### Asset integrity pins
 
-The page-world scripts under `Client-Extension/inject/` are web-accessible, so the extension
-pins their SHA-256 in `Client-Extension/config.js` (`EXPECTED_INJECT_HASH`,
-`EXPECTED_CONTENT_CSS_HASH`) and refuses to inject an asset that does not match. A mismatch
-means upload interception is degraded, so it is reported in the toolbar popup rather than
-silently ignored.
+The page-world scripts under `Client-Extension/inject/` and `core/synthetic-names.js` are
+web-accessible, so a hostile page can reach them. The extension pins their SHA-256 in
+`Client-Extension/config.js` and refuses to inject an asset that does not match. Every
+executable web-accessible resource is covered — `npm run verify` fails if one is ever
+added to `manifest.json` without a pin.
+
+A mismatch means upload interception is degraded, so the toolbar popup re-runs the check
+when it opens and shows a warning. The result is recomputed on demand rather than
+remembered, so nothing is written to `chrome.storage` to track it.
 
 Pins are regenerated automatically — you never have to copy a hex digest by hand:
 
@@ -117,7 +121,9 @@ The last row is what lets an **already-installed** extension adopt the pin of a 
 without users reinstalling. The server signs the pin, and the extension only accepts a pin
 that arrives with a valid signature, so publishing a pin cannot be used to make a tampered
 asset pass the check. An asset is accepted when it matches the build-time pin **or** the
-signed server pin — a tampered asset matches neither.
+signed server pin — a tampered asset matches neither. Persisted runtime settings are only
+restored when the envelope they came from still verifies, so a locally forged value cannot
+become a trusted pin either.
 
 `.gitattributes` pins the extension to LF line endings so the hashed bytes are identical on
 every platform. Without it, a CRLF/LF difference changes the file hash and makes the pin

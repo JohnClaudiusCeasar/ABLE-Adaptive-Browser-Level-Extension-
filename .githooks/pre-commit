@@ -1,0 +1,28 @@
+#!/bin/sh
+# ABLE pre-commit hook.
+#
+# Regenerates the SHA-256 integrity pins in Client-Extension/config.js so a
+# commit can never carry a hash that does not match the file it pins. The
+# regenerated file is staged automatically.
+set -e
+
+ROOT="$(git rev-parse --show-toplevel)"
+EXT="$ROOT/Client-Extension"
+
+if [ ! -f "$EXT/scripts/build.js" ]; then
+  exit 0
+fi
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "ABLE: node is required to regenerate the integrity pins — skipping." >&2
+  exit 0
+fi
+
+BEFORE="$(git hash-object "$EXT/config.js")"
+node "$EXT/scripts/build.js" || exit 1
+AFTER="$(git hash-object "$EXT/config.js")"
+
+if [ "$BEFORE" != "$AFTER" ]; then
+  git add "$EXT/config.js"
+  echo "ABLE: regenerated integrity pins in Client-Extension/config.js"
+fi

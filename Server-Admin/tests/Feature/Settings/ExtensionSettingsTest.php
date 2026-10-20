@@ -96,4 +96,38 @@ class ExtensionSettingsTest extends TestCase
 
         $this->assertSame(10, AbleSetting::where('key', 'sync.egress_log_flush_interval_minutes')->first()->value);
     }
+
+    public function test_extension_integrity_pin_can_be_updated()
+    {
+        $user = User::factory()->superAdmin()->create();
+        $hash = str_repeat('a', 64);
+
+        $response = $this
+            ->actingAs($user)
+            ->put(route('extension-settings.update'), [
+                'integrity.expected_inject_hash' => $hash,
+            ]);
+
+        $response->assertSessionHasNoErrors();
+
+        $this->assertSame($hash, AbleSetting::where('key', 'integrity.expected_inject_hash')->first()->value);
+    }
+
+    public function test_extension_integrity_pin_rejects_a_value_that_is_not_a_hash()
+    {
+        $user = User::factory()->superAdmin()->create();
+
+        $response = $this
+            ->actingAs($user)
+            ->put(route('extension-settings.update'), [
+                'integrity.expected_inject_hash' => 'not-a-hash',
+            ]);
+
+        $response->assertSessionHasErrors('integrity.expected_inject_hash');
+
+        $this->assertDatabaseMissing('able_settings', [
+            'group' => 'extension',
+            'key' => 'integrity.expected_inject_hash',
+        ]);
+    }
 }

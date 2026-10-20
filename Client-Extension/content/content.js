@@ -799,24 +799,20 @@ function injectFonts() {
 async function injectPageScript() {
   if (document.getElementById("able-inject-script")) return;
 
-  if (typeof EXPECTED_INJECT_HASH === "string" && EXPECTED_INJECT_HASH.length > 0) {
-    try {
-      var url = chrome.runtime.getURL("inject/inject.js");
-      var response = await chrome.runtime.sendMessage({
-        type: "verifyIntegrity",
-        url: url,
-        hash: EXPECTED_INJECT_HASH,
-      });
-      if (!response || !response.ok) {
-        console.warn("ABLE: inject.js integrity check failed, aborting injection.");
-        setupFallbackDetection();
-        return;
-      }
-    } catch {
-      console.warn("ABLE: inject.js integrity check failed, aborting injection.");
+  // Every page-world script must match a trusted hash before any of them is
+  // executed. Checking inject.js on its own is not enough: it loads its
+  // dependencies from the extension afterwards, and those would run unchecked.
+  try {
+    var response = await chrome.runtime.sendMessage({ type: "checkIntegrity" });
+    if (!response || !response.success || !response.ok) {
+      console.warn("ABLE: integrity check failed, aborting injection.");
       setupFallbackDetection();
       return;
     }
+  } catch {
+    console.warn("ABLE: integrity check failed, aborting injection.");
+    setupFallbackDetection();
+    return;
   }
 
   var script = document.createElement("script");

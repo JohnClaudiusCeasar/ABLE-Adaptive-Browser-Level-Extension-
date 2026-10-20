@@ -15,6 +15,7 @@
 
 const RUNTIME_SETTINGS_STORAGE_KEY = "able:runtime_settings";
 const RUNTIME_SETTINGS_TIMESTAMP_KEY = "able:runtime_settings_timestamp";
+const RUNTIME_SETTINGS_ENVELOPE_KEY = "able:runtime_settings_envelope";
 const RUNTIME_SETTINGS_REFRESH_INTERVAL = 30 * 60 * 1000; // 30 minutes
 
 function buildDefaults() {
@@ -57,6 +58,23 @@ function buildDefaults() {
       typeof ABLE_SKIP_SEARCH_RESULTS !== "undefined" ? ABLE_SKIP_SEARCH_RESULTS : true,
     "excluded_domains":
       typeof EXCLUDED_DOMAINS !== "undefined" ? EXCLUDED_DOMAINS : [],
+    // Integrity pins for the web-accessible assets. The build-time constants
+    // are the default; a signed server payload can carry a newer pin for a
+    // newer build so installed extensions do not have to be reinstalled.
+    // Every asset in INTEGRITY_ASSET_KEYS needs an entry here, otherwise
+    // sanitize() drops the signed pin and the auto-heal never reaches it.
+    "integrity.expected_inject_hash":
+      typeof EXPECTED_INJECT_HASH !== "undefined" ? EXPECTED_INJECT_HASH : "",
+    "integrity.expected_content_css_hash":
+      typeof EXPECTED_CONTENT_CSS_HASH !== "undefined" ? EXPECTED_CONTENT_CSS_HASH : "",
+    "integrity.expected_synthetic_names_hash":
+      typeof EXPECTED_SYNTHETIC_NAMES_HASH !== "undefined" ? EXPECTED_SYNTHETIC_NAMES_HASH : "",
+    "integrity.expected_file_extractor_hash":
+      typeof EXPECTED_FILE_EXTRACTOR_HASH !== "undefined" ? EXPECTED_FILE_EXTRACTOR_HASH : "",
+    "integrity.expected_network_interceptor_hash":
+      typeof EXPECTED_NETWORK_INTERCEPTOR_HASH !== "undefined" ? EXPECTED_NETWORK_INTERCEPTOR_HASH : "",
+    "integrity.expected_file_tracker_hash":
+      typeof EXPECTED_FILE_TRACKER_HASH !== "undefined" ? EXPECTED_FILE_TRACKER_HASH : "",
   };
 }
 
@@ -66,6 +84,17 @@ function sanitize(settings) {
 
   for (const key of Object.keys(defaults)) {
     const value = settings[key];
+
+    if (key.startsWith("integrity.")) {
+      // A signed pin replaces the build-time default. Anything that is not a
+      // well-formed SHA-256 — including a server that publishes no pin — keeps
+      // the build-time default, so the extension always holds a trusted pin.
+      result[key] =
+        typeof value === "string" && /^[0-9a-f]{64}$/i.test(value)
+          ? value.toLowerCase()
+          : defaults[key];
+      continue;
+    }
 
     if (value === undefined) {
       result[key] = defaults[key];
@@ -113,6 +142,9 @@ const ABLERuntimeSettings = {
         await chrome.storage.local.set({
           [RUNTIME_SETTINGS_STORAGE_KEY]: settings,
           [RUNTIME_SETTINGS_TIMESTAMP_KEY]: payload.issued_at || Date.now(),
+          // Keep the envelope so the persisted copy can be re-verified later.
+          // Without it a locally forged setting could be restored and trusted.
+          [RUNTIME_SETTINGS_ENVELOPE_KEY]: envelope,
         });
       } catch (error) {
         console.warn("ABLE: Failed to persist runtime settings:", error.message);
@@ -136,14 +168,38 @@ const ABLERuntimeSettings = {
       const result = await chrome.storage.local.get([
         RUNTIME_SETTINGS_STORAGE_KEY,
         RUNTIME_SETTINGS_TIMESTAMP_KEY,
+        RUNTIME_SETTINGS_ENVELOPE_KEY,
       ]);
 
       const stored = result[RUNTIME_SETTINGS_STORAGE_KEY];
+      const envelope = result[RUNTIME_SETTINGS_ENVELOPE_KEY];
       const timestamp = result[RUNTIME_SETTINGS_TIMESTAMP_KEY] || 0;
 
-      if (stored && Date.now() - timestamp < RUNTIME_SETTINGS_REFRESH_INTERVAL) {
-        this.current = sanitize(stored);
+      if (!stored || Date.now() - timestamp >= RUNTIME_SETTINGS_REFRESH_INTERVAL) {
+        return;
       }
+
+      // The persisted copy is only trusted when the envelope it came from
+      // still verifies. This keeps the settings usable offline without
+      // letting a locally forged value become a trusted integrity pin.
+      if (!envelope) {
+        console.warn("ABLE: Persisted runtime settings have no envelope, ignoring them.");
+        return;
+      }
+
+      const ok = await ABLESecurity.verifySignedCache(envelope);
+      if (!ok) {
+        console.warn("ABLE: Persisted runtime settings failed signature verification, ignoring them.");
+        await chrome.storage.local.remove([
+          RUNTIME_SETTINGS_STORAGE_KEY,
+          RUNTIME_SETTINGS_TIMESTAMP_KEY,
+          RUNTIME_SETTINGS_ENVELOPE_KEY,
+        ]);
+        return;
+      }
+
+      const payload = envelope.payload || {};
+      this.current = sanitize(payload.settings || {});
     } catch (error) {
       console.warn("ABLE: Failed to restore persisted runtime settings:", error.message);
     }

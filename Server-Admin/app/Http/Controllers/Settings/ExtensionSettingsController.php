@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Settings;
 use App\Http\Controllers\Controller;
 use App\Services\AbleSettingsService;
 use App\Services\SettingsStatusService;
+use App\Support\AbleSettingsSchema;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -22,6 +23,7 @@ class ExtensionSettingsController extends Controller
         return Inertia::render('settings/extension', [
             'settings' => $this->settings->get(AbleSettingsService::GROUP_EXTENSION),
             'status' => $this->status->extensionStatus(),
+            'integrity_files' => AbleSettingsSchema::integrityPinFiles(),
         ]);
     }
 

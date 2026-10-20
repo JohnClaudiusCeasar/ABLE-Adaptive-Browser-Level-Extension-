@@ -322,17 +322,112 @@ function isValidUserId(id) {
 }
 
 /**
- * Compute SHA-256 of a fetched resource and compare to the expected hex hash.
- * Returns true if the resource matches.
+ * Map of a web-accessible asset to the runtime setting that carries its
+ * signed pin. The signed pin lets a newly published build be pinned for
+ * already-installed extensions.
  */
-async function verifyResourceIntegrity(url, expectedHexHash) {
-  if (!expectedHexHash) return true; // no pin configured, skip
+const INTEGRITY_ASSET_KEYS = {
+  inject: "integrity.expected_inject_hash",
+  content_css: "integrity.expected_content_css_hash",
+  synthetic_names: "integrity.expected_synthetic_names_hash",
+  file_extractor: "integrity.expected_file_extractor_hash",
+  network_interceptor: "integrity.expected_network_interceptor_hash",
+  file_tracker: "integrity.expected_file_tracker_hash",
+};
+
+/**
+ * Resolve every hash an asset is allowed to match.
+ *
+ * Two sources are trusted:
+ *  - the build-time pin baked into config.js
+ *  - a pin published in the HMAC-signed runtime payload, which is only ever
+ *    set after verifySignedCache() accepted the envelope
+ *
+ * A tampered asset matches neither: an attacker can neither edit the
+ * baked-in pin nor forge the server's signature. Accepting either pin keeps a
+ * stale server pin from breaking a build that is otherwise correct.
+ */
+function resolveExpectedHashes(asset, fallbackHash) {
+  const hashes = [];
+
+  const add = (value) => {
+    if (typeof value === "string" && /^[0-9a-f]{64}$/i.test(value)) {
+      const normalized = value.toLowerCase();
+      if (!hashes.includes(normalized)) hashes.push(normalized);
+    }
+  };
+
+  add(fallbackHash);
+
+  const key = INTEGRITY_ASSET_KEYS[asset];
+  if (key && typeof ABLERuntimeSettings !== "undefined") {
+    add(ABLERuntimeSettings.get(key, ""));
+  }
+
+  return hashes;
+}
+
+/**
+ * Check a set of pinned assets and report which of them still match.
+ *
+ * `assets` maps an asset name to { path, hash }, where hash is the build-time
+ * pin. A pin published in the signed runtime payload is accepted as well.
+ * `pageWorldAssets` names the assets that are executed in the page world;
+ * injection is only allowed when every one of them matches.
+ *
+ * Nothing is persisted: the result describes the files as they are right now.
+ */
+async function checkAssetIntegrity(assets, pageWorldAssets) {
+  const results = [];
+
+  for (const asset of Object.keys(assets || {})) {
+    const info = assets[asset];
+    const expected = resolveExpectedHashes(asset, info.hash);
+
+    // An asset that is supposed to be pinned but has no usable pin cannot be
+    // verified. Treating it as verified would silently run an unchecked
+    // script, so it counts as a failure.
+    const ok = expected.length > 0
+      ? await verifyResourceIntegrity(chrome.runtime.getURL(info.path), expected)
+      : false;
+
+    results.push({ asset: asset, ok: ok });
+  }
+
+  const injectable = results.every((result) => {
+    return !(pageWorldAssets && pageWorldAssets[result.asset]) || result.ok;
+  });
+
+  return { results: results, ok: injectable };
+}
+
+/**
+ * Compute SHA-256 of a fetched resource and compare it to the expected hash
+ * or hashes. Accepts a single hex hash or an array of acceptable hashes.
+ * Returns true if the resource matches at least one of them.
+ */
+async function verifyResourceIntegrity(url, expectedHexHashes) {
+  const candidates = Array.isArray(expectedHexHashes)
+    ? expectedHexHashes
+    : [expectedHexHashes];
+
+  const pins = candidates
+    .filter((h) => typeof h === "string" && h.length > 0)
+    .map((h) => h.toLowerCase());
+
+  if (pins.length === 0) return true; // no pin configured, skip
   try {
     const response = await fetch(url);
+    // A missing asset is not a tamper event. Treat it as "could not check"
+    // rather than hashing an error page and reporting a mismatch.
+    if (!response.ok) {
+      console.warn("ABLE: Resource integrity check could not fetch " + url + " (HTTP " + response.status + ")");
+      return false;
+    }
     const buffer = await response.arrayBuffer();
     const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
     const actualHex = bytesToHex(hashBuffer);
-    return actualHex === expectedHexHash;
+    return pins.includes(actualHex);
   } catch (error) {
     console.warn("ABLE: Resource integrity check failed:", error);
     return false;
@@ -349,6 +444,8 @@ if (typeof globalThis !== "undefined") {
     generateSecureUserId,
     isValidUserId,
     verifyResourceIntegrity,
+    resolveExpectedHashes,
+    checkAssetIntegrity,
     canonicalize,
     hexToBytes,
     bytesToHex,

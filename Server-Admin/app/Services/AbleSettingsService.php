@@ -88,6 +88,30 @@ class AbleSettingsService
     }
 
     /**
+     * Persist a single setting without an authenticated user.
+     *
+     * Used by console commands (for example publishing the extension's
+     * integrity pins), which have no user to attribute the change to.
+     *
+     * @throws \InvalidArgumentException when the key is not part of the group
+     */
+    public function put(string $group, string $key, mixed $value, ?int $updatedBy = null): void
+    {
+        if (! array_key_exists($key, AbleSettingsSchema::group($group))) {
+            throw new \InvalidArgumentException("Unknown setting [{$group}.{$key}].");
+        }
+
+        DB::transaction(function () use ($group, $key, $value, $updatedBy) {
+            AbleSetting::updateOrCreate(
+                ['group' => $group, 'key' => $key],
+                ['value' => $value, 'updated_by' => $updatedBy],
+            );
+        });
+
+        Cache::forget($this->cachePrefix.$group);
+    }
+
+    /**
      * Build the signed-envelope payload exposed to the extension. Only the
      * non-sensitive extension group is included; the server group and signing
      * secrets are never returned.

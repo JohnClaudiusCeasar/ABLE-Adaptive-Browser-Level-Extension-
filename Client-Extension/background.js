@@ -19,6 +19,33 @@ var SETTINGS_ALARM = "settings-sync";
 var POLICY_ALARM = "policy-sync";
 var GREETING_PENDING_KEY = "able:greeting_pending";
 
+/**
+ * Web-accessible assets that are pinned by SHA-256, and the path used to
+ * fetch them for an on-demand integrity check.
+ */
+var INTEGRITY_ASSETS = {
+  inject: { path: "inject/inject.js", hash: EXPECTED_INJECT_HASH },
+  content_css: { path: "content.css", hash: EXPECTED_CONTENT_CSS_HASH },
+  synthetic_names: { path: "core/synthetic-names.js", hash: EXPECTED_SYNTHETIC_NAMES_HASH },
+  file_extractor: { path: "inject/file-extractor.js", hash: EXPECTED_FILE_EXTRACTOR_HASH },
+  network_interceptor: { path: "inject/network-interceptor.js", hash: EXPECTED_NETWORK_INTERCEPTOR_HASH },
+  file_tracker: { path: "inject/file-tracker.js", hash: EXPECTED_FILE_TRACKER_HASH },
+};
+
+/**
+ * Assets that are executed in the page world. Injection is refused unless
+ * every one of them matches a trusted hash. content.css is not in this set:
+ * the manifest injects it directly, so a mismatch there is reported but
+ * cannot stop it.
+ */
+var PAGE_WORLD_ASSETS = {
+  inject: true,
+  synthetic_names: true,
+  file_extractor: true,
+  network_interceptor: true,
+  file_tracker: true,
+};
+
 function isGreetingInjectableUrl(url) {
   if (!url || typeof url !== "string") return false;
   if (!/^https?:\/\//i.test(url)) return false;
@@ -267,28 +294,30 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
       .catch(function () { sendResponse({ success: false }); });
     return true;
   }
-  if (message.type === "verifyIntegrity") {
-    var asset = message.asset || "unknown";
-    var expected = ABLESecurity.resolveExpectedHashes(asset, message.hash);
-    ABLESecurity.verifyResourceIntegrity(message.url, expected)
-      .then(function (ok) {
-        if (ok) {
-          ABLESecurity.clearIntegrityFailure(asset);
-        } else {
-          ABLESecurity.noteIntegrityFailure(
-            asset,
-            "The asset does not match any trusted hash for " + message.url
-          );
-        }
-        sendResponse({ success: true, ok: ok });
-      })
-      .catch(function () {
-        ABLESecurity.noteIntegrityFailure(
-          asset,
-          "The integrity check for " + message.url + " could not be completed"
+  if (message.type === "checkIntegrity") {
+    // Re-run the integrity check on demand. Nothing is persisted: the popup
+    // asks for the current state, so the answer is always accurate and no
+    // storage is spent remembering a failure.
+    (async function () {
+      try {
+        // Restore the last verified (signed) settings so a published pin is
+        // taken into account without a network round trip.
+        await ABLERuntimeSettings.restorePersisted();
+
+        var results = await ABLESecurity.checkAssetIntegrity(
+          INTEGRITY_ASSETS,
+          PAGE_WORLD_ASSETS
         );
-        sendResponse({ success: true, ok: false });
-      });
+
+        sendResponse({
+          success: true,
+          results: results.results,
+          ok: results.ok,
+        });
+      } catch (error) {
+        sendResponse({ success: false, results: [], ok: false });
+      }
+    })();
     return true;
   }
   if (message.type === "flushEgressQueue") {

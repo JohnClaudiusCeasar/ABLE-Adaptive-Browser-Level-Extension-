@@ -48,11 +48,19 @@ const TLS_PINS = {
  * SHA-256 hashes of web-accessible resources, computed at build time.
  * Used to detect tampering with inject.js or content.css.
  *
- * TODO: Compute these at deploy time:
- *   npm run build
+ * Every file listed in scripts/hash-targets.js is covered: the page-world
+ * scripts injected into the site, and the content stylesheet.
+ *
+ * Regenerated automatically — `npm run build` rewrites these, and the git
+ * pre-commit hook runs it so a commit can never carry a stale hash. Run
+ * `npm run build:check` to fail instead of rewriting.
  */
-const EXPECTED_INJECT_HASH = "fce31982e78d93af7ad506d630b019178c1561a8270bdfec120399670b55463b";
+const EXPECTED_INJECT_HASH = "28719aa285a193690af8df99d9ba6c0477711d384f7e1b11a39329911ea95f94";
 const EXPECTED_CONTENT_CSS_HASH = "e4adef44f740b3fbf09eb4f0394a6680b11ffa03c04c228168fbdab63718e39c";
+const EXPECTED_SYNTHETIC_NAMES_HASH = "cf0a490a8eda37326822724137d7879c63c47b4dc43323f72629ef9bbbbda9c9";
+const EXPECTED_FILE_EXTRACTOR_HASH = "b36ced5b45985411bb2fca44282d88416f324efa36604d8b5ca596b9180287b8";
+const EXPECTED_NETWORK_INTERCEPTOR_HASH = "3ff3e11dca39783a96152dcc53dff2c851580758d1a04e3f0ad15e6a4e82071c";
+const EXPECTED_FILE_TRACKER_HASH = "61312d85da78469dd250997c8abf8f20d1a040229d1937accd9e9d8aaec4c593";
 
 /**
  * Origins the extension is allowed to make requests to.

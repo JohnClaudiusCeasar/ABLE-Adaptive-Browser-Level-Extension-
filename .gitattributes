@@ -1,0 +1,15 @@
+# The ABLE extension pins the SHA-256 of its web-accessible assets in
+# Client-Extension/config.js. A CRLF/LF difference changes the file hash, so
+# the pin would look "stale" on one machine while being correct on another —
+# the same commit would fail the integrity check depending on who built it.
+#
+# Force LF for the extension so the pinned bytes are identical on every
+# platform and the hash only changes when the file's content actually changes.
+Client-Extension/** text=auto eol=lf
+
+# The git hooks are shell scripts. A CRLF line ending turns the shebang into
+# "interpreter not found" and silently breaks the pre-commit hook.
+.githooks/** text eol=lf
+
+# Keep this file itself stable so the rules above never change underfoot.
+.gitattributes text eol=lf
