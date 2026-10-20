@@ -42,6 +42,60 @@ async function setGreetingCompleted() {
   }
 }
 
+/**
+ * True once the greeting has been rendered for the user at least once.
+ *
+ * The greeting is a one-shot presentation: it must be shown, but it must not
+ * reappear on every page load until it is acknowledged.
+ */
+async function hasGreetingBeenPresented() {
+  try {
+    if (typeof chrome === "undefined" || !chrome.storage || !chrome.storage.local) {
+      return false;
+    }
+    var key = (typeof ABLEStorage !== "undefined" && ABLEStorage.GREETING_PRESENTED)
+      ? ABLEStorage.GREETING_PRESENTED
+      : "able:greeting_presented";
+    var result = await chrome.storage.local.get(key);
+    return result[key] === true;
+  } catch {
+    return false;
+  }
+}
+
+async function setGreetingPresented(value) {
+  try {
+    if (typeof chrome === "undefined" || !chrome.storage || !chrome.storage.local) {
+      return;
+    }
+    var key = (typeof ABLEStorage !== "undefined" && ABLEStorage.GREETING_PRESENTED)
+      ? ABLEStorage.GREETING_PRESENTED
+      : "able:greeting_presented";
+    await chrome.storage.local.set({ [key]: value === true });
+  } catch (e) {
+    console.warn("ABLE: Failed to set greeting presented state:", e);
+  }
+}
+
+// Writes are serialized so a latch flip (set on render, released when a
+// competing modal takes the slot) always lands in the order it was made,
+// instead of depending on how the storage backend schedules the writes.
+var greetingPresentedWrite = Promise.resolve();
+
+function markGreetingPresented() {
+  greetingPresentedWrite = greetingPresentedWrite.then(function () {
+    return setGreetingPresented(true);
+  });
+  return greetingPresentedWrite;
+}
+
+function markGreetingNotPresented() {
+  greetingPresentedWrite = greetingPresentedWrite.then(function () {
+    return setGreetingPresented(false);
+  });
+  return greetingPresentedWrite;
+}
+
 function showGreetingModal(options) {
   options = options || {};
 
@@ -213,7 +267,13 @@ function showGreetingModal(options) {
     (document.documentElement || document.body).appendChild(backdrop);
   }
 
+  // Tracks whether the user actually acknowledged the greeting, so a modal
+  // that is torn down by a competing advisory modal can release the
+  // one-shot presentation instead of swallowing it.
+  var acknowledged = false;
+
   var handleDismiss = async function () {
+    acknowledged = true;
     await setGreetingCompleted();
     if (typeof removeModal === "function") {
       removeModal();
@@ -244,7 +304,20 @@ function showGreetingModal(options) {
     ABLEModalContainer.registerModalCleanup(function () {
       window.removeEventListener("keydown", handleKeydown);
       backdrop.removeEventListener("keydown", handleKeydown);
+      // There is a single modal slot: a competing advisory modal replaces the
+      // greeting by removing it. The user never got to read it, so release
+      // the presentation and let it be delivered again later.
+      if (!acknowledged && options.markPresented !== false) {
+        markGreetingNotPresented();
+      }
     });
+  }
+
+  // The greeting is now on screen — latch the one-shot presentation. A
+  // manual view (the popup's disclaimer link) opts out so it never
+  // suppresses the first-run greeting.
+  if (options.markPresented !== false) {
+    markGreetingPresented();
   }
 
   return backdrop;
@@ -255,8 +328,14 @@ if (typeof globalThis !== "undefined") {
     showGreetingModal: showGreetingModal,
     hasGreetingCompleted: hasGreetingCompleted,
     setGreetingCompleted: setGreetingCompleted,
+    hasGreetingBeenPresented: hasGreetingBeenPresented,
+    markGreetingPresented: markGreetingPresented,
+    markGreetingNotPresented: markGreetingNotPresented,
   };
   globalThis.showGreetingModal = showGreetingModal;
   globalThis.hasGreetingCompleted = hasGreetingCompleted;
   globalThis.setGreetingCompleted = setGreetingCompleted;
+  globalThis.hasGreetingBeenPresented = hasGreetingBeenPresented;
+  globalThis.markGreetingPresented = markGreetingPresented;
+  globalThis.markGreetingNotPresented = markGreetingNotPresented;
 }

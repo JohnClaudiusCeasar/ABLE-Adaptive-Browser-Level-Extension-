@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Enums\UserRole;
 use App\Models\ChatConversation;
 use App\Models\ChatMessage;
+use App\Models\ExtensionLifecycle;
 use App\Models\Notification;
 use App\Models\User;
 use App\Services\AbleSettingsService;
@@ -67,24 +68,53 @@ class HandleInertiaRequests extends Middleware
     }
 
     /**
-     * The version of the extension build that was published for release.
+     * The version of the extension build this panel is showing.
      *
-     * The sidebar badge reads this so the panel never advertises a version
-     * the extension does not have. The lookup is guarded because this prop is
-     * shared with every page, including the public landing page, which must
-     * still render before the settings table exists.
+     * Three sources, in order of authority:
+     *
+     *  1. The published release, read from Client-Extension/manifest.json when
+     *     the release is published. This is the exact build that was deployed.
+     *  2. The newest version an installed extension reported. The extension
+     *     sends its manifest version on every install and update, so the label
+     *     stays current even when nobody has published a release.
+     *  3. A configured fallback, so the version is never blank.
+     *
+     * The lookups are guarded because this prop is shared with every page,
+     * including the public landing page, which must still render before the
+     * settings table exists.
      */
     private function extensionVersion(): string
     {
         try {
-            return (string) $this->settings->value(
+            $published = (string) $this->settings->value(
                 AbleSettingsService::GROUP_EXTENSION,
                 'release.extension_version',
                 '',
             );
         } catch (\Throwable) {
-            return '';
+            $published = '';
         }
+
+        if ($published !== '') {
+            return $published;
+        }
+
+        try {
+            $reported = (string) ExtensionLifecycle::query()
+                ->whereIn('event', ['installed', 'updated'])
+                ->whereNotNull('version')
+                ->where('version', '!=', '')
+                ->orderByDesc('occurred_at')
+                ->value('version');
+        } catch (\Throwable) {
+            $reported = '';
+        }
+
+        if ($reported !== '') {
+            return $reported;
+        }
+
+        return (string) config('able.extension_version', '');
     }
 
     /**

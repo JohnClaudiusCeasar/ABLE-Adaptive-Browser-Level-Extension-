@@ -40,8 +40,12 @@ const ABLEStorage = {
 
   // Onboarding & greeting
   GREETING_COMPLETED: "able:greeting_completed",
+  GREETING_PRESENTED: "able:greeting_presented",
   getGreetingCompletedKey() {
     return "able:greeting_completed";
+  },
+  getGreetingPresentedKey() {
+    return "able:greeting_presented";
   },
 
   // Modal cooldown

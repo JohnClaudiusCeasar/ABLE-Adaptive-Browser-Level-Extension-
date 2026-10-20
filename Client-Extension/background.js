@@ -17,7 +17,11 @@ var VISIT_LOG_ALARM = "visit-log-flush";
 var EGRESS_LOG_ALARM = "egress-log-flush";
 var SETTINGS_ALARM = "settings-sync";
 var POLICY_ALARM = "policy-sync";
-var GREETING_PENDING_KEY = "able:greeting_pending";
+
+// Extension page that hosts the greeting modal. It is the guaranteed
+// delivery surface: it opens no matter what the user was browsing, so an
+// install that lands on the Chrome Web Store still shows the greeting.
+var GREETING_WELCOME_PAGE = "welcome.html";
 
 /**
  * Web-accessible assets that are pinned by SHA-256, and the path used to
@@ -53,59 +57,102 @@ function isGreetingInjectableUrl(url) {
   return true;
 }
 
-async function injectGreetingIntoTab(tabId) {
-  await chrome.scripting.executeScript({
-    target: { tabId: tabId },
-    files: ["content/modal-container.js", "content/greeting-modal.js"],
-  });
-  await chrome.scripting.executeScript({
-    target: { tabId: tabId },
-    func: function () {
-      if (document.getElementById("able-modal-root") || document.querySelector(".able-modal-backdrop")) return;
-      if (typeof showGreetingModal === "function") {
-        showGreetingModal({});
-      }
-    },
-  });
-}
-
-async function tryShowInstallGreeting() {
+/**
+ * The tab the user is currently looking at: the active tab of the last
+ * focused window. Returns null when there is no such tab.
+ */
+async function getForegroundTab() {
   try {
     var tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-    var tab = tabs && tabs[0];
-    if (!tab || !isGreetingInjectableUrl(tab.url)) return false;
-    await injectGreetingIntoTab(tab.id);
+    return (tabs && tabs[0]) || null;
+  } catch (error) {
+    return null;
+  }
+}
+
+/**
+ * True while the greeting still has to be delivered to the user.
+ *
+ * The greeting is presented once and acknowledged separately, so a user who
+ * already saw it is never shown it again.
+ */
+async function isGreetingOutstanding() {
+  try {
+    var completedKey = (typeof ABLEStorage !== 'undefined' && ABLEStorage.GREETING_COMPLETED)
+      ? ABLEStorage.GREETING_COMPLETED
+      : 'able:greeting_completed';
+    var presentedKey = (typeof ABLEStorage !== 'undefined' && ABLEStorage.GREETING_PRESENTED)
+      ? ABLEStorage.GREETING_PRESENTED
+      : 'able:greeting_presented';
+    var stored = await chrome.storage.local.get([completedKey, presentedKey]);
+    if (stored[completedKey] === true) return false;
+    if (stored[presentedKey] === true) return false;
     return true;
   } catch (error) {
-    console.warn("ABLE: Install greeting injection failed:", error);
     return false;
   }
 }
 
-async function flushPendingGreeting(tabId, url) {
+/**
+ * Injects the greeting modal into a tab.
+ *
+ * Returns true only when the greeting actually rendered. A swallowed
+ * presentation (a modal already on screen, or the script unavailable) must
+ * never be reported as success — otherwise the caller would treat a greeting
+ * the user never saw as delivered.
+ */
+async function injectGreetingIntoTab(tabId, options) {
+  options = options || {};
+  var markPresented = options.markPresented !== false;
+  await chrome.scripting.executeScript({
+    target: { tabId: tabId },
+    files: ["content/modal-container.js", "content/greeting-modal.js"],
+  });
+  var results = await chrome.scripting.executeScript({
+    target: { tabId: tabId },
+    func: function (opts) {
+      if (document.getElementById("able-modal-root") || document.querySelector(".able-modal-backdrop")) return false;
+      if (typeof showGreetingModal !== "function") return false;
+      showGreetingModal({ markPresented: !!(opts && opts.markPresented) });
+      return true;
+    },
+    args: [{ markPresented: markPresented }],
+  });
+  return !!(results && results[0] && results[0].result === true);
+}
+
+/**
+ * Presents the greeting in the tab the user is actually looking at.
+ *
+ * Foreground-only by construction: it targets the active tab of the last
+ * focused window. Injecting into a background tab would render the modal
+ * where nobody can see it and consume the one-shot presentation, so the
+ * greeting would silently never appear.
+ */
+async function presentGreetingInActiveTab() {
   try {
-    var stored = await chrome.storage.local.get(GREETING_PENDING_KEY);
-    if (!stored[GREETING_PENDING_KEY]) return;
-    var greetingKey = (typeof ABLEStorage !== 'undefined' && ABLEStorage.GREETING_COMPLETED)
-      ? ABLEStorage.GREETING_COMPLETED
-      : 'able:greeting_completed';
-    var completed = await chrome.storage.local.get(greetingKey);
-    if (completed[greetingKey] === true) {
-      await chrome.storage.local.remove(GREETING_PENDING_KEY);
-      return;
-    }
-    var targetUrl = url;
-    if (!targetUrl) {
-      try {
-        var tab = await chrome.tabs.get(tabId);
-        targetUrl = tab && tab.url;
-      } catch {}
-    }
-    if (!isGreetingInjectableUrl(targetUrl)) return;
-    await injectGreetingIntoTab(tabId);
-    await chrome.storage.local.remove(GREETING_PENDING_KEY);
+    if (!(await isGreetingOutstanding())) return false;
+    var tab = await getForegroundTab();
+    if (!tab || typeof tab.id !== "number" || !isGreetingInjectableUrl(tab.url)) return false;
+    return await injectGreetingIntoTab(tab.id, { markPresented: true });
   } catch (error) {
-    console.warn("ABLE: Pending greeting injection failed:", error);
+    console.warn("ABLE: Greeting presentation failed:", error);
+    return false;
+  }
+}
+
+/**
+ * Opens the dedicated extension page that hosts the greeting modal.
+ *
+ * This is the guaranteed delivery surface for the first-run greeting.
+ */
+async function openWelcomeTab() {
+  try {
+    await chrome.tabs.create({ url: chrome.runtime.getURL(GREETING_WELCOME_PAGE) });
+    return true;
+  } catch (error) {
+    console.warn("ABLE: Failed to open the welcome tab:", error);
+    return false;
   }
 }
 
@@ -118,6 +165,27 @@ try {
 }
 
 chrome.runtime.onInstalled.addListener(async function (details) {
+  // The greeting is delivered first and independently of the setup below: a
+  // slow or failing policy/pattern sync — or a lifecycle-logging failure —
+  // must never delay or suppress the first-run introduction.
+  if (details.reason === 'install') {
+    try {
+      var greetingKey = (typeof ABLEStorage !== 'undefined' && ABLEStorage.GREETING_COMPLETED)
+        ? ABLEStorage.GREETING_COMPLETED
+        : 'able:greeting_completed';
+      var presentedKey = (typeof ABLEStorage !== 'undefined' && ABLEStorage.GREETING_PRESENTED)
+        ? ABLEStorage.GREETING_PRESENTED
+        : 'able:greeting_presented';
+      await chrome.storage.local.set({ [greetingKey]: false, [presentedKey]: false });
+      // The greeting is presented on the dedicated extension tab so it is
+      // visible no matter what the user had open. The Chrome Web Store
+      // rejects in-page injection, which left the greeting undelivered.
+      await openWelcomeTab();
+    } catch (welcomeError) {
+      console.warn('ABLE: Failed to launch greeting overlay:', welcomeError);
+    }
+  }
+
   await ABLERuntimeSettings.initialize();
 
   await refreshRiskPatternsCache();
@@ -146,24 +214,6 @@ chrome.runtime.onInstalled.addListener(async function (details) {
       event: event,
       version: manifest.version,
     });
-
-    if (details.reason === 'install') {
-      try {
-        var greetingKey = (typeof ABLEStorage !== 'undefined' && ABLEStorage.GREETING_COMPLETED)
-          ? ABLEStorage.GREETING_COMPLETED
-          : 'able:greeting_completed';
-        await chrome.storage.local.set({ [greetingKey]: false });
-        var shown = await tryShowInstallGreeting();
-        if (!shown) {
-          await chrome.storage.local.set({ [GREETING_PENDING_KEY]: true });
-        }
-      } catch (welcomeError) {
-        console.warn('ABLE: Failed to launch greeting overlay:', welcomeError);
-        try {
-          await chrome.storage.local.set({ [GREETING_PENDING_KEY]: true });
-        } catch {}
-      }
-    }
   } catch (error) {
     console.warn('ABLE: Failed to set up lifecycle tracking:', error);
   }
@@ -377,10 +427,11 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
   if (message.type === "openWelcomePage") {
     (async function () {
       try {
-        var tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-        var tab = tabs && tabs[0];
+        var tab = await getForegroundTab();
         if (tab && isGreetingInjectableUrl(tab.url)) {
-          await injectGreetingIntoTab(tab.id);
+          // A manual disclaimer view must not latch the one-shot
+          // presentation, otherwise it would suppress the first-run greeting.
+          await injectGreetingIntoTab(tab.id, { markPresented: false });
           sendResponse({ success: true });
         } else {
           sendResponse({ success: false, reason: "no-injectable-tab" });
@@ -394,9 +445,25 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
   return false;
 });
 
-chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
+chrome.tabs.onUpdated.addListener(async function (tabId, changeInfo, tab) {
   if (changeInfo.status !== "complete") return;
-  flushPendingGreeting(tabId, tab && tab.url);
+  // Only a load in the foreground may present the greeting. A background tab
+  // finishing a load must never consume the one-shot presentation.
+  if (!tab || tab.active !== true) return;
+  await presentGreetingInActiveTab();
+});
+
+// The user may land on a tab that was already open before the install, so no
+// content script ever ran there. Presenting on tab activation covers that
+// case without waiting for a navigation.
+chrome.tabs.onActivated.addListener(function () {
+  presentGreetingInActiveTab();
+});
+
+// Likewise when the browser window regains focus.
+chrome.windows.onFocusChanged.addListener(function (windowId) {
+  if (windowId === chrome.windows.WINDOW_ID_NONE) return;
+  presentGreetingInActiveTab();
 });
 
 async function handleClassifyDomain(url, sendResponse, signals) {

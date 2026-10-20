@@ -942,7 +942,13 @@ async function initialize() {
     ? await hasGreetingCompleted()
     : true;
 
-  if (!greetingDone && typeof showGreetingModal === "function") {
+  // The greeting is a one-shot presentation: it is shown once, and it does
+  // not reappear on every page load until it is acknowledged.
+  var greetingShown = (typeof hasGreetingBeenPresented === "function")
+    ? await hasGreetingBeenPresented()
+    : true;
+
+  if (!greetingDone && !greetingShown && typeof showGreetingModal === "function") {
     if (document.getElementById("able-modal-root") || document.querySelector(".able-modal-backdrop")) {
       await continueInitialization();
       return;

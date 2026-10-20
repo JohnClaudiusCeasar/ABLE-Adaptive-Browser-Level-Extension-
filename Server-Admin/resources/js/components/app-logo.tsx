@@ -14,18 +14,16 @@ export default function AppLogo() {
                 }}
             >
                 ABL<span className="text-able-green">E</span>
-                {extension_version && (
-                    <span
-                        className="absolute text-[8px] font-normal text-white"
-                        style={{
-                            fontFamily: "'Archivo', sans-serif",
-                            top: '-2px',
-                            right: '50px',
-                        }}
-                    >
-                        v{extension_version}
-                    </span>
-                )}
+                <span
+                    className="absolute text-[8px] font-normal text-white"
+                    style={{
+                        fontFamily: "'Archivo', sans-serif",
+                        top: '-2px',
+                        right: '50px',
+                    }}
+                >
+                    {extension_version ? `v${extension_version}` : ''}
+                </span>
             </span>
             <span
                 className="truncate text-[12px] leading-tight text-muted-foreground"

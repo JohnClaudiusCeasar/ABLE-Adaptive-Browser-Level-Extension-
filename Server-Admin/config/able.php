@@ -93,4 +93,22 @@ return [
     'bootstrap_superadmin_email' => env('BOOTSTRAP_SUPERADMIN_EMAIL'),
     'bootstrap_superadmin_password' => env('BOOTSTRAP_SUPERADMIN_PASSWORD'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | ABLE Extension - Version Fallback
+    |--------------------------------------------------------------------------
+    |
+    | The version shown in the admin sidebar next to the ABLE mark. The panel
+    | prefers the version published from Client-Extension/manifest.json, then
+    | the newest version an installed extension reported, and only falls back
+    | to this value when neither is known. It exists so the version is never
+    | blank, not as the source of truth.
+    |
+    | Set ABLE_EXTENSION_VERSION in the environment to match the build that
+    | is deployed; publishing a release overrides it automatically.
+    |
+    */
+
+    'extension_version' => env('ABLE_EXTENSION_VERSION', '0.1.2'),
+
 ];

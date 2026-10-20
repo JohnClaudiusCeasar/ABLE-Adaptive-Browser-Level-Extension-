@@ -9,7 +9,10 @@ var ABLE_MODAL_HOST_ID = "able-modal-root";
 
 // Per-modal cleanup callbacks (e.g. window keydown listeners) so removing a
 // modal also tears down its global listeners, preventing stale re-fires.
-var modalCleanupFns = [];
+// Held on globalThis so re-injecting this file (the background script
+// re-injects it when it presents the greeting) does not discard the
+// callbacks registered by the modal that is already on screen.
+var modalCleanupFns = globalThis.__ABLE_MODAL_CLEANUPS || (globalThis.__ABLE_MODAL_CLEANUPS = []);
 
 function registerModalCleanup(fn) {
   if (typeof fn === "function") {

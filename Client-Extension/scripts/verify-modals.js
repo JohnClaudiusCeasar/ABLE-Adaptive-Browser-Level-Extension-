@@ -2,9 +2,9 @@
  * Headless verification harness for the ABLE modal family.
  *
  * Loads the real content/modal-container.js + intercept-modal.js +
- * text-warning-modal.js + score-hold-modal.js into a page with a
- * minimal DOM shim, renders each modal, and asserts the structural
- * invariants that make the family uniform:
+ * text-warning-modal.js + score-hold-modal.js + greeting-modal.js into a
+ * page with a minimal DOM shim, renders each modal, and asserts the
+ * structural invariants that make the family uniform:
  *
  *   1. Every modal uses the .able-modal-card shell
  *   2. Every modal has a green banner edge top AND bottom
@@ -15,6 +15,11 @@
  *   7. The text modal exposes a clickable score ring + a breakdown view
  *   8. No leftover .able-intercept-* classes anywhere
  *   9. No inline hardcoded hex colors in the rendered markup
+ *
+ * The greeting modal is a large scrollable intro card rather than a
+ * title/body/actions card, so it carries its own structural contract plus
+ * the one-shot presentation latch (render latches it, a competing modal
+ * releases it, acknowledgement completes it).
  *
  * Run: npm run verify:modals   (from Client-Extension/)
  */
@@ -95,8 +100,41 @@ const document = {
   removeEventListener() {},
 };
 
+// ── chrome API stub ─────────────────────────────────────────────
+// The greeting modal reads and writes chrome.storage.local. A minimal
+// in-memory store lets the harness assert the one-shot presentation latch
+// against the real production file rather than a re-implementation.
+const storageStore = {};
+
+function storageGet(keys) {
+  const out = {};
+  const list = Array.isArray(keys)
+    ? keys
+    : (typeof keys === "string" ? [keys] : Object.keys(keys || {}));
+  list.forEach((k) => {
+    if (k in storageStore) out[k] = storageStore[k];
+  });
+  return out;
+}
+
+const chromeStub = {
+  storage: {
+    local: {
+      get: async (keys) => storageGet(keys),
+      set: async (obj) => { Object.assign(storageStore, obj); },
+      remove: async (key) => { delete storageStore[key]; },
+    },
+  },
+  runtime: {
+    getURL: (p) => "chrome-extension://able-verify/" + p,
+    lastError: undefined,
+    sendMessage: (msg, cb) => { if (typeof cb === "function") cb({ success: true }); },
+  },
+};
+
 const sandbox = {
   document,
+  chrome: chromeStub,
   window: { addEventListener() {}, removeEventListener() {}, location: { href: "https://example.com/" } },
   globalThis: null,
   console,
@@ -120,12 +158,14 @@ function load(rel) {
   vm.runInContext(read(rel), ctx, { filename: rel });
 }
 
+load("core/storage.js");
 load("content/modal-container.js");
 load("content/intercept-modal.js");
 load("content/text-warning-modal.js");
 load("content/score-hold-modal.js");
 load("content/request-access-modal.js");
 load("content/blocked-access-modal.js");
+load("content/greeting-modal.js");
 
 // ── Capture rendered markup ─────────────────────────────────────
 const rendered = {};
@@ -349,14 +389,114 @@ check("content.css: contains no CSS rules", cssRules.length === 0, JSON.stringif
   }
 })();
 
-// ── Report ──────────────────────────────────────────────────────
-console.log("\nABLE modal family verification");
-console.log("=".repeat(60));
-console.log("Checks run: " + checks);
-if (failures.length === 0) {
-  console.log("RESULT: PASS — all " + checks + " checks passed");
-} else {
-  console.log("RESULT: FAIL — " + failures.length + " failure(s)");
-  failures.forEach((f) => console.log("  x " + f));
+// ── Greeting modal (first-run intro) ─────────────────────────────
+// The greeting is a large scrollable intro card, so it does not share the
+// .able-modal-content / .able-modal-actions shape the loop above asserts.
+// It has its own structural contract, plus the one-shot presentation latch
+// that decides whether the user is ever shown it again.
+async function greetingVerification() {
+  const COMPLETED_KEY = "able:greeting_completed";
+  const PRESENTED_KEY = "able:greeting_presented";
+
+  const settle = () => new Promise((r) => setImmediate(r));
+
+  delete storageStore[COMPLETED_KEY];
+  delete storageStore[PRESENTED_KEY];
+
+  const greetingHtml = capture("greeting", () => {
+    sandbox.showGreetingModal({});
+  });
+  await settle();
+
+  check("greeting: uses .able-modal-card", greetingHtml.includes("able-modal-card"));
+  const gEdges = (greetingHtml.match(/able-banner-edge/g) || []).length;
+  check("greeting: two banner edges (top + bottom)", gEdges === 2, "found " + gEdges);
+  check("greeting: has .able-modal-divider", greetingHtml.includes("able-modal-divider"));
+  check("greeting: renders the logo", greetingHtml.includes("able-greeting-logo"));
+  check("greeting: renders the title", greetingHtml.includes("able-greeting-title"));
+  check("greeting: renders the subtitle", greetingHtml.includes("able-greeting-subtitle"));
+  check("greeting: has an .able-btn acknowledgement button",
+    greetingHtml.includes("able-btn") && greetingHtml.includes("ableGreetingAcknowledge"));
+  check("greeting: no leftover .able-intercept-*", !/able-intercept-/.test(greetingHtml));
+  check("greeting: no hardcoded hex colors in markup",
+    !/#[0-9A-Fa-f]{6}\b/.test(greetingHtml.replace(/var\(--[a-z-]+\)/g, "")),
+    (greetingHtml.match(/#[0-9A-Fa-f]{6}/) || [])[0]);
+
+  // The documented sections must appear in the documented order.
+  const sections = [
+    "Introduction",
+    "Use and Purpose",
+    "Data Extraction &amp; Privacy",
+    "Disclaimer",
+  ];
+  let cursor = -1;
+  let ordered = true;
+  sections.forEach((s) => {
+    const at = greetingHtml.indexOf(s);
+    if (at < 0 || at < cursor) ordered = false;
+    cursor = at;
+  });
+  check("greeting: renders its sections in the documented order", ordered);
+
+  // ── One-shot presentation latch ──────────────────────────────
+  check("greeting: rendering latches the presented state",
+    storageStore[PRESENTED_KEY] === true,
+    "presented=" + storageStore[PRESENTED_KEY]);
+
+  // There is a single modal slot: a competing advisory modal tears the
+  // greeting down. The user never got to read it, so the latch must be
+  // released or the greeting could never be delivered again.
+  sandbox.ABLEModalContainer.removeModal();
+  await settle();
+  check("greeting: a clobbered greeting releases the presented latch",
+    storageStore[PRESENTED_KEY] === false,
+    "presented=" + storageStore[PRESENTED_KEY]);
+
+  // ── Acknowledgement ──────────────────────────────────────────
+  delete storageStore[COMPLETED_KEY];
+  delete storageStore[PRESENTED_KEY];
+  const before = stubs.length;
+  sandbox.showGreetingModal({});
+  const ackBtn = stubs.slice(before).find((s) => s.selector === "#ableGreetingAcknowledge");
+  check("greeting: binds the acknowledge button", !!ackBtn);
+  if (ackBtn) {
+    ackBtn.dispatch("click", {});
+    await settle();
+  }
+  check("greeting: acknowledgement sets the completed state",
+    storageStore[COMPLETED_KEY] === true,
+    "completed=" + storageStore[COMPLETED_KEY]);
+  check("greeting: an acknowledged greeting stays latched as presented",
+    storageStore[PRESENTED_KEY] === true,
+    "presented=" + storageStore[PRESENTED_KEY]);
+
+  // ── A manual view must not suppress the first-run greeting ────
+  delete storageStore[COMPLETED_KEY];
+  delete storageStore[PRESENTED_KEY];
+  sandbox.showGreetingModal({ markPresented: false });
+  await settle();
+  check("greeting: a manual view does not latch the presented state",
+    storageStore[PRESENTED_KEY] !== true,
+    "presented=" + storageStore[PRESENTED_KEY]);
 }
-process.exit(failures.length === 0 ? 0 : 1);
+
+// ── Report ──────────────────────────────────────────────────────
+greetingVerification()
+  .then(function () {
+    console.log("\nABLE modal family verification");
+    console.log("=".repeat(60));
+    console.log("Checks run: " + checks);
+    if (failures.length === 0) {
+      console.log("RESULT: PASS — all " + checks + " checks passed");
+    } else {
+      console.log("RESULT: FAIL — " + failures.length + " failure(s)");
+      failures.forEach((f) => console.log("  x " + f));
+    }
+    process.exit(failures.length === 0 ? 0 : 1);
+  })
+  .catch(function (error) {
+    console.log("\nABLE modal family verification");
+    console.log("=".repeat(60));
+    console.log("Verification crashed: " + (error && error.stack ? error.stack : error));
+    process.exit(1);
+  });

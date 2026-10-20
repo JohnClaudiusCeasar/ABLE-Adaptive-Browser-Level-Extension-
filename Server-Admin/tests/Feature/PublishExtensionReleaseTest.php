@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AbleSetting;
+use App\Models\ExtensionLifecycle;
 use App\Services\AbleSettingsService;
 use App\Support\AbleSettingsSchema;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -215,13 +216,59 @@ class PublishExtensionReleaseTest extends TestCase
         );
     }
 
-    public function test_the_shared_version_is_empty_until_a_release_is_published(): void
+    public function test_the_shared_version_falls_back_to_the_configured_version(): void
     {
+        // Nothing published and no client has reported in yet, so the panel
+        // falls back to the configured value rather than showing no version.
         $response = $this->get('/');
 
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
-            ->where('extension_version', '')
+            ->where('extension_version', (string) config('able.extension_version'))
+        );
+
+        $this->assertNotSame('', (string) config('able.extension_version'));
+    }
+
+    public function test_the_shared_version_falls_back_to_the_version_an_extension_reported(): void
+    {
+        ExtensionLifecycle::create([
+            'user_id' => 'client-1',
+            'extension_id' => 'extension-1',
+            'event' => 'installed',
+            'version' => '2.3.4',
+            'occurred_at' => now(),
+        ]);
+
+        $response = $this->get('/');
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->where('extension_version', '2.3.4')
+        );
+    }
+
+    public function test_the_published_version_wins_over_a_reported_version(): void
+    {
+        app(AbleSettingsService::class)->put(
+            AbleSettingsService::GROUP_EXTENSION,
+            'release.extension_version',
+            '1.4.2',
+        );
+
+        ExtensionLifecycle::create([
+            'user_id' => 'client-1',
+            'extension_id' => 'extension-1',
+            'event' => 'installed',
+            'version' => '2.3.4',
+            'occurred_at' => now(),
+        ]);
+
+        $response = $this->get('/');
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->where('extension_version', '1.4.2')
         );
     }
 }
