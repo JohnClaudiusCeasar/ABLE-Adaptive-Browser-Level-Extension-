@@ -268,9 +268,27 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     return true;
   }
   if (message.type === "verifyIntegrity") {
-    ABLESecurity.verifyResourceIntegrity(message.url, message.hash)
-      .then(function (ok) { sendResponse({ success: true, ok: ok }); })
-      .catch(function () { sendResponse({ success: true, ok: false }); });
+    var asset = message.asset || "unknown";
+    var expected = ABLESecurity.resolveExpectedHashes(asset, message.hash);
+    ABLESecurity.verifyResourceIntegrity(message.url, expected)
+      .then(function (ok) {
+        if (ok) {
+          ABLESecurity.clearIntegrityFailure(asset);
+        } else {
+          ABLESecurity.noteIntegrityFailure(
+            asset,
+            "The asset does not match any trusted hash for " + message.url
+          );
+        }
+        sendResponse({ success: true, ok: ok });
+      })
+      .catch(function () {
+        ABLESecurity.noteIntegrityFailure(
+          asset,
+          "The integrity check for " + message.url + " could not be completed"
+        );
+        sendResponse({ success: true, ok: false });
+      });
     return true;
   }
   if (message.type === "flushEgressQueue") {
@@ -281,15 +299,48 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     });
     return true;
   }
-  if (message.type === "openMessageBoard") {
+  if (message.type === "submitAccessRequest") {
     (async function () {
       try {
-        var boardUrl = SERVER_URL + "/?category=access-request&domain="
-          + encodeURIComponent(message.domain || "") + "#contact";
-        await chrome.tabs.create({ url: boardUrl });
+        var response = await ABLESecurity.secureFetch(`${SERVER_URL}/api/access-requests`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify({
+            author: message.author || null,
+            domain: message.domain || null,
+            message: message.message || "",
+          }),
+        });
+
+        var payload = null;
+        try {
+          payload = await response.json();
+        } catch {}
+
+        sendResponse({
+          success: response.ok,
+          status: response.status,
+          data: payload,
+        });
+      } catch (error) {
+        console.warn("ABLE: Failed to submit access request:", error);
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+    return true;
+  }
+  if (message.type === "closeCurrentTab") {
+    (async function () {
+      try {
+        var tabId = sender && sender.tab && sender.tab.id;
+        if (typeof tabId !== "number") {
+          sendResponse({ success: false, reason: "no-tab" });
+          return;
+        }
+        await chrome.tabs.remove(tabId);
         sendResponse({ success: true });
       } catch (error) {
-        sendResponse({ success: false });
+        sendResponse({ success: false, reason: error.message });
       }
     })();
     return true;

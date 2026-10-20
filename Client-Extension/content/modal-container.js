@@ -464,6 +464,65 @@ var MODAL_STYLES = `
   border-radius: 16px;
 }
 
+/* Request Access Modal */
+.able-request-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.able-request-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+}
+
+.able-request-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-black, #000000);
+}
+
+.able-request-input,
+.able-request-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: 'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--text-black, #000000);
+  background-color: var(--bg-white, #FFFFFF);
+  border: 1.5px solid var(--track-gray, #E2E2E2);
+  border-radius: 10px;
+  padding: 10px 12px;
+  outline: none;
+}
+
+.able-request-textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.able-request-input:focus,
+.able-request-textarea:focus {
+  border-color: var(--brand-green, #00FF44);
+}
+
+.able-request-status {
+  font-size: 12px;
+  line-height: 1.4;
+  font-style: normal;
+  margin: 0;
+  min-height: 16px;
+}
+
+.able-request-status.error {
+  color: #c62828;
+}
+
 /* Greeting Modal (Install Introduction) */
 .able-modal-card.able-modal-large {
   width: 660px;

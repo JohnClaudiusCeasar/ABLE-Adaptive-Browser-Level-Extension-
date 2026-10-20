@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\CommunityMessageController;
 use App\Http\Controllers\DomainPolicyController;
 use App\Http\Controllers\EgressEventController;
 use App\Http\Controllers\ExtensionConfigController;
@@ -19,6 +20,7 @@ Route::get('/domain-policies/{domainPolicy}/visits', [DomainPolicyController::cl
 Route::get('/risk-patterns', [RiskPatternController::class, 'all'])->middleware('throttle:30,1');
 Route::get('/risk-patterns/signed', [RiskPatternController::class, 'signed'])->middleware('throttle:30,1');
 Route::post('/score-content', [RiskScoringController::class, 'score'])->middleware('throttle:60,1');
+Route::post('/access-requests', [CommunityMessageController::class, 'storeAccessRequest'])->middleware('throttle:5,1');
 
 Route::post('/extension/lifecycle', [ExtensionLifecycleController::class, 'logLifecycle'])->middleware('throttle:60,1');
 Route::get('/extension/uninstall', [ExtensionLifecycleController::class, 'logUninstall'])->middleware('throttle:60,1');

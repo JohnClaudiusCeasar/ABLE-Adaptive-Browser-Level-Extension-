@@ -132,6 +132,60 @@ class CommunityMessageTest extends TestCase
         $response->assertRedirect(route('login'));
     }
 
+    public function test_extension_can_file_an_access_request_through_the_api(): void
+    {
+        $response = $this->postJson('/api/access-requests', [
+            'author' => 'BlockedAnalyst',
+            'domain' => 'gambling-rewards-hub.com',
+            'message' => 'I need access for threat analysis.',
+        ]);
+
+        $response->assertStatus(201);
+        $response->assertJson([
+            'success' => true,
+            'post' => [
+                'category' => 'access-request',
+                'domain' => 'gambling-rewards-hub.com',
+                'status' => 'pending',
+            ],
+        ]);
+
+        $this->assertDatabaseHas('community_messages', [
+            'author' => 'BlockedAnalyst',
+            'category' => 'access-request',
+            'domain' => 'gambling-rewards-hub.com',
+            'status' => 'pending',
+        ]);
+
+        $this->assertDatabaseHas('notifications', [
+            'source' => 'community',
+            'type' => 'community_feedback',
+        ]);
+    }
+
+    public function test_access_request_api_requires_reasons(): void
+    {
+        $response = $this->postJson('/api/access-requests', [
+            'domain' => 'gambling-rewards-hub.com',
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['message']);
+        $this->assertDatabaseMissing('community_messages', [
+            'category' => 'access-request',
+        ]);
+    }
+
+    public function test_access_request_api_rejects_an_oversized_reason(): void
+    {
+        $response = $this->postJson('/api/access-requests', [
+            'message' => str_repeat('a', 801),
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['message']);
+    }
+
     public function test_request_access_redirect_prefills_the_message_board(): void
     {
         $response = $this->get('/?category=access-request&domain=gambling-rewards-hub.com');

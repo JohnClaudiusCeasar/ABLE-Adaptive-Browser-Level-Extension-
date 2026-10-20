@@ -55,17 +55,92 @@ class CommunityMessageController extends Controller
             'message' => ['required', 'string', 'max:800'],
         ]);
 
-        $author = trim($validated['author'] ?? '') ?: 'Anonymous';
-        $domain = ! empty($validated['domain']) ? trim($validated['domain']) : null;
-        $body = trim($validated['message']);
+        $record = $this->persistCommunityMessage(
+            author: $validated['author'] ?? null,
+            category: $validated['category'],
+            domain: $validated['domain'] ?? null,
+            body: $validated['message'],
+            ipAddress: $request->ip(),
+        );
+
+        if ($request->header('X-Inertia')) {
+            return Redirect::back()->with('success', 'Feedback submitted successfully.');
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Thank you! Your submission has been received and is pending review by our research team.',
+            'post' => [
+                'id' => $record->id,
+                'author' => $record->author,
+                'category' => $record->category,
+                'domain' => $record->domain ?? '',
+                'time' => 'Pending Review',
+                'body' => $record->message,
+                'status' => 'pending',
+            ],
+        ], 201);
+    }
+
+    /**
+     * API endpoint: store an access request submitted from the extension's
+     * in-page request-access modal. Always filed as an access request and
+     * always kept out of the public feed.
+     */
+    public function storeAccessRequest(Request $request): JsonResponse
+    {
+        $this->ensureTableExists();
+
+        $validated = $request->validate([
+            'author' => ['nullable', 'string', 'max:32'],
+            'domain' => ['nullable', 'string', 'max:100'],
+            'message' => ['required', 'string', 'max:800'],
+        ]);
+
+        $record = $this->persistCommunityMessage(
+            author: $validated['author'] ?? null,
+            category: 'access-request',
+            domain: $validated['domain'] ?? null,
+            body: $validated['message'],
+            ipAddress: $request->ip(),
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Your access request has been received and is pending review by an administrator.',
+            'post' => [
+                'id' => $record->id,
+                'author' => $record->author,
+                'category' => $record->category,
+                'domain' => $record->domain ?? '',
+                'time' => 'Pending Review',
+                'body' => $record->message,
+                'status' => 'pending',
+            ],
+        ], 201);
+    }
+
+    /**
+     * Create a pending community message and notify administrators.
+     */
+    private function persistCommunityMessage(
+        ?string $author,
+        string $category,
+        ?string $domain,
+        string $body,
+        ?string $ipAddress,
+    ): CommunityMessage {
+        $author = trim($author ?? '') ?: 'Anonymous';
+        $domain = ! empty($domain) ? trim($domain) : null;
+        $body = trim($body);
 
         /** @var CommunityMessage $record */
         $record = CommunityMessage::create([
             'author' => $author,
-            'category' => $validated['category'],
+            'category' => $category,
             'domain' => $domain,
             'message' => $body,
-            'ip_address' => $request->ip(),
+            'ip_address' => $ipAddress,
             'status' => 'pending', // Requires admin approval before public visibility
         ]);
 
@@ -87,23 +162,7 @@ class CommunityMessageController extends Controller
             Log::warning('Failed to create notification for community message: '.$e->getMessage());
         }
 
-        if ($request->header('X-Inertia')) {
-            return Redirect::back()->with('success', 'Feedback submitted successfully.');
-        }
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Thank you! Your submission has been received and is pending review by our research team.',
-            'post' => [
-                'id' => $record->id,
-                'author' => $record->author,
-                'category' => $record->category,
-                'domain' => $record->domain ?? '',
-                'time' => 'Pending Review',
-                'body' => $record->message,
-                'status' => 'pending',
-            ],
-        ], 201);
+        return $record;
     }
 
     /**

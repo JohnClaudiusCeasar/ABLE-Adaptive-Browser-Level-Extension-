@@ -14,6 +14,10 @@ const messageSuggestion = document.getElementById("messageSuggestion");
 const container = document.querySelector(".container");
 const domainCard = document.querySelector(".info-card");
 
+// Last domain rendered in the popup, used to avoid resetting the access
+// request form while the user is typing in it.
+let lastRenderedDomain = null;
+
 /**
  * Get the current active tab and its URL
  */
@@ -70,10 +74,24 @@ function updateUI(classification) {
     messageSuggestion.textContent = messages.suggestion || "";
   }
 
-  // Only offer the request-access path on an administratively blocked site
+  // Only offer the request-access path on an administratively blocked site.
+  // The form is only reset when the classified domain actually changes, so a
+  // background tab finishing its load cannot wipe a half-typed request.
   const requestAccessBtn = document.getElementById("requestAccessBtn");
+  const requestAccessForm = document.getElementById("requestAccessForm");
+  const requestAccessStatus = document.getElementById("requestAccessStatus");
+  const domainChanged = lastRenderedDomain !== domain;
+  lastRenderedDomain = domain;
+
   if (requestAccessBtn) {
     requestAccessBtn.hidden = !isBlocked;
+  }
+  if (requestAccessForm && domainChanged) {
+    requestAccessForm.hidden = true;
+  }
+  if (requestAccessStatus && domainChanged) {
+    requestAccessStatus.textContent = "";
+    requestAccessStatus.className = "request-access-status";
   }
 
   // Add animation
@@ -250,19 +268,75 @@ function setupEventListeners() {
     });
   }
 
-  // Send the user to the message board to request access to a blocked site
+  // File the access request from the popup itself, so the user never has to
+  // leave the blocked site for the message board.
   const requestAccessBtn = document.getElementById("requestAccessBtn");
-  if (requestAccessBtn) {
+  const requestAccessForm = document.getElementById("requestAccessForm");
+  const requestAccessAlias = document.getElementById("requestAccessAlias");
+  const requestAccessReasons = document.getElementById("requestAccessReasons");
+  const requestAccessStatus = document.getElementById("requestAccessStatus");
+  const requestAccessSubmit = document.getElementById("requestAccessSubmit");
+
+  if (requestAccessBtn && requestAccessForm) {
     requestAccessBtn.addEventListener("click", () => {
+      requestAccessForm.hidden = false;
+      if (requestAccessReasons) requestAccessReasons.focus();
+    });
+  }
+
+  if (requestAccessSubmit) {
+    requestAccessSubmit.addEventListener("click", () => {
+      const reasons = String(
+        (requestAccessReasons && requestAccessReasons.value) || "",
+      ).trim();
+      const author = String(
+        (requestAccessAlias && requestAccessAlias.value) || "",
+      ).trim();
       const domain = domainValue ? domainValue.textContent : "";
-      if (chrome.runtime && chrome.runtime.sendMessage) {
-        chrome.runtime.sendMessage(
-          { type: "openMessageBoard", domain: domain },
-          () => {
-            void chrome.runtime.lastError;
-          }
-        );
+
+      if (!reasons) {
+        if (requestAccessStatus) {
+          requestAccessStatus.textContent =
+            "Please describe why you need access.";
+          requestAccessStatus.className = "request-access-status error";
+        }
+        return;
       }
+
+      requestAccessSubmit.disabled = true;
+      if (requestAccessStatus) {
+        requestAccessStatus.textContent = "Submitting your request...";
+        requestAccessStatus.className = "request-access-status";
+      }
+
+      chrome.runtime.sendMessage(
+        {
+          type: "submitAccessRequest",
+          author: author || null,
+          domain: domain,
+          message: reasons,
+        },
+        (response) => {
+          requestAccessSubmit.disabled = false;
+
+          if (chrome.runtime.lastError || !response || !response.success) {
+            if (requestAccessStatus) {
+              requestAccessStatus.textContent =
+                "Could not submit your request. Please try again.";
+              requestAccessStatus.className = "request-access-status error";
+            }
+            return;
+          }
+
+          if (requestAccessForm) requestAccessForm.hidden = true;
+          if (requestAccessBtn) requestAccessBtn.hidden = true;
+          if (requestAccessStatus) {
+            requestAccessStatus.textContent =
+              "Request sent. An administrator will review it.";
+            requestAccessStatus.className = "request-access-status success";
+          }
+        },
+      );
     });
   }
 }
@@ -298,6 +372,40 @@ async function refreshSyncWarning() {
 }
 
 /**
+ * Surface a persistent warning when an asset failed its integrity check
+ * (see security.js noteIntegrityFailure). A mismatch means the extension is
+ * running with reduced protection, so it must not stay silent.
+ */
+async function refreshIntegrityWarning() {
+  const warning = document.getElementById("integrityWarning");
+  const warningText = document.getElementById("integrityWarningText");
+  if (!warning || !warningText || typeof ABLEStorage === "undefined") return;
+
+  try {
+    const result = await chrome.storage.local.get(ABLEStorage.INTEGRITY_FAILURE);
+    const failures = result[ABLEStorage.INTEGRITY_FAILURE];
+
+    if (failures && Object.keys(failures).length > 0) {
+      const parts = Object.keys(failures).map((asset) => {
+        const failure = failures[asset];
+        const when = new Date(failure.last_failed_at || Date.now()).toLocaleString();
+        return `${asset} (${failure.count || "?"} failed checks, last: ${when})`;
+      });
+      warningText.textContent =
+        "An extension asset no longer matches its expected hash: " +
+        parts.join(", ") +
+        ". Upload interception is degraded until the extension is reinstalled " +
+        "or the expected hash is regenerated.";
+      warning.hidden = false;
+    } else {
+      warning.hidden = true;
+    }
+  } catch {
+    warning.hidden = true;
+  }
+}
+
+/**
  * Initialize popup when DOM is ready
  */
 document.addEventListener("DOMContentLoaded", () => {
@@ -306,6 +414,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Surface any signature-verification failures
   refreshSyncWarning();
+  refreshIntegrityWarning();
 
   // Set up event listeners
   setupEventListeners();
@@ -318,5 +427,6 @@ document.addEventListener("visibilitychange", () => {
   if (!document.hidden) {
     initializeExtension();
     refreshSyncWarning();
+    refreshIntegrityWarning();
   }
 });

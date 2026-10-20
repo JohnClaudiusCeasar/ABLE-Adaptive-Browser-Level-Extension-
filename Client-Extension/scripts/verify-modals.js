@@ -124,6 +124,7 @@ load("content/modal-container.js");
 load("content/intercept-modal.js");
 load("content/text-warning-modal.js");
 load("content/score-hold-modal.js");
+load("content/request-access-modal.js");
 load("content/blocked-access-modal.js");
 
 // ── Capture rendered markup ─────────────────────────────────────
@@ -194,11 +195,16 @@ const blockedHtml = capture("blocked", () => {
   sandbox.showBlockedAccessModal({ domain: "blocked.example.com" });
 });
 
+const requestAccessHtml = capture("requestAccess", () => {
+  sandbox.showRequestAccessModal({ domain: "blocked.example.com" });
+});
+
 const modals = {
   "intercept": interceptHtml,
   "text": textHtml,
   "hold": holdHtml,
   "blocked": blockedHtml,
+  "requestAccess": requestAccessHtml,
 };
 
 // 1-5: shared family structure
@@ -250,6 +256,17 @@ check("blocked: offers Request Access", blockedHtml.includes('Request Access'));
 check("blocked: offers Go Back", blockedHtml.includes('Go Back'));
 check("blocked: binds the request-access action", blockedHtml.includes('ableBlockedRequestAccess'));
 check("blocked: binds the go-back action", blockedHtml.includes('ableBlockedGoBack'));
+
+// 6c: the request-access modal is a form in the same page
+check("requestAccess: title is REQUEST ACCESS", requestAccessHtml.includes('REQUEST ACCESS'));
+check("requestAccess: names the blocked domain", requestAccessHtml.includes('blocked.example.com'));
+check("requestAccess: has the request form", requestAccessHtml.includes('able-request-form'));
+check("requestAccess: has an alias field", requestAccessHtml.includes('ableRequestAlias'));
+check("requestAccess: has a reasons field", requestAccessHtml.includes('ableRequestReasons'));
+check("requestAccess: offers Submit Request", requestAccessHtml.includes('Submit Request'));
+check("requestAccess: offers Cancel", requestAccessHtml.includes('Cancel'));
+check("requestAccess: binds the submit action", requestAccessHtml.includes('ableRequestSubmit'));
+check("requestAccess: binds the cancel action", requestAccessHtml.includes('ableRequestCancel'));
 
 // 7: text modal exposes ring + breakdown
 check("text: has .able-score-ring-wrapper", textHtml.includes('able-score-ring-wrapper'));

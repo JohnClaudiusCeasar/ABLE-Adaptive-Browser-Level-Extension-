@@ -37,6 +37,11 @@
       <span id="syncWarningText"></span>
     </div>
 
+    <div class="sync-warning" id="integrityWarning" hidden>
+      <strong>Integrity check failed:</strong>
+      <span id="integrityWarningText"></span>
+    </div>
+
     <hr class="divider">
 
     <section class="card info-card">
@@ -59,6 +64,25 @@
       <button type="button" class="request-access-btn" id="requestAccessBtn" hidden>
         Request Access
       </button>
+      <form class="request-access-form" id="requestAccessForm" hidden>
+        <input
+          class="request-access-input"
+          id="requestAccessAlias"
+          type="text"
+          maxlength="32"
+          placeholder="Name or alias (optional)"
+        />
+        <textarea
+          class="request-access-textarea"
+          id="requestAccessReasons"
+          maxlength="800"
+          placeholder="Reasons for access..."
+        ></textarea>
+        <button type="button" class="request-access-submit" id="requestAccessSubmit">
+          Submit Request
+        </button>
+        <p class="request-access-status" id="requestAccessStatus"></p>
+      </form>
     </section>
 
     <footer class="footer">

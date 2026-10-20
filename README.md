@@ -35,8 +35,8 @@ ABLE-Adaptive-Browser-Level-Extension-/
 ABLE runs quietly on every page you visit and intervenes only when there is something worth your attention:
 
 - **Site-safety classification + warnings.** On each navigation, ABLE classifies the domain against a signed policy set (synced from the research server, cached offline) and shows a first-visit warning modal for `SAFE` / `UNSAFE` / `UNLISTED` sites, plus lightweight repeat-visit reminders with cooldowns.
-- **Administrative site blocking.** An administrator can enable `block_access` on a blacklisted domain (Domain Policy page). The extension then renders a non-dismissible "SORRY FOR THE INCONVENIENCE" modal over the page — `Access to <domain> is BLOCKED per administrator governance` — with `Request Access` and `Go Back` actions. The toolbar popup reports the site as `BLOCKED`.
-- **Request access.** `Request Access` opens the server's public message board with the blocked domain and the `Access Request` category prefilled, so the user can state their reasons for an administrator to review on the Access Requests board. Access requests are private (never published on the public feed); approving one grants access and lifts the block on that domain.
+- **Administrative site blocking.** An administrator can enable `block_access` on a blacklisted domain (Domain Policy page). The extension then renders a non-dismissible "SORRY FOR THE INCONVENIENCE" modal over the page — `Access to <domain> is BLOCKED per administrator governance` — with `Request Access` and `Go Back` actions. `Go Back` closes the flagged tab. The toolbar popup reports the site as `BLOCKED`.
+- **Request access.** `Request Access` opens a request form **inside the same page** — the user is never redirected away from the blocked site. They enter an optional alias and their reasons, and the extension files the request with the research server (category `access-request`). The same form is available in the toolbar popup. Requests are private (never published on the public feed); approving one grants access and lifts the block on that domain.
 - **File-upload interception.** An integrity-checked page-world script wraps `fetch`, `XMLHttpRequest`, `navigator.sendBeacon`, and `WebSocket.send`, extracts `File` / `Blob` / `FormData` / `ArrayBuffer` / stream bodies, and holds them for scanning. File-picker, drag-drop, and paste are tracked so original filenames survive format transformations. Analytics endpoints are explicitly bypassed.
 - **Sensitive-text interception.** Enter-key submissions in textareas, inputs, and content-editables are captured and scored before the request is released.
 - **Server-assisted scoring.** Intercepted file text (up to ~200k chars) or submitted text (up to ~50k chars) is sent to the research server for scoring against a signed set of sensitive-data patterns (PII, credentials, keys). The server returns a risk score and flagged categories; the extension renders a risk modal ("HOLD IT RIGHT THERE!", "Sensitive Content Detected") with **Proceed / Cancel** choices. If the scoring server is unreachable, uploads are **held, never sent unscored**.
@@ -95,6 +95,33 @@ Self-hosted research server (Server-Admin, Laravel)
 - `tabs` — popup refresh on tab switch / page load.
 - `webNavigation` — reliable per-navigation classification and domain-level logging.
 - `<all_urls>` host access — classification, interception, and server relay must work on any site the user visits.
+
+### Asset integrity pins
+
+The page-world scripts under `Client-Extension/inject/` are web-accessible, so the extension
+pins their SHA-256 in `Client-Extension/config.js` (`EXPECTED_INJECT_HASH`,
+`EXPECTED_CONTENT_CSS_HASH`) and refuses to inject an asset that does not match. A mismatch
+means upload interception is degraded, so it is reported in the toolbar popup rather than
+silently ignored.
+
+Pins are regenerated automatically — you never have to copy a hex digest by hand:
+
+| When | What runs | Effect |
+|---|---|---|
+| Before packaging | `npm run build` (in `Client-Extension/`) | Recomputes the pins and writes them into `config.js` |
+| On every commit | `.githooks/pre-commit` (installed by `npm install` / `npm run hooks:install`) | Regenerates the pins and stages `config.js`, so a commit can never carry a stale pin |
+| In CI | `npm run build:check` | Fails the build when a pin is stale instead of rewriting it |
+| On the server | `php artisan able:publish-integrity ../Client-Extension` | Publishes the pins into the HMAC-signed runtime payload |
+
+The last row is what lets an **already-installed** extension adopt the pin of a newer build
+without users reinstalling. The server signs the pin, and the extension only accepts a pin
+that arrives with a valid signature, so publishing a pin cannot be used to make a tampered
+asset pass the check. An asset is accepted when it matches the build-time pin **or** the
+signed server pin — a tampered asset matches neither.
+
+`.gitattributes` pins the extension to LF line endings so the hashed bytes are identical on
+every platform. Without it, a CRLF/LF difference changes the file hash and makes the pin
+look stale on a machine that never touched the code.
 
 ---
 

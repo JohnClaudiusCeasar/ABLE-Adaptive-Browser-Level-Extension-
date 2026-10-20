@@ -57,18 +57,23 @@ function showBlockedAccessModal(data) {
   }
 
   backdrop.querySelector("#ableBlockedRequestAccess").addEventListener("click", function () {
-    chrome.runtime.sendMessage({
-      type: "openMessageBoard",
-      domain: data && data.domain ? data.domain : window.location.hostname,
-    });
+    // The request is filed from this tab: no redirect away from the blocked site.
+    showRequestAccessModal({ domain: data && data.domain ? data.domain : window.location.hostname });
   });
 
   backdrop.querySelector("#ableBlockedGoBack").addEventListener("click", function () {
-    if (window.history.length > 1) {
-      window.history.back();
-    } else {
-      window.location.href = (typeof SERVER_URL !== "undefined" ? SERVER_URL : "https://able-server-admin.onrender.com");
-    }
+    // Close the flagged site instead of leaving the user on it.
+    chrome.runtime.sendMessage({
+      type: "closeCurrentTab",
+    }, function (response) {
+      if (chrome.runtime.lastError || !response || !response.success) {
+        if (window.history.length > 1) {
+          window.history.back();
+        } else {
+          window.location.href = (typeof SERVER_URL !== "undefined" ? SERVER_URL : "https://able-server-admin.onrender.com");
+        }
+      }
+    });
   });
 
   // The blocked modal is intentionally not dismissible: swallow Escape so it

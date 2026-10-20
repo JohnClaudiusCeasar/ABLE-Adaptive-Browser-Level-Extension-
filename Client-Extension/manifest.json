@@ -40,6 +40,7 @@
         "content/intercept-modal.js",
         "content/text-warning-modal.js",
         "content/site-warning-modal.js",
+        "content/request-access-modal.js",
         "content/blocked-access-modal.js",
         "content/repeat-visit-modal.js",
         "content/greeting-modal.js",

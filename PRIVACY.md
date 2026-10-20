@@ -33,12 +33,12 @@ For each top-frame website visited, the Extension records:
 Search-result pages and configured excluded domains are not logged. Page contents are not recorded as part of visit logging. This event stream is used to evaluate how well the classification system performs across real browsing contexts.
 
 ### 2.1a Access requests for blocked sites
-When an administrator blocks a site, the Extension shows a "Sorry for the Inconvenience" notice and offers a **Request Access** action. Choosing it opens the research server's public message board in a new browser tab with the blocked domain and the "Access Request" category pre-filled. If you choose to submit, the Extension sends nothing on its own — you type your reasons yourself — and the server records:
+When an administrator blocks a site, the Extension shows a "Sorry for the Inconvenience" notice on that page and offers a **Request Access** action. Choosing it opens a request form **inside the same page** — you are not redirected anywhere. If you choose to submit, the Extension sends the following to the research server:
 - The name or alias you enter (optional; "Anonymous" if left blank)
-- The category (`access-request`) and the blocked domain the request refers to
+- The blocked domain the request refers to
 - The reasons for access that you type
-- The IP address the request originates from
-- The moderation status of the request (pending, approved, or rejected)
+
+The server additionally records the IP address the request originates from and the moderation status of the request (pending, approved, or rejected). The `Go Back` action on the blocked-site notice closes that browser tab; it does not send any data.
 
 Access requests are handled privately. They are never published on the public landing-page message board, and they are visible only to administrators on the Access Requests board. Approving a request grants access — the site block for that domain is lifted — so please keep confidential details out of your reasons.
 
