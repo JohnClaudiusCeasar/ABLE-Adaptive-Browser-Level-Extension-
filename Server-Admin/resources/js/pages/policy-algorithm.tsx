@@ -27,6 +27,7 @@ interface DomainPolicy {
     domain: string;
     domain_status: 'safe' | 'unsafe' | 'unlisted';
     policy: 'whitelisted' | 'blacklisted' | 'under_review';
+    block_access: boolean;
     category: string | null;
     classification_source: string | null;
     confidence: number | null;
@@ -47,6 +48,7 @@ interface FormData {
     domain: string;
     domain_status: 'safe' | 'unsafe' | 'unlisted';
     policy: 'whitelisted' | 'blacklisted' | 'under_review';
+    block_access: boolean;
     category: string;
     classification_source: string;
     confidence: number | null;
@@ -57,6 +59,7 @@ const emptyForm: FormData = {
     domain: '',
     domain_status: 'unlisted',
     policy: 'under_review',
+    block_access: false,
     category: '',
     classification_source: '',
     confidence: null,
@@ -543,6 +546,7 @@ export default function PolicyAlgorithm() {
             domain: policy.domain,
             domain_status: policy.domain_status,
             policy: policy.policy,
+            block_access: policy.policy === 'blacklisted' && !!policy.block_access,
             category: policy.category || '',
             classification_source: policy.classification_source || '',
             confidence: policy.confidence,
@@ -713,9 +717,19 @@ export default function PolicyAlgorithm() {
                     </Badge>
                 </td>
                 <td className={`px-4 py-4 ${isGrouped ? 'w-[16%]' : ''}`}>
-                    <Badge variant={policyBadgeVariant[d.policy]}>
-                        {policyLabels[d.policy]}
-                    </Badge>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                        <Badge variant={policyBadgeVariant[d.policy]}>
+                            {policyLabels[d.policy]}
+                        </Badge>
+                        {d.block_access && (
+                            <Badge
+                                variant="outline"
+                                className="border-red-500/50 bg-red-500/10 text-red-400"
+                            >
+                                Blocked
+                            </Badge>
+                        )}
+                    </div>
                 </td>
                 <td
                     className={`px-4 py-4 text-muted-foreground ${isGrouped ? 'w-[16%] truncate' : ''}`}
@@ -1167,6 +1181,10 @@ export default function PolicyAlgorithm() {
                                             setForm({
                                                 ...form,
                                                 policy,
+                                                block_access:
+                                                    policy === 'blacklisted'
+                                                        ? form.block_access
+                                                        : false,
                                                 domain_status:
                                                     statusMap[policy],
                                                 risk_score:
@@ -1193,6 +1211,52 @@ export default function PolicyAlgorithm() {
                                             Under Review
                                         </option>
                                     </select>
+                                    {form.policy === 'blacklisted' && (
+                                        <div className="mt-2.5 flex items-center justify-between gap-3 rounded-lg border border-red-500/35 bg-red-500/10 px-3 py-2.5 shadow-sm">
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="flex items-center gap-1.5 text-xs font-bold tracking-wide text-red-500 uppercase">
+                                                    <svg
+                                                        width="13"
+                                                        height="13"
+                                                        viewBox="0 0 24 24"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        strokeWidth="2.5"
+                                                        aria-hidden="true"
+                                                    >
+                                                        <circle cx="12" cy="12" r="10" />
+                                                        <line
+                                                            x1="4.93"
+                                                            y1="4.93"
+                                                            x2="19.07"
+                                                            y2="19.07"
+                                                        />
+                                                    </svg>
+                                                    Block Access
+                                                </span>
+                                                <span className="text-[11px] leading-snug text-muted-foreground">
+                                                    Instruct extension to block
+                                                    user access to this site
+                                                </span>
+                                            </div>
+                                            <label className="relative inline-flex h-6 w-11 shrink-0 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    className="peer sr-only"
+                                                    checked={form.block_access}
+                                                    onChange={(e) =>
+                                                        setForm({
+                                                            ...form,
+                                                            block_access:
+                                                                e.target.checked,
+                                                        })
+                                                    }
+                                                />
+                                                <span className="absolute inset-0 rounded-full border border-black/10 bg-black/15 transition-colors peer-checked:border-red-500 peer-checked:bg-red-500 dark:border-white/10 dark:bg-white/15" />
+                                                <span className="absolute bottom-0.5 left-0.5 h-[18px] w-[18px] rounded-full bg-white shadow transition-transform peer-checked:translate-x-[20px]" />
+                                            </label>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                             <div>

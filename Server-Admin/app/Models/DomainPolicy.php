@@ -11,6 +11,7 @@ use Illuminate\Support\Carbon;
  * @property string $domain
  * @property string $domain_status
  * @property string $policy
+ * @property bool $block_access
  * @property string|null $category
  * @property string|null $classification_source
  * @property float|null $confidence
@@ -28,6 +29,7 @@ class DomainPolicy extends Model
         'domain',
         'domain_status',
         'policy',
+        'block_access',
         'category',
         'classification_source',
         'confidence',
@@ -40,6 +42,7 @@ class DomainPolicy extends Model
     protected $casts = [
         'risk_score' => 'integer',
         'visit_count' => 'integer',
+        'block_access' => 'boolean',
         'confidence' => 'float',
         'last_visited_at' => 'datetime',
     ];

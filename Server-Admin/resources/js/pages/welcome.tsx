@@ -14,9 +14,15 @@ interface StreamMessage {
 
 interface WelcomeProps {
     initialMessages?: StreamMessage[];
+    requestCategory?: string | null;
+    requestDomain?: string | null;
 }
 
-export default function Welcome({ initialMessages = [] }: WelcomeProps) {
+export default function Welcome({
+    initialMessages = [],
+    requestCategory = null,
+    requestDomain = null,
+}: WelcomeProps) {
     // -------------------------------------------------------------
     // State Management
     // -------------------------------------------------------------
@@ -28,12 +34,17 @@ export default function Welcome({ initialMessages = [] }: WelcomeProps) {
     >('intro');
     const [csCopied, setCsCopied] = useState(false);
 
-    // Message Board State
+    // Message Board State (pre-filled when redirected by the extension's
+    // "Request Access" button: /?category=access-request&domain=...#contact)
     const [selectedCat, setSelectedCat] = useState<
-        'suggestion' | 'comment' | 'complaint' | 'false-positive'
-    >('suggestion');
+        'suggestion' | 'comment' | 'complaint' | 'false-positive' | 'access-request'
+    >(() =>
+        requestCategory === 'access-request' ? 'access-request' : 'suggestion',
+    );
     const [authorName, setAuthorName] = useState('');
-    const [targetDomain, setTargetDomain] = useState('');
+    const [targetDomain, setTargetDomain] = useState(() =>
+        requestDomain ? requestDomain.slice(0, 100) : '',
+    );
     const [messageBody, setMessageBody] = useState('');
     const [activeFeedFilter, setActiveFeedFilter] = useState<
         'all' | 'suggestion' | 'comment' | 'complaint'
@@ -167,6 +178,24 @@ export default function Welcome({ initialMessages = [] }: WelcomeProps) {
             isTransitioningRef.current = false;
         }, 700);
     };
+
+    // -------------------------------------------------------------
+    // On "Request Access" redirect (?category=access-request), scroll
+    // to the message board and focus the reasons textarea
+    // -------------------------------------------------------------
+    useEffect(() => {
+        if (requestCategory !== 'access-request') {
+            return;
+        }
+
+        scrollToSection('contact');
+
+        const focusTimer = setTimeout(() => {
+            document.getElementById('post-message')?.focus();
+        }, 750);
+
+        return () => clearTimeout(focusTimer);
+    }, [requestCategory]);
 
     // -------------------------------------------------------------
     // Canvas Glowing Cursor Trail Effect
@@ -570,6 +599,7 @@ export default function Welcome({ initialMessages = [] }: WelcomeProps) {
         comment: 'Comment',
         complaint: 'Complaint',
         'false-positive': 'False Positive',
+        'access-request': 'Access Request',
     };
 
     return (
@@ -3131,6 +3161,7 @@ const dispatchHook = {
                                                         'comment',
                                                         'complaint',
                                                         'false-positive',
+                                                        'access-request',
                                                     ] as const
                                                 ).map((cat) => (
                                                     <button

@@ -60,14 +60,16 @@ class SettingsStatusService
     {
         try {
             $rows = DomainPolicy::select('policy', DB::raw('count(*) as total'))->groupBy('policy')->pluck('total', 'policy');
+            $blocked = DomainPolicy::where('block_access', true)->count();
 
             return [
                 'whitelisted' => (int) ($rows['whitelisted'] ?? 0),
                 'blacklisted' => (int) ($rows['blacklisted'] ?? 0),
                 'under_review' => (int) ($rows['under_review'] ?? 0),
+                'blocked' => $blocked,
             ];
         } catch (\Throwable) {
-            return ['whitelisted' => 0, 'blacklisted' => 0, 'under_review' => 0];
+            return ['whitelisted' => 0, 'blacklisted' => 0, 'under_review' => 0, 'blocked' => 0];
         }
     }
 

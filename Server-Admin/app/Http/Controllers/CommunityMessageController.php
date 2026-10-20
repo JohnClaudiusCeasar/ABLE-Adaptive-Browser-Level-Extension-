@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Events\NotificationUpdated;
 use App\Models\CommunityMessage;
+use App\Models\DomainPolicy;
 use App\Models\Notification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -49,7 +50,7 @@ class CommunityMessageController extends Controller
 
         $validated = $request->validate([
             'author' => ['nullable', 'string', 'max:32'],
-            'category' => ['required', 'string', 'in:suggestion,comment,complaint,false-positive'],
+            'category' => ['required', 'string', 'in:suggestion,comment,complaint,false-positive,access-request'],
             'domain' => ['nullable', 'string', 'max:100'],
             'message' => ['required', 'string', 'max:800'],
         ]);
@@ -110,12 +111,32 @@ class CommunityMessageController extends Controller
      */
     public function adminIndex(Request $request): Response
     {
+        return $this->renderModerationBoard($request, null, 'community-messages');
+    }
+
+    /**
+     * Display the admin board dedicated to extension "Request Access" submissions.
+     */
+    public function accessRequests(Request $request): Response
+    {
+        return $this->renderModerationBoard($request, 'access-request', 'access-requests');
+    }
+
+    /**
+     * Shared moderation board renderer, optionally scoped to one category.
+     */
+    private function renderModerationBoard(Request $request, ?string $category, string $component): Response
+    {
         $this->ensureTableExists();
 
         $statusFilter = $request->query('status', 'all');
 
         try {
-            $query = CommunityMessage::orderByDesc('created_at');
+            $scoped = fn () => $category !== null
+                ? CommunityMessage::where('category', $category)
+                : CommunityMessage::query();
+
+            $query = $scoped()->orderByDesc('created_at');
 
             if (in_array($statusFilter, ['pending', 'approved', 'rejected'], true)) {
                 $query->where('status', $statusFilter);
@@ -124,10 +145,10 @@ class CommunityMessageController extends Controller
             $messages = $query->paginate(20)->withQueryString();
 
             $counts = [
-                'all' => CommunityMessage::count(),
-                'pending' => CommunityMessage::where('status', 'pending')->count(),
-                'approved' => CommunityMessage::where('status', 'approved')->count(),
-                'rejected' => CommunityMessage::where('status', 'rejected')->count(),
+                'all' => $scoped()->count(),
+                'pending' => $scoped()->where('status', 'pending')->count(),
+                'approved' => $scoped()->where('status', 'approved')->count(),
+                'rejected' => $scoped()->where('status', 'rejected')->count(),
             ];
         } catch (\Throwable $e) {
             Log::error('Failed to query community messages: '.$e->getMessage());
@@ -140,7 +161,7 @@ class CommunityMessageController extends Controller
             ];
         }
 
-        return Inertia::render('community-messages', [
+        return Inertia::render($component, [
             'messages' => $messages,
             'counts' => $counts,
             'currentFilter' => $statusFilter,
@@ -154,7 +175,7 @@ class CommunityMessageController extends Controller
     {
         $validated = $request->validate([
             'author' => ['nullable', 'string', 'max:32'],
-            'category' => ['required', 'string', 'in:suggestion,comment,complaint,false-positive'],
+            'category' => ['required', 'string', 'in:suggestion,comment,complaint,false-positive,access-request'],
             'domain' => ['nullable', 'string', 'max:100'],
             'message' => ['required', 'string', 'max:800'],
             'status' => ['nullable', 'string', 'in:pending,approved,rejected'],
@@ -224,10 +245,33 @@ class CommunityMessageController extends Controller
 
     /**
      * Approve a community message (makes it publicly visible on the landing page).
+     * Approving an access request instead grants access and lifts the site block.
      */
     public function approve(CommunityMessage $communityMessage): RedirectResponse
     {
         $communityMessage->update(['status' => 'approved']);
+
+        $isAccessRequest = $communityMessage->category === 'access-request';
+        $unblockedDomain = null;
+
+        if ($isAccessRequest && ! empty($communityMessage->domain)) {
+            // Approving an access request is the grant: lift the site block.
+            try {
+                $policy = DomainPolicy::where('domain', $communityMessage->domain)->first();
+
+                if ($policy && $policy->block_access) {
+                    $policy->update(['block_access' => false]);
+                    $unblockedDomain = $policy->domain;
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Failed to lift block for approved access request: '.$e->getMessage());
+            }
+        }
+
+        $description = $isAccessRequest
+            ? 'Access request approved for '.($communityMessage->domain ?? 'unknown domain')
+                .($unblockedDomain ? ' — site unblocked' : '')
+            : "Community message approved from {$communityMessage->author} ({$communityMessage->category})";
 
         try {
             $notification = Notification::where('source', 'community')
@@ -242,13 +286,13 @@ class CommunityMessageController extends Controller
                 $notification->update([
                     'status' => 'glass-safe',
                     'type' => 'community_feedback_approved',
-                    'description' => "Community message approved from {$communityMessage->author} ({$communityMessage->category})",
+                    'description' => $description,
                 ]);
             } else {
                 $notification = Notification::create([
                     'source' => 'community',
                     'type' => 'community_feedback_approved',
-                    'description' => "Community message approved from {$communityMessage->author} ({$communityMessage->category})",
+                    'description' => $description,
                     'domain' => $communityMessage->domain,
                     'ip_address' => $communityMessage->ip_address,
                     'message' => 'community-message-'.$communityMessage->id,
@@ -260,6 +304,15 @@ class CommunityMessageController extends Controller
             event(new NotificationUpdated('approved', $notification, $communityMessage->id));
         } catch (\Throwable $e) {
             Log::warning('Failed to update notification on approve: '.$e->getMessage());
+        }
+
+        if ($isAccessRequest) {
+            return Redirect::back()->with(
+                'success',
+                $unblockedDomain
+                    ? "Access request approved — access granted for {$unblockedDomain}."
+                    : 'Access request approved.',
+            );
         }
 
         return Redirect::back()->with('success', 'Message approved and published to the live landing feed.');

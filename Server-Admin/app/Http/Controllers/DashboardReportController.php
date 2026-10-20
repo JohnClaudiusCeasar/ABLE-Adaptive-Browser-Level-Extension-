@@ -445,6 +445,7 @@ class DashboardReportController extends Controller
             'domain_policies.risk_score',
             'domain_policies.domain_status',
             'domain_policies.policy',
+            'domain_policies.block_access',
             'domain_policies.visit_count',
             DB::raw('COUNT(DISTINCT domain_visits.user_id) as active_users')
         )
@@ -456,6 +457,7 @@ class DashboardReportController extends Controller
                 'domain_policies.risk_score',
                 'domain_policies.domain_status',
                 'domain_policies.policy',
+                'domain_policies.block_access',
                 'domain_policies.visit_count'
             )
             ->orderByDesc('domain_policies.risk_score')
@@ -469,6 +471,7 @@ class DashboardReportController extends Controller
                     'risk_score' => (int) $row->risk_score,
                     'domain_status' => $row->domain_status,
                     'policy' => $row->policy,
+                    'block_access' => (bool) $row->block_access,
                     'active_users' => (int) $row->active_users,
                     'visit_count' => (int) ($row->visit_count ?: $row->active_users),
                 ];
@@ -526,16 +529,18 @@ class DashboardReportController extends Controller
             : 0;
 
         // Domain Usage
-        /** @var object{safe: int, unsafe: int, unlisted: int} $statusCounts */
+        /** @var object{safe: int, unsafe: int, unlisted: int, blocked: int} $statusCounts */
         $statusCounts = DomainPolicy::selectRaw("
             SUM(CASE WHEN domain_status = 'safe' THEN 1 ELSE 0 END) as safe,
             SUM(CASE WHEN domain_status = 'unsafe' THEN 1 ELSE 0 END) as unsafe,
-            SUM(CASE WHEN domain_status = 'unlisted' THEN 1 ELSE 0 END) as unlisted
+            SUM(CASE WHEN domain_status = 'unlisted' THEN 1 ELSE 0 END) as unlisted,
+            SUM(CASE WHEN block_access = 1 THEN 1 ELSE 0 END) as blocked
         ")->first();
         $domainUsage = [
             'safe' => (int) ($statusCounts->safe ?? 0),
             'unsafe' => (int) ($statusCounts->unsafe ?? 0),
             'unlisted' => (int) ($statusCounts->unlisted ?? 0),
+            'blocked' => (int) ($statusCounts->blocked ?? 0),
         ];
 
         // Recent Egress Events (20 for reports)

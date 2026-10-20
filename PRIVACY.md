@@ -26,11 +26,21 @@ Data described in this policy is transmitted exclusively to the project's own se
 ### 2.1 Website visit events (research telemetry)
 For each top-frame website visited, the Extension records:
 - Domain name (hostname) of the visited site
-- Safety classification result (safe / unsafe / unlisted)
+- Safety classification result (safe / unsafe / unlisted / blocked)
 - Timestamp and a unique event ID
 - A locally generated pseudonymous identifier (see Section 4)
 
 Search-result pages and configured excluded domains are not logged. Page contents are not recorded as part of visit logging. This event stream is used to evaluate how well the classification system performs across real browsing contexts.
+
+### 2.1a Access requests for blocked sites
+When an administrator blocks a site, the Extension shows a "Sorry for the Inconvenience" notice and offers a **Request Access** action. Choosing it opens the research server's public message board in a new browser tab with the blocked domain and the "Access Request" category pre-filled. If you choose to submit, the Extension sends nothing on its own — you type your reasons yourself — and the server records:
+- The name or alias you enter (optional; "Anonymous" if left blank)
+- The category (`access-request`) and the blocked domain the request refers to
+- The reasons for access that you type
+- The IP address the request originates from
+- The moderation status of the request (pending, approved, or rejected)
+
+Access requests are handled privately. They are never published on the public landing-page message board, and they are visible only to administrators on the Access Requests board. Approving a request grants access — the site block for that domain is lifted — so please keep confidential details out of your reasons.
 
 ### 2.2 Content submitted for sensitive-data scanning
 When you upload a file or submit text on a website (for example, into an AI chat platform), the Extension sends the following to the research server for security scanning **before** the content leaves your browser:
@@ -52,7 +62,7 @@ When you proceed with or cancel a flagged upload or text submission, the Extensi
 These events are used to study how users respond to warnings and to measure the effectiveness of the interception system.
 
 ### 2.4 Page metadata signals for site classification
-To classify a website as safe, unsafe, or unlisted, the Extension sends the page URL and limited page metadata (title, meta tags, headings, a short body excerpt up to ~3,000 characters, form flags, and image alt text) to the research server. Classification results are cached locally (in signed, tamper-evident form) so the Extension works offline. These signals are used as research inputs for improving classification accuracy.
+To classify a website as safe, unsafe, unlisted, or blocked, the Extension sends the page URL and limited page metadata (title, meta tags, headings, a short body excerpt up to ~3,000 characters, form flags, and image alt text) to the research server. Classification results are cached locally (in signed, tamper-evident form) so the Extension works offline. These signals are used as research inputs for improving classification accuracy.
 
 ### 2.5 Extension lifecycle events
 Installation, update, and uninstall events are reported with the pseudonymous identifier, extension ID, and extension version, to understand deployment status and diagnose problems.

@@ -287,6 +287,39 @@ body {
   color: #c2185b;
 }
 
+.status-blocked .info-card {
+  border-color: #f44336;
+  box-shadow: var(--card-shadow), 0 0 12px rgba(244, 67, 54, 0.25);
+  background-color: rgba(244, 67, 54, 0.04);
+}
+
+.status-blocked .card-title {
+  color: #c62828;
+}
+
+.request-access-btn {
+  margin-top: 16px;
+  width: 100%;
+  padding: 10px 18px;
+  border: 1.5px solid #f44336;
+  border-radius: 14px;
+  background-color: rgba(244, 67, 54, 0.08);
+  color: #c62828;
+  font-family: 'Archivo', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.request-access-btn:hover {
+  filter: brightness(0.97);
+}
+
+.request-access-btn[hidden] {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .status-dot {
     animation: none;

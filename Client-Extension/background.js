@@ -15,6 +15,7 @@ var RISK_PATTERNS_ALARM = "risk-patterns-sync";
 var VISIT_LOG_ALARM = "visit-log-flush";
 var EGRESS_LOG_ALARM = "egress-log-flush";
 var SETTINGS_ALARM = "settings-sync";
+var POLICY_ALARM = "policy-sync";
 var GREETING_PENDING_KEY = "able:greeting_pending";
 
 function isGreetingInjectableUrl(url) {
@@ -100,6 +101,7 @@ chrome.runtime.onInstalled.addListener(async function (details) {
   chrome.alarms.create(VISIT_LOG_ALARM, { periodInMinutes: visitInterval });
   chrome.alarms.create(EGRESS_LOG_ALARM, { periodInMinutes: egressInterval });
   chrome.alarms.create(SETTINGS_ALARM, { periodInMinutes: 30 });
+  chrome.alarms.create(POLICY_ALARM, { periodInMinutes: 15 });
 
   try {
     var userId = await getOrCreateUserId();
@@ -148,12 +150,15 @@ chrome.alarms.onAlarm.addListener(async function (alarm) {
     await processEgressLogQueue();
   } else if (alarm.name === SETTINGS_ALARM) {
     await ABLERuntimeSettings.load();
+  } else if (alarm.name === POLICY_ALARM) {
+    await refreshOfflineCache();
   }
 });
 
 chrome.runtime.onStartup.addListener(function () {
   ABLERuntimeSettings.initialize();
   refreshRiskPatternsCache();
+  refreshOfflineCache();
   processVisitLogQueue();
   processEgressLogQueue();
 });
@@ -275,6 +280,19 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     });
     return true;
   }
+  if (message.type === "openMessageBoard") {
+    (async function () {
+      try {
+        var boardUrl = SERVER_URL + "/?category=access-request&domain="
+          + encodeURIComponent(message.domain || "") + "#contact";
+        await chrome.tabs.create({ url: boardUrl });
+        sendResponse({ success: true });
+      } catch (error) {
+        sendResponse({ success: false });
+      }
+    })();
+    return true;
+  }
   if (message.type === "openWelcomePage") {
     (async function () {
       try {
@@ -313,6 +331,7 @@ async function handleClassifyDomain(url, sendResponse, signals) {
         alternatives: [],
         risk_score: serverResult.risk_score,
         policy: serverResult.policy,
+        block_access: !!serverResult.block_access,
         source: serverResult.source,
         title: messages.title,
         message: messages.message,
@@ -375,6 +394,7 @@ async function classifyFromOfflineCache(url) {
         domain: domain,
         category: exactMatch.category,
         policy: exactMatch.policy,
+        block_access: !!exactMatch.block_access,
         risk_score: exactMatch.risk_score,
       };
     }
@@ -386,6 +406,7 @@ async function classifyFromOfflineCache(url) {
         domain: domain,
         category: subdomainMatch.category,
         policy: subdomainMatch.policy,
+        block_access: !!subdomainMatch.block_access,
         risk_score: subdomainMatch.risk_score,
       };
     }

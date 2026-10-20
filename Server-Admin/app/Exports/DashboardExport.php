@@ -46,6 +46,7 @@ class DashboardExport
             fputcsv($handle, ['Safe Domains', $this->summary['domainUsage']['safe']]);
             fputcsv($handle, ['Unsafe Domains', $this->summary['domainUsage']['unsafe']]);
             fputcsv($handle, ['Unlisted Domains', $this->summary['domainUsage']['unlisted']]);
+            fputcsv($handle, ['Blocked Domains', $this->summary['domainUsage']['blocked'] ?? 0]);
             fputcsv($handle, []);
 
             // Egress Events Section

@@ -674,7 +674,26 @@ async function logDomainVisit() {
 
 // ─── Evaluation & display ───────────────────────────────────
 
+/**
+ * True when the current domain is under an administrator block.
+ */
+function isBlockedDomain() {
+  return !!(domainStatus && domainStatus.block_access === true && !isExcludedDomain());
+}
+
+/**
+ * Render the non-dismissible blocked modal when the domain is blocked.
+ * Replaces any modal already on screen (the block outranks advisories).
+ */
+function showBlockedModalIfNeeded() {
+  if (!isBlockedDomain()) return false;
+  showBlockedAccessModal({ domain: domainStatus.domain });
+  return true;
+}
+
 async function evaluateAndShowModal(visitResult) {
+  if (showBlockedModalIfNeeded()) return;
+
   if (!shouldActivate()) return;
 
   var visitCount = visitResult && typeof visitResult === "object"
@@ -726,10 +745,19 @@ async function evaluateAndShowModal(visitResult) {
 }
 
 async function handleSPANavigation() {
+  // A blocked domain must be blocked on in-app navigation too, so this
+  // path re-checks the block before bailing out on an existing modal.
+  if (isBlockedDomain()) {
+    showBlockedModalIfNeeded();
+    return;
+  }
+
   if (document.getElementById("able-modal-root") || document.querySelector(".able-modal-backdrop")) return;
 
   classifyReady = classifyCurrentDomain();
   await classifyReady;
+
+  if (showBlockedModalIfNeeded()) return;
 
   try {
     if (typeof ABLEPageSignals !== "undefined" && ABLEPageSignals.contentHash) {
@@ -933,6 +961,10 @@ function scheduleHydrationRecheck() {
   var run = async function () {
     try {
       if (!domainStatus || !domainStatus.domain) return;
+      if (isBlockedDomain()) {
+        showBlockedModalIfNeeded();
+        return;
+      }
       if (document.getElementById("able-modal-root") || document.querySelector(".able-modal-backdrop")) return;
       if (typeof ABLEPageSignals === "undefined" || !ABLEPageSignals.contentHash) return;
       var current = ABLEPageSignals.contentHash();
@@ -940,6 +972,7 @@ function scheduleHydrationRecheck() {
       initialContentHash = current;
       classifyReady = classifyCurrentDomain();
       await classifyReady;
+      showBlockedModalIfNeeded();
     } catch {}
   };
 

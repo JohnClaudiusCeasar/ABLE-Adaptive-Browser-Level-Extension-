@@ -35,17 +35,28 @@ if [ -z "$APP_KEY" ]; then
     php artisan key:generate --force || true
 fi
 
-# Run database migrations with retry loop
+# Run database migrations with retry loop.
+# A failed migration must never boot a container against a stale schema:
+# the app would answer health checks while silently missing new columns.
 echo "Waiting for database and running migrations..."
 n=0
+migrations_ok=0
 until [ "$n" -ge 10 ]
 do
     php artisan app:baseline-migrations || true
-    php artisan migrate --force --no-interaction && break
+    if php artisan migrate --force --no-interaction; then
+        migrations_ok=1
+        break
+    fi
     n=$((n+1))
     echo "Database not ready yet, retrying in 3 seconds ($n/10)..."
     sleep 3
 done
+
+if [ "$migrations_ok" -ne 1 ]; then
+    echo "FATAL: database migrations failed after 10 attempts. Refusing to start."
+    exit 1
+fi
 
 # Guarantee at least one Super Admin exists. The Team module is Super Admin
 # only, so without this the roles could all settle on 'admin' and nobody

@@ -71,4 +71,19 @@ class CommunityMessage extends Model
     {
         return $query->where('status', 'rejected');
     }
+
+    /**
+     * Scope query to the messages published on the public landing feed.
+     *
+     * Access requests are governance records about a specific blocked site,
+     * so they are never published publicly.
+     *
+     * @param  Builder<CommunityMessage>  $query
+     * @return Builder<CommunityMessage>
+     */
+    public function scopePublicFeed(Builder $query): Builder
+    {
+        return $query->where('status', 'approved')
+            ->where('category', '!=', 'access-request');
+    }
 }

@@ -6,13 +6,33 @@
 
 const OFFLINE_CACHE_KEY = "able:domain_policies";
 const OFFLINE_CACHE_TIMESTAMP_KEY = "able:domain_policies_timestamp";
+const OFFLINE_CACHE_REFRESHED_AT_KEY = "able:domain_policies_refreshed_at";
 const OFFLINE_CACHE_ENVELOPE_KEY = "able:domain_policies_envelope";
 
 const domainCache = new Map();
-const CACHE_TTL = 5 * 60 * 1000;
+const CACHE_TTL = 60 * 1000;
+
+// The signed policy feed carries every domain, so it is refreshed on its own
+// cadence instead of on every live classification.
+const OFFLINE_CACHE_REFRESH_INTERVAL_MS = 15 * 60 * 1000;
 
 function getCacheTtl() {
   return ABLERuntimeSettings.get("sync.cache_ttl_ms", CACHE_TTL);
+}
+
+/**
+ * Refresh the signed offline cache, but no more often than the refresh
+ * interval so a short classification TTL does not pull the full policy
+ * feed on every navigation.
+ */
+async function refreshOfflineCacheIfStale() {
+  try {
+    const stored = await chrome.storage.local.get(OFFLINE_CACHE_REFRESHED_AT_KEY);
+    const lastRefresh = stored[OFFLINE_CACHE_REFRESHED_AT_KEY] || 0;
+    if (Date.now() - lastRefresh < OFFLINE_CACHE_REFRESH_INTERVAL_MS) return null;
+  } catch {}
+
+  return refreshOfflineCache();
 }
 
 async function refreshOfflineCache() {
@@ -32,6 +52,7 @@ async function refreshOfflineCache() {
     await chrome.storage.local.set({
       [OFFLINE_CACHE_KEY]: policies,
       [OFFLINE_CACHE_TIMESTAMP_KEY]: payload.issued_at || Date.now(),
+      [OFFLINE_CACHE_REFRESHED_AT_KEY]: Date.now(),
       [OFFLINE_CACHE_ENVELOPE_KEY]: envelope,
     });
 
@@ -140,7 +161,7 @@ async function getDomainClassification(url, signals) {
         data: serverResult,
         timestamp: Date.now(),
       });
-      refreshOfflineCache();
+      refreshOfflineCacheIfStale();
       return serverResult;
     }
 
@@ -153,6 +174,7 @@ async function getDomainClassification(url, signals) {
           domain: domain,
           category: cachedResult.category,
           policy: cachedResult.policy,
+          block_access: !!cachedResult.block_access,
           risk_score: cachedResult.risk_score,
           source: "offline_cache",
         };
@@ -172,6 +194,7 @@ if (typeof globalThis !== "undefined") {
     classifyDomainViaServer,
     classifyFromCache,
     refreshOfflineCache,
+    refreshOfflineCacheIfStale,
     getOfflineCache,
     clearOfflineCache,
   };

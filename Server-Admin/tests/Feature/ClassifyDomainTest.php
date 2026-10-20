@@ -65,6 +65,48 @@ class ClassifyDomainTest extends TestCase
         ]);
     }
 
+    public function test_blocked_domain_returns_block_access_flag(): void
+    {
+        DomainPolicy::create([
+            'domain' => 'blocked-site.example',
+            'domain_status' => 'unsafe',
+            'policy' => 'blacklisted',
+            'block_access' => true,
+            'category' => 'Gambling',
+            'classification_source' => 'manual',
+            'risk_score' => 70,
+        ]);
+
+        $this->postJson('/api/classify-domain', [
+            'url' => 'https://blocked-site.example/account/dashboard',
+        ])->assertOk()->assertJson([
+            'policy' => 'blacklisted',
+            'block_access' => true,
+            'source' => 'database',
+        ]);
+    }
+
+    public function test_non_blocked_domain_returns_false_block_access(): void
+    {
+        DomainPolicy::create([
+            'domain' => 'watched.example',
+            'domain_status' => 'unlisted',
+            'policy' => 'under_review',
+            'block_access' => false,
+            'category' => 'E-commerce',
+            'classification_source' => 'manual',
+            'risk_score' => 55,
+        ]);
+
+        $this->postJson('/api/classify-domain', [
+            'url' => 'https://watched.example/products',
+        ])->assertOk()->assertJson([
+            'policy' => 'under_review',
+            'block_access' => false,
+            'source' => 'database',
+        ]);
+    }
+
     public function test_gambling_domain_gets_blacklisted_policy(): void
     {
         $response = $this->postJson('/api/classify-domain', [

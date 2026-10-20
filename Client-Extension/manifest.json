@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "ABLE - Adaptive Browser-Level Extension",
-  "version": "0.1.1",
-  "description": "Detects website safety status and provides security warnings for unsafe and unlisted domains",
+  "version": "0.1.2",
+  "description": "Detects website safety status, provides security warnings for unsafe and unlisted domains, and blocks administratively restricted sites",
   "permissions": [
     "scripting",
     "storage",

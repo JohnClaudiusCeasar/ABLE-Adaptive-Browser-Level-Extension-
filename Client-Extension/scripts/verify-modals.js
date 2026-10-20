@@ -124,6 +124,7 @@ load("content/modal-container.js");
 load("content/intercept-modal.js");
 load("content/text-warning-modal.js");
 load("content/score-hold-modal.js");
+load("content/blocked-access-modal.js");
 
 // ── Capture rendered markup ─────────────────────────────────────
 const rendered = {};
@@ -189,7 +190,16 @@ const holdHtml = capture("hold", () => {
   });
 });
 
-const modals = { "intercept": interceptHtml, "text": textHtml, "hold": holdHtml };
+const blockedHtml = capture("blocked", () => {
+  sandbox.showBlockedAccessModal({ domain: "blocked.example.com" });
+});
+
+const modals = {
+  "intercept": interceptHtml,
+  "text": textHtml,
+  "hold": holdHtml,
+  "blocked": blockedHtml,
+};
 
 // 1-5: shared family structure
 for (const [name, html] of Object.entries(modals)) {
@@ -229,6 +239,17 @@ for (const [name, html] of Object.entries(modals)) {
     check(name + ": has .able-modal-divider", html.includes('able-modal-divider'));
   }
 }
+
+// 6b: the blocked modal carries the governance copy and both actions
+check("blocked: title is SORRY FOR THE INCONVENIENCE", blockedHtml.includes('SORRY FOR THE INCONVENIENCE'));
+check("blocked: names the blocked domain", blockedHtml.includes('blocked.example.com'));
+check("blocked: states the block is per administrator governance",
+  blockedHtml.includes('administrator governance'));
+check("blocked: highlights the blocked state", blockedHtml.includes('able-highlight-text'));
+check("blocked: offers Request Access", blockedHtml.includes('Request Access'));
+check("blocked: offers Go Back", blockedHtml.includes('Go Back'));
+check("blocked: binds the request-access action", blockedHtml.includes('ableBlockedRequestAccess'));
+check("blocked: binds the go-back action", blockedHtml.includes('ableBlockedGoBack'));
 
 // 7: text modal exposes ring + breakdown
 check("text: has .able-score-ring-wrapper", textHtml.includes('able-score-ring-wrapper'));

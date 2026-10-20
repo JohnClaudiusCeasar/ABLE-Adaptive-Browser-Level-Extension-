@@ -179,6 +179,7 @@ class SecurityAnalyticsController extends Controller
             'domain_policies.risk_score',
             'domain_policies.domain_status',
             'domain_policies.policy',
+            'domain_policies.block_access',
             'domain_policies.visit_count',
             DB::raw('COUNT(DISTINCT domain_visits.user_id) as active_users')
         )
@@ -190,6 +191,7 @@ class SecurityAnalyticsController extends Controller
                 'domain_policies.risk_score',
                 'domain_policies.domain_status',
                 'domain_policies.policy',
+                'domain_policies.block_access',
                 'domain_policies.visit_count'
             )
             ->orderByDesc('domain_policies.risk_score');
@@ -217,7 +219,7 @@ class SecurityAnalyticsController extends Controller
         }
 
         $shadowCatalog = $catalogQuery->get()->map(function ($row) use ($visitsByDomain, $incidentsByDomain) {
-            /** @var object{id: int, domain: string, category: string|null, risk_score: int, domain_status: string, policy: string, visit_count: int, active_users: int} $row */
+            /** @var object{id: int, domain: string, category: string|null, risk_score: int, domain_status: string, policy: string, block_access: bool, visit_count: int, active_users: int} $row */
             $domainParts = explode('.', $row->domain);
             $appName = ucfirst($domainParts[0]);
 
@@ -240,6 +242,7 @@ class SecurityAnalyticsController extends Controller
                 'status' => $statusMap[$row->policy] ?? 'Under Review',
                 'policy' => $row->policy,
                 'domain_status' => $row->domain_status,
+                'block_access' => (bool) $row->block_access,
             ];
         });
 

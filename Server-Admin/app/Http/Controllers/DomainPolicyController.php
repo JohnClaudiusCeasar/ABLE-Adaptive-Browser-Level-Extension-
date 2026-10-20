@@ -41,11 +41,15 @@ class DomainPolicyController extends Controller
             'domain' => 'required|string|max:255|unique:domain_policies,domain',
             'domain_status' => 'required|in:safe,unsafe,unlisted',
             'policy' => 'required|in:whitelisted,blacklisted,under_review',
+            'block_access' => 'sometimes|boolean',
             'category' => 'nullable|string|max:255',
             'classification_source' => 'nullable|string|max:50',
             'confidence' => 'nullable|numeric|min:0|max:1',
             'risk_score' => 'required|integer|min:0|max:100',
         ]);
+
+        $validated['block_access'] = $validated['policy'] === 'blacklisted'
+            && (bool) ($validated['block_access'] ?? false);
 
         if (! empty($validated['category']) && empty($validated['classification_source'])) {
             $validated['classification_source'] = 'manual';
@@ -67,11 +71,18 @@ class DomainPolicyController extends Controller
             'domain' => 'required|string|max:255|unique:domain_policies,domain,'.$domainPolicy->id,
             'domain_status' => 'required|in:safe,unsafe,unlisted',
             'policy' => 'required|in:whitelisted,blacklisted,under_review',
+            'block_access' => 'sometimes|boolean',
             'category' => 'nullable|string|max:255',
             'classification_source' => 'nullable|string|max:50',
             'confidence' => 'nullable|numeric|min:0|max:1',
             'risk_score' => 'required|integer|min:0|max:100',
         ]);
+
+        // A partial update that omits block_access must not silently un-block
+        // the domain; only a non-blacklisted policy forces the flag off.
+        $validated['block_access'] = $validated['policy'] !== 'blacklisted'
+            ? false
+            : (bool) ($validated['block_access'] ?? $domainPolicy->block_access);
 
         if (! empty($validated['category']) && empty($validated['classification_source'])) {
             $validated['classification_source'] = 'manual';
@@ -323,6 +334,7 @@ class DomainPolicyController extends Controller
                     'domain' => $domain,
                     'category' => $policy->category,
                     'policy' => $policy->policy,
+                    'block_access' => (bool) $policy->block_access,
                     'risk_score' => $policy->risk_score,
                     'source' => 'database',
                     'classification_source' => $policy->classification_source,
@@ -346,6 +358,7 @@ class DomainPolicyController extends Controller
                     'domain' => $domain,
                     'category' => $brandCategory,
                     'policy' => $policy->policy,
+                    'block_access' => (bool) $policy->block_access,
                     'risk_score' => $policy->risk_score,
                     'source' => 'brand',
                     'classification_source' => 'brand',
@@ -363,6 +376,7 @@ class DomainPolicyController extends Controller
                         'domain' => $domain,
                         'category' => null,
                         'policy' => 'whitelisted',
+                        'block_access' => false,
                         'risk_score' => 0,
                         'source' => 'pattern',
                         'classification_source' => 'pattern',
@@ -390,6 +404,7 @@ class DomainPolicyController extends Controller
                     'domain' => $domain,
                     'category' => $heuristic['category'],
                     'policy' => $heuristic['policy'],
+                    'block_access' => false,
                     'risk_score' => $heuristic['risk_score'],
                     'source' => 'heuristic',
                     'classification_source' => 'heuristic',
@@ -416,6 +431,7 @@ class DomainPolicyController extends Controller
                 'domain' => $domain,
                 'category' => null,
                 'policy' => $fallbackPolicy,
+                'block_access' => false,
                 'risk_score' => $defaultRiskScore,
                 'source' => 'pending',
                 'classification_source' => 'pending',
@@ -428,6 +444,7 @@ class DomainPolicyController extends Controller
                 'domain' => 'unknown',
                 'category' => null,
                 'policy' => 'under_review',
+                'block_access' => false,
                 'risk_score' => 60,
                 'source' => 'error',
                 'error' => $e->getMessage(),

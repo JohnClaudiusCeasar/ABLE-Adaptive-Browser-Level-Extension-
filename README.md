@@ -35,18 +35,20 @@ ABLE-Adaptive-Browser-Level-Extension-/
 ABLE runs quietly on every page you visit and intervenes only when there is something worth your attention:
 
 - **Site-safety classification + warnings.** On each navigation, ABLE classifies the domain against a signed policy set (synced from the research server, cached offline) and shows a first-visit warning modal for `SAFE` / `UNSAFE` / `UNLISTED` sites, plus lightweight repeat-visit reminders with cooldowns.
+- **Administrative site blocking.** An administrator can enable `block_access` on a blacklisted domain (Domain Policy page). The extension then renders a non-dismissible "SORRY FOR THE INCONVENIENCE" modal over the page — `Access to <domain> is BLOCKED per administrator governance` — with `Request Access` and `Go Back` actions. The toolbar popup reports the site as `BLOCKED`.
+- **Request access.** `Request Access` opens the server's public message board with the blocked domain and the `Access Request` category prefilled, so the user can state their reasons for an administrator to review on the Access Requests board. Access requests are private (never published on the public feed); approving one grants access and lifts the block on that domain.
 - **File-upload interception.** An integrity-checked page-world script wraps `fetch`, `XMLHttpRequest`, `navigator.sendBeacon`, and `WebSocket.send`, extracts `File` / `Blob` / `FormData` / `ArrayBuffer` / stream bodies, and holds them for scanning. File-picker, drag-drop, and paste are tracked so original filenames survive format transformations. Analytics endpoints are explicitly bypassed.
 - **Sensitive-text interception.** Enter-key submissions in textareas, inputs, and content-editables are captured and scored before the request is released.
 - **Server-assisted scoring.** Intercepted file text (up to ~200k chars) or submitted text (up to ~50k chars) is sent to the research server for scoring against a signed set of sensitive-data patterns (PII, credentials, keys). The server returns a risk score and flagged categories; the extension renders a risk modal ("HOLD IT RIGHT THERE!", "Sensitive Content Detected") with **Proceed / Cancel** choices. If the scoring server is unreachable, uploads are **held, never sent unscored**.
 - **Research telemetry.** Domain-level visit events and egress decisions (metadata only — never raw file contents in logs) are queued locally and flushed periodically for later analysis of classification coverage and warning effectiveness.
-- **Toolbar popup.** Clicking the extension icon shows the current tab's domain and its `SAFE` / `UNSAFE` / `UNLISTED` classification.
+- **Toolbar popup.** Clicking the extension icon shows the current tab's domain and its `SAFE` / `UNSAFE` / `UNLISTED` / `BLOCKED` classification, with a `Request Access` action on administratively blocked sites.
 
 ### How it works (architecture)
 
 ```text
 Web page (any site)
  ├── Content script (isolated world, document_end)
- │    ├── classify domain → site-warning / repeat-visit modals (Shadow DOM)
+ │    ├── classify domain → site-warning / repeat-visit / blocked-access modals (Shadow DOM)
  │    ├── file-scanner → extract text (plain text, Office Open XML) → score
  │    └── intercept / text-warning / score-hold modals
  ├── Page-world scripts (inject/*.js via <script> tag, SHA-256 integrity-checked)
@@ -54,15 +56,17 @@ Web page (any site)
  │    ├── file-tracker: input[type=file], drag-drop, paste
  │    └── file-extractor: recover Files, clear inputs/widgets on cancel
  │
-Background service worker (background.js)
+ Background service worker (background.js)
  ├── webNavigation.onCommitted → classify + log top-frame visits
  ├── alarms → sync policies/patterns/settings, flush visit + egress queues
+ ├── openMessageBoard → message board with prefilled access request
  └── storage.session (TRUSTED_AND_UNTRUSTED) → dedup, backoff, session consent
         ↕ HTTPS only (TLS SPKI pin, origin allowlist, credentials: omit, signed responses)
 Self-hosted research server (Server-Admin, Laravel)
  ├── GET  /api/extension/config, /api/risk-patterns/signed, /api/domain-policies/signed
  ├── POST /api/classify-domain, /api/score-content
- └── POST /api/log-visit, /api/log-egress, /api/extension/lifecycle
+ ├── POST /api/log-visit, /api/log-egress, /api/extension/lifecycle
+ └── POST /community-messages (access requests + community feedback)
 ```
 
 ### Components

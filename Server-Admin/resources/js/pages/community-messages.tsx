@@ -21,7 +21,12 @@ const glassCard =
 interface CommunityMessageItem {
     id: number;
     author: string;
-    category: 'suggestion' | 'comment' | 'complaint' | 'false-positive';
+    category:
+        | 'suggestion'
+        | 'comment'
+        | 'complaint'
+        | 'false-positive'
+        | 'access-request';
     domain: string | null;
     message: string;
     ip_address: string | null;
@@ -90,6 +95,7 @@ const categoryLabels: Record<string, string> = {
     comment: 'Comment',
     complaint: 'Complaint',
     'false-positive': 'False Positive',
+    'access-request': 'Access Request',
 };
 
 const categoryBadgeVariants: Record<string, string> = {
@@ -97,6 +103,7 @@ const categoryBadgeVariants: Record<string, string> = {
     comment: 'border-cyan-500/50 bg-cyan-500/10 text-cyan-400',
     complaint: 'border-red-500/50 bg-red-500/10 text-red-400',
     'false-positive': 'border-amber-500/50 bg-amber-500/10 text-amber-400',
+    'access-request': 'border-violet-500/50 bg-violet-500/10 text-violet-400',
 };
 
 export default function CommunityMessagesPage({

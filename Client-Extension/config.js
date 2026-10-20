@@ -87,7 +87,7 @@ const ABLE_RISK_THRESHOLD = 85;
 const ABLE_MODAL_SHORT_COOLDOWN_MS = 35000;
 const ABLE_MODAL_STAGGER_COOLDOWN_MS = 300000;
 const ABLE_SESSION_CONSENT_ENABLED = true;
-const ABLE_CACHE_TTL = 5 * 60 * 1000;
+const ABLE_CACHE_TTL = 60 * 1000;
 const ABLE_RISK_PATTERNS_SYNC_INTERVAL_MINUTES = 24 * 60;
 const ABLE_VISIT_LOG_FLUSH_INTERVAL_MINUTES = 5;
 const ABLE_EGRESS_LOG_FLUSH_INTERVAL_MINUTES = 5;
@@ -214,6 +214,11 @@ function getStatusMessage(status, domain, category, alternatives) {
       title: 'The site you are entering is <span class="able-highlight-text">UNLISTED</span>',
       message: `<span class="able-highlight-text">${domain}</span> is an <span class="able-highlight-text">unlisted</span> service that has not been reviewed, and analyzed by the ${COMPANY_NAME} IT security department. While the service is not labeled unsafe by our security team, please refrain from sending any sensitive institutional data from this website until it is properly reviewed.`,
       suggestion: ""
+    },
+    blocked: {
+      title: 'This site is <span class="able-highlight-text">BLOCKED</span>',
+      message: `<span class="able-highlight-text">${domain}</span> is <span class="able-highlight-text">BLOCKED</span> per administrator governance. Normal navigation and operations are disabled for institutional safety.\n\nYou can request access below and an administrator will review your reasons.`,
+      suggestion: ""
     }
   };
 
@@ -230,6 +235,7 @@ function getDefaultClassification(domain) {
     category: null,
     alternatives: [],
     policy: "under_review",
+    block_access: false,
     risk_score: 60,
   };
 }

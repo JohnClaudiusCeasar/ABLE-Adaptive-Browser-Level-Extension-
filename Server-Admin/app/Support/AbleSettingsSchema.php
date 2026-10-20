@@ -104,9 +104,9 @@ class AbleSettingsSchema
             ],
             'sync.cache_ttl_ms' => [
                 'type' => 'integer',
-                'default' => 300000,
+                'default' => 60000,
                 'rule' => 'required|integer|min:1000|max:86400000',
-                'description' => 'In-memory domain classification cache TTL.',
+                'description' => 'In-memory domain classification cache TTL. Lower values make policy changes (such as enabling block access) take effect sooner.',
             ],
             'sync.risk_patterns_interval_minutes' => [
                 'type' => 'integer',

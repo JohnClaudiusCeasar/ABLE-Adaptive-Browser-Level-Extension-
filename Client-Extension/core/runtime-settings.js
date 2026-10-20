@@ -28,7 +28,7 @@ function buildDefaults() {
     "behavior.session_consent_enabled":
       typeof ABLE_SESSION_CONSENT_ENABLED !== "undefined" ? ABLE_SESSION_CONSENT_ENABLED : true,
     "sync.cache_ttl_ms":
-      typeof ABLE_CACHE_TTL !== "undefined" ? ABLE_CACHE_TTL : 300000,
+      typeof ABLE_CACHE_TTL !== "undefined" ? ABLE_CACHE_TTL : 60000,
     "sync.risk_patterns_interval_minutes":
       typeof ABLE_RISK_PATTERNS_SYNC_INTERVAL_MINUTES !== "undefined"
         ? ABLE_RISK_PATTERNS_SYNC_INTERVAL_MINUTES

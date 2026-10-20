@@ -13,13 +13,14 @@ use App\Http\Controllers\SessionSecurityController;
 use App\Http\Controllers\Users\ClientUserController;
 use App\Http\Controllers\Users\TeamUserController;
 use App\Models\CommunityMessage;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 
-Route::get('/', function () {
+Route::get('/', function (Request $request) {
     if (Auth::check()) {
         return redirect()->route('dashboard');
     }
@@ -37,7 +38,7 @@ Route::get('/', function () {
             }
         }
 
-        $messages = CommunityMessage::approved()
+        $messages = CommunityMessage::publicFeed()
             ->latest()
             ->take(30)
             ->get()
@@ -56,6 +57,10 @@ Route::get('/', function () {
 
     return Inertia::render('welcome', [
         'initialMessages' => $messages,
+        // Prefill the message board when the extension redirects here with
+        // /?category=access-request&domain=...
+        'requestCategory' => $request->query('category'),
+        'requestDomain' => $request->query('domain'),
     ]);
 })->name('home');
 
@@ -126,6 +131,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::middleware('module:feedback')->group(function () {
         Route::get('community-messages', [CommunityMessageController::class, 'adminIndex'])->name('community-messages.index');
+        Route::get('access-requests', [CommunityMessageController::class, 'accessRequests'])->name('access-requests.index');
         Route::patch('community-messages/{communityMessage}/approve', [CommunityMessageController::class, 'approve'])->name('community-messages.approve');
         Route::patch('community-messages/{communityMessage}/reject', [CommunityMessageController::class, 'reject'])->name('community-messages.reject');
         Route::patch('community-messages/{communityMessage}', [CommunityMessageController::class, 'update'])->name('community-messages.update');

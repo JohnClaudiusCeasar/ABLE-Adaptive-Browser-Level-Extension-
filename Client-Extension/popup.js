@@ -46,18 +46,22 @@ function formatDomain(url) {
  * Update UI based on classification result
  */
 function updateUI(classification) {
-  const { status, domain, category, alternatives } = classification;
-  const messages = getStatusMessage(status, domain, category, alternatives);
+  const { status, domain, category, alternatives, block_access } = classification;
+  const isBlocked = block_access === true;
+  const effectiveStatus = isBlocked ? "blocked" : status;
+  const messages = getStatusMessage(effectiveStatus, domain, category, alternatives);
 
   // Update container class for styling
-  container.className = `container status-${status}`;
+  container.className = `container status-${effectiveStatus}`;
 
   // Update status badge
   statusText.textContent = "Status: Active";
 
   // Update domain card
   domainValue.textContent = domain;
-  statusValue.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+  statusValue.textContent = isBlocked
+    ? "Blocked"
+    : status.charAt(0).toUpperCase() + status.slice(1);
 
   // Update message card
   messageTitle.innerHTML = messages.title;
@@ -65,7 +69,13 @@ function updateUI(classification) {
   if (messageSuggestion) {
     messageSuggestion.textContent = messages.suggestion || "";
   }
-  
+
+  // Only offer the request-access path on an administratively blocked site
+  const requestAccessBtn = document.getElementById("requestAccessBtn");
+  if (requestAccessBtn) {
+    requestAccessBtn.hidden = !isBlocked;
+  }
+
   // Add animation
   animateUpdate();
 }
@@ -236,6 +246,22 @@ function setupEventListeners() {
             showGreetingUnavailableNotice();
           }
         });
+      }
+    });
+  }
+
+  // Send the user to the message board to request access to a blocked site
+  const requestAccessBtn = document.getElementById("requestAccessBtn");
+  if (requestAccessBtn) {
+    requestAccessBtn.addEventListener("click", () => {
+      const domain = domainValue ? domainValue.textContent : "";
+      if (chrome.runtime && chrome.runtime.sendMessage) {
+        chrome.runtime.sendMessage(
+          { type: "openMessageBoard", domain: domain },
+          () => {
+            void chrome.runtime.lastError;
+          }
+        );
       }
     });
   }

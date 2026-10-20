@@ -76,7 +76,7 @@ export default function ServerSettings() {
                             },
                             {
                                 label: 'Known sites',
-                                value: `${status.policy_counts.whitelisted ?? 0} allowed · ${status.policy_counts.blacklisted ?? 0} blocked · ${status.policy_counts.under_review ?? 0} in review`,
+                                value: `${status.policy_counts.whitelisted ?? 0} allowed · ${status.policy_counts.blacklisted ?? 0} blacklisted · ${status.policy_counts.under_review ?? 0} in review · ${status.policy_counts.blocked ?? 0} access-blocked`,
                                 tone: 'muted',
                             },
                             {

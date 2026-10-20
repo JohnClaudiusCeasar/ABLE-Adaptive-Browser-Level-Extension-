@@ -125,9 +125,15 @@ export const mainNavItems: NavItem[] = [
                 permission: 'chat',
             },
             {
-                title: 'Community Feedback',
+                title: 'Access and Feedback',
                 href: '/community-messages',
                 icon: MessageSquareText,
+                permission: 'feedback',
+            },
+            {
+                title: 'Access Requests',
+                href: '/access-requests',
+                icon: ShieldAlert,
                 permission: 'feedback',
             },
         ],

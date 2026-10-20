@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Events\NotificationUpdated;
 use App\Models\CommunityMessage;
+use App\Models\DomainPolicy;
 use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -90,11 +91,184 @@ class CommunityMessageTest extends TestCase
         $response->assertJsonValidationErrors(['category', 'message']);
     }
 
+    public function test_visitors_can_submit_access_request_message(): void
+    {
+        $payload = [
+            'author' => 'BlockedAnalyst',
+            'category' => 'access-request',
+            'domain' => 'gambling-rewards-hub.com',
+            'message' => 'I need access to this domain for cybersecurity threat analysis.',
+        ];
+
+        $response = $this->postJson(route('community-messages.store'), $payload);
+
+        $response->assertStatus(201);
+        $response->assertJson([
+            'success' => true,
+            'post' => [
+                'category' => 'access-request',
+                'domain' => 'gambling-rewards-hub.com',
+                'status' => 'pending',
+            ],
+        ]);
+
+        $this->assertDatabaseHas('community_messages', [
+            'author' => 'BlockedAnalyst',
+            'category' => 'access-request',
+            'status' => 'pending',
+        ]);
+
+        // Existing categories must remain valid alongside the new one
+        $this->postJson(route('community-messages.store'), [
+            'category' => 'suggestion',
+            'message' => 'Still works.',
+        ])->assertStatus(201);
+    }
+
     public function test_guest_cannot_access_moderation_dashboard(): void
     {
         $response = $this->get(route('community-messages.index'));
 
         $response->assertRedirect(route('login'));
+    }
+
+    public function test_request_access_redirect_prefills_the_message_board(): void
+    {
+        $response = $this->get('/?category=access-request&domain=gambling-rewards-hub.com');
+
+        $response->assertOk();
+        $response->assertInertia(function ($page) {
+            $page->component('welcome')
+                ->where('requestCategory', 'access-request')
+                ->where('requestDomain', 'gambling-rewards-hub.com');
+        });
+    }
+
+    public function test_home_page_without_request_params_has_no_prefill(): void
+    {
+        $response = $this->get(route('home'));
+
+        $response->assertOk();
+        $response->assertInertia(function ($page) {
+            $page->component('welcome')
+                ->where('requestCategory', null)
+                ->where('requestDomain', null);
+        });
+    }
+
+    public function test_access_requests_are_never_published_on_the_public_feed(): void
+    {
+        CommunityMessage::create([
+            'author' => 'BlockedUser',
+            'category' => 'access-request',
+            'domain' => 'gambling-rewards-hub.com',
+            'message' => 'I need access for threat analysis.',
+            'status' => 'approved',
+        ]);
+
+        CommunityMessage::create([
+            'author' => 'RegularUser',
+            'category' => 'suggestion',
+            'message' => 'A general suggestion.',
+            'status' => 'approved',
+        ]);
+
+        $response = $this->get(route('home'));
+
+        $response->assertOk();
+        $response->assertInertia(function ($page) {
+            $page->component('welcome')
+                ->has('initialMessages', 1)
+                ->where('initialMessages.0.category', 'suggestion');
+        });
+    }
+
+    public function test_approving_an_access_request_lifts_the_site_block(): void
+    {
+        $policy = DomainPolicy::create([
+            'domain' => 'gambling-rewards-hub.com',
+            'domain_status' => 'unsafe',
+            'policy' => 'blacklisted',
+            'block_access' => true,
+            'category' => 'Gambling',
+            'risk_score' => 70,
+        ]);
+
+        $request = CommunityMessage::create([
+            'author' => 'BlockedUser',
+            'category' => 'access-request',
+            'domain' => 'gambling-rewards-hub.com',
+            'message' => 'I need access for threat analysis.',
+            'status' => 'pending',
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->patch(route('community-messages.approve', $request))
+            ->assertRedirect();
+
+        $this->assertSame('approved', $request->fresh()->status);
+        $this->assertFalse($policy->fresh()->block_access);
+    }
+
+    public function test_approving_regular_feedback_does_not_touch_site_blocks(): void
+    {
+        $policy = DomainPolicy::create([
+            'domain' => 'gambling-rewards-hub.com',
+            'domain_status' => 'unsafe',
+            'policy' => 'blacklisted',
+            'block_access' => true,
+            'category' => 'Gambling',
+            'risk_score' => 70,
+        ]);
+
+        $feedback = CommunityMessage::create([
+            'author' => 'RegularUser',
+            'category' => 'suggestion',
+            'message' => 'A general suggestion.',
+            'status' => 'pending',
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->patch(route('community-messages.approve', $feedback))
+            ->assertRedirect();
+
+        $this->assertTrue($policy->fresh()->block_access);
+    }
+
+    public function test_access_requests_board_lists_only_access_requests(): void
+    {
+        CommunityMessage::create([
+            'author' => 'BlockedUser',
+            'category' => 'access-request',
+            'domain' => 'gambling-rewards-hub.com',
+            'message' => 'I need access for threat analysis.',
+            'status' => 'pending',
+        ]);
+
+        CommunityMessage::create([
+            'author' => 'RegularUser',
+            'category' => 'suggestion',
+            'message' => 'A general suggestion.',
+            'status' => 'pending',
+        ]);
+
+        $response = $this->actingAs(User::factory()->create())
+            ->get(route('access-requests.index'));
+
+        $response->assertOk();
+        $response->assertInertia(function ($page) {
+            $page->component('access-requests')
+                ->has('messages.data', 1)
+                ->where('messages.data.0.category', 'access-request')
+                ->where('counts.all', 1);
+        });
+
+        // The shared board still shows both categories
+        $sharedResponse = $this->actingAs(User::factory()->create())
+            ->get(route('community-messages.index'));
+
+        $sharedResponse->assertOk();
+        $sharedResponse->assertInertia(fn ($page) => $page->component('community-messages')->has('messages.data', 2));
     }
 
     public function test_admin_can_view_and_moderate_community_messages(): void
