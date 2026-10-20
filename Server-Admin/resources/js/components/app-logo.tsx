@@ -1,4 +1,8 @@
+import { usePage } from '@inertiajs/react';
+
 export default function AppLogo() {
+    const { extension_version } = usePage().props;
+
     return (
         <div className="grid flex-1 text-center text-sm select-none">
             <span
@@ -10,16 +14,18 @@ export default function AppLogo() {
                 }}
             >
                 ABL<span className="text-able-green">E</span>
-                <span
-                    className="absolute text-[8px] font-normal text-white"
-                    style={{
-                        fontFamily: "'Archivo', sans-serif",
-                        top: '-2px',
-                        right: '50px',
-                    }}
-                >
-                    v0.0.1
-                </span>
+                {extension_version && (
+                    <span
+                        className="absolute text-[8px] font-normal text-white"
+                        style={{
+                            fontFamily: "'Archivo', sans-serif",
+                            top: '-2px',
+                            right: '50px',
+                        }}
+                    >
+                        v{extension_version}
+                    </span>
+                )}
             </span>
             <span
                 className="truncate text-[12px] leading-tight text-muted-foreground"

@@ -8,6 +8,7 @@ import {
     HumanDurationField,
     HumanMinutesField,
 } from '@/components/settings/human-duration-field';
+import { IntegrityPinsField } from '@/components/settings/integrity-pins-field';
 import { KeyValueField } from '@/components/settings/key-value-field';
 import { NumberField } from '@/components/settings/number-field';
 import { RiskThresholdSlider } from '@/components/settings/risk-threshold-slider';
@@ -32,10 +33,11 @@ type ExtensionStatus = {
 type PageProps = {
     settings: SettingsValues;
     status?: ExtensionStatus;
+    integrity_files: Record<string, string>;
 };
 
 export default function ExtensionSettings() {
-    const { settings, status } = usePage<PageProps>().props;
+    const { settings, status, integrity_files } = usePage<PageProps>().props;
 
     const thresholdsMatch =
         (status?.extension_threshold ?? 0) === (status?.server_threshold ?? 0);
@@ -388,6 +390,38 @@ export default function ExtensionSettings() {
                                             ] as Record<string, string[]>
                                         }
                                     />
+                                </SettingsField>
+
+                                <SettingsField
+                                    label="Extension integrity pins"
+                                    description="SHA-256 pins of the page-world assets the extension injects. They are published to extensions inside the signed runtime payload, so a new build can be pinned without reinstalling. Run 'php artisan able:publish-integrity ../Client-Extension' to refresh them."
+                                >
+                                    <IntegrityPinsField
+                                        files={integrity_files}
+                                        pins={Object.fromEntries(
+                                            Object.entries(settings)
+                                                .filter(([key]) =>
+                                                    key.startsWith(
+                                                        'integrity.',
+                                                    ),
+                                                )
+                                                .map(([key, value]) => [
+                                                    key,
+                                                    String(value ?? ''),
+                                                ]),
+                                        )}
+                                    />
+                                </SettingsField>
+
+                                <SettingsField
+                                    label="Published version"
+                                    description="Version of the extension build that is deployed to users, read from Client-Extension/manifest.json. The sidebar badge shows this. Run 'php artisan able:publish-integrity ../Client-Extension' to publish it."
+                                >
+                                    <p className="text-sm font-medium text-foreground">
+                                        {(settings[
+                                            'release.extension_version'
+                                        ] as string) || 'Not published yet'}
+                                    </p>
                                 </SettingsField>
                             </AdvancedDisclosure>
 

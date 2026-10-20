@@ -7,12 +7,15 @@ use App\Models\ChatConversation;
 use App\Models\ChatMessage;
 use App\Models\Notification;
 use App\Models\User;
+use App\Services\AbleSettingsService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
 {
+    public function __construct(private AbleSettingsService $settings) {}
+
     /**
      * The root template that's loaded on the first page visit.
      *
@@ -44,6 +47,7 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'name' => config('app.name'),
+            'extension_version' => $this->extensionVersion(),
             'auth' => [
                 'user' => $request->user(),
                 'modules' => $request->user()
@@ -60,6 +64,27 @@ class HandleInertiaRequests extends Middleware
                 ? $this->chatProps($request)
                 : Inertia::defer(fn () => $this->chatProps($request)),
         ];
+    }
+
+    /**
+     * The version of the extension build that was published for release.
+     *
+     * The sidebar badge reads this so the panel never advertises a version
+     * the extension does not have. The lookup is guarded because this prop is
+     * shared with every page, including the public landing page, which must
+     * still render before the settings table exists.
+     */
+    private function extensionVersion(): string
+    {
+        try {
+            return (string) $this->settings->value(
+                AbleSettingsService::GROUP_EXTENSION,
+                'release.extension_version',
+                '',
+            );
+        } catch (\Throwable) {
+            return '';
+        }
     }
 
     /**

@@ -168,6 +168,69 @@ class AbleSettingsSchema
                 'rule' => 'nullable|array',
                 'description' => 'Domains the extension ignores completely.',
             ],
+            'integrity.expected_inject_hash' => [
+                'type' => 'string',
+                'default' => '',
+                'rule' => 'nullable|string|regex:/^[0-9a-fA-F]{64}$/',
+                'description' => 'SHA-256 of inject/inject.js for the extension build that is deployed to users. Published inside the signed runtime payload so installed extensions can adopt the new pin without being reinstalled.',
+            ],
+            'integrity.expected_content_css_hash' => [
+                'type' => 'string',
+                'default' => '',
+                'rule' => 'nullable|string|regex:/^[0-9a-fA-F]{64}$/',
+                'description' => 'SHA-256 of content.css for the extension build that is deployed to users. Published inside the signed runtime payload alongside the inject.js pin.',
+            ],
+            'integrity.expected_synthetic_names_hash' => [
+                'type' => 'string',
+                'default' => '',
+                'rule' => 'nullable|string|regex:/^[0-9a-fA-F]{64}$/',
+                'description' => 'SHA-256 of core/synthetic-names.js, which is injected into the page world.',
+            ],
+            'integrity.expected_file_extractor_hash' => [
+                'type' => 'string',
+                'default' => '',
+                'rule' => 'nullable|string|regex:/^[0-9a-fA-F]{64}$/',
+                'description' => 'SHA-256 of inject/file-extractor.js, which is injected into the page world.',
+            ],
+            'integrity.expected_network_interceptor_hash' => [
+                'type' => 'string',
+                'default' => '',
+                'rule' => 'nullable|string|regex:/^[0-9a-fA-F]{64}$/',
+                'description' => 'SHA-256 of inject/network-interceptor.js, which wraps fetch and XHR in the page world.',
+            ],
+            'integrity.expected_file_tracker_hash' => [
+                'type' => 'string',
+                'default' => '',
+                'rule' => 'nullable|string|regex:/^[0-9a-fA-F]{64}$/',
+                'description' => 'SHA-256 of inject/file-tracker.js, which is injected into the page world.',
+            ],
+            'release.extension_version' => [
+                'type' => 'string',
+                'default' => '',
+                'rule' => 'nullable|string|max:50',
+                'description' => 'Version of the extension build that is deployed to users, read from Client-Extension/manifest.json when the release is published. Keeps the admin panel from advertising a version the extension does not have.',
+            ],
+        ];
+    }
+
+    /**
+     * The web-accessible assets that are pinned by SHA-256, as
+     * settings key => path inside the extension.
+     *
+     * Single source of truth on the server: the publish command writes these
+     * keys and the admin panel renders them, so the two can never drift.
+     *
+     * @return array<string, string>
+     */
+    public static function integrityPinFiles(): array
+    {
+        return [
+            'integrity.expected_inject_hash' => 'inject/inject.js',
+            'integrity.expected_content_css_hash' => 'content.css',
+            'integrity.expected_synthetic_names_hash' => 'core/synthetic-names.js',
+            'integrity.expected_file_extractor_hash' => 'inject/file-extractor.js',
+            'integrity.expected_network_interceptor_hash' => 'inject/network-interceptor.js',
+            'integrity.expected_file_tracker_hash' => 'inject/file-tracker.js',
         ];
     }
 
