@@ -453,22 +453,29 @@ async function handleTextCheck(checkId, text, inputType, url) {
     });
 
     // "[text-input]" stays as the placeholder file name for typed text, but the
-    // row is audited only on the exact condition that raises the warning modal
-    // below — routine typing never reaches the database.
+    // row is audited only when the text itself carried a risk pattern. The
+    // domain's own score is not part of that decision: a risky domain never
+    // justifies an audit row on its own, so routine typing never reaches the
+    // database.
     var showTextWarning = totalScore >= riskThreshold && verdict.flaggedItems.length > 0;
+    var hasTextRisk = (verdict.patternScore || 0) > 0;
 
     if (showTextWarning) {
-      logEgressEvent({
-        domain: domain,
-        fileName: "[text-input]",
-        fileSize: text.length,
-        riskScore: totalScore,
-        action: "blocked",
-        userAction: "typing",
-        source: "text-intercept",
-        flaggedItems: verdict.flaggedItems,
-        scanToken: verdict.scanToken,
-      });
+      // The row is written from the decision, not before the modal: the audit
+      // must record whether the text was actually sent or actually stopped.
+      var auditTextEvent = function (action) {
+        logEgressEvent({
+          domain: domain,
+          fileName: "[text-input]",
+          fileSize: text.length,
+          riskScore: totalScore,
+          action: action,
+          userAction: "typing",
+          source: "text-intercept",
+          flaggedItems: verdict.flaggedItems,
+          scanToken: verdict.scanToken,
+        });
+      };
 
       // Keep the page-side check open while the modal is up. Without this
       // the page side auto-allows after its timeout and releases the held
@@ -487,9 +494,17 @@ async function handleTextCheck(checkId, text, inputType, url) {
         inputType: inputType,
         checkId: checkId,
         onProceed: function () {
+          // "Send Anyway" — the sensitive text really left the browser.
+          if (hasTextRisk) {
+            auditTextEvent("proceeded");
+          }
           sendTextDecision(checkId, "allow");
         },
         onCancel: function () {
+          // "Cancel Send", Escape, or a modal torn down without a decision.
+          if (hasTextRisk) {
+            auditTextEvent("blocked");
+          }
           sendTextDecision(checkId, "block");
         },
       });

@@ -7,6 +7,7 @@ use App\Models\DomainPolicy;
 use App\Models\DomainVisit;
 use App\Models\EgressEvent;
 use App\Models\NudgeInteraction;
+use App\Support\EgressAuditPolicy;
 use App\Support\ScanToken;
 use App\Support\SyntheticFileName;
 use Illuminate\Http\JsonResponse;
@@ -81,6 +82,9 @@ class EgressEventController extends Controller
             'risk_score' => 'required|integer|min:0|max:100',
             'action' => 'required|in:proceeded,denied,allowed,blocked',
             'user_action' => 'nullable|in:proceeded,cancelled,allowed,typing',
+            // Read to tell a typed-text event from a file upload. It is not
+            // persisted: the table blueprint stays as it is.
+            'source' => 'nullable|string|max:255',
             'occurred_at' => 'nullable|numeric',
             'flagged_items' => 'nullable|string',
             'content_hash' => 'nullable|string',
@@ -120,6 +124,50 @@ class EgressEventController extends Controller
             $validated['risk_score'] = (int) $scanClaims['total_score'];
             if (isset($scanClaims['flagged_items']) && is_array($scanClaims['flagged_items'])) {
                 $flaggedItems = $scanClaims['flagged_items'];
+            }
+        }
+
+        // Typed text is not a file upload. It is audited only when the text
+        // itself carried a detected risk: the scan token's pattern score is
+        // the content score the scoring service computed from the matched
+        // patterns alone, and the domain's own risk score is not part of it.
+        //
+        // The token is the proof that the server really scored that text for
+        // that domain — a client cannot forge one, so routine typing, a stale
+        // queued event or a forged POST cannot manufacture a text incident.
+        if (EgressAuditPolicy::isTextIntercept(
+            $validated['source'] ?? null,
+            $validated['file_name'],
+            $validated['user_action'] ?? null,
+        )) {
+            // Expiry is tolerated here: an event queued while the server was
+            // unreachable can flush hours later, and the signature still
+            // proves the verdict.
+            $claims = ScanToken::verify($validated['scan_token'] ?? null, allowExpired: true);
+
+            if ($claims === null || ($claims['domain'] ?? null) !== $validated['domain']) {
+                return response()->json([
+                    'success' => true,
+                    'egress_event_id' => null,
+                    'skipped' => true,
+                    'reason' => 'unverified_scan',
+                ]);
+            }
+
+            if (! EgressAuditPolicy::isHighRisk($claims)) {
+                return response()->json([
+                    'success' => true,
+                    'egress_event_id' => null,
+                    'skipped' => true,
+                    'reason' => 'not_high_risk',
+                ]);
+            }
+
+            // The server's own score and patterns are authoritative, even when
+            // the token expired in the queue.
+            $validated['risk_score'] = (int) $claims['total_score'];
+            if (isset($claims['flagged_items']) && is_array($claims['flagged_items'])) {
+                $flaggedItems = $claims['flagged_items'];
             }
         }
 

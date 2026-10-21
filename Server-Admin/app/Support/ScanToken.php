@@ -34,9 +34,15 @@ class ScanToken
      * Verify a scan token and return its claims, or null when the token is
      * missing, malformed, tampered with, or expired.
      *
+     * Expiry is only about the freshness of the score, not about the
+     * authenticity of the verdict. An event queued while the server was
+     * unreachable can flush hours later, so a caller that only needs proof
+     * that the server really scored that content may accept an expired but
+     * correctly signed token.
+     *
      * @return array<string, mixed>|null
      */
-    public static function verify(?string $token): ?array
+    public static function verify(?string $token, bool $allowExpired = false): ?array
     {
         if (! is_string($token) || $token === '') {
             return null;
@@ -63,7 +69,7 @@ class ScanToken
             return null;
         }
 
-        if (($payload['exp'] ?? 0) < now()->timestamp) {
+        if (! $allowExpired && ($payload['exp'] ?? 0) < now()->timestamp) {
             return null;
         }
 

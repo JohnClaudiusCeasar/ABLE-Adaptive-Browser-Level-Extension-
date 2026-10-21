@@ -218,6 +218,19 @@ class ScoreContentTest extends TestCase
 
     public function test_blocked_text_check_events_persist(): void
     {
+        RiskPattern::create([
+            'title' => 'SSN - Standard Format',
+            'type' => 'single',
+            'regex' => '\b\d{3}-\d{2}-\d{4}\b',
+            'score' => 35,
+            'priority' => 'high',
+        ]);
+
+        $score = $this->postJson('/api/score-content', [
+            'domain' => 'unknown-site.test',
+            'text' => '123-45-6789',
+        ])->json();
+
         $response = $this->postJson('/api/log-egress', [
             'domain' => 'unknown-site.test',
             'user_id' => 'ABLE-TESTTEST',
@@ -226,11 +239,34 @@ class ScoreContentTest extends TestCase
             'risk_score' => 92,
             'action' => 'blocked',
             'user_action' => 'typing',
+            'source' => 'text-intercept',
+            'scan_token' => $score['scan_token'],
         ]);
 
         $response->assertOk();
         $this->assertSame(1, EgressEvent::count());
         $this->assertSame('blocked', EgressEvent::first()->action);
+    }
+
+    public function test_text_check_events_without_a_scan_are_not_persisted(): void
+    {
+        // A typed-text event is audited only when the server's own scan proves
+        // the text carried a risk pattern. Without that proof the event is
+        // dropped, so routine typing never reaches the incident list.
+        $response = $this->postJson('/api/log-egress', [
+            'domain' => 'unknown-site.test',
+            'user_id' => 'ABLE-TESTTEST',
+            'file_name' => '[text-input]',
+            'file_size' => 220,
+            'risk_score' => 92,
+            'action' => 'blocked',
+            'user_action' => 'typing',
+            'source' => 'text-intercept',
+        ]);
+
+        $response->assertOk();
+        $response->assertJson(['skipped' => true, 'reason' => 'unverified_scan']);
+        $this->assertSame(0, EgressEvent::count());
     }
 
     public function test_scored_event_upgrades_unscored_duplicate_row(): void

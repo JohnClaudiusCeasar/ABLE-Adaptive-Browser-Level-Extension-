@@ -1,5 +1,11 @@
 import { Head, router } from '@inertiajs/react';
-import React, { useState, useEffect, useRef } from 'react';
+import React, {
+    useState,
+    useEffect,
+    useLayoutEffect,
+    useCallback,
+    useRef,
+} from 'react';
 import '../../css/landing.css';
 
 interface StreamMessage {
@@ -106,6 +112,7 @@ export default function Welcome({
     const viewportRef = useRef<HTMLElement | null>(null);
     const navTrackRef = useRef<HTMLElement | null>(null);
     const navPillRef = useRef<HTMLDivElement | null>(null);
+    const navPillPlacedRef = useRef(false);
     const homeLinkRef = useRef<HTMLAnchorElement | null>(null);
     const docsLinkRef = useRef<HTMLAnchorElement | null>(null);
     const downloadLinkRef = useRef<HTMLAnchorElement | null>(null);
@@ -127,8 +134,11 @@ export default function Welcome({
     // -------------------------------------------------------------
     // Sliding Nav Indicator Pill Alignment
     // -------------------------------------------------------------
-    const updateNavPill = (section: string) => {
-        if (!navPillRef.current || !navTrackRef.current) {
+    const updateNavPill = useCallback((section: string) => {
+        const track = navTrackRef.current;
+        const pill = navPillRef.current;
+
+        if (!track || !pill) {
             return;
         }
 
@@ -140,22 +150,96 @@ export default function Welcome({
         };
         const activeLink = linkMap[section];
 
-        if (activeLink) {
-            const trackRect = navTrackRef.current.getBoundingClientRect();
-            const linkRect = activeLink.getBoundingClientRect();
-            const left = linkRect.left - trackRect.left;
-            navPillRef.current.style.transform = `translateX(${left}px)`;
-            navPillRef.current.style.width = `${linkRect.width}px`;
+        if (!activeLink) {
+            return;
         }
-    };
 
-    useEffect(() => {
+        const trackRect = track.getBoundingClientRect();
+        const linkRect = activeLink.getBoundingClientRect();
+        const trackStyle = window.getComputedStyle(track);
+
+        /*
+         * Rect measurements come back in scaled pixels, while the values
+         * written back to the style are plain CSS pixels. They only agree
+         * at a scale of 1, so the ratio between both is used to normalise
+         * the numbers. Without it the pill is oversized on pages that zoom
+         * the root element (accessibility zoom tools do exactly that).
+         */
+        const scale = track.offsetWidth
+            ? trackRect.width / track.offsetWidth
+            : 1;
+
+        /*
+         * The pill is absolutely positioned inside the track, so its origin
+         * is the track's padding box (its inner border edge) rather than its
+         * outer border box. Measuring against the correct origin is what
+         * keeps the pill flush with the active label.
+         */
+        const originX =
+            trackRect.left +
+            (parseFloat(trackStyle.borderLeftWidth) || 0) * scale;
+        const originY =
+            trackRect.top +
+            (parseFloat(trackStyle.borderTopWidth) || 0) * scale;
+
+        pill.style.width = `${linkRect.width / scale}px`;
+        pill.style.height = `${linkRect.height / scale}px`;
+        pill.style.transform = `translate(${
+            (linkRect.left - originX) / scale
+        }px, ${(linkRect.top - originY) / scale}px)`;
+    }, []);
+
+    useLayoutEffect(() => {
+        const track = navTrackRef.current;
+        const pill = navPillRef.current;
+
+        if (!track || !pill) {
+            return;
+        }
+
+        // The very first placement must not slide in from a collapsed pill.
+        if (!navPillPlacedRef.current) {
+            navPillPlacedRef.current = true;
+            pill.style.transition = 'none';
+        }
+
         updateNavPill(activeSection);
+
+        let cancelled = false;
+
+        /*
+         * Web fonts resolve after the first paint and change the label
+         * metrics, so the pill has to be re-measured once they land.
+         */
+        const fontsReady: Promise<unknown> = document.fonts
+            ? document.fonts.ready
+            : Promise.resolve();
+
+        fontsReady.then(() => {
+            if (cancelled) {
+                return;
+            }
+
+            updateNavPill(activeSection);
+            pill.style.transition = '';
+        });
+
         const handleResize = () => updateNavPill(activeSection);
         window.addEventListener('resize', handleResize);
 
-        return () => window.removeEventListener('resize', handleResize);
-    }, [activeSection]);
+        /*
+         * Catches metric changes that leave the viewport size untouched
+         * (font swap, responsive breakpoints) but move the labels.
+         */
+        const observer = new ResizeObserver(() => updateNavPill(activeSection));
+        observer.observe(track);
+
+        return () => {
+            cancelled = true;
+            window.removeEventListener('resize', handleResize);
+            observer.disconnect();
+        };
+    }, [activeSection, updateNavPill]);
 
     // -------------------------------------------------------------
     // Smooth Section Navigation
@@ -654,7 +738,9 @@ export default function Welcome({
                                     }}
                                 />
                             </div>
-                            <span className="brand-title">ABLE</span>
+                            <span className="brand-title">
+                                ABL<span className="brand-title-accent">E</span>
+                            </span>
                         </div>
 
                         {/* Navigation Links with Animated Sliding Indicator */}
