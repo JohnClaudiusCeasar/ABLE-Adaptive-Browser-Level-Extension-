@@ -452,13 +452,24 @@ async function handleTextCheck(checkId, text, inputType, url) {
       flaggedItems: verdict.flaggedItems,
     });
 
+    // A pattern in the text is what opens the door: the domain's own score
+    // never raises the warning on its own. Once a pattern is detected, the
+    // domain and the pattern are scored together, and the text warns only
+    // when that combined score meets the high-risk standard.
+    var patternFlags = (verdict.flaggedItems || []).filter(function (item) {
+      return !item.label.startsWith("Domain Risk");
+    });
+    var textRiskScore = verdict.patternScore || 0;
+    var hasPatternHit = textRiskScore > 0 || patternFlags.length > 0;
+    var combinedScore = verdict.score;
+
     // "[text-input]" stays as the placeholder file name for typed text, but the
     // row is audited only when the text itself carried a risk pattern. The
     // domain's own score is not part of that decision: a risky domain never
     // justifies an audit row on its own, so routine typing never reaches the
     // database.
-    var showTextWarning = totalScore >= riskThreshold && verdict.flaggedItems.length > 0;
-    var hasTextRisk = (verdict.patternScore || 0) > 0;
+    var showTextWarning = hasPatternHit && combinedScore >= riskThreshold;
+    var hasTextRisk = textRiskScore > 0;
 
     if (showTextWarning) {
       // The row is written from the decision, not before the modal: the audit
@@ -468,6 +479,7 @@ async function handleTextCheck(checkId, text, inputType, url) {
           domain: domain,
           fileName: "[text-input]",
           fileSize: text.length,
+          // The server replaces this with its own score from the scan token.
           riskScore: totalScore,
           action: action,
           userAction: "typing",
@@ -489,7 +501,10 @@ async function handleTextCheck(checkId, text, inputType, url) {
 
       showTextWarningModal({
         domain: domain,
-        totalScore: totalScore,
+        // The domain and the pattern are scored together, so the score the
+        // modal shows is the one the warning was raised on, and the breakdown
+        // lists every factor behind it.
+        totalScore: combinedScore,
         flaggedItems: verdict.flaggedItems,
         inputType: inputType,
         checkId: checkId,

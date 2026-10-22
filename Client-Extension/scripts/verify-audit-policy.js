@@ -96,11 +96,34 @@ check(
 );
 check(
   "the text risk comes from the pattern score, not the total",
-  /var hasTextRisk = \(verdict\.patternScore \|\| 0\) > 0;/.test(textFlow)
+  /var hasTextRisk = textRiskScore > 0;/.test(textFlow) &&
+    /var textRiskScore = verdict\.patternScore \|\| 0;/.test(textFlow)
 );
 check(
   "the domain score does not decide the audit",
   !/hasTextRisk = .*domainRiskScore/.test(textFlow)
+);
+
+// The warning needs a pattern in the text before the domain is allowed to
+// contribute anything: the pattern opens the door, then the domain and the
+// pattern are scored together against the high-risk standard.
+check(
+  "the warning requires a pattern in the text",
+  /var hasPatternHit = textRiskScore > 0 \|\| patternFlags\.length > 0;/.test(textFlow)
+);
+check(
+  "the warning is raised on the combined domain and pattern score",
+  /var showTextWarning = hasPatternHit && combinedScore >= riskThreshold;/.test(textFlow)
+);
+check(
+  "the domain's own risk factor is separated from the pattern factors",
+  /var patternFlags = \(verdict\.flaggedItems \|\| \[\]\)\.filter/.test(textFlow) &&
+    /!item\.label\.startsWith\("Domain Risk"\)/.test(textFlow)
+);
+check(
+  "the modal shows the combined score and every factor behind it",
+  /totalScore: combinedScore/.test(textFlow) &&
+    /flaggedItems: verdict\.flaggedItems/.test(textFlow)
 );
 
 // ── 2. The server accepts the same rule ─────────────────────────────────────
