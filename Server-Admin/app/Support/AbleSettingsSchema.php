@@ -96,6 +96,18 @@ class AbleSettingsSchema
                 'rule' => 'required|integer|min:0|max:3600000',
                 'description' => 'Staggered cooldown used every third repeat-visit interaction.',
             ],
+            'behavior.unsafe_modal_short_cooldown_ms' => [
+                'type' => 'integer',
+                'default' => 15000,
+                'rule' => 'required|integer|min:0|max:3600000',
+                'description' => 'Short cooldown between repeat-visit modals on unsafe domains.',
+            ],
+            'behavior.unsafe_modal_stagger_cooldown_ms' => [
+                'type' => 'integer',
+                'default' => 120000,
+                'rule' => 'required|integer|min:0|max:3600000',
+                'description' => 'Staggered cooldown used every third repeat-visit interaction on unsafe domains.',
+            ],
             'behavior.session_consent_enabled' => [
                 'type' => 'boolean',
                 'default' => true,

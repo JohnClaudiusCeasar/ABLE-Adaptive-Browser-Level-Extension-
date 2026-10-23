@@ -6,6 +6,7 @@ use App\Models\DomainPolicy;
 use App\Models\DomainVisit;
 use App\Models\EgressEvent;
 use App\Models\User;
+use App\Support\DomainRiskResolver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Inertia\Testing\AssertableInertia;
@@ -225,6 +226,57 @@ class DomainVisitLogTest extends TestCase
         $this->assertSame('safe', $visits[1]->status);
         $this->assertSame('glass-safe', $visits[1]->glassStatus());
         $this->assertSame('Allowed', $visits[1]->actionLabel());
+    }
+
+    public function test_domain_policy_risk_score_change_does_not_mutate_historical_visit_risk_score(): void
+    {
+        $initialScore = DomainRiskResolver::defaultRiskScore();
+
+        // 1. First visit logged while the domain still has the default risk score.
+        $this->logVisit('example.com');
+        $firstVisit = DomainVisit::where('domain', 'example.com')->first();
+        $this->assertNotNull($firstVisit);
+        $this->assertSame($initialScore, $firstVisit->risk_score);
+
+        // 2. Admin changes the domain's risk score.
+        DomainPolicy::where('domain', 'example.com')->first()->update([
+            'risk_score' => 15,
+        ]);
+
+        // 3. The historical visit keeps the score captured at visit time.
+        $firstVisit->refresh();
+        $this->assertSame($initialScore, $firstVisit->risk_score);
+
+        // 4. A later visit captures the updated score instead.
+        $this->travel(10)->seconds();
+        $this->logVisit('example.com');
+
+        $visits = DomainVisit::where('domain', 'example.com')
+            ->orderBy('visited_at', 'asc')
+            ->get();
+
+        $this->assertSame($initialScore, $visits[0]->risk_score);
+        $this->assertSame(15, $visits[1]->risk_score);
+    }
+
+    public function test_domain_visits_controller_exposes_visit_risk_score(): void
+    {
+        $user = User::factory()->create();
+
+        $this->logVisit('scoreexposed.com');
+
+        $response = $this->actingAs($user)->get(route('domain-visits'));
+        $response->assertOk();
+
+        $response->assertInertia(function (AssertableInertia $page) {
+            $page->component('domain-visits')
+                ->has('domainVisits', 1)
+                ->has('domainVisits.0.risk_score')
+                ->where(
+                    'domainVisits.0.risk_score',
+                    DomainRiskResolver::defaultRiskScore(),
+                );
+        });
     }
 
     public function test_domain_visits_controller_renders_immutable_point_in_time_status(): void

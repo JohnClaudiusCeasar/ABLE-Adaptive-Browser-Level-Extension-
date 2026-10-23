@@ -246,6 +246,48 @@ export default function ExtensionSettings() {
                                 </SettingsField>
 
                                 <SettingsField
+                                    label="Reminder pause (unsafe, short)"
+                                    description="Wait this long before reminding about an unsafe site again."
+                                    error={
+                                        errors[
+                                            'behavior.unsafe_modal_short_cooldown_ms'
+                                        ]
+                                    }
+                                >
+                                    <HumanDurationField
+                                        name="behavior.unsafe_modal_short_cooldown_ms"
+                                        defaultMs={
+                                            settings[
+                                                'behavior.unsafe_modal_short_cooldown_ms'
+                                            ] as number
+                                        }
+                                        unit="seconds"
+                                        min={0}
+                                    />
+                                </SettingsField>
+
+                                <SettingsField
+                                    label="Reminder pause (unsafe, repeating)"
+                                    description="Longer pause used every third reminder on an unsafe site."
+                                    error={
+                                        errors[
+                                            'behavior.unsafe_modal_stagger_cooldown_ms'
+                                        ]
+                                    }
+                                >
+                                    <HumanDurationField
+                                        name="behavior.unsafe_modal_stagger_cooldown_ms"
+                                        defaultMs={
+                                            settings[
+                                                'behavior.unsafe_modal_stagger_cooldown_ms'
+                                            ] as number
+                                        }
+                                        unit="seconds"
+                                        min={0}
+                                    />
+                                </SettingsField>
+
+                                <SettingsField
                                     label="Site memory"
                                     description="How long the extension remembers a site's safety rating."
                                     error={errors['sync.cache_ttl_ms']}

@@ -26,6 +26,10 @@ function buildDefaults() {
       typeof ABLE_MODAL_SHORT_COOLDOWN_MS !== "undefined" ? ABLE_MODAL_SHORT_COOLDOWN_MS : 35000,
     "behavior.modal_stagger_cooldown_ms":
       typeof ABLE_MODAL_STAGGER_COOLDOWN_MS !== "undefined" ? ABLE_MODAL_STAGGER_COOLDOWN_MS : 300000,
+    "behavior.unsafe_modal_short_cooldown_ms":
+      typeof ABLE_UNSAFE_MODAL_SHORT_COOLDOWN_MS !== "undefined" ? ABLE_UNSAFE_MODAL_SHORT_COOLDOWN_MS : 15000,
+    "behavior.unsafe_modal_stagger_cooldown_ms":
+      typeof ABLE_UNSAFE_MODAL_STAGGER_COOLDOWN_MS !== "undefined" ? ABLE_UNSAFE_MODAL_STAGGER_COOLDOWN_MS : 120000,
     "behavior.session_consent_enabled":
       typeof ABLE_SESSION_CONSENT_ENABLED !== "undefined" ? ABLE_SESSION_CONSENT_ENABLED : true,
     "sync.cache_ttl_ms":

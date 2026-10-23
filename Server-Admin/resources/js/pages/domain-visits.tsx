@@ -14,6 +14,7 @@ interface DomainVisit {
     visited_at: string;
     domain: string;
     status: 'glass-safe' | 'glass-unsafe' | 'glass-unlisted';
+    risk_score: number | null;
     user: string | null;
     action: string;
 }
@@ -27,7 +28,7 @@ interface PageProps {
 
 const ROWS_PER_PAGE = 10;
 
-type SortField = 'visited_at' | 'domain' | 'status' | 'action';
+type SortField = 'visited_at' | 'domain' | 'status' | 'risk_score';
 type SortDir = 'asc' | 'desc';
 type GroupField = 'none' | 'status' | 'action';
 
@@ -93,8 +94,8 @@ export default function DomainVisits() {
                 case 'status':
                     cmp = a.status.localeCompare(b.status);
                     break;
-                case 'action':
-                    cmp = a.action.localeCompare(b.action);
+                case 'risk_score':
+                    cmp = (a.risk_score ?? -1) - (b.risk_score ?? -1);
                     break;
             }
 
@@ -154,14 +155,14 @@ export default function DomainVisits() {
                     className="border-b border-[rgba(34,197,94,0.3)] transition-colors last:border-b-0 hover:bg-black/5 dark:hover:bg-white/5"
                 >
                     <td
-                        className={`py-3.5 pr-2.5 ${isGrouped ? 'w-[16%] pl-4' : ''}`}
+                        className={`py-3.5 pr-2.5 ${isGrouped ? 'w-[24%] pl-4' : ''}`}
                     >
-                        {date}
+                        {date} {time}
                     </td>
                     <td
-                        className={`py-3.5 pr-2.5 ${isGrouped ? 'w-[14%]' : ''}`}
+                        className={`py-3.5 pr-2.5 ${isGrouped ? 'w-[16%]' : ''}`}
                     >
-                        {time}
+                        {row.user ?? '—'}
                     </td>
                     <td
                         className={`py-3.5 pr-2.5 ${isGrouped ? 'w-[28%] truncate' : ''}`}
@@ -169,19 +170,16 @@ export default function DomainVisits() {
                         {row.domain}
                     </td>
                     <td
-                        className={`py-3.5 pr-2.5 ${isGrouped ? 'w-[14%]' : ''}`}
+                        className={`py-3.5 pr-2.5 ${isGrouped ? 'w-[16%]' : ''}`}
                     >
                         <Badge variant={row.status}>
                             {row.status.replace('glass-', '').toUpperCase()}
                         </Badge>
                     </td>
                     <td
-                        className={`py-3.5 pr-2.5 ${isGrouped ? 'w-[14%]' : ''}`}
+                        className={`py-3.5 ${isGrouped ? 'w-[16%] pr-4' : ''} ${row.risk_score !== null && row.risk_score > 0 ? 'font-semibold text-[#f87171]' : 'text-muted-foreground'}`}
                     >
-                        {row.user ?? '—'}
-                    </td>
-                    <td className={`py-3.5 ${isGrouped ? 'w-[14%] pr-4' : ''}`}>
-                        {row.action}
+                        {row.risk_score ?? '—'}
                     </td>
                 </tr>
             );
@@ -232,23 +230,20 @@ export default function DomainVisits() {
                                 <table className="w-full table-fixed border-collapse text-[0.85rem]">
                                     <thead>
                                         <tr className="text-muted-foreground">
-                                            <th className="w-[16%] border-b border-[rgba(34,197,94,0.7)] py-2.5 pr-2.5 pl-4 text-left font-medium">
-                                                Date
+                                            <th className="w-[24%] border-b border-[rgba(34,197,94,0.7)] py-2.5 pr-2.5 pl-4 text-left font-medium">
+                                                Date and Time
                                             </th>
-                                            <th className="w-[14%] border-b border-[rgba(34,197,94,0.7)] py-2.5 pr-2.5 text-left font-medium">
-                                                Time
+                                            <th className="w-[16%] border-b border-[rgba(34,197,94,0.7)] py-2.5 pr-2.5 text-left font-medium">
+                                                User ID
                                             </th>
                                             <th className="w-[28%] border-b border-[rgba(34,197,94,0.7)] py-2.5 pr-2.5 text-left font-medium">
                                                 Domain Name
                                             </th>
-                                            <th className="w-[14%] border-b border-[rgba(34,197,94,0.7)] py-2.5 pr-2.5 text-left font-medium">
+                                            <th className="w-[16%] border-b border-[rgba(34,197,94,0.7)] py-2.5 pr-2.5 text-left font-medium">
                                                 Domain Status
                                             </th>
-                                            <th className="w-[14%] border-b border-[rgba(34,197,94,0.7)] py-2.5 pr-2.5 text-left font-medium">
-                                                User ID
-                                            </th>
-                                            <th className="w-[14%] border-b border-[rgba(34,197,94,0.7)] py-2.5 pr-4 text-left font-medium">
-                                                Action Taken
+                                            <th className="w-[16%] border-b border-[rgba(34,197,94,0.7)] py-2.5 pr-4 text-left font-medium">
+                                                Risk Score
                                             </th>
                                         </tr>
                                     </thead>
@@ -282,7 +277,7 @@ export default function DomainVisits() {
                 <tbody>
                     <tr>
                         <td
-                            colSpan={6}
+                            colSpan={5}
                             className="py-10 text-center text-muted-foreground"
                         >
                             {searchQuery
@@ -396,8 +391,11 @@ export default function DomainVisits() {
                                     <option value="status__asc">
                                         Sort: Status (A-Z)
                                     </option>
-                                    <option value="action__asc">
-                                        Sort: Action (A-Z)
+                                    <option value="risk_score__desc">
+                                        Sort: Risk Score (High-Low)
+                                    </option>
+                                    <option value="risk_score__asc">
+                                        Sort: Risk Score (Low-High)
                                     </option>
                                 </select>
                                 <ArrowUpDown
@@ -444,10 +442,10 @@ export default function DomainVisits() {
                                     <thead>
                                         <tr className="text-muted-foreground">
                                             <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
-                                                Date
+                                                Date and Time
                                             </th>
                                             <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
-                                                Time
+                                                User ID
                                             </th>
                                             <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
                                                 Domain Name
@@ -455,11 +453,8 @@ export default function DomainVisits() {
                                             <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
                                                 Domain Status
                                             </th>
-                                            <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
-                                                User ID
-                                            </th>
                                             <th className="border-b border-[rgba(34,197,94,0.7)] pb-4 text-left font-medium">
-                                                Action Taken
+                                                Risk Score
                                             </th>
                                         </tr>
                                     </thead>

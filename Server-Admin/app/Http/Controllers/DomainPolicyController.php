@@ -218,6 +218,7 @@ class DomainPolicyController extends Controller
                 'domain_policy_id' => $policy->id,
                 'domain' => $domain,
                 'status' => $visitStatus,
+                'risk_score' => $policy->risk_score,
                 'user_id' => $userId,
                 'event_id' => $eventId,
                 'visited_at' => $visitTime,

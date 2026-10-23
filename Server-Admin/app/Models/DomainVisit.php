@@ -11,6 +11,7 @@ use Illuminate\Support\Carbon;
  * @property int $domain_policy_id
  * @property string $domain
  * @property string|null $status
+ * @property int|null $risk_score
  * @property string|null $user_id
  * @property string|null $event_id
  * @property Carbon|null $visited_at
@@ -25,12 +26,14 @@ class DomainVisit extends Model
         'domain_policy_id',
         'domain',
         'status',
+        'risk_score',
         'user_id',
         'event_id',
         'visited_at',
     ];
 
     protected $casts = [
+        'risk_score' => 'integer',
         'visited_at' => 'datetime',
     ];
 

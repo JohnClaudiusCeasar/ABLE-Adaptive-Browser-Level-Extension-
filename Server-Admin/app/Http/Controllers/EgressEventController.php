@@ -221,6 +221,7 @@ class EgressEventController extends Controller
                     'domain_policy_id' => $policy->id,
                     'domain' => $validated['domain'],
                     'status' => $policy->domain_status ?? 'unlisted',
+                    'risk_score' => $policy->risk_score,
                     'user_id' => $validated['user_id'] ?? null,
                     'visited_at' => now(),
                 ]);

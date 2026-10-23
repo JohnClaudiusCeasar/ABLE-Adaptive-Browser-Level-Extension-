@@ -216,6 +216,14 @@ const interceptHtml = capture("intercept", () => {
   });
 });
 
+const interceptSafeHtml = capture("interceptSafe", () => {
+  sandbox.showInterceptModal({
+    score: 90, flaggedItems: INTERCEPT_ITEMS, domain: "example.com",
+    status: "safe", websiteName: "Example", fileName: "records.txt",
+    fileSize: 100, requestId: "r1b",
+  });
+});
+
 // The text modal now swaps its two views in place inside one card.
 const textHtml = capture("text", () => {
   sandbox.showTextWarningModal({
@@ -241,11 +249,15 @@ const requestAccessHtml = capture("requestAccess", () => {
 
 const modals = {
   "intercept": interceptHtml,
+  "interceptSafe": interceptSafeHtml,
   "text": textHtml,
   "hold": holdHtml,
   "blocked": blockedHtml,
   "requestAccess": requestAccessHtml,
 };
+
+check("interceptSafe: labels the domain Safe", interceptSafeHtml.includes("Safe"),
+  "expected the safe status label in the intercept copy");
 
 // 1-5: shared family structure
 for (const [name, html] of Object.entries(modals)) {

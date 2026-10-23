@@ -71,7 +71,7 @@ const emptyForm: FormData = {
 
 const ROWS_PER_PAGE = 5;
 
-type SortField = 'domain' | 'domain_status' | 'policy' | 'risk_score';
+type SortField = 'domain' | 'date' | 'risk_score';
 type SortDir = 'asc' | 'desc';
 type GroupField = 'none' | 'domain_status' | 'policy';
 
@@ -199,16 +199,6 @@ const statusLabels: Record<string, string> = {
     safe: 'Safe',
     unsafe: 'Unsafe',
     unlisted: 'Unlisted',
-};
-
-const sourceFilterLabels: Record<string, string> = {
-    manual: 'Manual',
-    brand: 'Brand map',
-    heuristic: 'Auto',
-    ut1: 'UT1 list',
-    seed: 'Seed',
-    pattern: 'Pattern',
-    pending: 'Needs review',
 };
 
 const policyLabels: Record<string, string> = {
@@ -372,7 +362,6 @@ export default function PolicyAlgorithm() {
     const [editingId, setEditingId] = useState<number | null>(null);
     const [form, setForm] = useState<FormData>(emptyForm);
     const [searchQuery, setSearchQuery] = useState('');
-    const [sourceFilter, setSourceFilter] = useState('all');
     const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
     const [deleteAllConfirm, setDeleteAllConfirm] = useState(false);
     const [currentPage, setCurrentPage] = useState(() => {
@@ -463,13 +452,6 @@ export default function PolicyAlgorithm() {
             );
         }
 
-        // Filter by classification source (pending = needs review queue)
-        if (sourceFilter !== 'all') {
-            items = items.filter(
-                (p) => (p.classification_source || '') === sourceFilter,
-            );
-        }
-
         // Sort
         items.sort((a, b) => {
             let cmp = 0;
@@ -478,11 +460,10 @@ export default function PolicyAlgorithm() {
                 case 'domain':
                     cmp = a.domain.localeCompare(b.domain);
                     break;
-                case 'domain_status':
-                    cmp = a.domain_status.localeCompare(b.domain_status);
-                    break;
-                case 'policy':
-                    cmp = a.policy.localeCompare(b.policy);
+                case 'date':
+                    cmp =
+                        new Date(a.last_visited_at ?? 0).getTime() -
+                        new Date(b.last_visited_at ?? 0).getTime();
                     break;
                 case 'risk_score':
                     cmp = a.risk_score - b.risk_score;
@@ -493,7 +474,7 @@ export default function PolicyAlgorithm() {
         });
 
         return items;
-    }, [domainPolicies, searchQuery, sourceFilter, sortField, sortDir]);
+    }, [domainPolicies, searchQuery, sortField, sortDir]);
 
     // Group the processed items
     const groupedPolicies = useMemo(() => {
@@ -937,28 +918,13 @@ export default function PolicyAlgorithm() {
                                 className="cursor-pointer appearance-none rounded-full border border-black/10 bg-black/5 py-2.5 pr-8 pl-9 text-[0.85rem] text-foreground transition-all duration-200 outline-none hover:border-able-green/50 hover:bg-black/10 focus:border-able-green focus:ring-1 focus:ring-able-green/30 dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)] dark:hover:bg-white/5"
                             >
                                 <option value="domain__asc">
-                                    Sort: Domain (A-Z)
+                                    Sort by: Name
                                 </option>
-                                <option value="domain__desc">
-                                    Sort: Domain (Z-A)
-                                </option>
-                                <option value="domain_status__asc">
-                                    Sort: Status (A-Z)
-                                </option>
-                                <option value="domain_status__desc">
-                                    Sort: Status (Z-A)
-                                </option>
-                                <option value="policy__asc">
-                                    Sort: Policy (A-Z)
-                                </option>
-                                <option value="policy__desc">
-                                    Sort: Policy (Z-A)
-                                </option>
-                                <option value="risk_score__asc">
-                                    Sort: Risk (Low-High)
+                                <option value="date__desc">
+                                    Sort by: Date
                                 </option>
                                 <option value="risk_score__desc">
-                                    Sort: Risk (High-Low)
+                                    Sort by: Risk
                                 </option>
                             </select>
                             <ArrowUpDown
@@ -981,30 +947,6 @@ export default function PolicyAlgorithm() {
                                     Group: Domain Status
                                 </option>
                                 <option value="policy">Group: Policy</option>
-                            </select>
-                            <Layers
-                                size={16}
-                                className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
-                            />
-                        </div>
-
-                        {/* Source Filter Dropdown */}
-                        <div className="relative">
-                            <select
-                                value={sourceFilter}
-                                onChange={(e) =>
-                                    setSourceFilter(e.target.value)
-                                }
-                                className="cursor-pointer appearance-none rounded-full border border-black/10 bg-black/5 py-2.5 pr-8 pl-9 text-[0.85rem] text-foreground transition-all duration-200 outline-none hover:border-able-green/50 hover:bg-black/10 focus:border-able-green focus:ring-1 focus:ring-able-green/30 dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)] dark:hover:bg-white/5"
-                            >
-                                <option value="all">Source: All</option>
-                                {Object.entries(sourceFilterLabels).map(
-                                    ([value, label]) => (
-                                        <option key={value} value={value}>
-                                            {label}
-                                        </option>
-                                    ),
-                                )}
                             </select>
                             <Layers
                                 size={16}

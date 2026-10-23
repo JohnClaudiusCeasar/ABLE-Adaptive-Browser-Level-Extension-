@@ -48,5 +48,7 @@ class ExtensionConfigTest extends TestCase
         $this->assertArrayNotHasKey('signing_key', $settings);
         $this->assertArrayNotHasKey('runtime.notification_sync_enabled', $settings);
         $this->assertArrayHasKey('behavior.risk_threshold', $settings);
+        $this->assertArrayHasKey('behavior.unsafe_modal_short_cooldown_ms', $settings);
+        $this->assertArrayHasKey('behavior.unsafe_modal_stagger_cooldown_ms', $settings);
     }
 }

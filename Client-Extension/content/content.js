@@ -102,13 +102,21 @@ function isExcludedDomain() {
   return excluded.some(function (excludedDomain) { return domain === excludedDomain || domain.endsWith("." + excludedDomain); });
 }
 
-function shouldActivate() {
+// Content scoring applies to every classified domain, including safe ones.
+// Safe domains are scored silently; only the nudge gates below exclude them.
+function shouldScanContent() {
   if (isExcludedDomain()) return false;
   var skipSearch = ABLERuntimeSettings.get("logging.skip_search_results", typeof ABLE_SKIP_SEARCH_RESULTS !== "undefined" ? ABLE_SKIP_SEARCH_RESULTS : true);
   if (skipSearch && typeof isSearchResultUrl === "function" && isSearchResultUrl(window.location.href)) {
     return false;
   }
-  return domainStatus && (domainStatus.status === "unsafe" || domainStatus.status === "unlisted");
+  return !!domainStatus;
+}
+
+// First-visit advisory and repeat-visit nudges only apply to unsafe/unlisted.
+function shouldActivate() {
+  if (!shouldScanContent()) return false;
+  return domainStatus.status === "unsafe" || domainStatus.status === "unlisted";
 }
 
 // ─── Consent management ────────────────────────────────────
@@ -154,13 +162,23 @@ async function setSiteWarningConsent() {
 
 var COOLDOWN_SHORT_MS = 35000;
 var COOLDOWN_STAGGER_MS = 300000;
+var UNSAFE_COOLDOWN_SHORT_MS = 15000;
+var UNSAFE_COOLDOWN_STAGGER_MS = 120000;
+
+function isUnsafeStatus() {
+  return !!(domainStatus && domainStatus.status === "unsafe");
+}
 
 function getShortCooldown() {
-  return ABLERuntimeSettings.get("behavior.modal_short_cooldown_ms", COOLDOWN_SHORT_MS);
+  return isUnsafeStatus()
+    ? ABLERuntimeSettings.get("behavior.unsafe_modal_short_cooldown_ms", UNSAFE_COOLDOWN_SHORT_MS)
+    : ABLERuntimeSettings.get("behavior.modal_short_cooldown_ms", COOLDOWN_SHORT_MS);
 }
 
 function getStaggerCooldown() {
-  return ABLERuntimeSettings.get("behavior.modal_stagger_cooldown_ms", COOLDOWN_STAGGER_MS);
+  return isUnsafeStatus()
+    ? ABLERuntimeSettings.get("behavior.unsafe_modal_stagger_cooldown_ms", UNSAFE_COOLDOWN_STAGGER_MS)
+    : ABLERuntimeSettings.get("behavior.modal_stagger_cooldown_ms", COOLDOWN_STAGGER_MS);
 }
 
 async function getLastModalShownTime() {
@@ -248,7 +266,7 @@ async function handleInterceptedFiles(fileInfos, requestId) {
   var sources = fileInfos.map(function (info) { return info.source; });
   var primarySource = sources[0] || 'unknown';
 
-  if (!shouldActivate()) {
+  if (!shouldScanContent()) {
     sendDecision(requestId, "proceed");
     for (var j = 0; j < entries.length; j++) {
       logEgressEvent({
@@ -740,6 +758,9 @@ function showBlockedModalIfNeeded() {
 
 async function evaluateAndShowModal(visitResult) {
   if (showBlockedModalIfNeeded()) return;
+
+  // Safe domains are scored silently and never nudged.
+  if (domainStatus && domainStatus.status === "safe") return;
 
   if (!shouldActivate()) return;
 

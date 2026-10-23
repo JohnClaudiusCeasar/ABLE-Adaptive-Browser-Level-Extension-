@@ -27,6 +27,7 @@ class DomainVisitController extends Controller
                     'visited_at' => $visit->visited_at->toIso8601String(),
                     'domain' => $visit->domain,
                     'status' => $visit->glassStatus(),
+                    'risk_score' => $visit->risk_score,
                     'user' => $visit->user_id,
                     'action' => $visit->actionLabel(),
                 ];

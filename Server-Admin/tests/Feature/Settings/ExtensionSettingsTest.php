@@ -97,6 +97,42 @@ class ExtensionSettingsTest extends TestCase
         $this->assertSame(10, AbleSetting::where('key', 'sync.egress_log_flush_interval_minutes')->first()->value);
     }
 
+    public function test_unsafe_modal_cooldowns_can_be_updated()
+    {
+        $user = User::factory()->superAdmin()->create();
+
+        $response = $this
+            ->actingAs($user)
+            ->put(route('extension-settings.update'), [
+                'behavior.unsafe_modal_short_cooldown_ms' => 15000,
+                'behavior.unsafe_modal_stagger_cooldown_ms' => 120000,
+            ]);
+
+        $response->assertSessionHasNoErrors();
+
+        $this->assertSame(
+            15000,
+            AbleSetting::where('key', 'behavior.unsafe_modal_short_cooldown_ms')->first()->value,
+        );
+        $this->assertSame(
+            120000,
+            AbleSetting::where('key', 'behavior.unsafe_modal_stagger_cooldown_ms')->first()->value,
+        );
+    }
+
+    public function test_unsafe_modal_cooldown_rejects_out_of_range_value()
+    {
+        $user = User::factory()->superAdmin()->create();
+
+        $response = $this
+            ->actingAs($user)
+            ->put(route('extension-settings.update'), [
+                'behavior.unsafe_modal_short_cooldown_ms' => 3600001,
+            ]);
+
+        $response->assertSessionHasErrors('behavior.unsafe_modal_short_cooldown_ms');
+    }
+
     public function test_extension_integrity_pin_can_be_updated()
     {
         $user = User::factory()->superAdmin()->create();

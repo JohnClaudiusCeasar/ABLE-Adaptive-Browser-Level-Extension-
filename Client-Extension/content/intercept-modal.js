@@ -8,7 +8,15 @@
  */
 
 function showInterceptModal(data) {
-  var statusLabel = data.status === "unsafe" ? "Unsafe" : "Unlisted";
+  var statusLabel = data.status === "unsafe" ? "Unsafe"
+    : data.status === "safe" ? "Safe"
+    : "Unlisted";
+
+  // A safe domain can still receive a risky upload: the warning is about the
+  // file's contents, not the site's own classification.
+  var statusSentence = data.status === "safe"
+    ? ' Although the website is marked as <span class="able-highlight-text">Safe</span> by our security team, the file itself contains sensitive information that would leave your organization if uploaded.'
+    : ' Please be informed that the website is marked as <span class="able-highlight-text">' + statusLabel + '</span> by our security team and sending this file may expose your information to these third-party services.';
 
   var html =
     '<div class="able-modal-card">' +
@@ -22,9 +30,7 @@ function showInterceptModal(data) {
             'ABLE has detected sensitive information from' +
             ' "<span class="able-highlight-text">' + escapeHtml(data.fileName) + '</span>" that is being uploaded into' +
             ' <span class="able-highlight-text">' + escapeHtml(data.websiteName) + '</span>.' +
-            ' Please be informed that the website is marked as' +
-            ' <span class="able-highlight-text">' + statusLabel + '</span> by our security team' +
-            ' and sending this file may expose your information to these third-party services.' +
+            statusSentence +
             ' Please consider whether this upload is necessary or use our verified alternative service instead.' +
           '</p>' +
         '</div>' +
