@@ -5,15 +5,16 @@ import Heading from '@/components/heading';
 import { AdvancedDisclosure } from '@/components/settings/advanced-disclosure';
 import { ArrayField } from '@/components/settings/array-field';
 import { BooleanField } from '@/components/settings/boolean-field';
-import ClearRecordsDialog from '@/components/settings/clear-records-dialog';
-import type { RecordCount } from '@/components/settings/clear-records-dialog';
 import { KeyValueField } from '@/components/settings/key-value-field';
 import { NumberField } from '@/components/settings/number-field';
 import { PolicySelect } from '@/components/settings/policy-select';
+import RecordsPurgeDialog from '@/components/settings/records-purge-dialog';
+import type { RecordCount } from '@/components/settings/records-purge-dialog';
 import { RiskThresholdSlider } from '@/components/settings/risk-threshold-slider';
 import { SettingsField } from '@/components/settings/settings-field';
 import { SettingsSection } from '@/components/settings/settings-section';
 import { SettingsStatusBanner } from '@/components/settings/settings-status-banner';
+import TelemetryPurgePanel from '@/components/settings/telemetry-purge-panel';
 import { TextField } from '@/components/settings/text-field';
 import { Button } from '@/components/ui/button';
 import type { SettingsValues } from '@/lib/settings';
@@ -49,11 +50,14 @@ type PageProps = {
 
 export default function ServerSettings() {
     const { settings, status } = usePage<PageProps>().props;
+    const [showTelemetryPurge, setShowTelemetryPurge] = useState(false);
     const [showClearRecords, setShowClearRecords] = useState(false);
 
     const ut1 = status?.ut1_last_run;
     const thresholdsMatch =
         (status?.extension_threshold ?? 0) === (status?.server_threshold ?? 0);
+    const recordCounts = status?.record_counts ?? [];
+    const recordTotal = recordCounts.reduce((sum, item) => sum + item.count, 0);
 
     return (
         <>
@@ -357,6 +361,32 @@ export default function ServerSettings() {
                     className="border-red-500/30 bg-red-500/5 dark:border-red-500/20 dark:bg-red-500/5"
                 >
                     <SettingsField
+                        label="Delete telemetry records"
+                        description="Choose specific telemetry to remove, either all of it or only a date range. Accounts, settings, policies, chat and community feedback are kept. This cannot be undone."
+                    >
+                        <Button
+                            type="button"
+                            variant="destructive"
+                            onClick={() =>
+                                setShowTelemetryPurge((open) => !open)
+                            }
+                            aria-expanded={showTelemetryPurge}
+                            data-test="open-telemetry-purge"
+                        >
+                            {showTelemetryPurge
+                                ? 'Hide telemetry deletion'
+                                : 'Delete telemetry…'}
+                        </Button>
+                    </SettingsField>
+
+                    {showTelemetryPurge && (
+                        <TelemetryPurgePanel
+                            counts={recordCounts}
+                            onClose={() => setShowTelemetryPurge(false)}
+                        />
+                    )}
+
+                    <SettingsField
                         label="Clear all records"
                         description="Permanently delete every record in the app: site policies, risk patterns, visits, egress events, notifications, chat and logs. Accounts and settings are kept. This cannot be undone."
                     >
@@ -372,10 +402,15 @@ export default function ServerSettings() {
                 </SettingsSection>
             </div>
 
-            <ClearRecordsDialog
+            <RecordsPurgeDialog
                 open={showClearRecords}
                 onOpenChange={setShowClearRecords}
-                counts={status?.record_counts ?? []}
+                title="Clear all records"
+                description="This permanently deletes every record in the app and cannot be undone. Accounts, settings and the server configuration are kept."
+                counts={recordCounts}
+                total={recordTotal}
+                phrase="DELETE ALL"
+                confirmLabel="Clear all records"
             />
         </>
     );

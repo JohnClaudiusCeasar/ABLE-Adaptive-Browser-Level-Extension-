@@ -15,37 +15,55 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-const CONFIRMATION_PHRASE = 'DELETE ALL';
-
 export type RecordCount = {
     key: string;
     label: string;
     count: number;
+    description?: string;
+    group?: string;
+    date_column?: string | null;
+    implied_by?: string[];
 };
 
 type Props = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    title: string;
+    description: string;
     counts: RecordCount[];
+    total: number;
+    phrase: string;
+    confirmLabel: string;
+    data?: Record<string, unknown>;
+    onCompleted?: () => void;
+    onFailed?: () => void;
 };
 
-export default function ClearRecordsDialog({
+export default function RecordsPurgeDialog({
     open,
     onOpenChange,
+    title,
+    description,
     counts,
+    total,
+    phrase,
+    confirmLabel,
+    data = {},
+    onCompleted,
+    onFailed,
 }: Props) {
     const [password, setPassword] = useState('');
     const [confirmation, setConfirmation] = useState('');
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [processing, setProcessing] = useState(false);
 
-    const total = counts.reduce((sum, item) => sum + item.count, 0);
     // The server trims incoming strings before validating, so a stray space
     // around the phrase is accepted there too. Compare the same way here so
     // the button does not stay disabled over a trailing space.
     const canConfirm =
         password.length > 0 &&
-        confirmation.trim() === CONFIRMATION_PHRASE &&
+        confirmation.trim() === phrase &&
+        total > 0 &&
         !processing;
 
     function reset() {
@@ -69,14 +87,25 @@ export default function ClearRecordsDialog({
         setErrors({});
 
         router.delete(ServerSettingsController.clearRecords.url(), {
-            data: { password, confirmation: confirmation.trim() },
+            data: {
+                ...data,
+                password,
+                confirmation: confirmation.trim(),
+            },
             preserveScroll: true,
             onSuccess: () => {
                 reset();
                 onOpenChange(false);
+                onCompleted?.();
             },
             onError: (validationErrors: Record<string, string>) => {
                 setErrors(validationErrors);
+
+                if (validationErrors.confirmation) {
+                    setConfirmation('');
+                    onFailed?.();
+                }
+
                 setProcessing(false);
             },
             onFinish: () => setProcessing(false),
@@ -94,12 +123,8 @@ export default function ClearRecordsDialog({
         >
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
-                    <DialogTitle>Clear all records</DialogTitle>
-                    <DialogDescription>
-                        This permanently deletes every record in the app and
-                        cannot be undone. Accounts, settings and the server
-                        configuration are kept.
-                    </DialogDescription>
+                    <DialogTitle>{title}</DialogTitle>
+                    <DialogDescription>{description}</DialogDescription>
                 </DialogHeader>
 
                 <div className="max-h-56 space-y-3 overflow-y-auto rounded-lg border border-red-100 bg-red-50/60 p-4 dark:border-red-200/10 dark:bg-red-700/10">
@@ -125,11 +150,11 @@ export default function ClearRecordsDialog({
                 </div>
 
                 <div className="grid gap-2">
-                    <Label htmlFor="clear-records-password">
+                    <Label htmlFor="records-purge-password">
                         Your password
                     </Label>
                     <PasswordInput
-                        id="clear-records-password"
+                        id="records-purge-password"
                         name="password"
                         autoComplete="current-password"
                         placeholder="Password"
@@ -140,18 +165,18 @@ export default function ClearRecordsDialog({
                 </div>
 
                 <div className="grid gap-2">
-                    <Label htmlFor="clear-records-confirmation">
+                    <Label htmlFor="records-purge-confirmation">
                         Type{' '}
                         <span className="font-mono font-semibold text-foreground">
-                            {CONFIRMATION_PHRASE}
+                            {phrase}
                         </span>{' '}
                         to confirm
                     </Label>
                     <Input
-                        id="clear-records-confirmation"
+                        id="records-purge-confirmation"
                         name="confirmation"
                         autoComplete="off"
-                        placeholder={CONFIRMATION_PHRASE}
+                        placeholder={phrase}
                         value={confirmation}
                         onChange={(event) =>
                             setConfirmation(event.target.value)
@@ -174,7 +199,7 @@ export default function ClearRecordsDialog({
                         disabled={!canConfirm}
                         data-test="confirm-clear-records-button"
                     >
-                        {processing ? 'Clearing…' : 'Clear all records'}
+                        {processing ? 'Deleting…' : confirmLabel}
                     </Button>
                 </DialogFooter>
             </DialogContent>

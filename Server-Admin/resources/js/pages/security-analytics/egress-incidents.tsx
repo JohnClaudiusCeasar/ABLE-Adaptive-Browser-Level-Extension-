@@ -183,10 +183,10 @@ export default function EgressIncidents({
 
                         {/* Search & Sort Controls */}
                         <div className="flex flex-wrap items-center gap-3">
-                            <div className="relative w-[240px]">
+                            <div className="relative w-[260px]">
                                 <Search
-                                    size={14}
-                                    className="absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
+                                    size={16}
+                                    className="absolute top-1/2 left-3.5 -translate-y-1/2 text-muted-foreground"
                                 />
                                 <input
                                     type="text"
@@ -196,7 +196,7 @@ export default function EgressIncidents({
                                         setSearchQuery(e.target.value);
                                         setCurrentPage(1);
                                     }}
-                                    className="w-full rounded-full border border-black/10 bg-black/5 py-1.5 pr-3 pl-9 text-xs text-foreground outline-none placeholder:text-muted-foreground dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]"
+                                    className="w-full rounded-full border border-black/10 bg-black/5 py-2.5 pr-3.5 pl-11 text-[0.9rem] text-foreground outline-none placeholder:text-muted-foreground dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]"
                                 />
                             </div>
 
@@ -209,7 +209,7 @@ export default function EgressIncidents({
                                         );
                                         setCurrentPage(1);
                                     }}
-                                    className="cursor-pointer appearance-none rounded-full border border-black/10 bg-black/5 py-1.5 pr-7 pl-8 text-xs text-foreground outline-none hover:border-able-green/50 dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]"
+                                    className="cursor-pointer appearance-none rounded-full border border-black/10 bg-black/5 py-2.5 pr-8 pl-9 text-[0.85rem] text-foreground transition-all duration-200 outline-none hover:border-able-green/50 hover:bg-black/10 focus:border-able-green focus:ring-1 focus:ring-able-green/30 dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)] dark:hover:bg-white/5"
                                 >
                                     <option value="date_desc">
                                         Sort: Date (Newest)
@@ -228,8 +228,8 @@ export default function EgressIncidents({
                                     </option>
                                 </select>
                                 <ArrowUpDown
-                                    size={13}
-                                    className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-muted-foreground"
+                                    size={16}
+                                    className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
                                 />
                             </div>
                         </div>

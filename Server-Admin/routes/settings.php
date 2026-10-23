@@ -23,6 +23,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::get('settings/server', [ServerSettingsController::class, 'edit'])->name('server-settings.edit');
         Route::put('settings/server', [ServerSettingsController::class, 'update'])->name('server-settings.update');
+        Route::get('settings/server/records/preview', [ServerSettingsController::class, 'previewRecords'])
+            ->middleware('throttle:60,1')
+            ->name('server-settings.preview-records');
         Route::delete('settings/server/records', [ServerSettingsController::class, 'clearRecords'])
             ->middleware('throttle:5,1')
             ->name('server-settings.clear-records');

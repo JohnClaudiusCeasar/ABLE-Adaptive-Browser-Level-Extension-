@@ -1,5 +1,5 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { ArrowLeft, Search, ArrowUpDown, Layers } from 'lucide-react';
+import { ArrowLeft, Search, ArrowUpDown } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { LiveTelemetryStatus } from '@/components/live-telemetry-status';
 import { TablePagination } from '@/components/pagination';
@@ -28,15 +28,20 @@ interface PageProps {
 
 const ROWS_PER_PAGE = 10;
 
-type SortField = 'visited_at' | 'domain' | 'status' | 'risk_score';
+type SortField = 'visited_at' | 'risk_score';
 type SortDir = 'asc' | 'desc';
-type GroupField = 'none' | 'status' | 'action';
 
-const statusLabels: Record<string, string> = {
-    'glass-safe': 'Safe',
-    'glass-unsafe': 'Unsafe',
-    'glass-unlisted': 'Unlisted',
-};
+function getRiskScoreBadgeClass(score: number): string {
+    if (score >= 76) {
+        return 'border border-[#ff4d4d] bg-[rgba(255,77,77,0.2)] text-[#ff4d4d]';
+    }
+
+    if (score >= 41) {
+        return 'border border-[#f59e0b] bg-[rgba(245,158,11,0.2)] text-[#f59e0b]';
+    }
+
+    return 'border border-[#00ff66] bg-[rgba(0,255,102,0.2)] text-[#00ff66]';
+}
 
 function formatTimestamp(ts: string): { date: string; time: string } {
     const d = new Date(ts);
@@ -63,7 +68,6 @@ export default function DomainVisits() {
     const [currentPage, setCurrentPage] = useState(1);
     const [sortField, setSortField] = useState<SortField>('visited_at');
     const [sortDir, setSortDir] = useState<SortDir>('desc');
-    const [groupField, setGroupField] = useState<GroupField>('none');
 
     // Filter & Sort logic
     const processedVisits = useMemo(() => {
@@ -88,12 +92,6 @@ export default function DomainVisits() {
                 case 'visited_at':
                     cmp = a.visited_at.localeCompare(b.visited_at);
                     break;
-                case 'domain':
-                    cmp = a.domain.localeCompare(b.domain);
-                    break;
-                case 'status':
-                    cmp = a.status.localeCompare(b.status);
-                    break;
                 case 'risk_score':
                     cmp = (a.risk_score ?? -1) - (b.risk_score ?? -1);
                     break;
@@ -105,30 +103,6 @@ export default function DomainVisits() {
         return items;
     }, [domainVisits, searchQuery, sortField, sortDir]);
 
-    // Group the processed items
-    const groupedVisits = useMemo(() => {
-        if (groupField === 'none') {
-            return null;
-        }
-
-        const groups: Record<string, DomainVisit[]> = {};
-
-        for (const item of processedVisits) {
-            const key =
-                groupField === 'status'
-                    ? statusLabels[item.status]
-                    : item.action;
-
-            if (!groups[key]) {
-                groups[key] = [];
-            }
-
-            groups[key].push(item);
-        }
-
-        return groups;
-    }, [processedVisits, groupField]);
-
     // Pagination
     const totalPages = Math.max(
         1,
@@ -136,16 +110,12 @@ export default function DomainVisits() {
     );
     const safePage = Math.min(currentPage, totalPages);
     const paginatedItems = useMemo(() => {
-        if (groupField !== 'none') {
-            return processedVisits;
-        }
-
         const start = (safePage - 1) * ROWS_PER_PAGE;
 
         return processedVisits.slice(start, start + ROWS_PER_PAGE);
-    }, [processedVisits, safePage, groupField]);
+    }, [processedVisits, safePage]);
 
-    function renderTableRows(items: DomainVisit[], isGrouped = false) {
+    function renderTableRows(items: DomainVisit[]) {
         return items.map((row, i) => {
             const { date, time } = formatTimestamp(row.visited_at);
 
@@ -154,124 +124,40 @@ export default function DomainVisits() {
                     key={i}
                     className="border-b border-[rgba(34,197,94,0.3)] transition-colors last:border-b-0 hover:bg-black/5 dark:hover:bg-white/5"
                 >
-                    <td
-                        className={`py-3.5 pr-2.5 ${isGrouped ? 'w-[24%] pl-4' : ''}`}
-                    >
-                        {date} {time}
+                    <td className="py-3.5 pr-2.5">
+                        <div className="flex flex-col">
+                            <span>{date}</span>
+                            <span className="text-xs text-muted-foreground">
+                                {time}
+                            </span>
+                        </div>
                     </td>
-                    <td
-                        className={`py-3.5 pr-2.5 ${isGrouped ? 'w-[16%]' : ''}`}
-                    >
-                        {row.user ?? '—'}
-                    </td>
-                    <td
-                        className={`py-3.5 pr-2.5 ${isGrouped ? 'w-[28%] truncate' : ''}`}
-                    >
-                        {row.domain}
-                    </td>
-                    <td
-                        className={`py-3.5 pr-2.5 ${isGrouped ? 'w-[16%]' : ''}`}
-                    >
+                    <td className="py-3.5 pr-2.5">{row.user ?? '—'}</td>
+                    <td className="py-3.5 pr-2.5">{row.domain}</td>
+                    <td className="py-3.5 pr-2.5">
                         <Badge variant={row.status}>
                             {row.status.replace('glass-', '').toUpperCase()}
                         </Badge>
                     </td>
-                    <td
-                        className={`py-3.5 ${isGrouped ? 'w-[16%] pr-4' : ''} ${row.risk_score !== null && row.risk_score > 0 ? 'font-semibold text-[#f87171]' : 'text-muted-foreground'}`}
-                    >
-                        {row.risk_score ?? '—'}
+                    <td className="py-3.5">
+                        {row.risk_score !== null ? (
+                            <span
+                                className={`inline-flex items-center justify-center rounded-full px-2.5 py-0.5 text-xs font-semibold backdrop-blur-[10px] ${getRiskScoreBadgeClass(
+                                    row.risk_score,
+                                )}`}
+                            >
+                                {row.risk_score}%
+                            </span>
+                        ) : (
+                            <span className="text-muted-foreground">—</span>
+                        )}
                     </td>
                 </tr>
             );
         });
     }
 
-    function renderGroupedContent() {
-        if (!groupedVisits) {
-            return null;
-        }
-
-        const groupKeys = Object.keys(groupedVisits);
-
-        if (groupKeys.length === 0) {
-            return (
-                <div className="py-10 text-center text-muted-foreground">
-                    {searchQuery
-                        ? 'No visits match your search.'
-                        : 'No domain visits recorded yet.'}
-                </div>
-            );
-        }
-
-        return (
-            <div className="space-y-4">
-                {groupKeys.map((groupName) => {
-                    const items = groupedVisits[groupName];
-                    const isScrollable = items.length > 5;
-
-                    return (
-                        <div
-                            key={groupName}
-                            className="rounded border border-[rgba(34,197,94,0.3)] bg-black/5 dark:bg-[rgba(15,23,42,0.4)]"
-                        >
-                            {/* Group Header Banner */}
-                            <div className="flex items-center justify-between border-b border-[rgba(34,197,94,0.3)] px-4 py-2">
-                                <span className="font-semibold text-foreground">
-                                    {groupName}
-                                </span>
-                                <span className="text-xs text-muted-foreground">
-                                    {items.length}{' '}
-                                    {items.length === 1 ? 'visit' : 'visits'}
-                                </span>
-                            </div>
-
-                            {/* Column Header (Fixed) */}
-                            <div className="overflow-x-auto">
-                                <table className="w-full table-fixed border-collapse text-[0.85rem]">
-                                    <thead>
-                                        <tr className="text-muted-foreground">
-                                            <th className="w-[24%] border-b border-[rgba(34,197,94,0.7)] py-2.5 pr-2.5 pl-4 text-left font-medium">
-                                                Date and Time
-                                            </th>
-                                            <th className="w-[16%] border-b border-[rgba(34,197,94,0.7)] py-2.5 pr-2.5 text-left font-medium">
-                                                User ID
-                                            </th>
-                                            <th className="w-[28%] border-b border-[rgba(34,197,94,0.7)] py-2.5 pr-2.5 text-left font-medium">
-                                                Domain Name
-                                            </th>
-                                            <th className="w-[16%] border-b border-[rgba(34,197,94,0.7)] py-2.5 pr-2.5 text-left font-medium">
-                                                Domain Status
-                                            </th>
-                                            <th className="w-[16%] border-b border-[rgba(34,197,94,0.7)] py-2.5 pr-4 text-left font-medium">
-                                                Risk Score
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                </table>
-                            </div>
-
-                            {/* Scrollable Body Rows */}
-                            <div
-                                className={`overflow-x-auto ${
-                                    isScrollable
-                                        ? 'max-h-[300px] scrollbar-thin scrollbar-thumb-[rgba(34,197,94,0.4)] scrollbar-track-transparent overflow-y-auto'
-                                        : ''
-                                }`}
-                            >
-                                <table className="w-full table-fixed border-collapse text-[0.85rem]">
-                                    <tbody>
-                                        {renderTableRows(items, true)}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-        );
-    }
-
-    function renderUngroupedContent() {
+    function renderTableBody() {
         if (paginatedItems.length === 0) {
             return (
                 <tbody>
@@ -344,12 +230,12 @@ export default function DomainVisits() {
                             </span>
                         </div>
 
-                        {/* Search & Sort & Group Controls */}
+                        {/* Search & Sort Controls */}
                         <div className="flex flex-wrap items-center gap-3">
-                            <div className="relative w-[220px]">
+                            <div className="relative w-[260px]">
                                 <Search
-                                    size={14}
-                                    className="absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
+                                    size={16}
+                                    className="absolute top-1/2 left-3.5 -translate-y-1/2 text-muted-foreground"
                                 />
                                 <input
                                     type="text"
@@ -359,7 +245,7 @@ export default function DomainVisits() {
                                         setSearchQuery(e.target.value);
                                         setCurrentPage(1);
                                     }}
-                                    className="w-full rounded-full border border-black/10 bg-black/5 py-1.5 pr-3 pl-9 text-xs text-foreground outline-none placeholder:text-muted-foreground dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]"
+                                    className="w-full rounded-full border border-black/10 bg-black/5 py-2.5 pr-3.5 pl-11 text-[0.9rem] text-foreground outline-none placeholder:text-muted-foreground dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]"
                                 />
                             </div>
 
@@ -374,103 +260,61 @@ export default function DomainVisits() {
                                         setSortDir(parts[1] as SortDir);
                                         setCurrentPage(1);
                                     }}
-                                    className="cursor-pointer appearance-none rounded-full border border-black/10 bg-black/5 py-1.5 pr-7 pl-8 text-xs text-foreground outline-none hover:border-able-green/50 dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]"
+                                    className="cursor-pointer appearance-none rounded-full border border-black/10 bg-black/5 py-2.5 pr-8 pl-9 text-[0.85rem] text-foreground transition-all duration-200 outline-none hover:border-able-green/50 hover:bg-black/10 focus:border-able-green focus:ring-1 focus:ring-able-green/30 dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)] dark:hover:bg-white/5"
                                 >
                                     <option value="visited_at__desc">
-                                        Sort: Date (Newest)
+                                        Sort By: Date(Newest)
                                     </option>
                                     <option value="visited_at__asc">
-                                        Sort: Date (Oldest)
-                                    </option>
-                                    <option value="domain__asc">
-                                        Sort: Domain (A-Z)
-                                    </option>
-                                    <option value="domain__desc">
-                                        Sort: Domain (Z-A)
-                                    </option>
-                                    <option value="status__asc">
-                                        Sort: Status (A-Z)
+                                        Sort By: Date(Oldest)
                                     </option>
                                     <option value="risk_score__desc">
-                                        Sort: Risk Score (High-Low)
+                                        Sort By: Risk Score(High-Low)
                                     </option>
                                     <option value="risk_score__asc">
-                                        Sort: Risk Score (Low-High)
+                                        Sort By: Risk Score(Low-High)
                                     </option>
                                 </select>
                                 <ArrowUpDown
-                                    size={13}
-                                    className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-muted-foreground"
-                                />
-                            </div>
-
-                            {/* Group Dropdown */}
-                            <div className="relative">
-                                <select
-                                    value={groupField}
-                                    onChange={(e) => {
-                                        setGroupField(
-                                            e.target.value as GroupField,
-                                        );
-                                        setCurrentPage(1);
-                                    }}
-                                    className="cursor-pointer appearance-none rounded-full border border-black/10 bg-black/5 py-1.5 pr-7 pl-8 text-xs text-foreground outline-none hover:border-able-green/50 dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]"
-                                >
-                                    <option value="none">Group: None</option>
-                                    <option value="status">
-                                        Group: Status
-                                    </option>
-                                    <option value="action">
-                                        Group: Action
-                                    </option>
-                                </select>
-                                <Layers
-                                    size={13}
-                                    className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-muted-foreground"
+                                    size={16}
+                                    className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
                                 />
                             </div>
                         </div>
                     </div>
 
                     {/* Data Table Content */}
-                    {groupField !== 'none' ? (
-                        renderGroupedContent()
-                    ) : (
-                        <>
-                            <div className="overflow-x-auto">
-                                <table className="mb-4 w-full border-collapse text-[0.85rem]">
-                                    <thead>
-                                        <tr className="text-muted-foreground">
-                                            <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
-                                                Date and Time
-                                            </th>
-                                            <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
-                                                User ID
-                                            </th>
-                                            <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
-                                                Domain Name
-                                            </th>
-                                            <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
-                                                Domain Status
-                                            </th>
-                                            <th className="border-b border-[rgba(34,197,94,0.7)] pb-4 text-left font-medium">
-                                                Risk Score
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    {renderUngroupedContent()}
-                                </table>
-                            </div>
+                    <div className="overflow-x-auto">
+                        <table className="mb-4 w-full border-collapse text-[0.85rem]">
+                            <thead>
+                                <tr className="text-muted-foreground">
+                                    <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
+                                        Date & Time
+                                    </th>
+                                    <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
+                                        User ID
+                                    </th>
+                                    <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
+                                        Domain Name
+                                    </th>
+                                    <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
+                                        Domain Status
+                                    </th>
+                                    <th className="border-b border-[rgba(34,197,94,0.7)] pb-4 text-left font-medium">
+                                        Risk Score
+                                    </th>
+                                </tr>
+                            </thead>
+                            {renderTableBody()}
+                        </table>
+                    </div>
 
-                            {/* Pagination (only when not grouped) */}
-                            {totalPages > 1 && (
-                                <TablePagination
-                                    currentPage={safePage}
-                                    totalPages={totalPages}
-                                    onPageChange={setCurrentPage}
-                                />
-                            )}
-                        </>
+                    {totalPages > 1 && (
+                        <TablePagination
+                            currentPage={safePage}
+                            totalPages={totalPages}
+                            onPageChange={setCurrentPage}
+                        />
                     )}
                 </div>
             </div>
