@@ -1,6 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
 import { ArrowLeft, ArrowUpDown, Eye, Search } from 'lucide-react';
 import { useState, useMemo } from 'react';
+import { LiveTelemetryStatus } from '@/components/live-telemetry-status';
 import { TablePagination } from '@/components/pagination';
 import { RowLimitNotice } from '@/components/row-limit-notice';
 import {
@@ -157,6 +158,10 @@ export default function EgressIncidents({
                                 uploads and data exfiltration events intercepted
                                 by the ABLE browser extension.
                             </p>
+                            <LiveTelemetryStatus
+                                watched={['egress']}
+                                className="mt-3"
+                            />
                         </div>
                     </div>
 

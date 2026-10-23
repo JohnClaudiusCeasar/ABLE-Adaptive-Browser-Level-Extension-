@@ -11,6 +11,7 @@ import { DonutGauge } from '@/components/dashboard/donut-gauge';
 import { GroupedBarChart } from '@/components/dashboard/grouped-bar-chart';
 import { PanelCard } from '@/components/dashboard/panel-card';
 import { StatCard } from '@/components/dashboard/stat-card';
+import { LiveTelemetryStatus } from '@/components/live-telemetry-status';
 import { Button } from '@/components/ui/button';
 import { cn, formatMetricNumber } from '@/lib/utils';
 
@@ -135,6 +136,10 @@ export default function ShadowAnalytics({
                             egress mitigation across unsanctioned applications
                             intercepted by the ABLE extension network.
                         </p>
+                        <LiveTelemetryStatus
+                            watched={['visits', 'egress']}
+                            className="mt-3"
+                        />
                     </div>
                 </header>
 

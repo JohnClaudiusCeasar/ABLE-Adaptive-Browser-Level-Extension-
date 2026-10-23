@@ -59,8 +59,12 @@ class EnforceInactivityTimeout
                 return redirect()->route('login')->with('status', __('You were logged out due to 40 minutes of inactivity.'));
             }
 
-            // Exclude termination beacon requests from resetting the activity timer
-            if (! $request->is('session/terminate-beacon')) {
+            // Exclude termination beacon and telemetry probe requests from
+            // resetting the activity timer. The beacon fires on page unload
+            // and the probe polls every few seconds while a panel tab is
+            // open; neither represents the operator doing anything, so
+            // neither should keep an idle session alive.
+            if (! $request->is('session/terminate-beacon', 'telemetry/*')) {
                 $request->session()->put('able_last_activity_time', $now);
                 $this->activeSessionService->recordActivity(
                     $user->id,

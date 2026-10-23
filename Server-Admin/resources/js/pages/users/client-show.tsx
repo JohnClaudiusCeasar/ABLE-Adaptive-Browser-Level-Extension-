@@ -17,6 +17,7 @@ import {
 import { ActivityTrendChart } from '@/components/dashboard/activity-trend-chart';
 import { PanelCard } from '@/components/dashboard/panel-card';
 import { StatCard } from '@/components/dashboard/stat-card';
+import { LiveTelemetryStatus } from '@/components/live-telemetry-status';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -293,6 +294,11 @@ export default function ClientTelemetryPage({
                                 {formatTimestamp(profile.registered_at)}
                             </dd>
                         </div>
+                        <div className="flex w-full items-center pt-1">
+                            <LiveTelemetryStatus
+                                watched={['visits', 'egress']}
+                            />
+                        </div>
                         <div className="flex gap-2">
                             <dt className="text-muted-foreground">
                                 Last active
@@ -321,8 +327,8 @@ export default function ClientTelemetryPage({
                             Activity time range
                         </h2>
                         <p className="mt-1 text-[0.85rem] text-muted-foreground">
-                            Pick the dates you want to review — everything
-                            below updates to match the window you choose.
+                            Pick the dates you want to review — everything below
+                            updates to match the window you choose.
                         </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
@@ -333,7 +339,9 @@ export default function ClientTelemetryPage({
                             onChange={(e) => setFrom(e.target.value)}
                             className="rounded-full border border-black/10 bg-black/5 px-3.5 py-2 text-[0.85rem] outline-none dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]"
                         />
-                        <span className="text-sm text-muted-foreground">to</span>
+                        <span className="text-sm text-muted-foreground">
+                            to
+                        </span>
                         <input
                             type="date"
                             value={to}
@@ -343,7 +351,9 @@ export default function ClientTelemetryPage({
                         />
                         <Button
                             size="sm"
-                            onClick={() => applyRange(profile.user_id, from, to)}
+                            onClick={() =>
+                                applyRange(profile.user_id, from, to)
+                            }
                         >
                             Apply
                         </Button>

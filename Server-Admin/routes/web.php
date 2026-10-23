@@ -11,8 +11,10 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\RiskPatternController;
 use App\Http\Controllers\SecurityAnalyticsController;
 use App\Http\Controllers\SessionSecurityController;
+use App\Http\Controllers\TelemetryVersionController;
 use App\Http\Controllers\Users\ClientUserController;
 use App\Http\Controllers\Users\TeamUserController;
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\CommunityMessage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
@@ -177,6 +179,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::post('session/heartbeat', [SessionSecurityController::class, 'heartbeat'])->name('session.heartbeat');
     Route::post('session/dismiss-recommendation', [SessionSecurityController::class, 'dismissRecommendation'])->name('session.dismiss-recommendation');
+
+    // Cheap fingerprint the panel polls so pages re-render only when new
+    // extension data actually arrived. It skips the Inertia middleware so
+    // the poll does not re-run every shared prop on every tick.
+    //
+    // The rate limit is well above the 5s poll (12 requests a minute per
+    // tab) but bounds a script that hammers it: every probe still costs a
+    // session read and three index lookups on the box the extension writes
+    // to.
+    Route::get('telemetry/version', [TelemetryVersionController::class, 'show'])
+        ->middleware('throttle:120,1')
+        ->withoutMiddleware(HandleInertiaRequests::class)
+        ->name('telemetry.version');
 });
 
 require __DIR__.'/settings.php';

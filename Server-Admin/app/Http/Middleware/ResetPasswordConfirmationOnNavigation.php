@@ -16,6 +16,13 @@ class ResetPasswordConfirmationOnNavigation
      */
     public function handle(Request $request, Closure $next): Response
     {
+        // The telemetry probe polls in the background while a panel tab is
+        // open. It is not navigation, so it must not invalidate a password
+        // confirmation the operator just completed on a security page.
+        if ($request->is('telemetry/*')) {
+            return $next($request);
+        }
+
         if ($request->user() && ! $this->isSecurityRequest($request)) {
             $request->session()->forget('auth.password_confirmed_at');
         }

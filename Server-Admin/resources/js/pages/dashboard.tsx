@@ -16,6 +16,7 @@ import { PanelCard } from '@/components/dashboard/panel-card';
 import { SegmentedBar } from '@/components/dashboard/segmented-bar';
 import { StatCard } from '@/components/dashboard/stat-card';
 import { UserStatCard } from '@/components/dashboard/user-stat-card';
+import { LiveTelemetryStatus } from '@/components/live-telemetry-status';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { truncateFileName, formatMetricNumber } from '@/lib/utils';
@@ -147,6 +148,10 @@ export default function Dashboard({
                         attempts, and nudge effectiveness across the ABLE
                         extension network.
                     </p>
+                    <LiveTelemetryStatus
+                        watched={['visits', 'egress']}
+                        className="mt-3"
+                    />
                 </header>
 
                 {/* User Stats Row */}

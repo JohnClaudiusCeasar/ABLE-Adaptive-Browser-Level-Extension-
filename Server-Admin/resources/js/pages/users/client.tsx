@@ -1,14 +1,8 @@
 import { Head, Link } from '@inertiajs/react';
-import {
-    ArrowUpDown,
-    Check,
-    Copy,
-    Eye,
-    Layers,
-    Search,
-} from 'lucide-react';
+import { ArrowUpDown, Check, Copy, Eye, Layers, Search } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { telemetry } from '@/actions/App/Http/Controllers/Users/ClientUserController';
+import { LiveTelemetryStatus } from '@/components/live-telemetry-status';
 import { TablePagination } from '@/components/pagination';
 
 const glassCard =
@@ -331,6 +325,10 @@ export default function ClientUsersPage({ clients = [] }: ClientPageProps) {
                         All sanitized User IDs registered via the ABLE browser
                         extension.
                     </p>
+                    <LiveTelemetryStatus
+                        watched={['visits', 'egress']}
+                        className="mb-6"
+                    />
 
                     {/* Search + Sort + Group row */}
                     <div className="flex flex-wrap items-center gap-3">

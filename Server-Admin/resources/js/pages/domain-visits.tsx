@@ -1,6 +1,7 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import { ArrowLeft, Search, ArrowUpDown, Layers } from 'lucide-react';
 import { useState, useMemo } from 'react';
+import { LiveTelemetryStatus } from '@/components/live-telemetry-status';
 import { TablePagination } from '@/components/pagination';
 import { RowLimitNotice } from '@/components/row-limit-notice';
 import { Badge } from '@/components/ui/badge';
@@ -324,6 +325,10 @@ export default function DomainVisits() {
                                 shadow activity recorded by the ABLE browser
                                 extension.
                             </p>
+                            <LiveTelemetryStatus
+                                watched={['visits']}
+                                className="mt-3"
+                            />
                         </div>
                     </div>
                 </header>

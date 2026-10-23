@@ -57,6 +57,13 @@ jobs:
       - name: Build Assets
         run: npm run build
 
+      # The Wayfinder helpers under resources/js/{actions,routes} are
+      # generated and gitignored, so this has to run after the build. Without
+      # it a frontend type error ships silently: `composer types:check` below
+      # is PHPStan, not tsc.
+      - name: Run TypeScript Analysis
+        run: npm run types:check
+
       - name: Run Type Analysis
         run: composer types:check
 

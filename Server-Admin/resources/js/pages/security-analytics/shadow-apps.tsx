@@ -8,6 +8,7 @@ import {
     Users,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
+import { LiveTelemetryStatus } from '@/components/live-telemetry-status';
 import { TablePagination } from '@/components/pagination';
 import { RowLimitNotice } from '@/components/row-limit-notice';
 import { Badge } from '@/components/ui/badge';
@@ -183,6 +184,10 @@ export default function ShadowApps({
                                     ? 'Every cloud application this client has been tracked on, with its visit and incident counts per site.'
                                     : 'Complete catalog of unapproved, unlisted, and reviewed cloud applications intercepted across your network.'}
                             </p>
+                            <LiveTelemetryStatus
+                                watched={['visits', 'egress']}
+                                className="mt-3"
+                            />
                         </div>
                     </div>
 

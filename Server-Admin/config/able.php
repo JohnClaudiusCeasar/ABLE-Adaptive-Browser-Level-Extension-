@@ -198,4 +198,25 @@ return [
 
     'admin_page_limit' => (int) env('ABLE_ADMIN_PAGE_LIMIT', 500),
 
+    /*
+    |--------------------------------------------------------------------------
+    | ABLE - Live Telemetry Auto-Refresh
+    |--------------------------------------------------------------------------
+    |
+    | How often the admin panel asks the server whether the telemetry it is
+    | showing has moved. The probe is a pair of indexed aggregates, so it is
+    | cheap, but it still costs a request on the same box the extension
+    | writes to — keep the interval generous on a small deployment.
+    |
+    | The panel only re-renders a page when the fingerprint of the data that
+    | page actually displays has changed, so a visit never re-renders the
+    | egress view. Turning the feature off leaves the panel on manual
+    | refresh only.
+    |
+    */
+
+    'telemetry_poll_interval_ms' => (int) env('ABLE_TELEMETRY_POLL_INTERVAL_MS', 5000),
+
+    'telemetry_auto_refresh_enabled' => (bool) env('ABLE_TELEMETRY_AUTO_REFRESH_ENABLED', true),
+
 ];

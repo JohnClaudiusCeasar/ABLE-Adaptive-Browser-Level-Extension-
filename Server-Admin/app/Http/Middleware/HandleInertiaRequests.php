@@ -8,7 +8,9 @@ use App\Models\Notification;
 use App\Models\User;
 use App\Services\AbleSettingsService;
 use App\Services\ChatService;
+use App\Services\TelemetryVersion;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -47,6 +49,7 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'name' => config('app.name'),
             'extension_version' => $this->extensionVersion(),
+            'telemetryLive' => Inertia::always($this->telemetryLive($request)),
             'auth' => [
                 'user' => $request->user(),
                 'modules' => $request->user()
@@ -144,6 +147,39 @@ class HandleInertiaRequests extends Middleware
             'users' => $this->usersFor($user),
             'unreadCount' => $this->unreadCountFor($user),
         ];
+    }
+
+    /**
+     * The live telemetry payload shared with every page.
+     *
+     * The panel polls this to learn whether the telemetry it displays has
+     * moved. The fingerprint is taken here, before the route controller runs,
+     * so it is always a lower bound of the data the page is rendered with: a
+     * change that lands after the fingerprint was taken but before the
+     * controller queried its data is already in the page, and a change that
+     * lands after that moves the fingerprint, so the panel reloads. Neither
+     * ordering can miss a change.
+     *
+     * The payload is marked as always-included so it survives the partial
+     * reloads the panel and the notification badge perform. A partial reload
+     * that dropped the fingerprint would leave the panel comparing against a
+     * stale baseline and reload forever.
+     *
+     * @return array{version: array<string, string>, pollIntervalMs: int, enabled: bool}
+     */
+    private function telemetryLive(Request $request): array
+    {
+        try {
+            return app(TelemetryVersion::class)->payload($request->user() !== null);
+        } catch (\Throwable) {
+            // The telemetry tables may not exist yet on a fresh install. The
+            // panel simply stays on manual refresh until they do.
+            return [
+                'version' => [],
+                'pollIntervalMs' => (int) config('able.telemetry_poll_interval_ms', 5000),
+                'enabled' => false,
+            ];
+        }
     }
 
     /**

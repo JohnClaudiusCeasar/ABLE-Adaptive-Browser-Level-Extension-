@@ -14,6 +14,11 @@ declare module '@inertiajs/core' {
             extension_version: string;
             auth: Auth;
             sidebarOpen: boolean;
+            telemetryLive: {
+                version: Record<string, string>;
+                pollIntervalMs: number;
+                enabled: boolean;
+            };
             [key: string]: unknown;
         };
     }

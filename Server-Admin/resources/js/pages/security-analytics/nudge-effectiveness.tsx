@@ -1,6 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
 import { ArrowLeft, Search, ArrowUpDown } from 'lucide-react';
 import { useState, useMemo } from 'react';
+import { LiveTelemetryStatus } from '@/components/live-telemetry-status';
 import { TablePagination } from '@/components/pagination';
 import { formatMetricNumber } from '@/lib/utils';
 
@@ -102,6 +103,10 @@ export default function NudgeEffectiveness({
                                 compliance outcomes upon receiving data upload
                                 warnings.
                             </p>
+                            <LiveTelemetryStatus
+                                watched={['egress']}
+                                className="mt-3"
+                            />
                         </div>
                     </div>
                 </header>
