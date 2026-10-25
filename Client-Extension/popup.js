@@ -411,6 +411,11 @@ async function refreshIntegrityWarning() {
  * Initialize popup when DOM is ready
  */
 document.addEventListener("DOMContentLoaded", () => {
+  const versionEl = document.querySelector(".footer-version");
+  if (versionEl && typeof chrome !== "undefined" && chrome.runtime?.getManifest) {
+    versionEl.textContent = "v" + chrome.runtime.getManifest().version;
+  }
+
   // Initial analysis
   initializeExtension();
 

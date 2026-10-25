@@ -1,4 +1,4 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import React, {
     useState,
     useEffect,
@@ -29,6 +29,7 @@ export default function Welcome({
     requestCategory = null,
     requestDomain = null,
 }: WelcomeProps) {
+    const { extension_version } = usePage<{ extension_version?: string }>().props;
     // -------------------------------------------------------------
     // State Management
     // -------------------------------------------------------------
@@ -2832,7 +2833,7 @@ const dispatchHook = {
                                                     Chrome Web Store
                                                 </span>
                                                 <span className="tag">
-                                                    v0.1.0
+                                                    {extension_version ? `v${extension_version}` : 'v0.1.5'}
                                                 </span>
                                                 <span className="tag">
                                                     Manifest V3
