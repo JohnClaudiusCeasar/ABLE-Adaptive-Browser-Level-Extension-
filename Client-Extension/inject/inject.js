@@ -13,6 +13,18 @@
   // bare globals the page may already use.
   window.__ABLE_PAGE_WORLD = true;
 
+  var originalPostMessage = typeof window !== 'undefined' ? window.postMessage : null;
+
+  function safePostMessage(message, targetOrigin) {
+    try {
+      if (originalPostMessage) {
+        originalPostMessage.call(window, message, targetOrigin || '*');
+      } else if (typeof window !== 'undefined' && window.postMessage) {
+        window.postMessage(message, targetOrigin || '*');
+      }
+    } catch (e) {}
+  }
+
   var pendingRequests = new Map();
   var ableNonce = null;
   var nonceReady = false;
@@ -51,7 +63,7 @@
     return waitForNonce().then(function (nonce) {
       return new Promise(function (resolve, reject) {
         if (!nonce) {
-          window.postMessage({
+          safePostMessage({
             source: 'ABLE_INJECT',
             type: 'ABLE_NONCE_FAILED',
             payload: { requestId: null, fileInfos: fileInfos }
@@ -74,7 +86,7 @@
         });
 
         if (isFireAndForget || isStream) {
-          window.postMessage({
+          safePostMessage({
             source: 'ABLE_INJECT',
             type: 'ABLE_INTERCEPT',
             nonce: nonce,
@@ -88,7 +100,7 @@
 
         var timeout = setTimeout(function () {
           pendingRequests.delete(id);
-          window.postMessage({
+          safePostMessage({
             source: 'ABLE_INJECT',
             type: 'ABLE_TIMEOUT',
             nonce: ableNonce,
@@ -99,7 +111,7 @@
 
         pendingRequests.set(id, { resolve: resolve, reject: reject, timeout: timeout });
 
-        window.postMessage({
+        safePostMessage({
           source: 'ABLE_INJECT',
           type: 'ABLE_INTERCEPT',
           nonce: nonce,
@@ -112,9 +124,63 @@
     });
   }
 
-  // Expose requestCheck globally in page context so network-interceptor.js can call it
-  window.requestCheck = requestCheck;
-  window.__ableRequestCheck = requestCheck;
+  // Expose requestCheck globally in page context so network-interceptor.js can
+  // call it. The bindings are non-writable and non-configurable: a page script
+  // cannot swap in a function that silently returns "proceed".
+  function defineImmutableGlobal(name, value) {
+    try {
+      Object.defineProperty(window, name, {
+        value: value,
+        writable: false,
+        configurable: false,
+        enumerable: false,
+      });
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  var guardInstallFailed = !defineImmutableGlobal('__ableRequestCheck', requestCheck) ||
+    !defineImmutableGlobal('requestCheck', requestCheck);
+
+  var guardRefs = null;
+  var tamperReported = false;
+
+  function reportTamper(reason) {
+    if (tamperReported) return;
+    tamperReported = true;
+    waitForNonce().then(function (nonce) {
+      if (!nonce) return;
+      safePostMessage({
+        source: 'ABLE_INJECT',
+        type: 'ABLE_TAMPER',
+        nonce: nonce,
+        payload: { reason: reason || 'unknown' },
+      }, '*');
+    });
+  }
+
+  /**
+   * The page shares this global scope, so a hostile page can replace the
+   * standard-API wrappers we install. We cannot prevent that from here, but
+   * silence is not acceptable: report the first replacement we observe.
+   */
+  function checkGuardIntegrity() {
+    if (!guardRefs) return;
+    var reasons = [];
+    try {
+      if (window.fetch !== guardRefs.fetch) reasons.push('fetch');
+      if (XMLHttpRequest.prototype.send !== guardRefs.xhrSend) reasons.push('xhr.send');
+      if (navigator.sendBeacon !== guardRefs.beacon) reasons.push('sendBeacon');
+      if (window.WebSocket && window.WebSocket.prototype.send !== guardRefs.wsSend) reasons.push('websocket.send');
+      if (window.__ableRequestCheck !== requestCheck) reasons.push('requestCheck');
+      if (originalPostMessage && window.postMessage !== originalPostMessage) reasons.push('postMessage');
+    } catch (e) {
+      reasons.push('guard-check-error');
+    }
+    if (reasons.length > 0) reportTamper(reasons.join(','));
+  }
 
   window.addEventListener('message', function (event) {
     if (!event.data || event.data.source !== 'ABLE_CONTENT') return;
@@ -165,6 +231,7 @@
 
   var INJECT_SCRIPTS = [
     'core/synthetic-names.js',
+    'core/file-identity.js',
     'inject/file-extractor.js',
     'inject/network-interceptor.js',
     'inject/file-tracker.js'
@@ -207,6 +274,9 @@
   // ─── Form submission interception ──────────────────────────────────
 
   document.addEventListener('submit', function (event) {
+    // A page can dispatch a synthetic submit with a fabricated form; only a
+    // user-agent-initiated submit is evidence of a real selection.
+    if (!event.isTrusted) return;
     var form = event.target;
     if (form instanceof HTMLFormElement) {
       try {
@@ -360,7 +430,7 @@
         pendingTextChecks.delete(checkId);
         if (decision === 'block') {
           dropHeldEnters();
-          window.postMessage({
+          safePostMessage({
             source: 'ABLE_INJECT',
             type: 'ABLE_TEXT_BLOCKED',
             payload: { checkId: checkId }
@@ -381,7 +451,7 @@
     };
     pendingTextChecks.set(checkId, entry);
 
-    window.postMessage({
+    safePostMessage({
       source: 'ABLE_INJECT',
       type: 'ABLE_TEXT_CHECK',
       nonce: ableNonce,
@@ -422,7 +492,7 @@
     function notifyUrlChange() {
       if (location.href !== lastUrl) {
         lastUrl = location.href;
-        window.postMessage({
+        safePostMessage({
           source: 'ABLE_INJECT',
           type: 'ABLE_SPA_NAVIGATION',
           url: location.href,
@@ -451,7 +521,7 @@
 
   // Inject dependencies first, then signal ready and start file tracking
   injectDependencies().then(function () {
-    window.postMessage({ source: 'ABLE_INJECT', type: 'ABLE_READY' }, '*');
+    safePostMessage({ source: 'ABLE_INJECT', type: 'ABLE_READY' }, '*');
     if (typeof initFileTracking === 'function') {
       try {
         initFileTracking();
@@ -459,10 +529,25 @@
         console.warn('ABLE: File tracking initialization failed:', trackErr);
       }
     }
+
+    // Snapshot the wrappers now that every injected module has installed them.
+    guardRefs = Object.freeze({
+      fetch: window.fetch,
+      xhrSend: XMLHttpRequest.prototype.send,
+      beacon: navigator.sendBeacon,
+      wsSend: window.WebSocket ? window.WebSocket.prototype.send : null,
+    });
+    defineImmutableGlobal('__ableGuardRefs', guardRefs);
+
+    if (guardInstallFailed) {
+      reportTamper('requestCheck install failed');
+    }
+
+    setInterval(checkGuardIntegrity, 5000);
   }).catch(function (err) {
     console.warn('ABLE: Failed to inject dependencies:', err);
     // Still signal ready so the handshake completes
-    window.postMessage({ source: 'ABLE_INJECT', type: 'ABLE_READY' }, '*');
+    safePostMessage({ source: 'ABLE_INJECT', type: 'ABLE_READY' }, '*');
   });
 
 })();

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ABLE - Adaptive Browser-Level Extension",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Detects website safety status, provides security warnings for unsafe and unlisted domains, and blocks administratively restricted sites",
   "permissions": [
     "scripting",
@@ -25,6 +25,7 @@
         "core/security.js",
         "core/runtime-settings.js",
         "core/synthetic-names.js",
+        "core/file-identity.js",
         "parsers/office-parser.js",
         "api/rate-limiter.js",
         "api/classification.js",
@@ -33,6 +34,7 @@
         "api/logging.js",
         "api/index.js",
         "content/page-signals.js",
+        "content/provenance.js",
         "content/zoom.js",
         "content/score-hold-modal.js",
         "content/file-scanner.js",
@@ -56,6 +58,7 @@
         "content.css",
         "inject/inject.js",
         "core/synthetic-names.js",
+        "core/file-identity.js",
         "inject/file-extractor.js",
         "inject/network-interceptor.js",
         "inject/file-tracker.js",

@@ -1,20 +1,12 @@
 /*
- * End-to-end verification of the extractor's placeholder gate.
+ * Verification of the page-world extractor's COLLECTOR contract.
  *
- * The real inject/file-extractor.js is executed against Node's native File,
- * Blob and FormData, with core/synthetic-names.js loaded first exactly as
- * inject.js loads it in the page world.
+ * The extractor must never decide admission from page-writable state. Every
+ * plausible file body is forwarded to the isolated world, which re-derives
+ * provenance. This harness pins that property and the removal of MIME-derived
+ * name fabrication.
  *
- * The gate is what stops a MIME-derived placeholder name ("upload.csv") from
- * ever reaching the audit, so it is asserted directly:
- *
- *   1. A name fabricated from the MIME type is dropped
- *   2. A name fabricated from the form field + MIME type is dropped
- *   3. A page-authored placeholder name is dropped
- *   4. A magic-byte-derived name is dropped
- *   5. A page-supplied real name is kept
- *   6. A name recovered from the user's own file selection is kept, even when
- *      it looks like a placeholder — the user may really have "upload.csv"
+ * Admission decisions themselves are covered by verify-provenance.js.
  *
  * Run: npm run verify:extractor-names   (from Client-Extension/)
  */
@@ -32,8 +24,13 @@ function check(label, ok, detail) {
   if (!ok) failures.push(detail ? label + " — " + detail : label);
 }
 
+function describe(out) {
+  return JSON.stringify(out.map((f) => ({ name: f.file.name, source: f.source, nameSource: f.nameSource })));
+}
+
 const CSV = "name,salary\nAlice,100\n";
 const PDF_BYTES = Buffer.from("%PDF-1.4\n%\xE2\xE3\xCF\xD3\ntrailer\n");
+const URL_API = { url: "https://example.test/api/upload", headers: null };
 
 // ── Build the page world ────────────────────────────────────────────────────
 const sandbox = {
@@ -53,97 +50,108 @@ sandbox.globalThis = sandbox;
 sandbox.window = sandbox;
 sandbox.__ABLE_PAGE_WORLD = true;
 
-// No file has been picked by the user unless a test says otherwise.
-sandbox.__ableMatchFilename = () => null;
-sandbox.__ableLookupTrackedFilename = () => null;
+// If the extractor ever consults these, the harness fails: admission must not
+// depend on page-writable tracker state.
+const trackerCalls = [];
+sandbox.__ableHasTrackedFiles = () => { trackerCalls.push("hasTrackedFiles"); return false; };
+sandbox.__ableMatchFilename = () => { trackerCalls.push("matchFilename"); return null; };
+sandbox.__ableLookupTrackedFilename = () => { trackerCalls.push("lookupTrackedFilename"); return null; };
 
 vm.createContext(sandbox);
-vm.runInContext(fs.readFileSync(path.join(ROOT, "core/synthetic-names.js"), "utf8"), sandbox);
-vm.runInContext(fs.readFileSync(path.join(ROOT, "inject/file-extractor.js"), "utf8"), sandbox);
-
-const { extractFiles } = sandbox;
-if (typeof extractFiles !== "function") {
-  throw new Error("inject/file-extractor.js did not expose extractFiles");
+for (const file of ["core/synthetic-names.js", "core/file-identity.js", "inject/file-extractor.js"]) {
+  vm.runInContext(fs.readFileSync(path.join(ROOT, file), "utf8"), sandbox, { filename: file });
 }
 
-const URL_CTX = { url: "https://example.test/api/upload", headers: null };
-
-function extract(body, ctx) {
-  return extractFiles(body, ctx || URL_CTX);
+const { extractFiles, extractFilesAsync } = sandbox;
+if (typeof extractFiles !== "function" || typeof extractFilesAsync !== "function") {
+  throw new Error("inject/file-extractor.js did not expose the extractors");
 }
 
-// ── 1. A name fabricated from the MIME type ─────────────────────────────────
-{
-  const blob = new Blob([CSV], { type: "text/csv" });
-  const out = extract(blob);
-  check("MIME-derived name (upload.csv) is dropped", out.length === 0, "got " + JSON.stringify(out.map((f) => f.file.name)));
+async function extract(body, ctx) {
+  return extractFilesAsync(body, ctx || URL_API);
 }
 
-// ── 2. A name fabricated from the form field + MIME type ────────────────────
-{
-  // Appended without a filename, the entry is named by the MIME type alone.
-  const fd = new FormData();
-  fd.append("attachment", new Blob([CSV], { type: "text/csv" }));
-  const out = extract(fd);
-  check("MIME-derived form entry name is dropped", out.length === 0, "got " + JSON.stringify(out.map((f) => f.file.name)));
+async function main() {
+  // ── 1. Candidates the page could previously make disappear are forwarded ──
+  {
+    const mimeBlob = await extract(new Blob([CSV], { type: "text/csv" }));
+    check("MIME-only blob is forwarded", mimeBlob.length === 1, describe(mimeBlob));
+    check("MIME-only blob keeps a placeholder name", mimeBlob.length === 1 && mimeBlob[0].file.name === "blob", describe(mimeBlob));
 
-  // Appended with an explicit filename, the page named the file itself.
-  const named = new FormData();
-  named.append("attachment", new Blob([CSV], { type: "text/csv" }), "ticket.csv");
-  const namedOut = extract(named);
-  check("explicitly named form entry is kept", namedOut.length === 1, "got " + JSON.stringify(namedOut.map((f) => f.file.name)));
-  check("explicitly named form entry keeps its name", namedOut.length === 1 && namedOut[0].file.name === "ticket.csv");
+    const pdfBlob = await extract(new Blob([PDF_BYTES], { type: "application/pdf" }));
+    check("PDF blob without a name is forwarded", pdfBlob.length === 1, describe(pdfBlob));
+
+    const imageBlob = await extract(new Blob([Buffer.from("89504e470d0a1a0a", "hex")], { type: "image/png" }));
+    check("image blob without a name is forwarded", imageBlob.length === 1, describe(imageBlob));
+
+    const typeless = await extract(new Blob([PDF_BYTES]));
+    check("typeless blob is forwarded", typeless.length === 1, describe(typeless));
+
+    const namedBlob = await extract(new File([PDF_BYTES], "blob", { type: "application/pdf" }));
+    check("page-built File named 'blob' is forwarded", namedBlob.length === 1, describe(namedBlob));
+  }
+
+  // ── 2. Explicit names survive the collector ───────────────────────────────
+  {
+    const file = await extract(new File([CSV], "payroll.csv", { type: "text/csv" }));
+    check("page-supplied real name survives", file.length === 1 && file[0].file.name === "payroll.csv", describe(file));
+
+    const viaUrl = await extract(new Blob([PDF_BYTES], { type: "application/pdf" }), {
+      url: "https://bucket.example.test/u/1/report.pdf",
+      headers: null,
+    });
+    check("real name in the request URL survives", viaUrl.length === 1 && viaUrl[0].file.name === "report.pdf", describe(viaUrl));
+
+    const form = new FormData();
+    form.append("attachment", new Blob([CSV], { type: "text/csv" }), "ticket.csv");
+    const formOut = await extract(form);
+    check("explicitly named FormData entry survives", formOut.length === 1 && formOut[0].file.name === "ticket.csv", describe(formOut));
+
+    const unnamed = new FormData();
+    unnamed.append("attachment", new Blob([CSV], { type: "text/csv" }));
+    const unnamedOut = await extract(unnamed);
+    check("unnamed FormData blob is forwarded", unnamedOut.length === 1, describe(unnamedOut));
+  }
+
+  // ── 3. No MIME/magic-derived name fabrication ────────────────────────────
+  {
+    const pdfBuffer = PDF_BYTES.buffer.slice(PDF_BYTES.byteOffset, PDF_BYTES.byteOffset + PDF_BYTES.byteLength);
+    const out = await extract(pdfBuffer);
+    check("ArrayBuffer is forwarded", out.length === 1, describe(out));
+    check("ArrayBuffer name is not magic-derived", out.length === 1 && out[0].file.name === "upload", describe(out));
+    check(
+      "no candidate name is an upload.<mime> placeholder",
+      out.every((f) => !/^upload\.[a-z0-9-]+$/i.test(f.file.name))
+    );
+  }
+
+  // ── 4. Page-writable tracker globals are never consulted ─────────────────
+  {
+    check("extractor never calls hasTrackedFiles", trackerCalls.indexOf("hasTrackedFiles") === -1);
+    check("extractor never calls matchFilename", trackerCalls.indexOf("matchFilename") === -1);
+    check("extractor never calls lookupTrackedFilename", trackerCalls.indexOf("lookupTrackedFilename") === -1);
+  }
+
+  // ── 5. The sync path is a collector too ──────────────────────────────────
+  {
+    const syncOut = extractFiles(new File([CSV], "blob", { type: "text/csv" }), URL_API);
+    check("sync path forwards a 'blob' File as well", syncOut.length === 1, describe(syncOut));
+  }
+
+  // ── Report ──────────────────────────────────────────────────────────────
+  console.log("\nABLE extractor collector verification");
+  console.log("=".repeat(60));
+  console.log("Checks run: " + checks);
+  if (failures.length === 0) {
+    console.log("RESULT: PASS — all " + checks + " checks passed");
+  } else {
+    console.log("RESULT: FAIL — " + failures.length + " failure(s)");
+    failures.forEach((f) => console.log("  x " + f));
+  }
+  process.exit(failures.length === 0 ? 0 : 1);
 }
 
-// ── 3. A page-authored placeholder name ─────────────────────────────────────
-{
-  const file = new File([CSV], "upload.csv", { type: "text/csv" });
-  const out = extract(file);
-  check("page-authored placeholder (upload.csv) is dropped", out.length === 0, "got " + JSON.stringify(out.map((f) => f.file.name)));
-
-  const form = new FormData();
-  form.append("file", new File([CSV], "form-upload.csv", { type: "text/csv" }));
-  const formOut = extract(form);
-  check("page-authored placeholder (form-upload.csv) is dropped", formOut.length === 0, "got " + JSON.stringify(formOut.map((f) => f.file.name)));
-}
-
-// ── 4. A magic-byte-derived name ───────────────────────────────────────────
-{
-  const buf = PDF_BYTES.buffer.slice(PDF_BYTES.byteOffset, PDF_BYTES.byteOffset + PDF_BYTES.byteLength);
-  const out = extract(buf);
-  check("magic-byte-derived name (upload.pdf) is dropped", out.length === 0, "got " + JSON.stringify(out.map((f) => f.file.name)));
-}
-
-// ── 5. A page-supplied real name is kept ────────────────────────────────────
-{
-  const file = new File([CSV], "payroll.csv", { type: "text/csv" });
-  const out = extract(file);
-  check("page-supplied real name is kept", out.length === 1, "got " + out.length);
-  check("kept file keeps its name", out.length === 1 && out[0].file.name === "payroll.csv");
-  check("kept file is marked as a page name", out.length === 1 && out[0].nameSource === "page", "got " + (out[0] && out[0].nameSource));
-}
-
-// ── 6. A name recovered from the user's own selection is kept ───────────────
-{
-  sandbox.__ableLookupTrackedFilename = (size, validator) =>
-    validator("upload.csv") ? "upload.csv" : null;
-
-  const file = new File([CSV], "upload.csv", { type: "text/csv" });
-  const out = extract(file);
-  check("user-selected placeholder-looking name is kept", out.length === 1, "got " + JSON.stringify(out.map((f) => f.file.name)));
-  check("user-selected name is marked as a user name", out.length === 1 && out[0].nameSource === "user", "got " + (out[0] && out[0].nameSource));
-
-  sandbox.__ableLookupTrackedFilename = () => null;
-}
-
-// ── Report ──────────────────────────────────────────────────────────────────
-console.log("\nABLE extractor placeholder-gate verification");
-console.log("=".repeat(60));
-console.log("Checks run: " + checks);
-if (failures.length === 0) {
-  console.log("RESULT: PASS — all " + checks + " checks passed");
-} else {
-  console.log("RESULT: FAIL — " + failures.length + " failure(s)");
-  failures.forEach((f) => console.log("  x " + f));
-}
-process.exit(failures.length === 0 ? 0 : 1);
+main().catch((err) => {
+  console.error("Harness error:", err);
+  process.exit(1);
+});

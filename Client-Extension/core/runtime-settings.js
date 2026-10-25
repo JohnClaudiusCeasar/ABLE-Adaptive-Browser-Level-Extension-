@@ -73,6 +73,8 @@ function buildDefaults() {
       typeof EXPECTED_CONTENT_CSS_HASH !== "undefined" ? EXPECTED_CONTENT_CSS_HASH : "",
     "integrity.expected_synthetic_names_hash":
       typeof EXPECTED_SYNTHETIC_NAMES_HASH !== "undefined" ? EXPECTED_SYNTHETIC_NAMES_HASH : "",
+    "integrity.expected_file_identity_hash":
+      typeof EXPECTED_FILE_IDENTITY_HASH !== "undefined" ? EXPECTED_FILE_IDENTITY_HASH : "",
     "integrity.expected_file_extractor_hash":
       typeof EXPECTED_FILE_EXTRACTOR_HASH !== "undefined" ? EXPECTED_FILE_EXTRACTOR_HASH : "",
     "integrity.expected_network_interceptor_hash":

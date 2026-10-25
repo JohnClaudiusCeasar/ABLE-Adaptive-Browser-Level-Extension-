@@ -330,6 +330,7 @@ const INTEGRITY_ASSET_KEYS = {
   inject: "integrity.expected_inject_hash",
   content_css: "integrity.expected_content_css_hash",
   synthetic_names: "integrity.expected_synthetic_names_hash",
+  file_identity: "integrity.expected_file_identity_hash",
   file_extractor: "integrity.expected_file_extractor_hash",
   network_interceptor: "integrity.expected_network_interceptor_hash",
   file_tracker: "integrity.expected_file_tracker_hash",

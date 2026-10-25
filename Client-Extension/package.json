@@ -9,10 +9,11 @@
     "build:check": "node scripts/build.js --check",
     "hash": "node scripts/hash-assets.js",
     "hooks:install": "node scripts/install-git-hooks.js",
-    "verify": "npm run build:check && npm run verify:modals && npm run verify:synthetic-names && npm run verify:extractor-names && npm run verify:integrity-pins && npm run verify:audit-policy",
+    "verify": "npm run build:check && npm run verify:modals && npm run verify:synthetic-names && npm run verify:extractor-names && npm run verify:provenance && npm run verify:integrity-pins && npm run verify:audit-policy",
     "verify:modals": "node scripts/verify-modals.js",
     "verify:synthetic-names": "node scripts/verify-synthetic-names.js",
     "verify:extractor-names": "node scripts/verify-extractor-names.js",
+    "verify:provenance": "node scripts/verify-provenance.js",
     "verify:integrity-pins": "node scripts/verify-integrity-pins.js",
     "verify:audit-policy": "node scripts/verify-audit-policy.js"
   }

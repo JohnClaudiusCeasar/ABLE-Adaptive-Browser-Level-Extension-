@@ -18,6 +18,7 @@ const HASH_TARGETS = [
   { file: "inject/inject.js", key: "EXPECTED_INJECT_HASH" },
   { file: "content.css", key: "EXPECTED_CONTENT_CSS_HASH" },
   { file: "core/synthetic-names.js", key: "EXPECTED_SYNTHETIC_NAMES_HASH" },
+  { file: "core/file-identity.js", key: "EXPECTED_FILE_IDENTITY_HASH" },
   { file: "inject/file-extractor.js", key: "EXPECTED_FILE_EXTRACTOR_HASH" },
   { file: "inject/network-interceptor.js", key: "EXPECTED_NETWORK_INTERCEPTOR_HASH" },
   { file: "inject/file-tracker.js", key: "EXPECTED_FILE_TRACKER_HASH" },

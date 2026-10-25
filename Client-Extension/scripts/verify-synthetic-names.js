@@ -83,6 +83,8 @@ const listOwners = [
   "api/scoring.js",
   "content/content.js",
   "content/file-scanner.js",
+  "content/provenance.js",
+  "core/file-identity.js",
   "core/storage.js",
   "core/security.js",
   "core/runtime-settings.js",
@@ -125,16 +127,40 @@ check(
   war.includes("core/synthetic-names.js")
 );
 
+check(
+  "content scripts load core/file-identity.js",
+  contentScripts.includes("core/file-identity.js")
+);
+check(
+  "content/provenance.js is loaded after the shared identity module",
+  contentScripts.includes("content/provenance.js") &&
+    contentScripts.indexOf("core/file-identity.js") < contentScripts.indexOf("content/provenance.js")
+);
+check(
+  "the page world can load core/file-identity.js",
+  war.includes("core/file-identity.js")
+);
+
 const background = readRel("background.js");
 check(
   "the service worker loads core/synthetic-names.js",
   background.includes("core/synthetic-names.js")
+);
+check(
+  "the service worker loads core/file-identity.js",
+  background.includes("core/file-identity.js")
 );
 
 const inject = readRel("inject/inject.js");
 check(
   "the page world loads core/synthetic-names.js first",
   /INJECT_SCRIPTS\s*=\s*\[\s*'core\/synthetic-names\.js'/.test(inject)
+);
+check(
+  "the page world loads core/file-identity.js before its consumers",
+  inject.indexOf("'core/file-identity.js'") !== -1 &&
+    inject.indexOf("'core/file-identity.js'") < inject.indexOf("'inject/file-extractor.js'") &&
+    inject.indexOf("'core/file-identity.js'") < inject.indexOf("'inject/file-tracker.js'")
 );
 
 // ── 5. The audit gate is centralised ────────────────────────────────────────

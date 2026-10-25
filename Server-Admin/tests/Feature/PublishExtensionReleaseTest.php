@@ -29,6 +29,7 @@ class PublishExtensionReleaseTest extends TestCase
             'inject/inject.js',
             'content.css',
             'core/synthetic-names.js',
+            'core/file-identity.js',
             'inject/file-extractor.js',
             'inject/network-interceptor.js',
             'inject/file-tracker.js',

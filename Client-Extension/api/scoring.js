@@ -41,6 +41,7 @@ function getLastScoreFailure() {
  * @param {number} payload.fileSize
  * @param {string} [payload.fileType] - File extension.
  * @param {string} [payload.fileFormat] - Resolved container format (docx, xlsx...).
+ * @param {string} [payload.nameSource] - Provenance computed by the isolated world.
  * @param {string|null} [payload.contentHash]
  * @param {object|null} [payload.pageContext] - Page signals for layer 4.
  * @param {string} payload.domain
@@ -86,6 +87,7 @@ async function requestContentScoreDirect(payload) {
       file_type: payload.fileType || null,
       file_format: payload.fileFormat || null,
       content_hash: payload.contentHash || null,
+      name_source: payload.nameSource || null,
       page_context: payload.pageContext || null,
       event_id: payload.eventId || null,
     };

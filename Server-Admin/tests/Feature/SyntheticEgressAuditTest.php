@@ -66,16 +66,39 @@ class SyntheticEgressAuditTest extends TestCase
         $this->assertSame(0, EgressEvent::count());
     }
 
-    public function test_a_user_file_named_like_a_placeholder_is_still_audited(): void
+    public function test_a_token_backed_user_file_named_like_a_placeholder_is_still_audited(): void
     {
-        // The name was recovered from the user's own file selection, so it is
-        // a real egress even though it looks like a placeholder.
+        // "user" provenance is only trusted when the scan token carries it. A
+        // name recovered from the user's own selection is a real egress even
+        // when it looks like a placeholder.
+        $score = $this->postJson('/api/score-content', [
+            'domain' => 'synthetic-check.test',
+            'text' => 'name,salary',
+            'file_name' => 'upload.csv',
+            'file_size' => 512,
+            'name_source' => 'user',
+        ])->json();
+
+        $this->postEgress([
+            'file_name' => 'upload.csv',
+            'name_source' => 'user',
+            'scan_token' => $score['scan_token'],
+        ])->assertOk();
+
+        $this->assertDatabaseHas('egress_events', ['file_name' => 'upload.csv']);
+    }
+
+    public function test_tokenless_user_provenance_cannot_bypass_the_placeholder_gate(): void
+    {
+        // A client (or a page driving it) cannot simply assert "user" to smuggle
+        // a synthetic row into the audit. Without a token the claim is
+        // downgraded to a page name and the placeholder gate applies.
         $this->postEgress([
             'file_name' => 'upload.csv',
             'name_source' => 'user',
         ])->assertOk();
 
-        $this->assertDatabaseHas('egress_events', ['file_name' => 'upload.csv']);
+        $this->assertSame(0, EgressEvent::count());
     }
 
     public function test_real_file_names_are_audited(): void

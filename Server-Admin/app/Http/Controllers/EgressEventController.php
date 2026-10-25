@@ -98,33 +98,64 @@ class EgressEventController extends Controller
             return response()->json(['success' => true, 'egress_event_id' => null]);
         }
 
+        // A valid scan token carries the server-computed verdict from
+        // /api/score-content AND the metadata that verdict was computed for.
+        // Replaying a token for a different file is rejected, and provenance is
+        // taken from the token rather than from the later request. That stops a
+        // client (or a page driving it) from re-labelling an event as a user
+        // upload after the fact.
+        $flaggedItems = null;
+        $nameSource = $validated['name_source'] ?? null;
+        $scanClaims = ScanToken::verify($validated['scan_token'] ?? null);
+        if ($scanClaims !== null && ($scanClaims['domain'] ?? null) === $validated['domain']) {
+            // A text-only scan has no file metadata (null claims); only bind a
+            // claim the verdict actually carries.
+            if (isset($scanClaims['file_name'])
+                && $scanClaims['file_name'] !== $validated['file_name']) {
+                return response()->json([
+                    'success' => true,
+                    'egress_event_id' => null,
+                    'skipped' => true,
+                    'reason' => 'scan_token_mismatch',
+                ]);
+            }
+            if (isset($scanClaims['file_size'])
+                && (int) $scanClaims['file_size'] !== (int) ($validated['file_size'] ?? 0)) {
+                return response()->json([
+                    'success' => true,
+                    'egress_event_id' => null,
+                    'skipped' => true,
+                    'reason' => 'scan_token_mismatch',
+                ]);
+            }
+            if (! empty($scanClaims['name_source'])) {
+                $nameSource = $scanClaims['name_source'];
+            }
+
+            $validated['risk_score'] = (int) $scanClaims['total_score'];
+            if (isset($scanClaims['flagged_items']) && is_array($scanClaims['flagged_items'])) {
+                $flaggedItems = $scanClaims['flagged_items'];
+            }
+        } elseif ($nameSource === 'user') {
+            // "user" provenance without a token is unverifiable. Downgrade it
+            // so the placeholder gate applies and a forged claim cannot smuggle
+            // a synthetic row into the audit.
+            $nameSource = 'page';
+        }
+
         // A placeholder file name is not an egress incident. The extension
         // fabricates one from the MIME type when it cannot recover the user's
         // real file name, and nothing was uploaded behind it — auditing it
         // would report a file that does not exist and pollute the incident
         // list with a MIME type dressed up as a file name.
         //
-        // The client marks the names it knows are synthetic. A name recovered
-        // from the user's own file selection is always audited, even when it
-        // happens to look like a placeholder — the user may genuinely have a
-        // file called "upload.csv". Older clients that send no marker fall
-        // back to the name itself.
-        $nameSource = $validated['name_source'] ?? null;
+        // A name recovered from the user's own file selection is always
+        // audited, even when it happens to look like a placeholder — the user
+        // may genuinely have a file called "upload.csv". That provenance must
+        // be token-backed; a tokenless client claim is treated as a page name.
         if ($nameSource === 'synthetic'
             || ($nameSource !== 'user' && SyntheticFileName::isPlaceholder($validated['file_name']))) {
             return response()->json(['success' => true, 'egress_event_id' => null, 'skipped' => true]);
-        }
-
-        // A valid scan token carries the server-computed verdict from
-        // /api/score-content; its score and flagged items are authoritative and
-        // override whatever the client supplied.
-        $flaggedItems = null;
-        $scanClaims = ScanToken::verify($validated['scan_token'] ?? null);
-        if ($scanClaims !== null && ($scanClaims['domain'] ?? null) === $validated['domain']) {
-            $validated['risk_score'] = (int) $scanClaims['total_score'];
-            if (isset($scanClaims['flagged_items']) && is_array($scanClaims['flagged_items'])) {
-                $flaggedItems = $scanClaims['flagged_items'];
-            }
         }
 
         // Typed text is not a file upload. It is audited only when the text

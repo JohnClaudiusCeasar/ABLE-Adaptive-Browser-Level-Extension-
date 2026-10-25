@@ -59,35 +59,27 @@ function revokeTrackedObjectUrls(targetNames) {
   }
 }
 
-window.__ableRevokeObjectUrls = revokeTrackedObjectUrls;
-
-function computeQuickHash(file, callback) {
-  var slice = file.slice(0, 4096);
-  var reader = new FileReader();
-  reader.onload = function () {
-    try {
-      var arr = new Uint8Array(reader.result);
-      var hex = Array.from(arr.slice(0, 16)).map(function (b) {
-        return b.toString(16).padStart(2, '0');
-      }).join('');
-      callback(hex + ':' + file.size);
-    } catch (e) {
-      callback(null);
-    }
-  };
-  reader.onerror = function () { callback(null); };
-  reader.readAsArrayBuffer(slice);
+function ableDefine(name, value) {
+  if (typeof ABLEFileIdentity !== 'undefined' && ABLEFileIdentity.defineImmutableGlobal) {
+    return ABLEFileIdentity.defineImmutableGlobal(name, value);
+  }
+  window[name] = value;
+  return true;
 }
+
+ableDefine('__ableRevokeObjectUrls', revokeTrackedObjectUrls);
 
 function trackSelectedFiles(files) {
   var now = Date.now();
   for (var i = 0; i < files.length; i++) {
     (function (f) {
-      computeQuickHash(f, function (hash) {
+      if (typeof ABLEFileIdentity === 'undefined') return;
+      ABLEFileIdentity.computeFileFingerprint(f).then(function (fp) {
+        if (!fp) return;
         trackedFiles.push({
           name: f.name,
           size: f.size,
-          hash: hash,
+          fp: fp,
           lastModified: f.lastModified,
           timestamp: now
         });
@@ -104,47 +96,24 @@ function cleanupTrackedFiles() {
   });
 }
 
-function matchTrackedFilename(size, quickHash, validator) {
+/**
+ * Match a payload to a file the user selected by CONTENT, never by size.
+ *
+ * Both sides use the same `head:tail:size` fingerprint, so a page-generated
+ * blob that merely shares a byte length with the user's file cannot steal its
+ * name. A missing fingerprint is a non-match: there is no size-only fallback,
+ * because size is exactly what the sidecar blobs had in common.
+ */
+function matchTrackedFilename(size, fp, validator) {
   cleanupTrackedFiles();
+  if (!fp) return null;
 
-  // Strict: a hash match is strong evidence of identical content. When a
-  // hash is supplied but matches nothing, do NOT fall through to size-only
-  // matching — a hash mismatch means different content, and the size
-  // fallback is what let site-generated sidecar blobs steal tracked names.
-  if (quickHash) {
-    for (var i = trackedFiles.length - 1; i >= 0; i--) {
-      if (trackedFiles[i].hash === quickHash) {
-        if (typeof validator === 'function' && !validator(trackedFiles[i].name)) {
-          continue;
-        }
-        var name = trackedFiles[i].name;
-        trackedFiles.splice(i, 1);
-        return name;
-      }
-    }
-    return null;
-  }
-
-  // Size-only matching requires an exact byte match plus a strong
-  // uniqueness signal: the tracked entry must carry a quick hash (proving a
-  // real file-selection event, not a bare Object-URL/paste record) and there
-  // must be no competing same-size entry with a different hash (i.e. a
-  // sidecar blob that happens to share the size). The old tolerance (10% or
-  // 1024 bytes) matched unrelated sidecar blobs to the user's file and
-  // logged them under the wrong filename.
-  var sameSize = [];
-  for (var i = 0; i < trackedFiles.length; i++) {
-    if (trackedFiles[i].size === size) {
-      sameSize.push(trackedFiles[i]);
-    }
-  }
-  if (sameSize.length === 1 && sameSize[0].hash) {
-    var sole = sameSize[0];
-    if (typeof validator !== 'function' || validator(sole.name)) {
-      var idx = trackedFiles.indexOf(sole);
-      if (idx >= 0) trackedFiles.splice(idx, 1);
-      return sole.name;
-    }
+  for (var i = trackedFiles.length - 1; i >= 0; i--) {
+    var entry = trackedFiles[i];
+    if (entry.size !== size || entry.fp !== fp) continue;
+    if (typeof validator === 'function' && !validator(entry.name)) continue;
+    trackedFiles.splice(i, 1);
+    return entry.name;
   }
 
   return null;
@@ -154,18 +123,17 @@ function matchTrackedFilename(size, quickHash, validator) {
  * Find a tracked file name for a payload WITHOUT consuming the tracked entry.
  *
  * matchTrackedFilename splices the entry out, so calling it to merely probe
- * would steal the user's file from whichever branch gets there next. This
- * lookup only reads, and requires the entry to carry a quick hash — which
- * only a real file-selection event produces.
+ * would steal the user's file from whichever branch gets there next.
  */
-function lookupTrackedFilename(size, validator) {
+function lookupTrackedFilename(size, fp, validator) {
   cleanupTrackedFiles();
+  if (!fp) return null;
 
   for (var i = trackedFiles.length - 1; i >= 0; i--) {
-    if (trackedFiles[i].size !== size) continue;
-    if (!trackedFiles[i].hash) continue;
-    if (typeof validator === 'function' && !validator(trackedFiles[i].name)) continue;
-    return trackedFiles[i].name;
+    var entry = trackedFiles[i];
+    if (entry.size !== size || entry.fp !== fp) continue;
+    if (typeof validator === 'function' && !validator(entry.name)) continue;
+    return entry.name;
   }
 
   return null;
@@ -212,7 +180,8 @@ function checkElement(el) {
 
   if (el instanceof HTMLInputElement && el.type === 'file' && !reportedInputs.has(el)) {
     reportedInputs.add(el);
-    el.addEventListener('change', function () {
+    el.addEventListener('change', function (e) {
+      if (e && !e.isTrusted) return;
       if (el.files && el.files.length > 0) {
         window.postMessage({
           source: 'ABLE_INJECT',
@@ -271,6 +240,7 @@ function observeDropZone(el) {
 
   el.addEventListener('drop', function (e) {
     el.classList.remove('able-drop-active');
+    if (e && !e.isTrusted) return;
     if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       trackSelectedFiles(Array.from(e.dataTransfer.files));
     }
@@ -289,10 +259,13 @@ function debounce(fn, delay) {
 }
 
 function initFileTracking() {
-  window.__ableTrackedInputs = trackedInputElements;
+  ableDefine('__ableTrackedInputs', trackedInputElements);
 
-  // Track file selections from all file inputs
+  // Only user-agent-initiated events prove a real selection. A page can
+  // dispatch synthetic change/drop/paste events with a fabricated FileList;
+  // those untrusted events must never be tracked.
   document.addEventListener('change', function (event) {
+    if (!event.isTrusted) return;
     var target = event.target;
     if (target instanceof HTMLInputElement && target.type === 'file' && target.files) {
       trackedInputElements.add(target);
@@ -302,6 +275,7 @@ function initFileTracking() {
 
   // Track file selections from drag-and-drop
   document.addEventListener('drop', function (event) {
+    if (!event.isTrusted) return;
     if (event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files.length > 0) {
       trackSelectedFiles(Array.from(event.dataTransfer.files));
     }
@@ -309,6 +283,7 @@ function initFileTracking() {
 
   // Track file selections from paste (clipboard)
   document.addEventListener('paste', function (event) {
+    if (!event.isTrusted) return;
     var items = event.clipboardData && event.clipboardData.items;
     if (items) {
       var files = [];
@@ -329,11 +304,13 @@ function initFileTracking() {
     return trackedFiles.length > 0;
   }
 
-  // Expose for use in extractFiles
-  window.__ableTrackFiles = trackSelectedFiles;
-  window.__ableMatchFilename = matchTrackedFilename;
-  window.__ableLookupTrackedFilename = lookupTrackedFilename;
-  window.__ableHasTrackedFiles = hasTrackedFiles;
+  // The page world no longer makes the admission decision; content/provenance.js
+  // does. These bindings stay non-writable so a page cannot replace them with
+  // something that lies to the content script.
+  ableDefine('__ableTrackFiles', trackSelectedFiles);
+  ableDefine('__ableMatchFilename', matchTrackedFilename);
+  ableDefine('__ableLookupTrackedFilename', lookupTrackedFilename);
+  ableDefine('__ableHasTrackedFiles', hasTrackedFiles);
 
   // Check existing elements
   var allElements = document.querySelectorAll('input[type="file"], button, [role="button"], svg, [class*="attach"], [class*="upload"], [data-testid*="attach"], [data-testid*="upload"]');
@@ -423,10 +400,10 @@ function initFileTracking() {
 }
 
 if (typeof globalThis !== "undefined") {
-  globalThis.ABLEFileTracker = {
-    trackSelectedFiles,
-    matchTrackedFilename,
-    lookupTrackedFilename,
-    initFileTracking,
-  };
+  ableDefine('ABLEFileTracker', Object.freeze({
+    trackSelectedFiles: trackSelectedFiles,
+    matchTrackedFilename: matchTrackedFilename,
+    lookupTrackedFilename: lookupTrackedFilename,
+    initFileTracking: initFileTracking,
+  }));
 }

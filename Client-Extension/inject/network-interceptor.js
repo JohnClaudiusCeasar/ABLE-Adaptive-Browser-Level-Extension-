@@ -4,33 +4,48 @@
  * Wraps fetch, XHR, sendBeacon, and WebSocket to intercept file uploads.
  */
 
+// Only KNOWN analytics HOSTS may be skipped. Path-only patterns ("/log_event",
+// "/analytics.js", ...) let a hostile page silence interception by choosing an
+// upload URL that happens to match one.
 function isAnalyticsUrl(url) {
   if (!url) return false;
-  var analyticsPatterns = [
-    /browser-intake-.*\.com\/api\/v2\/rum/i,
-    /play\.google\.com\/log/i,
-    /fourier\.taobao\.com/i,
-    /gator\.volces\.com/i,
-    /collect-rangers/i,
-    /analytics\.js/i,
-    /beacon\.min\.i/i,
-    /awsc\.et/i,
-    /aplus.*\.js/i,
-    /youtubei\/v1\/log_event/i,
-    /youtubei\/v1\/player\/log/i,
-    /\/log_event\?alt=json/i,
-    /google-analytics\.com/i,
-    /stats\.g\.doubleclick\.net/i,
-    /log\.xing\.com/i,
-    /pixel\.quantserve\.com/i,
-    /scorecardresearch\.com/i,
-  ];
 
-  for (var i = 0; i < analyticsPatterns.length; i++) {
-    if (analyticsPatterns[i].test(url)) {
-      return true;
-    }
+  var parsed;
+  try {
+    parsed = new URL(url, (typeof window !== 'undefined' && window.location) ? window.location.href : undefined);
+  } catch (e) {
+    return false;
   }
+
+  var host = (parsed.hostname || '').toLowerCase();
+  if (!host) return false;
+
+  function matches(suffix) {
+    return host === suffix || host.slice(-(suffix.length + 1)) === '.' + suffix;
+  }
+
+  var analyticsHosts = [
+    'google-analytics.com',
+    'googletagmanager.com',
+    'doubleclick.net',
+    'scorecardresearch.com',
+    'quantserve.com',
+    'log.xing.com',
+    'fourier.taobao.com',
+    'gator.volces.com',
+  ];
+  for (var i = 0; i < analyticsHosts.length; i++) {
+    if (matches(analyticsHosts[i])) return true;
+  }
+
+  if (/^browser-intake-.+\.com$/.test(host)) return true;
+  if (host === 'play.google.com' && parsed.pathname.indexOf('/log') === 0) return true;
+
+  var isYoutube = matches('youtube.com') || host === 'youtubei.googleapis.com';
+  if (isYoutube && /\/youtubei\/v1\/(log_event|player\/log)/.test(parsed.pathname)) {
+    return true;
+  }
+
   return false;
 }
 
@@ -82,17 +97,20 @@ function getHeaderValue(headers, name) {
   return null;
 }
 
+// Capture the internals ONCE, in this closure. Reading them from the mutable
+// global scope at request time is what let a page swap in a pass-through.
+var ableExtractFiles = (typeof ABLEFileExtractor !== 'undefined' && typeof ABLEFileExtractor.extractFiles === 'function')
+  ? ABLEFileExtractor.extractFiles
+  : ((typeof extractFiles === 'function') ? extractFiles : null);
+var ableExtractFilesAsync = (typeof ABLEFileExtractor !== 'undefined' && typeof ABLEFileExtractor.extractFilesAsync === 'function')
+  ? ABLEFileExtractor.extractFilesAsync
+  : ((typeof extractFilesAsync === 'function') ? extractFilesAsync : null);
+var ableRequestCheck = (typeof window !== 'undefined' && typeof window.__ableRequestCheck === 'function')
+  ? window.__ableRequestCheck
+  : ((typeof window !== 'undefined' && typeof window.requestCheck === 'function') ? window.requestCheck : null);
+
 function getRequestCheckFn() {
-  if (typeof window !== 'undefined' && typeof window.__ableRequestCheck === 'function') {
-    return window.__ableRequestCheck;
-  }
-  if (typeof window !== 'undefined' && typeof window.requestCheck === 'function') {
-    return window.requestCheck;
-  }
-  if (typeof requestCheck === 'function') {
-    return requestCheck;
-  }
-  return null;
+  return ableRequestCheck;
 }
 
 // ─── Fetch wrapping ─────────────────────────────────────────────────
@@ -113,15 +131,6 @@ window.fetch = function (input, init) {
 
   if (['POST', 'PUT', 'PATCH'].indexOf(method) >= 0 && body) {
     var headersObj = init.headers || (typeof input === 'object' ? input.headers : null);
-    var ctHeader = getHeaderValue(headersObj, 'Content-Type');
-    if (ctHeader && (ctHeader.indexOf('application/json') === 0 || ctHeader.indexOf('application/grpc') === 0 || ctHeader.indexOf('text/event-stream') === 0)) {
-      var candidate = typeof extractFilenameFromUrl === 'function' ? extractFilenameFromUrl(requestUrl) : null;
-      var hasTracked = typeof window.__ableHasTrackedFiles === 'function' ? window.__ableHasTrackedFiles() : false;
-      if (!candidate && !hasTracked && !(body instanceof FormData) && !(body instanceof File)) {
-        return originalFetch.call(window, input, init);
-      }
-    }
-
     var bodySize = body.byteLength || body.size || 0;
     var context = {
       headers: headersObj,
@@ -150,12 +159,17 @@ window.fetch = function (input, init) {
       });
     }
 
-    if (body instanceof ReadableStream) {
-      return (typeof extractFilesAsync === 'function' ? extractFilesAsync(body, context) : Promise.resolve(extractFiles(body, context)))
-        .then(processDecision);
+    // Content identity for Blob/File/FormData bodies needs their bytes, which
+    // is async. Never block the request on an extraction failure.
+    if (ableExtractFilesAsync) {
+      return ableExtractFilesAsync(body, context)
+        .then(processDecision)
+        .catch(function () {
+          return originalFetch.call(window, input, init);
+        });
     }
 
-    var fileInfos = extractFiles(body, context);
+    var fileInfos = ableExtractFiles ? ableExtractFiles(body, context) : [];
     if (fileInfos && fileInfos.length > 0) {
       return processDecision(fileInfos);
     }
@@ -189,33 +203,30 @@ XMLHttpRequest.prototype.send = function (body) {
   }
 
   if (body) {
-    var ct = this.getRequestHeader ? this.getRequestHeader('Content-Type') : (this.__ableHeaders ? this.__ableHeaders['content-type'] : null);
-    if (ct && (ct.indexOf('application/json') === 0 || ct.indexOf('application/grpc') === 0 || ct.indexOf('text/event-stream') === 0)) {
-      var candidate = typeof extractFilenameFromUrl === 'function' ? extractFilenameFromUrl(this.__ableUrl) : null;
-      var hasTracked = typeof window.__ableHasTrackedFiles === 'function' ? window.__ableHasTrackedFiles() : false;
-      if (!candidate && !hasTracked && !(body instanceof FormData) && !(body instanceof File)) {
-        return originalSend.call(this, body);
-      }
-    }
-
     var context = {
       headers: this.__ableHeaders || null,
       url: this.__ableUrl || ''
     };
 
-    var fileInfos = extractFiles(body, context);
-    if (fileInfos && fileInfos.length > 0) {
-      console.debug("ABLE: Extracted", fileInfos.length, "file(s) from XHR, filenames:", fileInfos.map(function(f) { return f.file ? f.file.name : 'unnamed'; }));
-      var ct = this.getRequestHeader ? this.getRequestHeader('Content-Type') : (this.__ableHeaders ? this.__ableHeaders['content-type'] : null);
+    var xhr = this;
+    var checkFn = getRequestCheckFn();
+    if (!checkFn) {
+      console.warn('ABLE: requestCheck handler unavailable, proceeding with XHR');
+      return originalSend.call(xhr, body);
+    }
+
+    function sendAfterExtraction(fileInfos) {
+      if (!fileInfos || fileInfos.length === 0) {
+        originalSend.call(xhr, body);
+        return;
+      }
+
+      console.debug("ABLE: Extracted", fileInfos.length, "file(s) from XHR, filenames:", fileInfos.map(function (f) { return f.file ? f.file.name : 'unnamed'; }));
+      var ct = xhr.getRequestHeader ? xhr.getRequestHeader('Content-Type') : (xhr.__ableHeaders ? xhr.__ableHeaders['content-type'] : null);
       for (var i = 0; i < fileInfos.length; i++) {
         fileInfos[i].contentType = ct;
       }
-      var xhr = this;
-      var checkFn = getRequestCheckFn();
-      if (!checkFn) {
-        console.warn('ABLE: requestCheck handler unavailable, proceeding with XHR');
-        return originalSend.call(xhr, body);
-      }
+
       checkFn(fileInfos).then(function (decision) {
         if (decision === 'proceed') {
           originalSend.call(xhr, body);
@@ -233,8 +244,16 @@ XMLHttpRequest.prototype.send = function (body) {
           }
         }
       });
-      return;
     }
+
+    if (ableExtractFilesAsync) {
+      ableExtractFilesAsync(body, context)
+        .then(sendAfterExtraction)
+        .catch(function () { originalSend.call(xhr, body); });
+    } else {
+      sendAfterExtraction(ableExtractFiles ? ableExtractFiles(body, context) : []);
+    }
+    return;
   }
   return originalSend.call(this, body);
 };
@@ -250,10 +269,16 @@ navigator.sendBeacon = function (url, data) {
   try {
     if (data) {
       var context = { url: url };
-      var fileInfos = extractFiles(data, context);
       var checkFn = getRequestCheckFn();
-      if (fileInfos && fileInfos.length > 0 && checkFn) {
-        checkFn(fileInfos).then(function () {});
+      function startCheck(fileInfos) {
+        if (fileInfos && fileInfos.length > 0 && checkFn) {
+          checkFn(fileInfos).then(function () {});
+        }
+      }
+      if (ableExtractFilesAsync) {
+        ableExtractFilesAsync(data, context).then(startCheck).catch(function () {});
+      } else {
+        startCheck(ableExtractFiles ? ableExtractFiles(data, context) : []);
       }
     }
   } catch (e) {
@@ -275,15 +300,21 @@ if (OriginalWebSocket) {
     }
 
     var context = { url: this.url || '' };
-    var fileInfos = extractFiles(data, context);
+    var ws = this;
 
-    if (fileInfos && fileInfos.length > 0) {
+    function sendAfterExtraction(fileInfos) {
+      if (!fileInfos || fileInfos.length === 0) {
+        originalWsSend.call(ws, data);
+        return;
+      }
+
       console.debug("ABLE: WebSocket file upload detected:", fileInfos[0].contentSize, "bytes, filename:", fileInfos[0].file?.name);
-      var ws = this;
       var checkFn = getRequestCheckFn();
       if (!checkFn) {
-        return originalWsSend.call(ws, data);
+        originalWsSend.call(ws, data);
+        return;
       }
+
       checkFn(fileInfos).then(function (decision) {
         if (decision === 'proceed') {
           originalWsSend.call(ws, data);
@@ -292,10 +323,16 @@ if (OriginalWebSocket) {
           clearFileInputs(fileInfos);
         }
       });
-      return;
     }
 
-    return originalWsSend.call(this, data);
+    if (ableExtractFilesAsync) {
+      ableExtractFilesAsync(data, context)
+        .then(sendAfterExtraction)
+        .catch(function () { originalWsSend.call(ws, data); });
+    } else {
+      sendAfterExtraction(ableExtractFiles ? ableExtractFiles(data, context) : []);
+    }
+    return;
   };
 
   window.WebSocket = function (url, protocols) {

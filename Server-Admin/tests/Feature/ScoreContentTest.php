@@ -310,6 +310,30 @@ class ScoreContentTest extends TestCase
         $this->assertSame('abc123', $event->content_hash);
     }
 
+    public function test_a_scan_token_cannot_be_replayed_for_a_different_file(): void
+    {
+        $score = $this->postJson('/api/score-content', [
+            'domain' => 'unknown-site.test',
+            'text' => 'hello',
+            'file_name' => 'records.txt',
+            'file_size' => 11,
+            'name_source' => 'page',
+        ])->json();
+
+        $response = $this->postJson('/api/log-egress', [
+            'domain' => 'unknown-site.test',
+            'user_id' => 'ABLE-TESTTEST',
+            'file_name' => 'different.txt',
+            'file_size' => 11,
+            'risk_score' => 0,
+            'action' => 'proceeded',
+            'scan_token' => $score['scan_token'],
+        ]);
+
+        $response->assertOk()->assertJson(['skipped' => true, 'reason' => 'scan_token_mismatch']);
+        $this->assertSame(0, EgressEvent::count());
+    }
+
     public function test_scored_duplicates_are_still_deduplicated(): void
     {
         $score = $this->postJson('/api/score-content', [

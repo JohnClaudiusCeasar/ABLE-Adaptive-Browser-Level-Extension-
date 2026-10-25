@@ -33,6 +33,7 @@ class RiskScoringController extends Controller
             'file_type' => 'nullable|string|max:20',
             'file_format' => 'nullable|string|max:20',
             'content_hash' => 'nullable|string|max:128',
+            'name_source' => 'nullable|in:user,page,synthetic',
             'page_context' => 'nullable|array',
             'event_id' => 'nullable|string|max:255',
         ]);
@@ -97,12 +98,18 @@ class RiskScoringController extends Controller
             'issued_at' => now()->timestamp,
         ];
 
+        // The token binds the exact metadata this verdict was computed for.
+        // /api/log-egress replays it and refuses to log a different file, and
+        // takes provenance from the token rather than from the later request.
         $scanToken = ScanToken::issue([
             'total_score' => $totalScore,
             'pattern_score' => $adjustedPatternScore,
             'domain_risk_score' => $domainRiskScore,
             'flagged_items' => $flaggedItems,
             'domain' => $domainRisk['domain'],
+            'file_name' => $validated['file_name'] ?? null,
+            'file_size' => $validated['file_size'] ?? null,
+            'name_source' => $validated['name_source'] ?? null,
             'content_hash' => $validated['content_hash'] ?? null,
             'event_id' => $validated['event_id'] ?? null,
             'exp' => now()->addHour()->timestamp,

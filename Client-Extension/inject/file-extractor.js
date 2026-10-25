@@ -19,23 +19,28 @@ function parseContentDisposition(header) {
   return null;
 }
 
+// ─── Identity (shared with the content-script isolated world) ────────────────
+// The page world only COLLECTS candidates. Whether a payload is attributable to
+// the user is decided by content/provenance.js in the isolated world, which the
+// page cannot read or overwrite. This file therefore never consults a
+// page-writable tracker global to decide whether to scan something.
+var ABLE_FILE_IDENTITY = (typeof ABLEFileIdentity !== 'undefined') ? ABLEFileIdentity : null;
+
+function fingerprintBytesSync(bytes) {
+  return ABLE_FILE_IDENTITY ? ABLE_FILE_IDENTITY.fingerprintBytesSync(bytes) : null;
+}
+
 function computeBodyHashSync(body) {
   try {
     var bytes;
     if (body instanceof ArrayBuffer) {
-      bytes = new Uint8Array(body.slice(0, 16));
+      bytes = new Uint8Array(body);
     } else if (ArrayBuffer.isView(body)) {
-      bytes = new Uint8Array(body.buffer.slice(0, 16));
-    } else if (body instanceof Blob) {
-      return null;
+      bytes = new Uint8Array(body.buffer, body.byteOffset || 0, body.byteLength || 0);
     } else {
       return null;
     }
-    var hex = Array.from(bytes).map(function (b) {
-      return b.toString(16).padStart(2, '0');
-    }).join('');
-    var size = body.byteLength || body.size || 0;
-    return hex + ':' + size;
+    return fingerprintBytesSync(bytes);
   } catch (e) {
     return null;
   }
@@ -136,171 +141,13 @@ function extractFilenameFromUrl(url) {
   return null;
 }
 
-// Best-effort synchronous peek at a blob's first bytes, for the
-// tracked-name/content agreement gate. Returns a lowercase hex string or
-// null when the body isn't synchronously readable (streams, FileReader-only
-// blobs). Callers treat null as "no content evidence" and fall back to the
-// declared MIME type.
-function peekBlobHexSync(body) {
-  try {
-    var parts = body && body.parts;
-    if (!parts || parts.length === 0) return null;
-    var first = parts[0];
-    var bytes = null;
-    if (typeof first === 'string') {
-      bytes = [];
-      for (var i = 0; i < Math.min(8, first.length); i++) bytes.push(first.charCodeAt(i) & 0xff);
-    } else if (first instanceof ArrayBuffer) {
-      bytes = Array.from(new Uint8Array(first).slice(0, 8));
-    } else if (ArrayBuffer.isView(first)) {
-      bytes = Array.from(new Uint8Array(first.buffer, first.byteOffset || 0, Math.min(8, first.byteLength || 0)));
-    } else {
-      return null;
-    }
-    if (!bytes || bytes.length < 4) return null;
-    return bytes.map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
-  } catch (e) {
-    return null;
-  }
-}
-
-// A tracked filename may only be reused for a nameless blob when the blob's
-// own detected content agrees with the tracked file's extension: a JSON/text
-// sidecar must never be logged as photo.png or report.txt.
-//
-// This is a targeted veto, not a whitelist: it returns false only when we
-// positively know the blob is NOT the tracked file (JSON metadata claiming a
-// document name, image bytes claiming a document name, ...). Anything it
-// cannot judge returns true, so legitimate re-wrapped uploads keep working —
-// the exact-size matching in matchTrackedFilename is the primary guard.
-function trackedNameAgreesWithBlob(trackedName, blobType, peekHex) {
-  if (!trackedName || typeof trackedName !== 'string') return false;
-  var dot = trackedName.lastIndexOf('.');
-  var ext = dot >= 0 ? trackedName.slice(dot + 1).toLowerCase() : '';
-  if (!ext) return false;
-
-  var textExts = ['txt', 'csv', 'log', 'md', 'json', 'xml', 'html', 'htm'];
-  var zipExts = ['zip', 'docx', 'xlsx', 'pptx'];
-  var oleExts = ['doc', 'xls', 'ppt'];
-  var imageExts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'];
-  var mediaExts = imageExts.concat(['mp4', 'mp3', 'wav', 'ogg', 'webm', 'mov', 'avi']);
-
-  var mt = (blobType || '').toLowerCase().trim();
-  var isJson = mt.indexOf('application/json') === 0 || mt.indexOf('text/json') === 0;
-  var isText = mt.indexOf('text/') === 0 || isJson;
-  var isImage = mt.indexOf('image/') === 0;
-  var isMedia = isImage || mt.indexOf('video/') === 0 || mt.indexOf('audio/') === 0;
-
-  // Content sniff when sync bytes are available (ArrayBuffer/stream paths).
-  var hex = (peekHex || '').toLowerCase();
-  var isZipMagic = hex.indexOf('504b0304') === 0;
-  var isOleMagic = hex.indexOf('d0cf11e0') === 0;
-  if (isZipMagic) return zipExts.indexOf(ext) >= 0;
-  if (isOleMagic) return oleExts.indexOf(ext) >= 0;
-
-  // Media files keep their own names; a text/JSON blob can never be a photo,
-  // and an image blob can never be a document.
-  if (imageExts.indexOf(ext) >= 0 || mediaExts.indexOf(ext) >= 0) {
-    return isImage || isMedia;
-  }
-
-  // JSON payloads are site-generated metadata (upload tickets, message
-  // envelopes), never the user's document — unless the document is .json.
-  if (isJson) return ext === 'json';
-
-  // Office containers and PDFs: only a matching declared type keeps the name.
-  if (zipExts.indexOf(ext) >= 0 || oleExts.indexOf(ext) >= 0 || ext === 'pdf') {
-    if (!mt) return true;
-    if (ext === 'pdf') return mt.indexOf('application/pdf') === 0;
-    return mt.indexOf('application/zip') === 0 ||
-      mt.indexOf('application/x-zip') === 0 ||
-      mt.indexOf('application/vnd.openxmlformats') === 0 ||
-      mt.indexOf('application/msword') === 0 ||
-      mt.indexOf('application/vnd.ms-') === 0 ||
-      mt.indexOf('application/octet-stream') === 0;
-  }
-
-  // Plain-text family: text blobs may wear text names; anything binary may not.
-  if (textExts.indexOf(ext) >= 0) {
-    if (!mt) return true;
-    return isText;
-  }
-
-  return true;
-}
-
-function guessExtensionFromMagicBytes(bytes) {
-  if (!bytes || bytes.length < 4) return null;
-  var hex = Array.from(bytes.slice(0, 8)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
-  if (hex.startsWith('25504446')) return '.pdf';
-  if (hex.startsWith('504b0304')) return '.docx'; // ZIP-based: docx, xlsx, pptx, zip
-  if (hex.startsWith('d0cf11e0')) return '.doc';  // OLE-based: doc, xls, ppt
-  if (hex.startsWith('89504e47')) return '.png';
-  if (hex.startsWith('ffd8ff')) return '.jpg';
-  if (hex.startsWith('47494638')) return '.gif';
-  if (hex.startsWith('52494646')) return '.webp'; // RIFF
-  return null;
-}
-
-// ─── Synthetic-name gate ─────────────────────────────────────────────────────
-// A blob the page generates (a clicked text line, an upload ticket, a rendered
-// preview) has no user file behind it: nothing was ever picked from disk. The
-// only names available are ones WE invent from the MIME type or magic bytes.
-// Those uploads are not the user's egress and must never be intercepted —
-// scoring them produced a phantom "HOLD IT RIGHT THERE!"/"UPLOAD HELD" modal
-// for content the user never uploaded.
-//
-// The base name (before the first dot) must match a placeholder exactly, so a
-// real file called "upload-report.pdf" or "myblob.csv" is still intercepted.
-//
-// The list itself lives in core/synthetic-names.js, which inject.js loads into
-// the page world ahead of this file. It mirrors App\Support\SyntheticFileName
-// on the server.
-var ABLE_NAME_SOURCE = (typeof ABLESyntheticNames !== 'undefined' && ABLESyntheticNames.NAME_SOURCE)
-  ? ABLESyntheticNames.NAME_SOURCE
-  : { USER: 'user', PAGE: 'page', SYNTHETIC: 'synthetic' };
-
-function ableIsPlaceholderName(name) {
-  if (typeof ABLESyntheticNames === 'undefined') return false;
-  return ABLESyntheticNames.isSyntheticFileName(name);
-}
-
-/**
- * The name of the tracked file this payload came from, looked up WITHOUT
- * consuming the tracked entry — a probe must never take the user's file away
- * from the branch that gets there next.
- */
-function lookupTrackedName(size, mimeType) {
-  if (typeof window === 'undefined' || !window.__ableLookupTrackedFilename) return null;
-  try {
-    return window.__ableLookupTrackedFilename(size, function (candidateName) {
-      return trackedNameAgreesWithBlob(candidateName, mimeType, null);
-    });
-  } catch (e) {
-    return null;
-  }
-}
-
-function isDocumentOrMediaMime(mimeType) {
-  if (!mimeType || typeof mimeType !== 'string') return false;
-  var mt = mimeType.toLowerCase().trim();
-  if (mt.indexOf('image/') === 0) return true;
-  if (mt.indexOf('video/') === 0) return true;
-  if (mt.indexOf('audio/') === 0) return true;
-  if (mt.indexOf('application/pdf') === 0) return true;
-  if (mt.indexOf('application/zip') === 0 || mt.indexOf('application/x-zip') === 0) return true;
-  if (mt.indexOf('application/vnd.openxmlformats') === 0) return true;
-  if (mt.indexOf('application/msword') === 0) return true;
-  if (mt.indexOf('application/vnd.ms-') === 0) return true;
-  if (mt.indexOf('text/csv') === 0) return true;
-  return false;
-}
-
-function extractFiles(body, context) {
-  context = context || {};
+// ─── Candidate naming ────────────────────────────────────────────────────────
+// The page world does not decide admission. It supplies the best name the
+// request itself carries; content/provenance.js re-derives provenance from its
+// own isolated-world state and drops anything it cannot attribute.
+function requestFilename(context) {
+  if (!context) return null;
   var headers = context.headers;
-  var requestUrl = context.url;
-
   var cdHeader = null;
   if (headers) {
     if (typeof headers.get === 'function') {
@@ -314,229 +161,116 @@ function extractFiles(body, context) {
       }
     }
   }
+  return parseContentDisposition(cdHeader) || extractFilenameFromUrl(context.url);
+}
 
-  var headerFilename = parseContentDisposition(cdHeader);
-  var urlFilename = extractFilenameFromUrl(requestUrl);
-  var candidateFilename = headerFilename || urlFilename;
+// ─── Candidate collection ────────────────────────────────────────────────────
+// Every plausible file body is forwarded. Admission is NOT decided here: a
+// page-writable global must never be able to make a candidate disappear before
+// the isolated world sees it. content/provenance.js owns the real decision.
+function makeEntry(file, source) {
+  return { file: file, source: source, contentSize: file.size, nameSource: 'page' };
+}
+
+function extractFileSync(body, context) {
+  var name = body.name || requestFilename(context) || 'blob';
+  var file = name === body.name ? body : new File([body], name, { type: body.type });
+  return [makeEntry(file, 'file')];
+}
+
+async function extractFileAsync(body, context) {
+  return extractFileSync(body, context);
+}
+
+function extractBlobSync(body, context) {
+  if (!body.size) return [];
+  var name = requestFilename(context) || 'blob';
+  return [makeEntry(new File([body], name, { type: body.type }), 'blob')];
+}
+
+async function extractBlobAsync(body, context) {
+  return extractBlobSync(body, context);
+}
+
+function extractFormDataEntrySync(val, candidateFilename) {
+  if (val instanceof File) {
+    var name = val.name || candidateFilename || 'blob';
+    var file = name === val.name ? val : new File([val], name, { type: val.type });
+    return makeEntry(file, 'formdata');
+  }
+
+  if (val instanceof Blob) {
+    if (!val.size) return null;
+    var blobName = candidateFilename || 'blob';
+    return makeEntry(new File([val], blobName, { type: val.type }), 'formdata');
+  }
+
+  return null;
+}
+
+async function extractFormDataEntryAsync(val, candidateFilename) {
+  return extractFormDataEntrySync(val, candidateFilename);
+}
+
+function extractFormDataSync(body, context) {
+  var candidateFilename = requestFilename(context);
+  var results = [];
+
+  for (var entry of body.entries()) {
+    var admitted = extractFormDataEntrySync(entry[1], candidateFilename);
+    if (admitted) results.push(admitted);
+  }
+
+  return results;
+}
+
+async function extractFormDataAsync(body, context) {
+  var candidateFilename = requestFilename(context);
+  var results = [];
+
+  for (var entry of body.entries()) {
+    var admitted = await extractFormDataEntryAsync(entry[1], candidateFilename);
+    if (admitted) results.push(admitted);
+  }
+
+  return results;
+}
+
+function extractBufferBody(body, context) {
+  var byteLength = body.byteLength || 0;
+  var byteOffset = body.byteOffset || 0;
+  var underlyingBuffer = body.buffer || body;
+  if (byteOffset + byteLength > underlyingBuffer.byteLength) {
+    byteLength = underlyingBuffer.byteLength - byteOffset;
+  }
+  if (!byteLength) return [];
+
+  var source = body instanceof ArrayBuffer ? 'arraybuffer' : 'typedarray';
+  var name = requestFilename(context) || 'upload';
+
+  return [makeEntry(
+    new File([underlyingBuffer.slice(byteOffset, byteOffset + byteLength)], name, { type: 'application/octet-stream' }),
+    source
+  )];
+}
+
+function extractFiles(body, context) {
+  context = context || {};
 
   if (body instanceof File) {
-    // A File carries its own name, but the page may have built one itself
-    // (new File([blob], 'upload.csv')) instead of handing over the file the
-    // user picked. The tracker tells the two apart: only a file the user
-    // actually selected has an entry behind it.
-    var fileTrackedName = lookupTrackedName(body.size, body.type);
-    var fname = (body.name && body.name !== 'blob') ? body.name : (candidateFilename || body.name);
-    var fileNameSource = fileTrackedName ? ABLE_NAME_SOURCE.USER : ABLE_NAME_SOURCE.PAGE;
-    if (fname !== body.name) {
-      // The name was replaced by one taken from the request (URL or header),
-      // so it belongs to the page whatever the file itself is.
-      fileNameSource = ABLE_NAME_SOURCE.PAGE;
-    }
-    // A placeholder name with no user file behind it describes a page-generated
-    // payload, not the user's egress.
-    if (fileNameSource !== ABLE_NAME_SOURCE.USER && ableIsPlaceholderName(fname)) {
-      return [];
-    }
-    return [{
-      file: fname !== body.name ? new File([body], fname, { type: body.type }) : body,
-      source: 'file',
-      contentSize: body.size,
-      nameSource: fileNameSource,
-    }];
+    return extractFileSync(body, context);
   }
 
   if (body instanceof Blob) {
-    var mime = (body.type || '').toLowerCase();
-    // Exclude JSON, form-urlencoded, and event-streams: these are API payloads, not file uploads
-    if (mime.indexOf('application/json') === 0 || mime.indexOf('text/json') === 0 || mime.indexOf('application/x-www-form-urlencoded') === 0 || mime.indexOf('text/event-stream') === 0) {
-      return [];
-    }
-
-    // Strict: a tracked filename may only be reused when the blob's own
-    // detected content agrees with the tracked extension. Size-only or
-    // hash-only matches let site-generated sidecar blobs (upload tickets,
-    // message payloads) steal the user's filename and log phantom rows.
-    var blobHex = peekBlobHexSync(body);
-    if (blobHex === null && typeof window.__ablePeekBlobHex === 'function') {
-      try { blobHex = window.__ablePeekBlobHex(body); } catch (e) { blobHex = null; }
-    }
-    // JSON-looking text content on a typeless blob is site-generated metadata
-    // (message envelopes, upload tickets), never the user's document — unless
-    // the tracked name itself is a .json file.
-    var blobTextHead = null;
-    try {
-      var firstPart = body && body.parts && body.parts[0];
-      if (typeof firstPart === 'string') blobTextHead = firstPart.slice(0, 64);
-    } catch (e) { blobTextHead = null; }
-    var agreesWith = function (candidateName) {
-      if (!trackedNameAgreesWithBlob(candidateName, body.type, blobHex)) return false;
-      if (blobTextHead && /^[\s]*[\[{]/.test(blobTextHead) && !(body.type || '').toLowerCase().match(/^text\//)) {
-        var dot = (candidateName || '').lastIndexOf('.');
-        var ext = dot >= 0 ? candidateName.slice(dot + 1).toLowerCase() : '';
-        if (ext !== 'json') return false;
-      }
-      return true;
-    };
-    // A site-generated download (report.txt?filename=..., attachment, ...)
-    // hosted at a real file URL is the page's document, not our upload — but
-    // only when the blob's own content agrees with that filename. This keeps
-    // genuine "save target as" style downloads working while JSON/plain
-    // sidecars posted to API routes stay excluded. The JSON-content veto
-    // applies to tracked-name reuse, not URL filenames: a URL that names the
-    // file is itself corroborating evidence, so it only needs the base gate.
-    if (candidateFilename && !trackedNameAgreesWithBlob(candidateFilename, body.type, blobHex)) {
-      // JSON-looking message envelopes posted to API routes are sidecars even
-      // when the URL happens to carry a file-like segment — drop those, keep
-      // real downloads (text blobs get a second chance below).
-      var looksLikeJson = blobTextHead && /^[\s]*[\[{]/.test(blobTextHead) &&
-        !(body.type || '').toLowerCase().match(/^text\//);
-      var looksLikeApiRoute = /\/api[\/\-_]|\/backend[\/\-_]|\/v\d+[\/\-_]|\/graphql/i.test(requestUrl || '');
-      if (looksLikeJson || looksLikeApiRoute) {
-        candidateFilename = null;
-      }
-    }
-    var agreesWith = function (candidateName) {
-      return trackedNameAgreesWithBlob(candidateName, body.type, blobHex);
-    };
-    var trackedName = window.__ableMatchFilename
-      ? window.__ableMatchFilename(body.size, null, agreesWith)
-      : null;
-    var blobName = candidateFilename || trackedName;
-    // The source follows the name that was actually chosen: a name taken from
-    // the URL or a Content-Disposition header belongs to the page, a name
-    // recovered from the user's own file selection belongs to the user.
-    var blobNameSource = candidateFilename
-      ? ABLE_NAME_SOURCE.PAGE
-      : (trackedName ? ABLE_NAME_SOURCE.USER : ABLE_NAME_SOURCE.PAGE);
-
-    if (!blobName && isDocumentOrMediaMime(body.type)) {
-      var mimeExt = (body.type.split('/')[1] || '').split(';')[0];
-      blobName = mimeExt ? 'upload.' + mimeExt : null;
-      // The name was fabricated from the MIME type — it says nothing about the
-      // document the user chose.
-      blobNameSource = ABLE_NAME_SOURCE.SYNTHETIC;
-    }
-
-    if (!blobName) {
-      // Not a tracked file, no candidate filename, and not a recognized document/media MIME type
-      return [];
-    }
-
-    // A name recovered from the user's own file selection is evidence of a
-    // real upload even when it happens to look like a placeholder — the user
-    // may genuinely have a file called "upload.csv". Only names WE invented
-    // (or took from the URL) describe a page-generated payload, which is not
-    // the user's egress and must not be intercepted.
-    if (blobNameSource === ABLE_NAME_SOURCE.SYNTHETIC ||
-      (blobNameSource !== ABLE_NAME_SOURCE.USER && ableIsPlaceholderName(blobName))) {
-      return [];
-    }
-
-    return [{
-      file: new File([body], blobName, { type: body.type }),
-      source: 'blob',
-      contentSize: body.size,
-      nameSource: blobNameSource,
-    }];
+    return extractBlobSync(body, context);
   }
 
   if (body instanceof FormData) {
-    var results = [];
-    for (var entry of body.entries()) {
-      var fieldName = entry[0];
-      var val = entry[1];
-      if (val instanceof File) {
-        // As with a bare File body, the page may have built this one itself
-        // rather than handing over the file the user picked.
-        var entryTrackedName = lookupTrackedName(val.size, val.type);
-        var fname = (val.name && val.name !== 'blob') ? val.name : (candidateFilename || val.name);
-        var entryNameSource = entryTrackedName ? ABLE_NAME_SOURCE.USER : ABLE_NAME_SOURCE.PAGE;
-        if (fname !== val.name) {
-          // The name was replaced by one taken from the request (URL or
-          // header), so it belongs to the page whatever the file itself is.
-          entryNameSource = ABLE_NAME_SOURCE.PAGE;
-        }
-        if (entryNameSource !== ABLE_NAME_SOURCE.USER && ableIsPlaceholderName(fname)) {
-          continue;
-        }
-        results.push({
-          file: fname !== val.name ? new File([val], fname, { type: val.type }) : val,
-          source: 'formdata',
-          contentSize: val.size,
-          nameSource: entryNameSource,
-        });
-      } else if (val instanceof Blob) {
-        var formAgreesWith = function (candidateName) {
-          return trackedNameAgreesWithBlob(candidateName, val.type, null);
-        };
-        var formTrackedName = window.__ableMatchFilename
-          ? window.__ableMatchFilename(val.size, null, formAgreesWith)
-          : null;
-        // Names we invent ourselves (form field + MIME extension) describe a
-        // site-generated payload, not the user's document.
-        var blobName = candidateFilename || formTrackedName;
-        var nameSource = candidateFilename
-          ? ABLE_NAME_SOURCE.PAGE
-          : (formTrackedName ? ABLE_NAME_SOURCE.USER : ABLE_NAME_SOURCE.PAGE);
-        var nameIsFabricated = false;
-        if (!blobName && isDocumentOrMediaMime(val.type)) {
-          var mimeExt = (val.type.split('/')[1] || '').split(';')[0];
-          blobName = fieldName ? fieldName + '.' + mimeExt : 'upload.' + mimeExt;
-          nameIsFabricated = true;
-          nameSource = ABLE_NAME_SOURCE.SYNTHETIC;
-        }
-        // A name recovered from the user's own file selection is evidence of a
-        // real upload even when it looks like a placeholder.
-        var keep = nameSource === ABLE_NAME_SOURCE.USER ||
-          (!nameIsFabricated && !ableIsPlaceholderName(blobName));
-        if (blobName && keep) {
-          results.push({
-            file: new File([val], blobName, { type: val.type }),
-            source: 'formdata',
-            contentSize: val.size,
-            nameSource: nameSource,
-          });
-        }
-      }
-    }
-    return results;
+    return extractFormDataSync(body, context);
   }
 
   if (body instanceof ArrayBuffer || ArrayBuffer.isView(body)) {
-    var byteLength = body.byteLength || 0;
-    var byteOffset = body.byteOffset || 0;
-    var underlyingBuffer = body.buffer || body;
-    var viewBytes = new Uint8Array(underlyingBuffer, byteOffset, Math.min(16, byteLength));
-
-    var bodyHash = computeBodyHashSync(body);
-    var ext = guessExtensionFromMagicBytes(viewBytes);
-    var abAgreesWith = function (candidateName) {
-      return trackedNameAgreesWithBlob(candidateName, body.type || 'application/octet-stream', null);
-    };
-    var matchedFilename = (window.__ableMatchFilename ? window.__ableMatchFilename(byteLength, bodyHash, abAgreesWith) : null);
-    var arrayBufferName = candidateFilename || matchedFilename || (ext ? 'upload' + ext : null);
-    var arrayBufferNameSource = candidateFilename
-      ? ABLE_NAME_SOURCE.PAGE
-      : (matchedFilename ? ABLE_NAME_SOURCE.USER : ABLE_NAME_SOURCE.SYNTHETIC);
-
-    if (!arrayBufferName) {
-      // Raw binary protocol, WebSocket message, or unknown stream without recognized file magic bytes or tracked file
-      return [];
-    }
-
-    // A name recovered from the user's own file selection is evidence of a
-    // real upload even when it looks like a placeholder.
-    if (arrayBufferNameSource !== ABLE_NAME_SOURCE.USER && ableIsPlaceholderName(arrayBufferName)) {
-      // Magic-byte-derived name with no user file behind it.
-      return [];
-    }
-
-    return [{
-      file: new File([underlyingBuffer.slice(byteOffset, byteOffset + byteLength)], arrayBufferName, { type: 'application/octet-stream' }),
-      source: body instanceof ArrayBuffer ? 'arraybuffer' : 'typedarray',
-      contentSize: byteLength,
-      nameSource: arrayBufferNameSource,
-    }];
+    return extractBufferBody(body, context);
   }
 
   if (body instanceof URLSearchParams) {
@@ -546,28 +280,18 @@ function extractFiles(body, context) {
   if (typeof body === 'string' && body.length >= 100) {
     // Check for multipart form-data encoded as string
     var cdMatch = body.match(/Content-Disposition:\s*form-data;\s*name="([^"]+)";\s*filename="([^"]+)"/i);
-    if (cdMatch && cdMatch[2] && cdMatch[2] !== 'blob' && !ableIsPlaceholderName(cdMatch[2])) {
-      return [{
-        file: new File([body], cdMatch[2], { type: 'text/plain' }),
-        source: 'string-multipart',
-        contentSize: body.length,
-        nameSource: ABLE_NAME_SOURCE.PAGE,
-      }];
+    if (cdMatch && cdMatch[2]) {
+      return [makeEntry(new File([body], cdMatch[2], { type: 'text/plain' }), 'string-multipart')];
     }
     // Check for JSON containing explicit file upload structure with file extension
     if (body.charCodeAt(0) === 123) {
       try {
         var json = JSON.parse(body);
         var rawFileName = json.fileName || json.filename;
-        if (rawFileName && typeof rawFileName === 'string' && /\.[a-zA-Z0-9]{2,5}$/.test(rawFileName) && !ableIsPlaceholderName(rawFileName)) {
+        if (rawFileName && typeof rawFileName === 'string' && /\.[a-zA-Z0-9]{2,5}$/.test(rawFileName)) {
           var fileContent = json.file || json.fileData || json.content || json.data || json.payload;
           if (typeof fileContent === 'string' && fileContent.length > 100) {
-            return [{
-              file: new File([fileContent], rawFileName, { type: 'text/plain' }),
-              source: 'json-upload',
-              contentSize: fileContent.length,
-              nameSource: ABLE_NAME_SOURCE.PAGE,
-            }];
+            return [makeEntry(new File([fileContent], rawFileName, { type: 'text/plain' }), 'json-upload')];
           }
         }
       } catch (e) {}
@@ -577,48 +301,33 @@ function extractFiles(body, context) {
   return [];
 }
 
+// The async entry point is what the network interceptor uses. It now differs
+// from the sync path only for streams; Blob/File/FormData are collected
+// identically and handed to the isolated world for the admission decision.
 async function extractFilesAsync(body, context) {
-  var syncFiles = extractFiles(body, context);
-  if (syncFiles.length > 0) return syncFiles;
+  context = context || {};
 
-  if (body instanceof ReadableStream) {
-    var peeked = await peekReadableStream(body, 512);
-    if (peeked) {
-      var ext = guessExtensionFromMagicBytes(new Uint8Array(peeked.buffer));
-      var requestUrl = context ? context.url : null;
-      var candidateFilename = extractFilenameFromUrl(requestUrl);
-      var streamAgreesWith = function (candidateName) {
-        return trackedNameAgreesWithBlob(candidateName, 'application/octet-stream', null);
-      };
-      var streamTrackedName = window.__ableMatchFilename
-        ? window.__ableMatchFilename(peeked.bytesRead, null, streamAgreesWith)
-        : null;
-      var streamName = candidateFilename || streamTrackedName || (ext ? 'stream-upload' + ext : null);
-      var streamNameSource = candidateFilename
-        ? ABLE_NAME_SOURCE.PAGE
-        : (streamTrackedName ? ABLE_NAME_SOURCE.USER : ABLE_NAME_SOURCE.SYNTHETIC);
+  if (body instanceof File) return extractFileAsync(body, context);
+  if (body instanceof Blob) return extractBlobAsync(body, context);
+  if (body instanceof FormData) return extractFormDataAsync(body, context);
+  if (body instanceof ReadableStream) return extractStreamAsync(body, context);
 
-      if (!streamName) {
-        return [];
-      }
+  return extractFiles(body, context);
+}
 
-      // A name recovered from the user's own file selection is evidence of a
-      // real upload even when it looks like a placeholder.
-      if (streamNameSource !== ABLE_NAME_SOURCE.USER && ableIsPlaceholderName(streamName)) {
-        // Magic-byte-derived name with no user file behind it.
-        return [];
-      }
+async function extractStreamAsync(body, context) {
+  // A stream cannot be content-matched without consuming it, so only a name the
+  // request itself carries can attribute it. This is a known coverage gap.
+  var name = requestFilename(context);
+  if (!name) return [];
 
-      return [{
-        file: new File([peeked.buffer], streamName, { type: 'application/octet-stream' }),
-        source: 'readablestream',
-        contentSize: peeked.bytesRead,
-        nameSource: streamNameSource,
-      }];
-    }
-  }
+  var peeked = await peekReadableStream(body, 512);
+  if (!peeked) return [];
 
-  return [];
+  return [makeEntry(
+    new File([peeked.buffer], name, { type: 'application/octet-stream' }),
+    'readablestream'
+  )];
 }
 
 function filesMatch(a, b) {
@@ -858,22 +567,34 @@ function clearFileInputs(files) {
   } catch (e) {}
 }
 
+function ableDefine(name, value) {
+  if (typeof ABLEFileIdentity !== 'undefined' && ABLEFileIdentity.defineImmutableGlobal) {
+    return ABLEFileIdentity.defineImmutableGlobal(name, value);
+  }
+  try {
+    globalThis[name] = value;
+  } catch (e) {}
+  return true;
+}
+
 if (typeof globalThis !== "undefined") {
-  globalThis.ABLEFileExtractor = {
-    extractFiles,
-    extractFilesAsync,
-    extractFilenameFromUrl,
-    parseUrlForFilename,
-    filesMatch,
-    normalizeFileTargets,
-    resetNativeFileInput,
-    purgeNativeFileInputs,
-    purgeUploadLibraries,
-    purgeSpaFilePreviews,
-    clearFileInputs,
-    computeBodyHashSync,
-    parseContentDisposition,
-    trackedNameAgreesWithBlob,
-  };
+  var extractorApi = Object.freeze({
+    extractFiles: extractFiles,
+    extractFilesAsync: extractFilesAsync,
+    extractFilenameFromUrl: extractFilenameFromUrl,
+    parseUrlForFilename: parseUrlForFilename,
+    filesMatch: filesMatch,
+    normalizeFileTargets: normalizeFileTargets,
+    resetNativeFileInput: resetNativeFileInput,
+    purgeNativeFileInputs: purgeNativeFileInputs,
+    purgeUploadLibraries: purgeUploadLibraries,
+    purgeSpaFilePreviews: purgeSpaFilePreviews,
+    clearFileInputs: clearFileInputs,
+    computeBodyHashSync: computeBodyHashSync,
+    parseContentDisposition: parseContentDisposition,
+  });
+  ableDefine('ABLEFileExtractor', extractorApi);
+  ableDefine('extractFiles', extractFiles);
+  ableDefine('extractFilesAsync', extractFilesAsync);
 }
 

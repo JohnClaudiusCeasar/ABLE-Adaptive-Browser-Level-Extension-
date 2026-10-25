@@ -15,19 +15,47 @@ var classifyReady;
 // Recent scans deduplication
 var recentScans = [];
 var DEDUPLICATION_WINDOW_MS = 5000;
+var guardTamperReported = false;
 
-function isDuplicateScan(contentHash, fileName) {
+/**
+ * A page-world hook was replaced by page script. We cannot stop the request
+ * from here, but the tamper attempt must not be silent: escalate it once per
+ * page load as a denied egress event.
+ */
+function handleGuardTamper(reason) {
+  if (guardTamperReported) return;
+  guardTamperReported = true;
+  console.warn("ABLE: page-world guard tampering detected:", reason);
+  try {
+    logEgressEvent({
+      domain: domainStatus?.domain || new URL(window.location.href).hostname.replace(/^www\./, ""),
+      fileName: "ABLE guard tampered",
+      fileSize: 0,
+      riskScore: 100,
+      action: "denied",
+      userAction: "cancelled",
+      source: "tamper",
+      nameSource: "page",
+    });
+  } catch (e) {
+    // Logging is best-effort; never let a tamper report break the page.
+  }
+}
+
+function isDuplicateScan(contentHash) {
   if (!contentHash) return false;
   var now = Date.now();
   recentScans = recentScans.filter(function (entry) {
     return now - entry.timestamp < DEDUPLICATION_WINDOW_MS;
   });
   for (var i = 0; i < recentScans.length; i++) {
-    if (recentScans[i].hash === contentHash && recentScans[i].name === fileName) {
+    // Keyed on the content alone: the same file re-wrapped under a different
+    // name ("blob" → "report.pdf") is still the same upload.
+    if (recentScans[i].hash === contentHash) {
       return true;
     }
   }
-  recentScans.push({ hash: contentHash, name: fileName, timestamp: now });
+  recentScans.push({ hash: contentHash, timestamp: now });
   return false;
 }
 
@@ -253,18 +281,39 @@ function sendTextDecision(checkId, action) {
 async function handleInterceptedFiles(fileInfos, requestId) {
   if (classifyReady) await classifyReady;
 
-  // The name source travels with the file: it says whether the name came from
-  // the user's own file selection or was fabricated from the MIME type, which
-  // decides whether the event may be audited at all.
-  var entries = [];
+  if (typeof ABLEProvenance === "undefined") {
+    // The isolated-world authority is mandatory. Without it we cannot tell a
+    // user upload from a page-generated payload, so never trust the page's
+    // nameSource claim.
+    handleGuardTamper("provenance module missing");
+    sendDecision(requestId, "proceed");
+    return;
+  }
+
+  var rawEntries = [];
   for (var i = 0; i < fileInfos.length; i++) {
     var info = fileInfos[i];
     if (!info || !info.file) continue;
-    entries.push({ file: info.file, source: info.source, nameSource: info.nameSource || null });
+    rawEntries.push({ file: info.file, source: info.source, nameSource: info.nameSource || null });
   }
+
+  // Provenance is re-derived here, in the isolated world. The page-supplied
+  // nameSource is ignored: a hostile page can claim "user" for anything, and
+  // the page-world tracker globals are writable by that page.
+  var entries = await ABLEProvenance.admitAll(rawEntries);
+
+  // Defense in depth: even a resolved entry must carry an auditable name.
+  entries = entries.filter(function (entry) {
+    return isAuditableFileName(entry.file.name, entry.nameSource);
+  });
 
   var sources = fileInfos.map(function (info) { return info.source; });
   var primarySource = sources[0] || 'unknown';
+
+  if (entries.length === 0) {
+    sendDecision(requestId, "proceed");
+    return;
+  }
 
   if (!shouldScanContent()) {
     sendDecision(requestId, "proceed");
@@ -336,7 +385,7 @@ async function handleInterceptedFiles(fileInfos, requestId) {
     }
   }
 
-  if (highestRisk && highestRisk.contentHash && isDuplicateScan(highestRisk.contentHash, highestRisk.fileName)) {
+  if (highestRisk && highestRisk.contentHash && isDuplicateScan(highestRisk.contentHash)) {
     console.debug("ABLE: Duplicate scan detected, skipping");
     sendDecision(requestId, "proceed");
     return;
@@ -346,7 +395,9 @@ async function handleInterceptedFiles(fileInfos, requestId) {
   var riskThreshold = ABLERuntimeSettings.get("behavior.risk_threshold", 85);
   var patternScore = highestRisk ? highestRisk.patternScore : 0;
   var isExtremeRisk = highestRisk && highestRisk.score >= 85;
-  var isFlagged = highestRisk && (
+  var isAttributed = highestRisk &&
+    isAuditableFileName(highestRisk.fileName, highestRisk.nameSource);
+  var isFlagged = isAttributed && (
     highestRisk.score > riskThreshold ||
     (patternScore >= 31 && highestRisk.flaggedItems.length > 0)
   );
@@ -566,6 +617,15 @@ function setupInterceptionListener() {
         type: "ABLE_NONCE",
         nonce: pageNonceHex,
       }, window.location.origin);
+      return;
+    }
+
+    if (event.data.type === "ABLE_TAMPER") {
+      if (!event.data.nonce || event.data.nonce !== pageNonceHex) {
+        console.warn("ABLE: Rejecting ABLE_TAMPER with invalid nonce.");
+        return;
+      }
+      handleGuardTamper(event.data.payload && event.data.payload.reason);
       return;
     }
 
@@ -898,12 +958,24 @@ function setupFallbackDetection() {
   var reportedInputs = new Set();
 
   async function logFallbackFile(file, domain) {
+    if (typeof ABLEProvenance === "undefined") {
+      handleGuardTamper("provenance module missing (fallback)");
+      return;
+    }
+
+    // The fallback only sees trusted change events (see watchFileInput), so
+    // recording the selection here is legitimate. The isolated-world authority
+    // then re-derives provenance; this path never asserts "user" itself.
+    await ABLEProvenance.trackSelection(file);
+    var admitted = await ABLEProvenance.admit({ file: file, source: "fallback" });
+    if (!admitted) return;
+
+    var resolvedFile = admitted.file;
+    var nameSource = admitted.nameSource;
     var scan = null;
     try {
       if (typeof scanFile === "function") {
-        // The file came straight from a file input, so its name is the user's
-        // own — a user file is audited even when it looks like a placeholder.
-        scan = await scanFile(file, ABLE_NAME_SOURCE.USER);
+        scan = await scanFile(resolvedFile, nameSource);
       }
     } catch (err) {
       console.warn("ABLE: Fallback file scan failed:", err.message || err);
@@ -930,20 +1002,23 @@ function setupFallbackDetection() {
 
     await logEgressEvent({
       domain: domain,
-      fileName: file.name,
-      fileSize: file.size,
+      fileName: resolvedFile.name,
+      fileSize: resolvedFile.size,
       riskScore: currentDomainBaseline(),
       action: "proceeded",
       userAction: "proceeded",
       source: "fallback",
-      nameSource: ABLE_NAME_SOURCE.USER,
+      nameSource: nameSource,
     });
   }
 
   function watchFileInput(el) {
     if (reportedInputs.has(el)) return;
     reportedInputs.add(el);
-    el.addEventListener("change", function () {
+    el.addEventListener("change", function (event) {
+      // A page can dispatch a synthetic change with a fabricated FileList.
+      // Only user-agent-initiated selections may reach the scanner.
+      if (!event.isTrusted) return;
       if (el.files && el.files.length > 0) {
         var domain = new URL(window.location.href).hostname.replace(/^www\./, "");
         for (var i = 0; i < el.files.length; i++) {

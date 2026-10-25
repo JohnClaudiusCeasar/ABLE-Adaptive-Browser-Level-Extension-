@@ -198,6 +198,12 @@ class AbleSettingsSchema
                 'rule' => 'nullable|string|regex:/^[0-9a-fA-F]{64}$/',
                 'description' => 'SHA-256 of core/synthetic-names.js, which is injected into the page world.',
             ],
+            'integrity.expected_file_identity_hash' => [
+                'type' => 'string',
+                'default' => '',
+                'rule' => 'nullable|string|regex:/^[0-9a-fA-F]{64}$/',
+                'description' => 'SHA-256 of core/file-identity.js, which is injected into the page world.',
+            ],
             'integrity.expected_file_extractor_hash' => [
                 'type' => 'string',
                 'default' => '',
@@ -240,6 +246,7 @@ class AbleSettingsSchema
             'integrity.expected_inject_hash' => 'inject/inject.js',
             'integrity.expected_content_css_hash' => 'content.css',
             'integrity.expected_synthetic_names_hash' => 'core/synthetic-names.js',
+            'integrity.expected_file_identity_hash' => 'core/file-identity.js',
             'integrity.expected_file_extractor_hash' => 'inject/file-extractor.js',
             'integrity.expected_network_interceptor_hash' => 'inject/network-interceptor.js',
             'integrity.expected_file_tracker_hash' => 'inject/file-tracker.js',

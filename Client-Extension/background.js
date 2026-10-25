@@ -4,6 +4,7 @@ self.importScripts(
   "core/security.js",
   "core/runtime-settings.js",
   "core/synthetic-names.js",
+  "core/file-identity.js",
   "api/rate-limiter.js",
   "api/classification.js",
   "api/risk-patterns.js",
@@ -31,6 +32,7 @@ var INTEGRITY_ASSETS = {
   inject: { path: "inject/inject.js", hash: EXPECTED_INJECT_HASH },
   content_css: { path: "content.css", hash: EXPECTED_CONTENT_CSS_HASH },
   synthetic_names: { path: "core/synthetic-names.js", hash: EXPECTED_SYNTHETIC_NAMES_HASH },
+  file_identity: { path: "core/file-identity.js", hash: EXPECTED_FILE_IDENTITY_HASH },
   file_extractor: { path: "inject/file-extractor.js", hash: EXPECTED_FILE_EXTRACTOR_HASH },
   network_interceptor: { path: "inject/network-interceptor.js", hash: EXPECTED_NETWORK_INTERCEPTOR_HASH },
   file_tracker: { path: "inject/file-tracker.js", hash: EXPECTED_FILE_TRACKER_HASH },
@@ -45,6 +47,7 @@ var INTEGRITY_ASSETS = {
 var PAGE_WORLD_ASSETS = {
   inject: true,
   synthetic_names: true,
+  file_identity: true,
   file_extractor: true,
   network_interceptor: true,
   file_tracker: true,

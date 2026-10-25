@@ -154,6 +154,8 @@ async function scanFile(file, nameSource) {
   }
 
   // Server-authoritative scoring (returns null when unreachable/unverifiable).
+  // nameSource is bound into the verdict token so the audit row cannot later
+  // claim a different provenance than the one this isolated world computed.
   const verdict = await requestContentScore({
     text: text,
     fileName: file.name,
@@ -162,6 +164,7 @@ async function scanFile(file, nameSource) {
     fileFormat: fileFormat,
     contentHash: contentHash,
     pageContext: pageContext,
+    nameSource: nameSource || null,
     domain: domainStatus?.domain || new URL(window.location.href).hostname.replace(/^www\./, ""),
   });
 
