@@ -145,7 +145,9 @@ body::-webkit-scrollbar {
 .doc-body::-webkit-scrollbar,
 .doc-pane::-webkit-scrollbar,
 .code-block-glass::-webkit-scrollbar,
-.stream-list::-webkit-scrollbar {
+.stream-list::-webkit-scrollbar,
+.docs-chapter-nav::-webkit-scrollbar,
+.docs-content-area::-webkit-scrollbar {
     display: none !important;
     width: 0 !important;
     height: 0 !important;
@@ -714,9 +716,101 @@ body::-webkit-scrollbar {
 }
 
 .bento-card {
+    position: relative;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
     gap: 12px;
+    padding: 32px 28px;
+    transition: all 0.35s ease;
+}
+
+.bento-inner-highlight {
+    position: absolute;
+    top: 0;
+    left: 24px;
+    right: 24px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+    z-index: 10;
+    pointer-events: none;
+}
+
+/* OVERSIZED BACKGROUND LOGO (UI design from Implementation/glassmorphic_card_wrapper.html) */
+.bento-overlapping-logo {
+    position: absolute;
+    left: -40px;
+    bottom: -52px;
+    width: 200px;
+    height: 200px;
+    z-index: 0;
+    pointer-events: none;
+    user-select: none;
+    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.bento-card:hover .bento-overlapping-logo {
+    transform: scale(1.05);
+}
+
+.bento-logo-icon-container {
+    position: relative;
+    z-index: 0;
+    width: 200px;
+    height: 200px;
+    opacity: 0.35; /* Reduced by 40% from 0.75 */
+    transform: rotate(-12deg);
+    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.bento-card:hover .bento-logo-icon-container {
+    transform: rotate(-8deg) scale(1.03);
+}
+
+.bento-logo-icon-container svg {
+    width: 200px;
+    height: 200px;
+    stroke-width: 1.25;
+}
+
+/* Color Presets for Problem, Solution, Mission */
+.bento-overlapping-logo.problem .bento-logo-icon-container {
+    color: var(--accent-amber);
+}
+
+.bento-overlapping-logo.solution .bento-logo-icon-container {
+    color: var(--color-able-green);
+}
+
+.bento-overlapping-logo.mission .bento-logo-icon-container {
+    color: var(--accent-cyan);
+}
+
+.bento-card-body {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.bento-card-body h3 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: #ffffff;
+    margin: 0;
+}
+
+.bento-card-body p {
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    line-height: 1.62;
+    margin: 0;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
 }
 
 .card-icon-wrap {
@@ -881,21 +975,201 @@ body::-webkit-scrollbar {
 .docs-inner {
     display: flex;
     flex-direction: column;
+    max-width: 1260px;
+    width: 100%;
 }
 
 .docs-glass-container {
-    padding: 24px;
+    padding: 32px;
+    display: flex;
+    flex-direction: row;
+    gap: 32px;
+    align-items: stretch;
+    position: relative;
+    box-sizing: border-box;
+    height: 520px;
+    max-height: 80vh;
+    overscroll-behavior: contain;
+}
+
+/* Chapter-Based Navigation Sidebar (Left-Side Content Container) */
+.docs-chapter-nav {
+    width: 270px;
+    flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 14px;
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scroll-behavior: smooth;
+    padding-right: 8px;
+}
+
+.docs-chapter-header {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0 4px 6px;
+    background: transparent;
+}
+
+.docs-chapter-main-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.docs-chapter-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-bottom: 8px;
+}
+
+.chapter-nav-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 14px;
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: var(--radius-md);
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.chapter-nav-card:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(34, 197, 94, 0.35);
+    transform: translateX(3px);
+}
+
+.chapter-nav-card.active {
+    background: rgba(34, 197, 94, 0.12);
+    border-color: rgba(34, 197, 94, 0.55);
+    box-shadow:
+        0 0 20px rgba(34, 197, 94, 0.15),
+        inset 0 0 12px rgba(34, 197, 94, 0.08);
+}
+
+.chapter-nav-card.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3.5px;
+    background: var(--color-able-green);
+    box-shadow: 0 0 10px var(--color-able-green);
+}
+
+.chapter-nav-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.chapter-tag {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--text-tertiary);
+    transition: color 0.2s ease;
+}
+
+.chapter-nav-card:hover .chapter-tag,
+.chapter-nav-card.active .chapter-tag {
+    color: var(--color-able-green);
+}
+
+.chapter-indicator-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.15);
+    transition: all 0.2s ease;
+}
+
+.chapter-nav-card.active .chapter-indicator-dot {
+    background: var(--color-able-green);
+    box-shadow: 0 0 8px var(--color-able-green);
+}
+
+.chapter-title {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.3;
+}
+
+.chapter-subtitle {
+    font-size: 0.74rem;
+    color: var(--text-tertiary);
+    line-height: 1.35;
+}
+
+.chapter-nav-card.active .chapter-subtitle {
+    color: var(--text-secondary);
+}
+
+/* Green Divider Embedded In-Between Components */
+.docs-vertical-divider {
+    width: 2px;
+    background: linear-gradient(
+        180deg,
+        rgba(34, 197, 94, 0.1) 0%,
+        rgba(34, 197, 94, 0.75) 15%,
+        rgba(34, 197, 94, 0.95) 50%,
+        rgba(34, 197, 94, 0.75) 85%,
+        rgba(34, 197, 94, 0.1) 100%
+    );
+    box-shadow: 0 0 12px rgba(34, 197, 94, 0.45);
+    border-radius: 9999px;
+    flex-shrink: 0;
+    align-self: stretch;
+}
+
+/* Right Component: Documentation Content Area (Right-Side Content Container) */
+.docs-content-area {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scroll-behavior: smooth;
+    padding-right: 14px;
+    padding-bottom: 32px;
+}
+
+/* Completely Hide Scrollbars for Documentation Containers (Scroll via Mouse Wheel / Gesture) */
+.docs-chapter-nav,
+.docs-content-area {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+}
+
+.docs-chapter-nav::-webkit-scrollbar,
+.docs-content-area::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    background: transparent !important;
 }
 
 .docs-nav-bar {
-    display: flex;
-    gap: 8px;
-    border-bottom: 1px solid var(--border-glass);
-    padding-bottom: 14px;
-    flex-wrap: wrap;
+    display: none;
 }
 
 .doc-pill {
@@ -930,6 +1204,7 @@ body::-webkit-scrollbar {
 .doc-pane {
     display: none;
     animation: fadeInPane 0.35s ease forwards;
+    padding-bottom: 24px;
 }
 
 .doc-pane.active {
@@ -951,17 +1226,17 @@ body::-webkit-scrollbar {
 .intro-container {
     display: flex;
     flex-direction: column;
-    gap: 22px;
+    gap: 34px;
 }
 
 .intro-lead-box {
     background: rgba(255, 255, 255, 0.025);
     border: 1px solid var(--border-glass);
     border-radius: var(--radius-md);
-    padding: 24px 28px;
+    padding: 28px 30px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 16px;
 }
 
 .intro-badge-lead {
@@ -1126,7 +1401,221 @@ body::-webkit-scrollbar {
     line-height: 1.35;
 }
 
-/* Subpage 2: Core Architecture Split */
+/* Subpage 2: Core Architecture (Tripartite Defense) */
+.arch-container {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+}
+
+.arch-lead-banner {
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-md);
+    padding: 26px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.arch-badge-lead {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--color-able-green);
+    letter-spacing: 0.08em;
+}
+
+.arch-lead-banner h3 {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: -0.015em;
+    margin: 0;
+}
+
+.arch-lead-banner p {
+    font-size: 0.92rem;
+    color: var(--text-secondary);
+    line-height: 1.68;
+    margin: 0;
+}
+
+.arch-tiers-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.arch-tier-card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-md);
+    padding: 24px 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    transition: var(--transition-smooth);
+}
+
+.arch-tier-card:hover {
+    border-color: rgba(34, 197, 94, 0.35);
+    background: rgba(255, 255, 255, 0.035);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.arch-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.arch-tier-badge {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.tier-tag {
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    font-weight: 800;
+    color: var(--color-able-green);
+    background: rgba(34, 197, 94, 0.12);
+    border: 1px solid rgba(34, 197, 94, 0.32);
+    padding: 3px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+}
+
+.arch-tier-badge h4 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0;
+    letter-spacing: -0.01em;
+}
+
+.arch-context-pill {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 4px 10px;
+    border-radius: var(--radius-pill);
+    letter-spacing: 0.06em;
+}
+
+.arch-card-desc {
+    font-size: 0.90rem;
+    color: var(--text-secondary);
+    line-height: 1.68;
+    margin: 0;
+}
+
+.arch-card-desc code {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    background: rgba(255, 255, 255, 0.08);
+    padding: 1px 5px;
+    border-radius: 4px;
+    color: var(--color-able-green);
+}
+
+.arch-feature-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.arch-feature-label {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--text-tertiary);
+    letter-spacing: 0.08em;
+}
+
+.arch-chips-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.arch-chip {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: #cbd5e1;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 4px 10px;
+    border-radius: 6px;
+    line-height: 1.4;
+}
+
+.arch-chip code {
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    color: var(--color-able-green);
+}
+
+.arch-code-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 6px;
+}
+
+.arch-code-intro {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.arch-code-intro h4 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0;
+}
+
+.arch-code-intro p {
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin: 0;
+}
+
+.code-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.code-lang-pill {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--text-tertiary);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+/* Backward-compatible classes */
 .split-columns {
     display: grid;
     grid-template-columns: 1.15fr 0.85fr;
@@ -1143,13 +1632,13 @@ body::-webkit-scrollbar {
 .doc-text-col > p {
     font-size: 0.92rem;
     color: var(--text-secondary);
-    margin-bottom: 24px;
+    margin-bottom: 36px;
 }
 
 .spec-points {
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 26px;
 }
 
 .spec-point {
@@ -1253,11 +1742,11 @@ body::-webkit-scrollbar {
     background: rgba(255, 255, 255, 0.025);
     border: 1px solid var(--border-glass);
     border-radius: var(--radius-md);
-    padding: 18px 22px;
-    margin-bottom: 20px;
+    padding: 22px 24px;
+    margin-bottom: 32px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 12px;
 }
 
 .data-intro-banner h4 {
@@ -1325,7 +1814,7 @@ body::-webkit-scrollbar {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 14px;
-    margin-top: 20px;
+    margin-top: 32px;
 }
 
 .data-pillar-card {
@@ -1335,7 +1824,7 @@ body::-webkit-scrollbar {
     padding: 16px 18px;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 10px;
 }
 
 .data-pillar-card strong {
@@ -1351,14 +1840,14 @@ body::-webkit-scrollbar {
 
 /* Subpage 4: Timeline */
 .timeline-intro {
-    margin-bottom: 20px;
+    margin-bottom: 32px;
 }
 
 .timeline-intro h4 {
     font-size: 1.15rem;
     font-weight: 700;
     color: #ffffff;
-    margin-bottom: 8px;
+    margin-bottom: 17px;
 }
 
 .timeline-intro p {
@@ -1380,7 +1869,7 @@ body::-webkit-scrollbar {
     padding: 22px 20px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 17px;
     transition: all 0.25s ease;
 }
 
@@ -1414,11 +1903,18 @@ body::-webkit-scrollbar {
     text-transform: uppercase;
 }
 
+.time-content {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
 .time-content h4 {
     font-size: 0.98rem;
     font-weight: 700;
     color: #ffffff;
     line-height: 1.35;
+    margin-bottom: 0;
 }
 
 .time-content p {
@@ -1438,10 +1934,10 @@ body::-webkit-scrollbar {
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid var(--border-glass);
     border-radius: var(--radius-md);
-    padding: 26px;
+    padding: 28px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 24px;
 }
 
 .guide-card-header {
@@ -1449,7 +1945,7 @@ body::-webkit-scrollbar {
     align-items: center;
     justify-content: space-between;
     border-bottom: 1px solid var(--border-glass);
-    padding-bottom: 12px;
+    padding-bottom: 18px;
 }
 
 .guide-card-header h4 {
@@ -1473,7 +1969,7 @@ body::-webkit-scrollbar {
     list-style: none;
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 20px;
 }
 
 .glass-subcard li {
@@ -2070,6 +2566,47 @@ body::-webkit-scrollbar {
 }
 
 /* ---------------- Responsive Styles ---------------- */
+@media (max-width: 960px) {
+    .docs-glass-container {
+        flex-direction: column;
+        padding: 20px;
+        gap: 20px;
+        height: auto !important;
+        max-height: none !important;
+    }
+
+    .docs-chapter-nav {
+        width: 100%;
+        position: static;
+        height: auto;
+    }
+
+    .docs-chapter-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 10px;
+    }
+
+    .docs-vertical-divider {
+        width: 100%;
+        height: 2px;
+        align-self: auto;
+        background: linear-gradient(
+            90deg,
+            rgba(34, 197, 94, 0.1) 0%,
+            rgba(34, 197, 94, 0.85) 50%,
+            rgba(34, 197, 94, 0.1) 100%
+        );
+    }
+
+    .docs-content-area {
+        height: auto;
+        max-height: none;
+        overflow-y: visible;
+        padding-right: 0;
+    }
+}
+
 @media (max-width: 1024px) {
     .bento-grid {
         grid-template-columns: 1fr;

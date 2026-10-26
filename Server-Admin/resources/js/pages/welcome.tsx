@@ -24,6 +24,39 @@ interface WelcomeProps {
     requestDomain?: string | null;
 }
 
+const docChapters = [
+    {
+        id: 'intro' as const,
+        chapter: '01',
+        title: 'Introduction',
+        subtitle: 'System Overview & Objectives',
+    },
+    {
+        id: 'arch' as const,
+        chapter: '02',
+        title: 'Core Architecture',
+        subtitle: 'Topology & Pipeline Flow',
+    },
+    {
+        id: 'data' as const,
+        chapter: '03',
+        title: 'Data Collection & Privacy',
+        subtitle: 'Telemetry Boundaries & Ethics',
+    },
+    {
+        id: 'how' as const,
+        chapter: '04',
+        title: 'How ABLE Operates',
+        subtitle: 'DOM Interception & Evaluation',
+    },
+    {
+        id: 'guide' as const,
+        chapter: '05',
+        title: 'Usage & Administration',
+        subtitle: 'Deployment & Audit Procedures',
+    },
+];
+
 export default function Welcome({
     initialMessages = [],
     requestCategory = null,
@@ -41,17 +74,13 @@ export default function Welcome({
     >('intro');
     const [csCopied, setCsCopied] = useState(false);
 
-    // Message Board State (pre-filled when redirected by the extension's
-    // "Request Access" button: /?category=access-request&domain=...#contact)
+    // Message Board State
     const [selectedCat, setSelectedCat] = useState<
         | 'suggestion'
         | 'comment'
         | 'complaint'
         | 'false-positive'
-        | 'access-request'
-    >(() =>
-        requestCategory === 'access-request' ? 'access-request' : 'suggestion',
-    );
+    >('suggestion');
     const [authorName, setAuthorName] = useState('');
     const [targetDomain, setTargetDomain] = useState(() =>
         requestDomain ? requestDomain.slice(0, 100) : '',
@@ -119,7 +148,16 @@ export default function Welcome({
     const downloadLinkRef = useRef<HTMLAnchorElement | null>(null);
     const contactLinkRef = useRef<HTMLAnchorElement | null>(null);
 
+    const docsContentRef = useRef<HTMLDivElement | null>(null);
+
     const isTransitioningRef = useRef(false);
+
+    // Reset documentation content scroll to top when chapter changes
+    useEffect(() => {
+        if (docsContentRef.current) {
+            docsContentRef.current.scrollTop = 0;
+        }
+    }, [activeDocTab]);
 
     // -------------------------------------------------------------
     // Body class for isolated landing layout
@@ -448,6 +486,32 @@ export default function Welcome({
             const currentPanel = document.getElementById(currentPanelId);
 
             const target = e.target as HTMLElement | null;
+
+            // Documentation Wrapper Condition:
+            // If the mouse pointer is inside the documentation wrapper (.docs-glass-container),
+            // scrolling on either scrollable component (.docs-chapter-nav or .docs-content-area)
+            // scrolls that component, and reaching the end of the container will NOT
+            // cause the page to slide down to the next page content.
+            const docsWrapper = target
+                ? (target.closest('.docs-glass-container') as HTMLElement | null)
+                : null;
+            if (docsWrapper) {
+                const docsScrollable = target
+                    ? (target.closest(
+                          '.docs-chapter-nav, .docs-content-area',
+                      ) as HTMLElement | null)
+                    : null;
+
+                if (docsScrollable) {
+                    docsScrollable.scrollTop += e.deltaY;
+                } else if (docsContentRef.current) {
+                    docsContentRef.current.scrollTop += e.deltaY;
+                }
+
+                e.preventDefault();
+                return;
+            }
+
             let scrollableParent: HTMLElement | null = target
                 ? (target.closest(
                       '.stream-list, textarea, [data-scrollable], .scrollable-content',
@@ -470,7 +534,9 @@ export default function Welcome({
                     scrollableParent.clientHeight + 4;
 
                 if ((e.deltaY < 0 && !atTop) || (e.deltaY > 0 && !atBottom)) {
-                    return; // Allow natural scrolling inside internal scroll area
+                    scrollableParent.scrollTop += e.deltaY;
+                    e.preventDefault();
+                    return; // Smoothly scroll component via mouse wheel without viewport jump
                 }
             }
 
@@ -685,7 +751,6 @@ export default function Welcome({
         comment: 'Comment',
         complaint: 'Complaint',
         'false-positive': 'False Positive',
-        'access-request': 'Access Request',
     };
 
     return (
@@ -960,126 +1025,126 @@ export default function Welcome({
                             <div className="bento-grid">
                                 {/* Card 1: Problem */}
                                 <div className="glass-card bento-card">
-                                    <div
-                                        className="card-icon-wrap"
-                                        style={{
-                                            color: 'var(--accent-amber)',
-                                            background:
-                                                'rgba(251, 191, 36, 0.1)',
-                                            borderColor:
-                                                'rgba(251, 191, 36, 0.25)',
-                                        }}
-                                    >
-                                        <svg
-                                            width={20}
-                                            height={20}
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            strokeWidth={1.8}
-                                        >
-                                            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
-                                            <line
-                                                x1={12}
-                                                y1={9}
-                                                x2={12}
-                                                y2={13}
-                                            />
-                                            <line
-                                                x1={12}
-                                                y1={17}
-                                                x2={12.01}
-                                                y2={17}
-                                            />
-                                        </svg>
+                                    <div className="bento-inner-highlight" />
+
+                                    {/* Oversized Background Logo (mockup ui design) */}
+                                    <div className="bento-overlapping-logo problem">
+                                        <div className="bento-logo-icon-container">
+                                            <svg
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth={1.25}
+                                            >
+                                                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                                                <line
+                                                    x1={12}
+                                                    y1={9}
+                                                    x2={12}
+                                                    y2={13}
+                                                />
+                                                <line
+                                                    x1={12}
+                                                    y1={17}
+                                                    x2={12.01}
+                                                    y2={17}
+                                                />
+                                            </svg>
+                                        </div>
                                     </div>
-                                    <h3>The Problem</h3>
-                                    <p>
-                                        Modern web platforms and generative AI
-                                        tools offer unprecedented convenience.
-                                        However, this accessibility often leads
-                                        to unmonitored data exposure:
-                                        individuals routinely submit proprietary
-                                        source code, internal documents, API
-                                        keys, and customer data into external
-                                        services that operate completely outside
-                                        organizational security governance.
-                                    </p>
+
+                                    <div className="bento-card-body">
+                                        <h3>The Problem</h3>
+                                        <p>
+                                            Modern web platforms and generative AI
+                                            tools offer unprecedented convenience.
+                                            However, this accessibility often leads
+                                            to unmonitored data exposure:
+                                            individuals routinely submit proprietary
+                                            source code, internal documents, API
+                                            keys, and customer data into external
+                                            services that operate completely outside
+                                            organizational security governance.
+                                        </p>
+                                    </div>
                                 </div>
 
                                 {/* Card 2: Solution */}
                                 <div className="glass-card bento-card">
-                                    <div className="card-icon-wrap">
-                                        <svg
-                                            width={20}
-                                            height={20}
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            strokeWidth={1.8}
-                                        >
-                                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                                            <path d="m9 12 2 2 4-4" />
-                                        </svg>
+                                    <div className="bento-inner-highlight" />
+
+                                    {/* Oversized Background Logo (mockup ui design) */}
+                                    <div className="bento-overlapping-logo solution">
+                                        <div className="bento-logo-icon-container">
+                                            <svg
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth={1.25}
+                                            >
+                                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                                                <path d="m9 12 2 2 4-4" />
+                                            </svg>
+                                        </div>
                                     </div>
-                                    <h3>The Solution</h3>
-                                    <p>
-                                        ABLE establishes proactive, client-side
-                                        protection directly at the browser
-                                        boundary. Before outbound files or text
-                                        submissions depart the device, ABLE
-                                        inspects the content, evaluates
-                                        potential exposure against verified risk
-                                        patterns, and prompts the user for
-                                        informed confirmation—stopping
-                                        inadvertent leaks before data ever
-                                        reaches external servers.
-                                    </p>
+
+                                    <div className="bento-card-body">
+                                        <h3>The Solution</h3>
+                                        <p>
+                                            ABLE establishes proactive, client-side
+                                            protection directly at the browser
+                                            boundary. Before outbound files or text
+                                            submissions depart the device, ABLE
+                                            inspects the content, evaluates
+                                            potential exposure against verified risk
+                                            patterns, and prompts the user for
+                                            informed confirmation—stopping
+                                            inadvertent leaks before data ever
+                                            reaches external servers.
+                                        </p>
+                                    </div>
                                 </div>
 
                                 {/* Card 3: Mission */}
                                 <div className="glass-card bento-card">
-                                    <div
-                                        className="card-icon-wrap"
-                                        style={{
-                                            color: 'var(--accent-cyan)',
-                                            background:
-                                                'rgba(56, 189, 248, 0.1)',
-                                            borderColor:
-                                                'rgba(56, 189, 248, 0.25)',
-                                        }}
-                                    >
-                                        <svg
-                                            width={20}
-                                            height={20}
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            strokeWidth={1.8}
-                                        >
-                                            <rect
-                                                width={18}
-                                                height={11}
-                                                x={3}
-                                                y={11}
-                                                rx={2}
-                                                ry={2}
-                                            />
-                                            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                                        </svg>
+                                    <div className="bento-inner-highlight" />
+
+                                    {/* Oversized Background Logo (mockup ui design) */}
+                                    <div className="bento-overlapping-logo mission">
+                                        <div className="bento-logo-icon-container">
+                                            <svg
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth={1.25}
+                                            >
+                                                <rect
+                                                    width={18}
+                                                    height={11}
+                                                    x={3}
+                                                    y={11}
+                                                    rx={2}
+                                                    ry={2}
+                                                />
+                                                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                                            </svg>
+                                        </div>
                                     </div>
-                                    <h3>The Mission</h3>
-                                    <p>
-                                        Security should never come at the
-                                        expense of user privacy. ABLE is
-                                        engineered to prevent data egress
-                                        without invasive surveillance—operating
-                                        free of identity tracking, cross-site
-                                        profiling, or personal browsing audits.
-                                        We believe the most resilient defense is
-                                        one that genuinely empowers users with
-                                        transparent, client-side agency.
-                                    </p>
+
+                                    <div className="bento-card-body">
+                                        <h3>The Mission</h3>
+                                        <p>
+                                            Security should never come at the
+                                            expense of user privacy. ABLE is
+                                            engineered to prevent data egress
+                                            without invasive surveillance—operating
+                                            free of identity tracking, cross-site
+                                            profiling, or personal browsing audits.
+                                            We believe the most resilient defense is
+                                            one that genuinely empowers users with
+                                            transparent, client-side agency.
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
 
@@ -1375,47 +1440,68 @@ export default function Welcome({
                                 </p>
                             </div>
 
-                            {/* Glassmorphic Tabs */}
+                            {/* Glassmorphic Documentation Wrapper */}
                             <div className="docs-glass-container glass-card">
-                                <div className="docs-nav-bar">
-                                    <button
-                                        type="button"
-                                        className={`doc-pill ${activeDocTab === 'intro' ? 'active' : ''}`}
-                                        onClick={() => setActiveDocTab('intro')}
-                                    >
-                                        Introduction
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={`doc-pill ${activeDocTab === 'arch' ? 'active' : ''}`}
-                                        onClick={() => setActiveDocTab('arch')}
-                                    >
-                                        Core Architecture
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={`doc-pill ${activeDocTab === 'data' ? 'active' : ''}`}
-                                        onClick={() => setActiveDocTab('data')}
-                                    >
-                                        Data Collection & Privacy
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={`doc-pill ${activeDocTab === 'how' ? 'active' : ''}`}
-                                        onClick={() => setActiveDocTab('how')}
-                                    >
-                                        How ABLE Operates
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={`doc-pill ${activeDocTab === 'guide' ? 'active' : ''}`}
-                                        onClick={() => setActiveDocTab('guide')}
-                                    >
-                                        Usage & Administration
-                                    </button>
-                                </div>
+                                {/* Left Component: Chapter-based Navigation */}
+                                <aside
+                                    className="docs-chapter-nav no-scrollbar"
+                                    aria-label="Documentation Chapters"
+                                    data-scrollable="true"
+                                >
+                                    <div className="docs-chapter-header">
+                                        <h3 className="docs-chapter-main-title">
+                                            CHAPTERS
+                                        </h3>
+                                    </div>
+                                    <nav className="docs-chapter-list">
+                                        {docChapters.map((ch) => {
+                                            const isActive =
+                                                activeDocTab === ch.id;
+                                            return (
+                                                <button
+                                                    key={ch.id}
+                                                    type="button"
+                                                    className={`chapter-nav-card ${isActive ? 'active' : ''}`}
+                                                    onClick={() =>
+                                                        setActiveDocTab(ch.id)
+                                                    }
+                                                    aria-current={
+                                                        isActive
+                                                            ? 'page'
+                                                            : undefined
+                                                    }
+                                                >
+                                                    <div className="chapter-nav-top">
+                                                        <span className="chapter-tag">
+                                                            CHAPTER {ch.chapter}
+                                                        </span>
+                                                        <span className="chapter-indicator-dot" />
+                                                    </div>
+                                                    <div className="chapter-title">
+                                                        {ch.title}
+                                                    </div>
+                                                    <div className="chapter-subtitle">
+                                                        {ch.subtitle}
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
+                                    </nav>
+                                </aside>
 
-                                <div className="docs-content-area">
+                                {/* Embedded Green Divider in-between these two components */}
+                                <div
+                                    className="docs-vertical-divider"
+                                    role="separator"
+                                    aria-orientation="vertical"
+                                />
+
+                                {/* Right Component: Section Description & Content Area */}
+                                <div
+                                    ref={docsContentRef}
+                                    className="docs-content-area no-scrollbar"
+                                    data-scrollable="true"
+                                >
                                     {/* Subpage 1: Introduction */}
                                     {activeDocTab === 'intro' && (
                                         <div
@@ -1769,294 +1855,180 @@ export default function Welcome({
                                             className="doc-pane active"
                                             id="pane-arch"
                                         >
-                                            <div className="split-columns">
-                                                <div className="doc-text-col">
+                                            <div className="arch-container">
+                                                {/* Lead Intro Banner */}
+                                                <div className="arch-lead-banner">
+                                                    <div className="arch-badge-lead">
+                                                        <svg
+                                                            width={14}
+                                                            height={14}
+                                                            viewBox="0 0 24 24"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            strokeWidth={2}
+                                                        >
+                                                            <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                                                            <polyline points="2 17 12 22 22 17" />
+                                                            <polyline points="2 12 12 17 22 12" />
+                                                        </svg>
+                                                        <span>
+                                                            EXECUTION TOPOLOGY &amp; PROCESS ISOLATION
+                                                        </span>
+                                                    </div>
                                                     <h3>
-                                                        Tripartite Defense
-                                                        Architecture & Process
-                                                        Isolation
+                                                        Tripartite Defense Architecture &amp; Process Isolation
                                                     </h3>
                                                     <p>
-                                                        To ensure complete
-                                                        immunity against webpage
-                                                        script tampering,
-                                                        Prototype Pollution, and
-                                                        adversarial DOM
-                                                        manipulation, ABLE
-                                                        enforces a strict
-                                                        three-tier execution
-                                                        hierarchy within the
-                                                        Chromium runtime. Each
-                                                        tier operates under
-                                                        independent security
-                                                        contexts and
-                                                        least-privilege
-                                                        constraints, maintaining
-                                                        sub-millisecond
-                                                        execution times while
-                                                        guaranteeing unvetted
-                                                        web applications cannot
-                                                        bypass or disable safety
-                                                        hooks.
+                                                        To ensure complete immunity against webpage script tampering, Prototype Pollution, and adversarial DOM manipulation, ABLE enforces a strict three-tier execution hierarchy within the Chromium runtime. Each tier operates under independent security contexts and least-privilege boundaries, maintaining sub-millisecond execution times without allowing unvetted web applications to bypass or disable security hooks.
                                                     </p>
+                                                </div>
 
-                                                    <div className="spec-points">
-                                                        <div className="spec-point">
-                                                            <span className="spec-num">
-                                                                01
+                                                {/* 3 Tier Architecture Cards */}
+                                                <div className="arch-tiers-list">
+                                                    {/* Tier 1 Card */}
+                                                    <div className="arch-tier-card">
+                                                        <div className="arch-card-header">
+                                                            <div className="arch-tier-badge">
+                                                                <span className="tier-tag">TIER 01</span>
+                                                                <h4>Page-World Transport Interceptors</h4>
+                                                            </div>
+                                                            <span className="arch-context-pill">
+                                                                MAIN EXECUTION WORLD · INJECTED SCRIPTS
                                                             </span>
-                                                            <div>
-                                                                <strong>
-                                                                    Tier 1:
-                                                                    Page-World
-                                                                    Transport
-                                                                    Interceptors
-                                                                    (Injected
-                                                                    Scripts)
-                                                                </strong>
-                                                                <p>
-                                                                    Injected via
-                                                                    dynamically
-                                                                    generated{' '}
-                                                                    <code>
-                                                                        &lt;script&gt;
-                                                                    </code>{' '}
-                                                                    elements
-                                                                    with SHA-256
-                                                                    asset-integrity
-                                                                    pinning.
-                                                                    Runs in the
-                                                                    page's
-                                                                    execution
-                                                                    world to
-                                                                    hook native
-                                                                    dispatch
-                                                                    channels:{' '}
-                                                                    <code>
-                                                                        window.fetch
-                                                                    </code>
-                                                                    ,{' '}
-                                                                    <code>
-                                                                        XMLHttpRequest.prototype.send
-                                                                    </code>
-                                                                    ,{' '}
-                                                                    <code>
-                                                                        navigator.sendBeacon
-                                                                    </code>
-                                                                    , and{' '}
-                                                                    <code>
-                                                                        WebSocket.prototype.send
-                                                                    </code>
-                                                                    . Actively
-                                                                    tracks{' '}
-                                                                    <code>
-                                                                        input[type="file"]
-                                                                    </code>
-                                                                    ,
-                                                                    drag-and-drop
-                                                                    buffers, and
-                                                                    clipboard
-                                                                    paste
-                                                                    events,
-                                                                    extracting
-                                                                    raw MIME
-                                                                    types and
-                                                                    file
-                                                                    metadata
-                                                                    before page
-                                                                    scripts can
-                                                                    serialize or
-                                                                    obfuscate
-                                                                    them.
-                                                                    Transparently
-                                                                    bypasses
-                                                                    internal
-                                                                    telemetry
-                                                                    and static
-                                                                    asset CDNs.
-                                                                </p>
+                                                        </div>
+                                                        <p className="arch-card-desc">
+                                                            Injected via dynamically generated <code>&lt;script&gt;</code> elements with SHA-256 asset-integrity pinning. Operates directly in the host page's execution world to hook native dispatch channels before page scripts can serialize, mutate, or obfuscate sensitive payloads.
+                                                        </p>
+                                                        <div className="arch-feature-group">
+                                                            <span className="arch-feature-label">INTERCEPTED CHANNELS &amp; BUFFERS</span>
+                                                            <div className="arch-chips-wrap">
+                                                                <span className="arch-chip"><code>window.fetch</code></span>
+                                                                <span className="arch-chip"><code>XMLHttpRequest.send</code></span>
+                                                                <span className="arch-chip"><code>navigator.sendBeacon</code></span>
+                                                                <span className="arch-chip"><code>WebSocket.send</code></span>
+                                                                <span className="arch-chip"><code>input[type="file"]</code></span>
+                                                                <span className="arch-chip">Drag &amp; Drop Buffers</span>
+                                                                <span className="arch-chip">Clipboard Paste Events</span>
                                                             </div>
                                                         </div>
+                                                    </div>
 
-                                                        <div className="spec-point">
-                                                            <span className="spec-num">
-                                                                02
+                                                    {/* Tier 2 Card */}
+                                                    <div className="arch-tier-card">
+                                                        <div className="arch-card-header">
+                                                            <div className="arch-tier-badge">
+                                                                <span className="tier-tag">TIER 02</span>
+                                                                <h4>Content Scripts &amp; Isolated Shadow DOM</h4>
+                                                            </div>
+                                                            <span className="arch-context-pill">
+                                                                CHROMIUM ISOLATED WORLD · DOCUMENT END
                                                             </span>
-                                                            <div>
-                                                                <strong>
-                                                                    Tier 2:
-                                                                    Content
-                                                                    Scripts &
-                                                                    Isolated
-                                                                    Shadow DOM
-                                                                    Containers
-                                                                </strong>
-                                                                <p>
-                                                                    Operates
-                                                                    strictly
-                                                                    within
-                                                                    Chromium's
-                                                                    isolated
-                                                                    world
-                                                                    context (
-                                                                    <code>
-                                                                        run_at:
-                                                                        document_end
-                                                                    </code>
-                                                                    ). Contains
-                                                                    an in-memory
-                                                                    document
-                                                                    parsing
-                                                                    engine that
-                                                                    decompresses
-                                                                    and extracts
-                                                                    UTF-8
-                                                                    streams from
-                                                                    plain text,
-                                                                    CSV, JSON,
-                                                                    and Office
-                                                                    Open XML
-                                                                    archives (
-                                                                    <code>
-                                                                        .docx
-                                                                    </code>
-                                                                    ,{' '}
-                                                                    <code>
-                                                                        .xlsx
-                                                                    </code>
-                                                                    ,{' '}
-                                                                    <code>
-                                                                        .pptx
-                                                                    </code>
-                                                                    ) without
-                                                                    temporary
-                                                                    disk writes.
-                                                                    Renders the{' '}
-                                                                    <code>
-                                                                        #able-shadow-root
-                                                                    </code>{' '}
-                                                                    modal
-                                                                    boundary—an
-                                                                    isolated
-                                                                    Shadow DOM
-                                                                    tree immune
-                                                                    to host page
-                                                                    CSS style
-                                                                    leakage,
-                                                                    script
-                                                                    tampering,
-                                                                    or
-                                                                    clickjacking
-                                                                    attacks.
-                                                                </p>
+                                                        </div>
+                                                        <p className="arch-card-desc">
+                                                            Operates strictly within Chromium's isolated world context (<code>run_at: document_end</code>). Houses an in-memory document parsing engine that decompresses and extracts text streams with zero temporary disk writes, while presenting a fully sandboxed user-consent modal boundary.
+                                                        </p>
+                                                        <div className="arch-feature-group">
+                                                            <span className="arch-feature-label">CONTAINMENT &amp; CLIENT CAPABILITIES</span>
+                                                            <div className="arch-chips-wrap">
+                                                                <span className="arch-chip"><code>#able-shadow-root</code> Boundary</span>
+                                                                <span className="arch-chip">Host Page CSS Isolation</span>
+                                                                <span className="arch-chip">Anti-Clickjacking Protection</span>
+                                                                <span className="arch-chip">In-Memory Text, CSV, JSON Parsing</span>
+                                                                <span className="arch-chip">Office Open XML Decompressor (<code>.docx</code>, <code>.xlsx</code>, <code>.pptx</code>)</span>
                                                             </div>
                                                         </div>
+                                                    </div>
 
-                                                        <div className="spec-point">
-                                                            <span className="spec-num">
-                                                                03
+                                                    {/* Tier 3 Card */}
+                                                    <div className="arch-tier-card">
+                                                        <div className="arch-card-header">
+                                                            <div className="arch-tier-badge">
+                                                                <span className="tier-tag">TIER 03</span>
+                                                                <h4>Manifest V3 Background Worker &amp; Server Sync</h4>
+                                                            </div>
+                                                            <span className="arch-context-pill">
+                                                                EXTENSION SERVICE WORKER · ENCRYPTED STORE
                                                             </span>
-                                                            <div>
-                                                                <strong>
-                                                                    Tier 3:
-                                                                    Manifest V3
-                                                                    Background
-                                                                    Worker &
-                                                                    Research
-                                                                    Server
-                                                                </strong>
-                                                                <p>
-                                                                    An ephemeral
-                                                                    background
-                                                                    service
-                                                                    worker
-                                                                    utilizing{' '}
-                                                                    <code>
-                                                                        chrome.webNavigation.onCommitted
-                                                                    </code>{' '}
-                                                                    to classify
-                                                                    top-frame
-                                                                    domain
-                                                                    visits
-                                                                    before page
-                                                                    resources
-                                                                    execute.
-                                                                    Uses{' '}
-                                                                    <code>
-                                                                        chrome.alarms
-                                                                    </code>{' '}
-                                                                    for
-                                                                    deterministic
-                                                                    policy
-                                                                    synchronization,
-                                                                    validating
-                                                                    HMAC-SHA-256
-                                                                    signatures
-                                                                    on all
-                                                                    incoming
-                                                                    regex
-                                                                    criteria
-                                                                    from the
-                                                                    self-hosted
-                                                                    Laravel
-                                                                    research
-                                                                    server
-                                                                    before
-                                                                    caching them
-                                                                    into
-                                                                    encrypted
-                                                                    local
-                                                                    extension
-                                                                    storage.
-                                                                    Flushes
-                                                                    anonymized
-                                                                    offline
-                                                                    event queues
-                                                                    periodically
-                                                                    over pinned
-                                                                    TLS.
-                                                                </p>
+                                                        </div>
+                                                        <p className="arch-card-desc">
+                                                            An ephemeral background service worker coordinating pre-flight navigation classification and deterministic policy synchronization. Validates cryptographic signatures from the self-hosted Laravel research server and flushes anonymized audit logs over pinned TLS.
+                                                        </p>
+                                                        <div className="arch-feature-group">
+                                                            <span className="arch-feature-label">SERVICES &amp; SECURITY PROTOCOLS</span>
+                                                            <div className="arch-chips-wrap">
+                                                                <span className="arch-chip"><code>chrome.webNavigation.onCommitted</code></span>
+                                                                <span className="arch-chip"><code>chrome.alarms</code> Sync Worker</span>
+                                                                <span className="arch-chip">HMAC-SHA-256 Ruleset Signatures</span>
+                                                                <span className="arch-chip">AES Encrypted Local Storage</span>
+                                                                <span className="arch-chip">Pinned TLS Telemetry Queue</span>
                                                             </div>
                                                         </div>
                                                     </div>
                                                 </div>
 
-                                                <div className="doc-visual-col">
+                                                {/* Implementation Pipeline Code Showcase */}
+                                                <div className="arch-code-section">
+                                                    <div className="arch-code-intro">
+                                                        <div className="arch-badge-lead">
+                                                            <svg
+                                                                width={14}
+                                                                height={14}
+                                                                viewBox="0 0 24 24"
+                                                                fill="none"
+                                                                stroke="currentColor"
+                                                                strokeWidth={2}
+                                                            >
+                                                                <polyline points="16 18 22 12 16 6" />
+                                                                <polyline points="8 6 2 12 8 18" />
+                                                            </svg>
+                                                            <span>RUNTIME IMPLEMENTATION</span>
+                                                        </div>
+                                                        <h4>Pre-Flight Interception Pipeline</h4>
+                                                        <p>
+                                                            Outbound dispatch hooks intercept network calls in real time, inspecting buffer contents against cached policy criteria prior to transmission release.
+                                                        </p>
+                                                    </div>
+
                                                     <div className="code-preview-glass">
-                                                        <div className="code-header">
-                                                            <span className="code-dot" />
-                                                            <span className="code-title">
-                                                                interceptor-pipeline.ts
+                                                        <div className="code-header code-header-row">
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                <span className="code-dot" />
+                                                                <span className="code-title">
+                                                                    interceptor-pipeline.ts
+                                                                </span>
+                                                            </div>
+                                                            <span className="code-lang-pill">
+                                                                TypeScript / Chromium V3
                                                             </span>
                                                         </div>
                                                         <pre className="code-snippet">
                                                             <code>
-                                                                {`// Integrity-Verified Pre-Flight Transport Hook
-const dispatchHook = {
-  hook: "window.fetch",
-  action: async (input: RequestInfo, init?: RequestInit) => {
-    // 1. Extract outbound payload from memory buffer
-    const payload = await extractBuffer(init?.body);
-    
-    // 2. Check site policy against signed offline cache
-    const domainVerdict = await classifyDomain(window.location.hostname);
-    
-    // 3. In-memory pattern evaluation & score generation
-    const riskAssessment = await scoreContent(payload, domainVerdict);
-    
-    // 4. Intervene if sensitive patterns exceed threshold
-    if (riskAssessment.score > 60) {
-      const userDecision = await shadowPrompt.requestConsent(riskAssessment);
-      if (userDecision === "CANCEL") {
-        cleanInputFields();
-        throw new DOMException("Egress halted by user.", "AbortError");
-      }
-    }
-    
-    // 5. Clean release without transport mutation
-    return nativeFetch(input, init);
-  }
-};`}
+                                                                <span className="c-comment">{'// Integrity-Verified Pre-Flight Transport Hook'}</span>{'\n'}
+                                                                <span className="c-keyword">const</span> dispatchHook = {'{'}{'\n'}
+                                                                {'  '}hook: <span className="c-string">"window.fetch"</span>,{'\n'}
+                                                                {'  '}action: <span className="c-keyword">async</span> (input: RequestInfo, init?: RequestInit) =&gt; {'{'}{'\n'}
+                                                                {'    '}<span className="c-comment">{'// 1. Extract outbound payload from memory buffer'}</span>{'\n'}
+                                                                {'    '}<span className="c-keyword">const</span> payload = <span className="c-keyword">await</span> extractBuffer(init?.body);{'\n'}
+                                                                {'\n'}
+                                                                {'    '}<span className="c-comment">{'// 2. Check site policy against signed offline cache'}</span>{'\n'}
+                                                                {'    '}<span className="c-keyword">const</span> domainVerdict = <span className="c-keyword">await</span> classifyDomain(window.location.hostname);{'\n'}
+                                                                {'\n'}
+                                                                {'    '}<span className="c-comment">{'// 3. In-memory pattern evaluation & score generation'}</span>{'\n'}
+                                                                {'    '}<span className="c-keyword">const</span> riskAssessment = <span className="c-keyword">await</span> scoreContent(payload, domainVerdict);{'\n'}
+                                                                {'\n'}
+                                                                {'    '}<span className="c-comment">{'// 4. Intervene if sensitive patterns exceed threshold'}</span>{'\n'}
+                                                                {'    '}<span className="c-keyword">if</span> (riskAssessment.score &gt; <span className="c-num">60</span>) {'{'}{'\n'}
+                                                                {'      '}<span className="c-keyword">const</span> userDecision = <span className="c-keyword">await</span> shadowPrompt.requestConsent(riskAssessment);{'\n'}
+                                                                {'      '}<span className="c-keyword">if</span> (userDecision === <span className="c-string">"CANCEL"</span>) {'{'}{'\n'}
+                                                                {'        '}cleanInputFields();{'\n'}
+                                                                {'        '}<span className="c-keyword">throw new</span> DOMException(<span className="c-string">"Egress halted by user."</span>, <span className="c-string">"AbortError"</span>);{'\n'}
+                                                                {'      '}{'}'}{'\n'}
+                                                                {'    '}{'}'}{'\n'}
+                                                                {'\n'}
+                                                                {'    '}<span className="c-comment">{'// 5. Clean release without transport mutation'}</span>{'\n'}
+                                                                {'    '}<span className="c-keyword">return</span> nativeFetch(input, init);{'\n'}
+                                                                {'  '}{'}'}{'\n'}
+                                                                {'}'};
                                                             </code>
                                                         </pre>
                                                     </div>
@@ -2827,7 +2799,7 @@ const dispatchHook = {
                                             />
                                         </div>
                                         <div className="dl-app-info">
-                                            <h3>ABLE Extension</h3>
+                                            <h3>ABLE - Adaptive Browser-Level Extension</h3>
                                             <div className="meta-tags">
                                                 <span className="tag tag-highlight">
                                                     Chrome Web Store
@@ -3249,7 +3221,6 @@ const dispatchHook = {
                                                         'comment',
                                                         'complaint',
                                                         'false-positive',
-                                                        'access-request',
                                                     ] as const
                                                 ).map((cat) => (
                                                     <button
