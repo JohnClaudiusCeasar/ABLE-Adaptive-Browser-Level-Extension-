@@ -33,8 +33,8 @@ export function ActiveShadowAppsModal({
                         Active Shadow Apps
                     </DialogTitle>
                     <DialogDescription>
-                        Sites captured as Shadow Apps with more than 3
-                        proceeded egress events.
+                        Sites captured as Shadow Apps with more than 3 proceeded
+                        egress events.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -64,8 +64,10 @@ export function ActiveShadowAppsModal({
                                         key={app.domain}
                                         className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0"
                                     >
-                                        <td className="py-3 pr-2.5 tabular-nums text-muted-foreground">
-                                            {app.id !== null ? `#${app.id}` : '—'}
+                                        <td className="py-3 pr-2.5 text-muted-foreground tabular-nums">
+                                            {app.id !== null
+                                                ? `#${app.id}`
+                                                : '—'}
                                         </td>
                                         <td className="py-3 pr-2.5 font-mono">
                                             {app.domain}
@@ -81,7 +83,8 @@ export function ActiveShadowAppsModal({
                 )}
 
                 <p className="text-xs text-muted-foreground">
-                    {apps.length} active Shadow {apps.length === 1 ? 'App' : 'Apps'}
+                    {apps.length} active Shadow{' '}
+                    {apps.length === 1 ? 'App' : 'Apps'}
                 </p>
             </DialogContent>
         </Dialog>

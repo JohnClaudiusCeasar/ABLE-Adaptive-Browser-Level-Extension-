@@ -45,9 +45,9 @@ function smoothPath(
     xFor: (i: number) => number,
 ): string {
     if (points.length < 3) {
-        return points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(
-            ' ',
-        );
+        return points
+            .map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`)
+            .join(' ');
     }
 
     let d = `M${points[0].x},${points[0].y}`;
@@ -69,7 +69,10 @@ function smoothPath(
     return d;
 }
 
-export function ActivityTrendChart({ data, className }: ActivityTrendChartProps) {
+export function ActivityTrendChart({
+    data,
+    className,
+}: ActivityTrendChartProps) {
     const [hidden, setHidden] = useState<Set<SeriesKey>>(new Set());
     const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
@@ -101,12 +104,7 @@ export function ActivityTrendChart({ data, className }: ActivityTrendChartProps)
         0,
     );
     const yMax = maxValue > 0 ? Math.ceil(maxValue * 1.15) : 10;
-    const yTicks = [
-        yMax,
-        Math.round((yMax * 2) / 3),
-        Math.round(yMax / 3),
-        0,
-    ];
+    const yTicks = [yMax, Math.round((yMax * 2) / 3), Math.round(yMax / 3), 0];
 
     const width = 720;
     const innerWidth = width - PAD_LEFT - PAD_RIGHT;
@@ -128,7 +126,12 @@ export function ActivityTrendChart({ data, className }: ActivityTrendChartProps)
     const shortTick = (p: TrendPoint) => {
         const d = new Date(`${p.date}T12:00:00`);
 
-        return isNaN(d.getTime()) ? p.day : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        return isNaN(d.getTime())
+            ? p.day
+            : d.toLocaleDateString(undefined, {
+                  month: 'short',
+                  day: 'numeric',
+              });
     };
 
     const totalVisits = data.reduce((acc, d) => acc + d.visits, 0);
@@ -250,7 +253,10 @@ export function ActivityTrendChart({ data, className }: ActivityTrendChartProps)
                             }}
                         >
                             {yTicks.map((tick, i) => (
-                                <div key={i} className="flex items-center gap-2">
+                                <div
+                                    key={i}
+                                    className="flex items-center gap-2"
+                                >
                                     <span className="w-7 shrink-0 text-right text-[10px] font-medium text-muted-foreground/60 tabular-nums">
                                         {tick}
                                     </span>

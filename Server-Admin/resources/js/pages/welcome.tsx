@@ -62,7 +62,8 @@ export default function Welcome({
     requestCategory = null,
     requestDomain = null,
 }: WelcomeProps) {
-    const { extension_version } = usePage<{ extension_version?: string }>().props;
+    const { extension_version } = usePage<{ extension_version?: string }>()
+        .props;
     // -------------------------------------------------------------
     // State Management
     // -------------------------------------------------------------
@@ -76,10 +77,7 @@ export default function Welcome({
 
     // Message Board State
     const [selectedCat, setSelectedCat] = useState<
-        | 'suggestion'
-        | 'comment'
-        | 'complaint'
-        | 'false-positive'
+        'suggestion' | 'comment' | 'complaint' | 'false-positive'
     >('suggestion');
     const [authorName, setAuthorName] = useState('');
     const [targetDomain, setTargetDomain] = useState(() =>
@@ -493,8 +491,11 @@ export default function Welcome({
             // scrolls that component, and reaching the end of the container will NOT
             // cause the page to slide down to the next page content.
             const docsWrapper = target
-                ? (target.closest('.docs-glass-container') as HTMLElement | null)
+                ? (target.closest(
+                      '.docs-glass-container',
+                  ) as HTMLElement | null)
                 : null;
+
             if (docsWrapper) {
                 const docsScrollable = target
                     ? (target.closest(
@@ -509,6 +510,7 @@ export default function Welcome({
                 }
 
                 e.preventDefault();
+
                 return;
             }
 
@@ -536,6 +538,7 @@ export default function Welcome({
                 if ((e.deltaY < 0 && !atTop) || (e.deltaY > 0 && !atBottom)) {
                     scrollableParent.scrollTop += e.deltaY;
                     e.preventDefault();
+
                     return; // Smoothly scroll component via mouse wheel without viewport jump
                 }
             }
@@ -1056,14 +1059,16 @@ export default function Welcome({
                                     <div className="bento-card-body">
                                         <h3>The Problem</h3>
                                         <p>
-                                            Modern web platforms and generative AI
-                                            tools offer unprecedented convenience.
-                                            However, this accessibility often leads
-                                            to unmonitored data exposure:
-                                            individuals routinely submit proprietary
-                                            source code, internal documents, API
-                                            keys, and customer data into external
-                                            services that operate completely outside
+                                            Modern web platforms and generative
+                                            AI tools offer unprecedented
+                                            convenience. However, this
+                                            accessibility often leads to
+                                            unmonitored data exposure:
+                                            individuals routinely submit
+                                            proprietary source code, internal
+                                            documents, API keys, and customer
+                                            data into external services that
+                                            operate completely outside
                                             organizational security governance.
                                         </p>
                                     </div>
@@ -1091,12 +1096,13 @@ export default function Welcome({
                                     <div className="bento-card-body">
                                         <h3>The Solution</h3>
                                         <p>
-                                            ABLE establishes proactive, client-side
-                                            protection directly at the browser
-                                            boundary. Before outbound files or text
-                                            submissions depart the device, ABLE
-                                            inspects the content, evaluates
-                                            potential exposure against verified risk
+                                            ABLE establishes proactive,
+                                            client-side protection directly at
+                                            the browser boundary. Before
+                                            outbound files or text submissions
+                                            depart the device, ABLE inspects the
+                                            content, evaluates potential
+                                            exposure against verified risk
                                             patterns, and prompts the user for
                                             informed confirmation—stopping
                                             inadvertent leaks before data ever
@@ -1137,11 +1143,13 @@ export default function Welcome({
                                             Security should never come at the
                                             expense of user privacy. ABLE is
                                             engineered to prevent data egress
-                                            without invasive surveillance—operating
-                                            free of identity tracking, cross-site
-                                            profiling, or personal browsing audits.
-                                            We believe the most resilient defense is
-                                            one that genuinely empowers users with
+                                            without invasive
+                                            surveillance—operating free of
+                                            identity tracking, cross-site
+                                            profiling, or personal browsing
+                                            audits. We believe the most
+                                            resilient defense is one that
+                                            genuinely empowers users with
                                             transparent, client-side agency.
                                         </p>
                                     </div>
@@ -1457,6 +1465,7 @@ export default function Welcome({
                                         {docChapters.map((ch) => {
                                             const isActive =
                                                 activeDocTab === ch.id;
+
                                             return (
                                                 <button
                                                     key={ch.id}
@@ -1872,14 +1881,38 @@ export default function Welcome({
                                                             <polyline points="2 12 12 17 22 12" />
                                                         </svg>
                                                         <span>
-                                                            EXECUTION TOPOLOGY &amp; PROCESS ISOLATION
+                                                            EXECUTION TOPOLOGY
+                                                            &amp; PROCESS
+                                                            ISOLATION
                                                         </span>
                                                     </div>
                                                     <h3>
-                                                        Tripartite Defense Architecture &amp; Process Isolation
+                                                        Tripartite Defense
+                                                        Architecture &amp;
+                                                        Process Isolation
                                                     </h3>
                                                     <p>
-                                                        To ensure complete immunity against webpage script tampering, Prototype Pollution, and adversarial DOM manipulation, ABLE enforces a strict three-tier execution hierarchy within the Chromium runtime. Each tier operates under independent security contexts and least-privilege boundaries, maintaining sub-millisecond execution times without allowing unvetted web applications to bypass or disable security hooks.
+                                                        To ensure complete
+                                                        immunity against webpage
+                                                        script tampering,
+                                                        Prototype Pollution, and
+                                                        adversarial DOM
+                                                        manipulation, ABLE
+                                                        enforces a strict
+                                                        three-tier execution
+                                                        hierarchy within the
+                                                        Chromium runtime. Each
+                                                        tier operates under
+                                                        independent security
+                                                        contexts and
+                                                        least-privilege
+                                                        boundaries, maintaining
+                                                        sub-millisecond
+                                                        execution times without
+                                                        allowing unvetted web
+                                                        applications to bypass
+                                                        or disable security
+                                                        hooks.
                                                     </p>
                                                 </div>
 
@@ -1889,26 +1922,81 @@ export default function Welcome({
                                                     <div className="arch-tier-card">
                                                         <div className="arch-card-header">
                                                             <div className="arch-tier-badge">
-                                                                <span className="tier-tag">TIER 01</span>
-                                                                <h4>Page-World Transport Interceptors</h4>
+                                                                <span className="tier-tag">
+                                                                    TIER 01
+                                                                </span>
+                                                                <h4>
+                                                                    Page-World
+                                                                    Transport
+                                                                    Interceptors
+                                                                </h4>
                                                             </div>
                                                             <span className="arch-context-pill">
-                                                                MAIN EXECUTION WORLD · INJECTED SCRIPTS
+                                                                MAIN EXECUTION
+                                                                WORLD · INJECTED
+                                                                SCRIPTS
                                                             </span>
                                                         </div>
                                                         <p className="arch-card-desc">
-                                                            Injected via dynamically generated <code>&lt;script&gt;</code> elements with SHA-256 asset-integrity pinning. Operates directly in the host page's execution world to hook native dispatch channels before page scripts can serialize, mutate, or obfuscate sensitive payloads.
+                                                            Injected via
+                                                            dynamically
+                                                            generated{' '}
+                                                            <code>
+                                                                &lt;script&gt;
+                                                            </code>{' '}
+                                                            elements with
+                                                            SHA-256
+                                                            asset-integrity
+                                                            pinning. Operates
+                                                            directly in the host
+                                                            page's execution
+                                                            world to hook native
+                                                            dispatch channels
+                                                            before page scripts
+                                                            can serialize,
+                                                            mutate, or obfuscate
+                                                            sensitive payloads.
                                                         </p>
                                                         <div className="arch-feature-group">
-                                                            <span className="arch-feature-label">INTERCEPTED CHANNELS &amp; BUFFERS</span>
+                                                            <span className="arch-feature-label">
+                                                                INTERCEPTED
+                                                                CHANNELS &amp;
+                                                                BUFFERS
+                                                            </span>
                                                             <div className="arch-chips-wrap">
-                                                                <span className="arch-chip"><code>window.fetch</code></span>
-                                                                <span className="arch-chip"><code>XMLHttpRequest.send</code></span>
-                                                                <span className="arch-chip"><code>navigator.sendBeacon</code></span>
-                                                                <span className="arch-chip"><code>WebSocket.send</code></span>
-                                                                <span className="arch-chip"><code>input[type="file"]</code></span>
-                                                                <span className="arch-chip">Drag &amp; Drop Buffers</span>
-                                                                <span className="arch-chip">Clipboard Paste Events</span>
+                                                                <span className="arch-chip">
+                                                                    <code>
+                                                                        window.fetch
+                                                                    </code>
+                                                                </span>
+                                                                <span className="arch-chip">
+                                                                    <code>
+                                                                        XMLHttpRequest.send
+                                                                    </code>
+                                                                </span>
+                                                                <span className="arch-chip">
+                                                                    <code>
+                                                                        navigator.sendBeacon
+                                                                    </code>
+                                                                </span>
+                                                                <span className="arch-chip">
+                                                                    <code>
+                                                                        WebSocket.send
+                                                                    </code>
+                                                                </span>
+                                                                <span className="arch-chip">
+                                                                    <code>
+                                                                        input[type="file"]
+                                                                    </code>
+                                                                </span>
+                                                                <span className="arch-chip">
+                                                                    Drag &amp;
+                                                                    Drop Buffers
+                                                                </span>
+                                                                <span className="arch-chip">
+                                                                    Clipboard
+                                                                    Paste Events
+                                                                </span>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -1917,24 +2005,90 @@ export default function Welcome({
                                                     <div className="arch-tier-card">
                                                         <div className="arch-card-header">
                                                             <div className="arch-tier-badge">
-                                                                <span className="tier-tag">TIER 02</span>
-                                                                <h4>Content Scripts &amp; Isolated Shadow DOM</h4>
+                                                                <span className="tier-tag">
+                                                                    TIER 02
+                                                                </span>
+                                                                <h4>
+                                                                    Content
+                                                                    Scripts
+                                                                    &amp;
+                                                                    Isolated
+                                                                    Shadow DOM
+                                                                </h4>
                                                             </div>
                                                             <span className="arch-context-pill">
-                                                                CHROMIUM ISOLATED WORLD · DOCUMENT END
+                                                                CHROMIUM
+                                                                ISOLATED WORLD ·
+                                                                DOCUMENT END
                                                             </span>
                                                         </div>
                                                         <p className="arch-card-desc">
-                                                            Operates strictly within Chromium's isolated world context (<code>run_at: document_end</code>). Houses an in-memory document parsing engine that decompresses and extracts text streams with zero temporary disk writes, while presenting a fully sandboxed user-consent modal boundary.
+                                                            Operates strictly
+                                                            within Chromium's
+                                                            isolated world
+                                                            context (
+                                                            <code>
+                                                                run_at:
+                                                                document_end
+                                                            </code>
+                                                            ). Houses an
+                                                            in-memory document
+                                                            parsing engine that
+                                                            decompresses and
+                                                            extracts text
+                                                            streams with zero
+                                                            temporary disk
+                                                            writes, while
+                                                            presenting a fully
+                                                            sandboxed
+                                                            user-consent modal
+                                                            boundary.
                                                         </p>
                                                         <div className="arch-feature-group">
-                                                            <span className="arch-feature-label">CONTAINMENT &amp; CLIENT CAPABILITIES</span>
+                                                            <span className="arch-feature-label">
+                                                                CONTAINMENT
+                                                                &amp; CLIENT
+                                                                CAPABILITIES
+                                                            </span>
                                                             <div className="arch-chips-wrap">
-                                                                <span className="arch-chip"><code>#able-shadow-root</code> Boundary</span>
-                                                                <span className="arch-chip">Host Page CSS Isolation</span>
-                                                                <span className="arch-chip">Anti-Clickjacking Protection</span>
-                                                                <span className="arch-chip">In-Memory Text, CSV, JSON Parsing</span>
-                                                                <span className="arch-chip">Office Open XML Decompressor (<code>.docx</code>, <code>.xlsx</code>, <code>.pptx</code>)</span>
+                                                                <span className="arch-chip">
+                                                                    <code>
+                                                                        #able-shadow-root
+                                                                    </code>{' '}
+                                                                    Boundary
+                                                                </span>
+                                                                <span className="arch-chip">
+                                                                    Host Page
+                                                                    CSS
+                                                                    Isolation
+                                                                </span>
+                                                                <span className="arch-chip">
+                                                                    Anti-Clickjacking
+                                                                    Protection
+                                                                </span>
+                                                                <span className="arch-chip">
+                                                                    In-Memory
+                                                                    Text, CSV,
+                                                                    JSON Parsing
+                                                                </span>
+                                                                <span className="arch-chip">
+                                                                    Office Open
+                                                                    XML
+                                                                    Decompressor
+                                                                    (
+                                                                    <code>
+                                                                        .docx
+                                                                    </code>
+                                                                    ,{' '}
+                                                                    <code>
+                                                                        .xlsx
+                                                                    </code>
+                                                                    ,{' '}
+                                                                    <code>
+                                                                        .pptx
+                                                                    </code>
+                                                                    )
+                                                                </span>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -1943,24 +2097,74 @@ export default function Welcome({
                                                     <div className="arch-tier-card">
                                                         <div className="arch-card-header">
                                                             <div className="arch-tier-badge">
-                                                                <span className="tier-tag">TIER 03</span>
-                                                                <h4>Manifest V3 Background Worker &amp; Server Sync</h4>
+                                                                <span className="tier-tag">
+                                                                    TIER 03
+                                                                </span>
+                                                                <h4>
+                                                                    Manifest V3
+                                                                    Background
+                                                                    Worker &amp;
+                                                                    Server Sync
+                                                                </h4>
                                                             </div>
                                                             <span className="arch-context-pill">
-                                                                EXTENSION SERVICE WORKER · ENCRYPTED STORE
+                                                                EXTENSION
+                                                                SERVICE WORKER ·
+                                                                ENCRYPTED STORE
                                                             </span>
                                                         </div>
                                                         <p className="arch-card-desc">
-                                                            An ephemeral background service worker coordinating pre-flight navigation classification and deterministic policy synchronization. Validates cryptographic signatures from the self-hosted Laravel research server and flushes anonymized audit logs over pinned TLS.
+                                                            An ephemeral
+                                                            background service
+                                                            worker coordinating
+                                                            pre-flight
+                                                            navigation
+                                                            classification and
+                                                            deterministic policy
+                                                            synchronization.
+                                                            Validates
+                                                            cryptographic
+                                                            signatures from the
+                                                            self-hosted Laravel
+                                                            research server and
+                                                            flushes anonymized
+                                                            audit logs over
+                                                            pinned TLS.
                                                         </p>
                                                         <div className="arch-feature-group">
-                                                            <span className="arch-feature-label">SERVICES &amp; SECURITY PROTOCOLS</span>
+                                                            <span className="arch-feature-label">
+                                                                SERVICES &amp;
+                                                                SECURITY
+                                                                PROTOCOLS
+                                                            </span>
                                                             <div className="arch-chips-wrap">
-                                                                <span className="arch-chip"><code>chrome.webNavigation.onCommitted</code></span>
-                                                                <span className="arch-chip"><code>chrome.alarms</code> Sync Worker</span>
-                                                                <span className="arch-chip">HMAC-SHA-256 Ruleset Signatures</span>
-                                                                <span className="arch-chip">AES Encrypted Local Storage</span>
-                                                                <span className="arch-chip">Pinned TLS Telemetry Queue</span>
+                                                                <span className="arch-chip">
+                                                                    <code>
+                                                                        chrome.webNavigation.onCommitted
+                                                                    </code>
+                                                                </span>
+                                                                <span className="arch-chip">
+                                                                    <code>
+                                                                        chrome.alarms
+                                                                    </code>{' '}
+                                                                    Sync Worker
+                                                                </span>
+                                                                <span className="arch-chip">
+                                                                    HMAC-SHA-256
+                                                                    Ruleset
+                                                                    Signatures
+                                                                </span>
+                                                                <span className="arch-chip">
+                                                                    AES
+                                                                    Encrypted
+                                                                    Local
+                                                                    Storage
+                                                                </span>
+                                                                <span className="arch-chip">
+                                                                    Pinned TLS
+                                                                    Telemetry
+                                                                    Queue
+                                                                </span>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -1981,53 +2185,217 @@ export default function Welcome({
                                                                 <polyline points="16 18 22 12 16 6" />
                                                                 <polyline points="8 6 2 12 8 18" />
                                                             </svg>
-                                                            <span>RUNTIME IMPLEMENTATION</span>
+                                                            <span>
+                                                                RUNTIME
+                                                                IMPLEMENTATION
+                                                            </span>
                                                         </div>
-                                                        <h4>Pre-Flight Interception Pipeline</h4>
+                                                        <h4>
+                                                            Pre-Flight
+                                                            Interception
+                                                            Pipeline
+                                                        </h4>
                                                         <p>
-                                                            Outbound dispatch hooks intercept network calls in real time, inspecting buffer contents against cached policy criteria prior to transmission release.
+                                                            Outbound dispatch
+                                                            hooks intercept
+                                                            network calls in
+                                                            real time,
+                                                            inspecting buffer
+                                                            contents against
+                                                            cached policy
+                                                            criteria prior to
+                                                            transmission
+                                                            release.
                                                         </p>
                                                     </div>
 
                                                     <div className="code-preview-glass">
                                                         <div className="code-header code-header-row">
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            <div
+                                                                style={{
+                                                                    display:
+                                                                        'flex',
+                                                                    alignItems:
+                                                                        'center',
+                                                                    gap: '8px',
+                                                                }}
+                                                            >
                                                                 <span className="code-dot" />
                                                                 <span className="code-title">
                                                                     interceptor-pipeline.ts
                                                                 </span>
                                                             </div>
                                                             <span className="code-lang-pill">
-                                                                TypeScript / Chromium V3
+                                                                TypeScript /
+                                                                Chromium V3
                                                             </span>
                                                         </div>
                                                         <pre className="code-snippet">
                                                             <code>
-                                                                <span className="c-comment">{'// Integrity-Verified Pre-Flight Transport Hook'}</span>{'\n'}
-                                                                <span className="c-keyword">const</span> dispatchHook = {'{'}{'\n'}
-                                                                {'  '}hook: <span className="c-string">"window.fetch"</span>,{'\n'}
-                                                                {'  '}action: <span className="c-keyword">async</span> (input: RequestInfo, init?: RequestInit) =&gt; {'{'}{'\n'}
-                                                                {'    '}<span className="c-comment">{'// 1. Extract outbound payload from memory buffer'}</span>{'\n'}
-                                                                {'    '}<span className="c-keyword">const</span> payload = <span className="c-keyword">await</span> extractBuffer(init?.body);{'\n'}
+                                                                <span className="c-comment">
+                                                                    {
+                                                                        '// Integrity-Verified Pre-Flight Transport Hook'
+                                                                    }
+                                                                </span>
                                                                 {'\n'}
-                                                                {'    '}<span className="c-comment">{'// 2. Check site policy against signed offline cache'}</span>{'\n'}
-                                                                {'    '}<span className="c-keyword">const</span> domainVerdict = <span className="c-keyword">await</span> classifyDomain(window.location.hostname);{'\n'}
+                                                                <span className="c-keyword">
+                                                                    const
+                                                                </span>{' '}
+                                                                dispatchHook ={' '}
+                                                                {'{'}
                                                                 {'\n'}
-                                                                {'    '}<span className="c-comment">{'// 3. In-memory pattern evaluation & score generation'}</span>{'\n'}
-                                                                {'    '}<span className="c-keyword">const</span> riskAssessment = <span className="c-keyword">await</span> scoreContent(payload, domainVerdict);{'\n'}
+                                                                {'  '}hook:{' '}
+                                                                <span className="c-string">
+                                                                    "window.fetch"
+                                                                </span>
+                                                                ,{'\n'}
+                                                                {
+                                                                    '  '
+                                                                }action:{' '}
+                                                                <span className="c-keyword">
+                                                                    async
+                                                                </span>{' '}
+                                                                (input:
+                                                                RequestInfo,
+                                                                init?:
+                                                                RequestInit)
+                                                                =&gt; {'{'}
                                                                 {'\n'}
-                                                                {'    '}<span className="c-comment">{'// 4. Intervene if sensitive patterns exceed threshold'}</span>{'\n'}
-                                                                {'    '}<span className="c-keyword">if</span> (riskAssessment.score &gt; <span className="c-num">60</span>) {'{'}{'\n'}
-                                                                {'      '}<span className="c-keyword">const</span> userDecision = <span className="c-keyword">await</span> shadowPrompt.requestConsent(riskAssessment);{'\n'}
-                                                                {'      '}<span className="c-keyword">if</span> (userDecision === <span className="c-string">"CANCEL"</span>) {'{'}{'\n'}
-                                                                {'        '}cleanInputFields();{'\n'}
-                                                                {'        '}<span className="c-keyword">throw new</span> DOMException(<span className="c-string">"Egress halted by user."</span>, <span className="c-string">"AbortError"</span>);{'\n'}
-                                                                {'      '}{'}'}{'\n'}
-                                                                {'    '}{'}'}{'\n'}
+                                                                {'    '}
+                                                                <span className="c-comment">
+                                                                    {
+                                                                        '// 1. Extract outbound payload from memory buffer'
+                                                                    }
+                                                                </span>
                                                                 {'\n'}
-                                                                {'    '}<span className="c-comment">{'// 5. Clean release without transport mutation'}</span>{'\n'}
-                                                                {'    '}<span className="c-keyword">return</span> nativeFetch(input, init);{'\n'}
-                                                                {'  '}{'}'}{'\n'}
+                                                                {'    '}
+                                                                <span className="c-keyword">
+                                                                    const
+                                                                </span>{' '}
+                                                                payload ={' '}
+                                                                <span className="c-keyword">
+                                                                    await
+                                                                </span>{' '}
+                                                                extractBuffer(init?.body);
+                                                                {'\n'}
+                                                                {'\n'}
+                                                                {'    '}
+                                                                <span className="c-comment">
+                                                                    {
+                                                                        '// 2. Check site policy against signed offline cache'
+                                                                    }
+                                                                </span>
+                                                                {'\n'}
+                                                                {'    '}
+                                                                <span className="c-keyword">
+                                                                    const
+                                                                </span>{' '}
+                                                                domainVerdict ={' '}
+                                                                <span className="c-keyword">
+                                                                    await
+                                                                </span>{' '}
+                                                                classifyDomain(window.location.hostname);
+                                                                {'\n'}
+                                                                {'\n'}
+                                                                {'    '}
+                                                                <span className="c-comment">
+                                                                    {
+                                                                        '// 3. In-memory pattern evaluation & score generation'
+                                                                    }
+                                                                </span>
+                                                                {'\n'}
+                                                                {'    '}
+                                                                <span className="c-keyword">
+                                                                    const
+                                                                </span>{' '}
+                                                                riskAssessment ={' '}
+                                                                <span className="c-keyword">
+                                                                    await
+                                                                </span>{' '}
+                                                                scoreContent(payload,
+                                                                domainVerdict);
+                                                                {'\n'}
+                                                                {'\n'}
+                                                                {'    '}
+                                                                <span className="c-comment">
+                                                                    {
+                                                                        '// 4. Intervene if sensitive patterns exceed threshold'
+                                                                    }
+                                                                </span>
+                                                                {'\n'}
+                                                                {'    '}
+                                                                <span className="c-keyword">
+                                                                    if
+                                                                </span>{' '}
+                                                                (riskAssessment.score
+                                                                &gt;{' '}
+                                                                <span className="c-num">
+                                                                    60
+                                                                </span>
+                                                                ) {'{'}
+                                                                {'\n'}
+                                                                {'      '}
+                                                                <span className="c-keyword">
+                                                                    const
+                                                                </span>{' '}
+                                                                userDecision ={' '}
+                                                                <span className="c-keyword">
+                                                                    await
+                                                                </span>{' '}
+                                                                shadowPrompt.requestConsent(riskAssessment);
+                                                                {'\n'}
+                                                                {'      '}
+                                                                <span className="c-keyword">
+                                                                    if
+                                                                </span>{' '}
+                                                                (userDecision
+                                                                ==={' '}
+                                                                <span className="c-string">
+                                                                    "CANCEL"
+                                                                </span>
+                                                                ) {'{'}
+                                                                {'\n'}
+                                                                {'        '}
+                                                                cleanInputFields();
+                                                                {'\n'}
+                                                                {'        '}
+                                                                <span className="c-keyword">
+                                                                    throw new
+                                                                </span>{' '}
+                                                                DOMException(
+                                                                <span className="c-string">
+                                                                    "Egress
+                                                                    halted by
+                                                                    user."
+                                                                </span>
+                                                                ,{' '}
+                                                                <span className="c-string">
+                                                                    "AbortError"
+                                                                </span>
+                                                                );{'\n'}
+                                                                {'      '}
+                                                                {'}'}
+                                                                {'\n'}
+                                                                {'    '}
+                                                                {'}'}
+                                                                {'\n'}
+                                                                {'\n'}
+                                                                {'    '}
+                                                                <span className="c-comment">
+                                                                    {
+                                                                        '// 5. Clean release without transport mutation'
+                                                                    }
+                                                                </span>
+                                                                {'\n'}
+                                                                {'    '}
+                                                                <span className="c-keyword">
+                                                                    return
+                                                                </span>{' '}
+                                                                nativeFetch(input,
+                                                                init);{'\n'}
+                                                                {'  '}
+                                                                {'}'}
+                                                                {'\n'}
                                                                 {'}'};
                                                             </code>
                                                         </pre>
@@ -2799,13 +3167,18 @@ export default function Welcome({
                                             />
                                         </div>
                                         <div className="dl-app-info">
-                                            <h3>ABLE - Adaptive Browser-Level Extension</h3>
+                                            <h3>
+                                                ABLE - Adaptive Browser-Level
+                                                Extension
+                                            </h3>
                                             <div className="meta-tags">
                                                 <span className="tag tag-highlight">
                                                     Chrome Web Store
                                                 </span>
                                                 <span className="tag">
-                                                    {extension_version ? `v${extension_version}` : 'v0.1.5'}
+                                                    {extension_version
+                                                        ? `v${extension_version}`
+                                                        : 'v0.1.5'}
                                                 </span>
                                                 <span className="tag">
                                                     Manifest V3

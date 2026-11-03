@@ -148,13 +148,15 @@ export function subscribeToNotifications(
     }
 
     const channel = instance.channel('notifications');
-    channel.listen('.notification.updated', (payload: NotificationUpdatePayload) => {
-        onNotificationChange(payload);
-    });
+    channel.listen(
+        '.notification.updated',
+        (payload: NotificationUpdatePayload) => {
+            onNotificationChange(payload);
+        },
+    );
 
     return () => {
         channel.stopListening('.notification.updated');
         instance.leaveChannel('notifications');
     };
 }
-

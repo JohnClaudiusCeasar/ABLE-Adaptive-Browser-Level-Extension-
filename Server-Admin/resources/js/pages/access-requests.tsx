@@ -175,8 +175,8 @@ export default function AccessRequestsPage({
                         style={{ fontFamily: "'Archivo', sans-serif" }}
                     >
                         Review 'Request Access' submissions sent from the
-                        extension's blocked-site modal. Approve verified requests
-                        to make them publicly visible in the live feed.
+                        extension's blocked-site modal. Approve verified
+                        requests to make them publicly visible in the live feed.
                     </p>
 
                     {/* Colored Icon + Text Sorting Pills (Identical to Feedback Page) */}

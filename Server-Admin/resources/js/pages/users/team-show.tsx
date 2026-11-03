@@ -131,9 +131,9 @@ export default function TeamShowPage({
     const activeRoleOption =
         roleOptions.find((option) => option.value === selectedRole) ??
         roleOptions[0];
-    const allModules = roleOptions.find(
-        (option) => option.value === 'superadmin',
-    )?.modules ?? [];
+    const allModules =
+        roleOptions.find((option) => option.value === 'superadmin')?.modules ??
+        [];
     const roleLabel =
         roleOptions.find((option) => option.value === member.role)?.label ??
         member.role ??
@@ -228,9 +228,7 @@ export default function TeamShowPage({
                                     size={16}
                                     className="text-muted-foreground"
                                 />
-                                <dt className="text-muted-foreground">
-                                    Email
-                                </dt>
+                                <dt className="text-muted-foreground">Email</dt>
                                 <dd className="ml-auto font-medium break-all">
                                     {member.email}
                                 </dd>
@@ -349,8 +347,7 @@ export default function TeamShowPage({
                                             className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0"
                                         >
                                             <td className="py-2.5">
-                                                {moduleLabels[module] ??
-                                                    module}
+                                                {moduleLabels[module] ?? module}
                                             </td>
                                             <td className="py-2.5 text-right">
                                                 {allowed ? (

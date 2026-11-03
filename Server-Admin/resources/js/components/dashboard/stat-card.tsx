@@ -39,7 +39,8 @@ export function StatCard({
             className={cn(
                 glassCard,
                 'flex flex-col gap-3 p-5',
-                onClick && 'cursor-pointer transition-colors hover:bg-[rgba(34,197,94,0.14)] focus-visible:outline-2 focus-visible:outline-[rgba(34,197,94,0.7)] dark:hover:bg-white/10',
+                onClick &&
+                    'cursor-pointer transition-colors hover:bg-[rgba(34,197,94,0.14)] focus-visible:outline-2 focus-visible:outline-[rgba(34,197,94,0.7)] dark:hover:bg-white/10',
             )}
             {...(onClick && {
                 role: 'button',

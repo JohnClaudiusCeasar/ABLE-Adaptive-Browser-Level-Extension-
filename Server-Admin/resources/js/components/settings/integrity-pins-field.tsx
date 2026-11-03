@@ -35,7 +35,7 @@ export function IntegrityPinsField({
                                 'font-mono text-xs break-all',
                                 hash
                                     ? 'text-foreground'
-                                    : 'italic text-muted-foreground',
+                                    : 'text-muted-foreground italic',
                             )}
                         >
                             {hash || 'not published'}

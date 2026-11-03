@@ -980,7 +980,11 @@ export default function CreateCriteriaPattern() {
                                                                         className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-[rgba(34,197,94,0.1)] hover:text-able-green"
                                                                         title="Add Sub-Item"
                                                                     >
-                                                                        <Plus size={16} />
+                                                                        <Plus
+                                                                            size={
+                                                                                16
+                                                                            }
+                                                                        />
                                                                     </button>
                                                                     <button
                                                                         type="button"
@@ -992,7 +996,11 @@ export default function CreateCriteriaPattern() {
                                                                         className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-[rgba(248,113,113,0.1)] hover:text-[#f87171]"
                                                                         title="Remove Item"
                                                                     >
-                                                                        <Trash2 size={16} />
+                                                                        <Trash2
+                                                                            size={
+                                                                                16
+                                                                            }
+                                                                        />
                                                                     </button>
                                                                 </div>
                                                             </td>
@@ -1139,7 +1147,11 @@ export default function CreateCriteriaPattern() {
                                                                                 className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-[rgba(248,113,113,0.1)] hover:text-[#f87171]"
                                                                                 title="Remove Sub-Item"
                                                                             >
-                                                                                <Trash2 size={16} />
+                                                                                <Trash2
+                                                                                    size={
+                                                                                        16
+                                                                                    }
+                                                                                />
                                                                             </button>
                                                                         </td>
                                                                     </tr>

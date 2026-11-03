@@ -1,5 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { ArrowLeft, ArrowUpDown, Eye, Search } from 'lucide-react';
+import { ArrowLeft, ArrowUpDown, Search } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { LiveTelemetryStatus } from '@/components/live-telemetry-status';
 import { TablePagination } from '@/components/pagination';
@@ -38,18 +38,25 @@ interface EgressIncidentsProps {
     recentShadowEgress: RecentShadowEgressItem[];
     truncated?: boolean;
     rowLimit?: number;
+    riskThreshold?: number;
 }
+
+const RISK_BAND_CLASS = {
+    high: 'border border-[#ff4d4d] bg-[rgba(255,77,77,0.2)] text-[#ff4d4d]',
+    medium: 'border border-[#f59e0b] bg-[rgba(245,158,11,0.2)] text-[#f59e0b]',
+    low: 'border border-[#00ff66] bg-[rgba(0,255,102,0.2)] text-[#00ff66]',
+} as const;
 
 function getRiskScoreBadgeClass(score: number): string {
     if (score >= 76) {
-        return 'border border-[#ff4d4d] bg-[rgba(255,77,77,0.2)] text-[#ff4d4d]';
+        return RISK_BAND_CLASS.high;
     }
 
     if (score >= 41) {
-        return 'border border-[#f59e0b] bg-[rgba(245,158,11,0.2)] text-[#f59e0b]';
+        return RISK_BAND_CLASS.medium;
     }
 
-    return 'border border-[#00ff66] bg-[rgba(0,255,102,0.2)] text-[#00ff66]';
+    return RISK_BAND_CLASS.low;
 }
 
 function formatTimestamp(ts: string): { date: string; time: string } {
@@ -76,6 +83,7 @@ export default function EgressIncidents({
     recentShadowEgress,
     truncated,
     rowLimit,
+    riskThreshold = 85,
 }: EgressIncidentsProps) {
     const [searchQuery, setSearchQuery] = useState('');
     const [sortOption, setSortOption] = useState<
@@ -326,31 +334,18 @@ export default function EgressIncidents({
                                                     {row.flagged_items &&
                                                     row.flagged_items.length >
                                                         0 ? (
-                                                        <span className="inline-flex items-center gap-2">
-                                                            <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-500">
-                                                                +
-                                                                {
-                                                                    row
-                                                                        .flagged_items
-                                                                        .length
-                                                                }{' '}
-                                                                Detected
-                                                            </span>
-                                                            <button
-                                                                type="button"
-                                                                title="View Flagged Items"
-                                                                onClick={() =>
-                                                                    setSelectedRow(
-                                                                        row,
-                                                                    )
-                                                                }
-                                                                className="cursor-pointer rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-[rgba(34,197,94,0.1)] hover:text-able-green"
-                                                            >
-                                                                <Eye
-                                                                    size={16}
-                                                                />
-                                                            </button>
-                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            title="View flagged risk factors"
+                                                            onClick={() =>
+                                                                setSelectedRow(
+                                                                    row,
+                                                                )
+                                                            }
+                                                            className="inline-flex cursor-pointer items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-500 transition-colors hover:border-amber-500/60 hover:bg-amber-500/20 focus-visible:ring-2 focus-visible:ring-amber-500/50 focus-visible:outline-none"
+                                                        >
+                                                            {`+${row.flagged_items.length} Detected`}
+                                                        </button>
                                                     ) : (
                                                         <span className="inline-flex items-center rounded-full border border-black/10 bg-black/5 px-2.5 py-0.5 text-xs font-semibold text-muted-foreground dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]">
                                                             {row.flagged_items
@@ -360,19 +355,35 @@ export default function EgressIncidents({
                                                     )}
                                                 </td>
                                                 <td className="py-3.5">
-                                                    <span
-                                                        className={cn(
-                                                            'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold',
-                                                            row.action ===
-                                                                'Denied'
-                                                                ? 'border border-emerald-500/30 bg-emerald-500/15 text-emerald-500'
-                                                                : row.action ===
-                                                                    'Proceeded'
-                                                                  ? 'border border-rose-500/30 bg-rose-500/15 text-rose-500'
-                                                                  : 'border border-sky-500/30 bg-sky-500/15 text-sky-500',
-                                                        )}
-                                                    >
-                                                        {row.action}
+                                                    <span className="inline-flex items-center gap-2">
+                                                        <span
+                                                            className={cn(
+                                                                'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                                                                row.action ===
+                                                                    'Denied'
+                                                                    ? 'border border-emerald-500/30 bg-emerald-500/15 text-emerald-500'
+                                                                    : row.action ===
+                                                                        'Proceeded'
+                                                                      ? 'border border-rose-500/30 bg-rose-500/15 text-rose-500'
+                                                                      : 'border border-sky-500/30 bg-sky-500/15 text-sky-500',
+                                                            )}
+                                                        >
+                                                            {row.action}
+                                                        </span>
+                                                        {row.action ===
+                                                            'Proceeded' &&
+                                                            row.risk_score <
+                                                                riskThreshold && (
+                                                                <span
+                                                                    className={cn(
+                                                                        'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                                                                        RISK_BAND_CLASS.low,
+                                                                    )}
+                                                                    title={`Below the ${riskThreshold}% interception threshold`}
+                                                                >
+                                                                    Low
+                                                                </span>
+                                                            )}
                                                     </span>
                                                 </td>
                                             </tr>
