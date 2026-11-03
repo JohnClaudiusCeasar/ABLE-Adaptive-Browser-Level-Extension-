@@ -415,7 +415,9 @@ export default function ShadowApps({
                                             </td>
                                             <td className="py-3.5">
                                                 <Link
-                                                    href="/policy-algorithm"
+                                                    href={`/policy-algorithm?highlight=${encodeURIComponent(
+                                                        row.domain,
+                                                    )}`}
                                                     title="View Policy"
                                                     className="inline-flex cursor-pointer rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-[rgba(34,197,94,0.1)] hover:text-able-green"
                                                 >

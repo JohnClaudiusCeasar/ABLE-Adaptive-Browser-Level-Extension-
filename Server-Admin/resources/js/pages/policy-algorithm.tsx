@@ -675,9 +675,7 @@ export default function PolicyAlgorithm() {
                 key={d.id}
                 data-highlight={d.domain === highlightDomain ? 'true' : 'false'}
                 className={`border-b border-black/10 transition-all last:border-b-0 dark:border-white/10 ${
-                    d.domain === highlightDomain
-                        ? 'highlight-glow ring-2 ring-[rgba(34,197,94,0.9)]'
-                        : ''
+                    d.domain === highlightDomain ? 'highlight-glow' : ''
                 }`}
             >
                 <td className={`px-4 py-4 ${isGrouped ? 'w-[28%]' : ''}`}>
@@ -868,12 +866,88 @@ export default function PolicyAlgorithm() {
         <>
             <Head title="Domain Policy" />
             <style>{`
-@keyframes pulse-glow {
-    0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
-    70% { box-shadow: 0 0 0 12px rgba(34, 197, 94, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+@keyframes highlight-pulse {
+    0%,
+    100% {
+        background-color: rgba(34, 197, 94, 0.04);
+    }
+    50% {
+        background-color: rgba(34, 197, 94, 0.14);
+    }
 }
-.highlight-glow { animation: pulse-glow 2s ease-in-out infinite; }
+
+@keyframes highlight-sweep {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -100% 0;
+    }
+}
+
+@keyframes highlight-edge-glow {
+    0%,
+    100% {
+        box-shadow:
+            inset 0 2px 0 rgba(34, 197, 94, 0.35),
+            inset 0 -2px 0 rgba(34, 197, 94, 0.35);
+    }
+    50% {
+        box-shadow:
+            inset 0 2px 0 rgba(34, 197, 94, 0.95),
+            inset 0 -2px 0 rgba(34, 197, 94, 0.95),
+            inset 0 9px 16px -10px rgba(34, 197, 94, 0.85),
+            inset 0 -9px 16px -10px rgba(34, 197, 94, 0.85);
+    }
+}
+
+/* The row wrapper is the <tr>; browsers do not paint box-shadow on table
+   rows, so the glow is painted on its cells instead. */
+.highlight-glow {
+    background-image: linear-gradient(
+        100deg,
+        transparent 20%,
+        rgba(34, 197, 94, 0.08) 35%,
+        rgba(34, 197, 94, 0.32) 50%,
+        rgba(34, 197, 94, 0.08) 65%,
+        transparent 80%
+    );
+    background-repeat: no-repeat;
+    background-size: 200% 100%;
+    animation:
+        highlight-pulse 2.6s ease-in-out infinite,
+        highlight-sweep 2.6s linear infinite;
+}
+
+.highlight-glow > td {
+    animation: highlight-edge-glow 2.6s ease-in-out infinite;
+}
+
+.highlight-glow > td:first-child {
+    border-left: 2px solid rgba(34, 197, 94, 0.8);
+}
+
+.highlight-glow > td:last-child {
+    border-right: 2px solid rgba(34, 197, 94, 0.8);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .highlight-glow,
+    .highlight-glow > td {
+        animation: none;
+    }
+
+    .highlight-glow {
+        background-image: none;
+        background-color: rgba(34, 197, 94, 0.12);
+    }
+
+    .highlight-glow > td {
+        box-shadow:
+            inset 0 2px 0 rgba(34, 197, 94, 0.8),
+            inset 0 -2px 0 rgba(34, 197, 94, 0.8);
+    }
+}
 `}</style>
             <div className="mx-auto w-full max-w-[1100px] px-8 pt-12 pb-[22px]">
                 {/* Header */}
