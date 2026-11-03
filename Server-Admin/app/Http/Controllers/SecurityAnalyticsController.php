@@ -7,6 +7,7 @@ use App\Models\DomainPolicy;
 use App\Models\DomainVisit;
 use App\Models\EgressEvent;
 use App\Models\NudgeInteraction;
+use App\Services\AbleSettingsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -264,6 +265,10 @@ class SecurityAnalyticsController extends Controller
     {
         $limit = $this->rowLimit();
 
+        // The threshold the extension intercepts uploads at, so the table can
+        // explain why a row proceeded. Defaults to the built-in 85.
+        $riskThreshold = (int) app(AbleSettingsService::class)->value('extension', 'behavior.risk_threshold', 85);
+
         $recentShadowEgress = EgressEvent::orderByDesc('occurred_at')
             ->limit($limit)
             ->get()
@@ -285,6 +290,7 @@ class SecurityAnalyticsController extends Controller
             'recentShadowEgress' => $recentShadowEgress,
             'truncated' => $recentShadowEgress->count() >= $limit,
             'rowLimit' => $limit,
+            'riskThreshold' => $riskThreshold,
         ]);
     }
 

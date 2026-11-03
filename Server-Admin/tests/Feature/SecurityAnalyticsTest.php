@@ -6,6 +6,7 @@ use App\Models\DomainPolicy;
 use App\Models\DomainVisit;
 use App\Models\EgressEvent;
 use App\Models\User;
+use App\Services\AbleSettingsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -95,6 +96,38 @@ class SecurityAnalyticsTest extends TestCase
                 ->where('shadowCatalog.0.domain', 'github.com')
                 ->where('shadowCatalog.0.user_visits', 2)
                 ->where('shadowCatalog.0.user_incidents', 1),
+            );
+    }
+
+    public function test_egress_incidents_page_receives_the_extension_block_threshold()
+    {
+        $admin = User::factory()->create();
+
+        // The table marks a Proceeded row as low risk against this number, so
+        // it has to be the threshold the extension actually intercepts at.
+        app(AbleSettingsService::class)->put('extension', 'behavior.risk_threshold', 55);
+
+        $response = $this->actingAs($admin)
+            ->get(route('security-analytics.egress-incidents'));
+
+        $response->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('security-analytics/egress-incidents')
+                ->where('riskThreshold', 55),
+            );
+    }
+
+    public function test_egress_incidents_page_defaults_the_threshold_to_85()
+    {
+        $admin = User::factory()->create();
+
+        $response = $this->actingAs($admin)
+            ->get(route('security-analytics.egress-incidents'));
+
+        $response->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('security-analytics/egress-incidents')
+                ->where('riskThreshold', 85),
             );
     }
 }
