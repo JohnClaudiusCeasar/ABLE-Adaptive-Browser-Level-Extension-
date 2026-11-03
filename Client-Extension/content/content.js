@@ -17,6 +17,43 @@ var recentScans = [];
 var DEDUPLICATION_WINDOW_MS = 5000;
 var guardTamperReported = false;
 
+// A content script can outlive the extension. Chrome does not tear down scripts
+// already injected into open tabs on update or uninstall; it only invalidates
+// `chrome.*`. Without this guard the orphaned script reads the dead context as
+// an unclassified, never-consented page and keeps rendering warning/hold
+// modals. Detect the orphan once and go inert for the rest of the page's life.
+var extensionOrphaned = false;
+var interceptionMessageHandler = null;
+var pageshowHandler = null;
+
+function isExtensionContextValid() {
+  try {
+    return typeof chrome !== "undefined" && !!chrome.runtime && !!chrome.runtime.id;
+  } catch {
+    return false;
+  }
+}
+
+function teardownOrphanedContentScript() {
+  if (extensionOrphaned) return;
+  extensionOrphaned = true;
+  console.warn("ABLE: Extension context invalidated; disabling ABLE in this tab.");
+  domainStatus = null;
+  try {
+    removeModal();
+  } catch {}
+  try {
+    if (interceptionMessageHandler) {
+      window.removeEventListener("message", interceptionMessageHandler);
+      interceptionMessageHandler = null;
+    }
+    if (pageshowHandler) {
+      window.removeEventListener("pageshow", pageshowHandler);
+      pageshowHandler = null;
+    }
+  } catch {}
+}
+
 /**
  * A page-world hook was replaced by page script. We cannot stop the request
  * from here, but the tamper attempt must not be silent: escalate it once per
@@ -94,10 +131,9 @@ async function classifyCurrentDomain() {
   var CLASSIFY_TIMEOUT_MS = 8000;
 
   try {
-    if (!chrome.runtime?.id) {
-      console.warn("ABLE: Extension context invalidated, using default classification.");
-      domainStatus = buildDefaultDomainStatus();
-      return domainStatus;
+    if (!isExtensionContextValid()) {
+      teardownOrphanedContentScript();
+      return null;
     }
 
     var signals = (typeof ABLEPageSignals !== "undefined")
@@ -279,6 +315,14 @@ function sendTextDecision(checkId, action) {
 // ─── Interception handling ──────────────────────────────────
 
 async function handleInterceptedFiles(fileInfos, requestId) {
+  if (!isExtensionContextValid()) {
+    teardownOrphanedContentScript();
+    // The page is still holding the upload on the other side; nothing can
+    // score it now, so release it rather than leave it stuck behind a hold.
+    sendDecision(requestId, "proceed");
+    return;
+  }
+
   if (classifyReady) await classifyReady;
 
   if (typeof ABLEProvenance === "undefined") {
@@ -473,6 +517,14 @@ async function handleInterceptedFiles(fileInfos, requestId) {
 // ─── Text check handling ────────────────────────────────────
 
 async function handleTextCheck(checkId, text, inputType, url) {
+  if (!isExtensionContextValid()) {
+    teardownOrphanedContentScript();
+    // Typed text already fails open when scoring is unavailable; a dead
+    // extension must release the held Enter the same way.
+    sendTextDecision(checkId, "allow");
+    return;
+  }
+
   try {
     var MAX_TEXT_LENGTH = 50000;
     if (text.length > MAX_TEXT_LENGTH) {
@@ -604,11 +656,18 @@ async function handleTextCheck(checkId, text, inputType, url) {
 // ─── Interception listener ──────────────────────────────────────────
 
 function setupInterceptionListener() {
+  if (extensionOrphaned) return;
+
   var pageNonce = crypto.getRandomValues(new Uint8Array(16));
   pageNonceHex = Array.from(pageNonce).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
 
-  window.addEventListener("message", async function (event) {
+  interceptionMessageHandler = async function (event) {
     if (event.data?.source !== "ABLE_INJECT") return;
+    if (extensionOrphaned) return;
+    if (!isExtensionContextValid()) {
+      teardownOrphanedContentScript();
+      return;
+    }
 
     if (event.data.type === "ABLE_READY") {
       injectReadyReceived = true;
@@ -711,7 +770,9 @@ function setupInterceptionListener() {
     if (event.data.type === "ABLE_SPA_NAVIGATION") {
       handleSPANavigation();
     }
-  });
+  };
+
+  window.addEventListener("message", interceptionMessageHandler);
 }
 
 // ─── Modal management ──────────────────────────────────────
@@ -772,7 +833,8 @@ async function logDomainVisit() {
   }
 
   try {
-    if (!chrome.runtime?.id) {
+    if (!isExtensionContextValid()) {
+      teardownOrphanedContentScript();
       return null;
     }
     var response = await Promise.race([
@@ -817,6 +879,11 @@ function showBlockedModalIfNeeded() {
 }
 
 async function evaluateAndShowModal(visitResult) {
+  if (!isExtensionContextValid()) {
+    teardownOrphanedContentScript();
+    return;
+  }
+
   if (showBlockedModalIfNeeded()) return;
 
   // Safe domains are scored silently and never nudged.
@@ -873,6 +940,11 @@ async function evaluateAndShowModal(visitResult) {
 }
 
 async function handleSPANavigation() {
+  if (!isExtensionContextValid()) {
+    teardownOrphanedContentScript();
+    return;
+  }
+
   // A blocked domain must be blocked on in-app navigation too, so this
   // path re-checks the block before bailing out on an existing modal.
   if (isBlockedDomain()) {
@@ -884,6 +956,8 @@ async function handleSPANavigation() {
 
   classifyReady = classifyCurrentDomain();
   await classifyReady;
+
+  if (!domainStatus) return;
 
   if (showBlockedModalIfNeeded()) return;
 
@@ -910,6 +984,11 @@ function injectFonts() {
 async function injectPageScript() {
   if (document.getElementById("able-inject-script")) return;
 
+  if (!isExtensionContextValid()) {
+    teardownOrphanedContentScript();
+    return;
+  }
+
   // Every page-world script must match a trusted hash before any of them is
   // executed. Checking inject.js on its own is not enough: it loads its
   // dependencies from the extension afterwards, and those would run unchecked.
@@ -921,6 +1000,10 @@ async function injectPageScript() {
       return;
     }
   } catch {
+    if (!isExtensionContextValid()) {
+      teardownOrphanedContentScript();
+      return;
+    }
     console.warn("ABLE: integrity check failed, aborting injection.");
     setupFallbackDetection();
     return;
@@ -931,6 +1014,10 @@ async function injectPageScript() {
   script.src = chrome.runtime.getURL("inject/inject.js");
   script.onload = function () { script.remove(); };
   script.onerror = function () {
+    if (!isExtensionContextValid()) {
+      teardownOrphanedContentScript();
+      return;
+    }
     console.warn("ABLE: inject.js failed to load (possible CSP block). Using fallback detection.");
     setupFallbackDetection();
   };
@@ -938,6 +1025,10 @@ async function injectPageScript() {
 
   setTimeout(function () {
     if (!injectReadyReceived) {
+      if (!isExtensionContextValid()) {
+        teardownOrphanedContentScript();
+        return;
+      }
       console.warn("ABLE: inject.js did not announce readiness within 5s. Using fallback detection.");
       setupFallbackDetection();
     }
@@ -947,6 +1038,11 @@ async function injectPageScript() {
 // ─── Fallback detection ─────────────────────────────────────────────
 
 function setupFallbackDetection() {
+  if (!isExtensionContextValid()) {
+    teardownOrphanedContentScript();
+    return;
+  }
+
   if (document.getElementById("able-fallback-active")) return;
   var marker = document.createElement("div");
   marker.id = "able-fallback-active";
@@ -1062,6 +1158,11 @@ function setupFallbackDetection() {
 var initialContentHash = null;
 
 async function initialize() {
+  if (!isExtensionContextValid()) {
+    teardownOrphanedContentScript();
+    return;
+  }
+
   injectFonts();
 
   var greetingDone = (typeof hasGreetingCompleted === "function")
@@ -1091,8 +1192,15 @@ async function initialize() {
 }
 
 async function continueInitialization() {
+  if (!isExtensionContextValid()) {
+    teardownOrphanedContentScript();
+    return;
+  }
+
   classifyReady = classifyCurrentDomain();
   await classifyReady;
+
+  if (!domainStatus) return;
 
   try {
     if (typeof ABLEPageSignals !== "undefined" && ABLEPageSignals.contentHash) {
@@ -1108,6 +1216,11 @@ async function continueInitialization() {
 
 function scheduleHydrationRecheck() {
   var run = async function () {
+    if (!isExtensionContextValid()) {
+      teardownOrphanedContentScript();
+      return;
+    }
+
     try {
       if (!domainStatus || !domainStatus.domain) return;
       if (isBlockedDomain()) {
@@ -1148,9 +1261,16 @@ if (document.readyState === "loading") {
   initialize();
 }
 
-window.addEventListener("pageshow", function (event) {
-  if (event.persisted) {
-    injectPageScript();
-    initialize();
+pageshowHandler = function (event) {
+  if (!event.persisted) return;
+  if (!isExtensionContextValid()) {
+    teardownOrphanedContentScript();
+    return;
   }
-});
+  injectPageScript();
+  initialize();
+};
+
+if (!extensionOrphaned) {
+  window.addEventListener("pageshow", pageshowHandler);
+}
