@@ -625,8 +625,8 @@ export default function EditCriteriaPattern() {
                         {/* Existing Pattern Picker */}
                         {showExistingPicker && (
                             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                                <div className="mx-4 w-full max-w-2xl rounded-xl border border-[rgba(34,197,94,0.3)] bg-white shadow-2xl dark:bg-[#0f172a]">
-                                    <div className="flex items-center justify-between border-b border-black/10 px-6 py-4 dark:border-white/10">
+                                <div className="mx-4 flex h-[36rem] max-h-[calc(100vh-3rem)] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-[rgba(34,197,94,0.3)] bg-white shadow-2xl dark:bg-[#0f172a]">
+                                    <div className="flex shrink-0 items-center justify-between border-b border-black/10 px-6 py-4 dark:border-white/10">
                                         <h3
                                             className="text-lg font-bold"
                                             style={{
@@ -647,8 +647,8 @@ export default function EditCriteriaPattern() {
                                             <X size={20} />
                                         </button>
                                     </div>
-                                    <div className="space-y-3 px-6 py-4">
-                                        <div className="flex items-center gap-3">
+                                    <div className="flex min-h-0 flex-1 flex-col gap-3 px-6 py-4">
+                                        <div className="flex shrink-0 items-center gap-3">
                                             <div className="relative flex-1">
                                                 <Search
                                                     size={14}
@@ -693,9 +693,9 @@ export default function EditCriteriaPattern() {
                                                 </option>
                                             </select>
                                         </div>
-                                        <div className="overflow-hidden rounded-lg border border-black/10 dark:border-white/10">
+                                        <div className="able-scrollbar min-h-0 flex-1 overflow-auto rounded-lg border border-black/10 dark:border-white/10">
                                             <table className="w-full text-sm">
-                                                <thead>
+                                                <thead className="sticky top-0 z-10 bg-white dark:bg-[#0f172a]">
                                                     <tr className="bg-black/5 dark:bg-white/5">
                                                         <th className="px-4 py-2.5 text-left font-normal text-muted-foreground">
                                                             Pattern Name
@@ -792,16 +792,6 @@ export default function EditCriteriaPattern() {
                                                 </tbody>
                                             </table>
                                         </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setShowExistingPicker(false);
-                                                setExistingSearch('');
-                                            }}
-                                            className="w-full cursor-pointer rounded-md border border-black/10 bg-transparent py-2 text-sm text-muted-foreground transition-colors hover:text-foreground dark:border-white/10"
-                                        >
-                                            Close
-                                        </button>
                                     </div>
                                 </div>
                             </div>
