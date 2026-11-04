@@ -347,6 +347,23 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
       .catch(function () { sendResponse({ success: false }); });
     return true;
   }
+  if (message.type === "logIntegrity") {
+    var integrityPayload = message.payload || {};
+    // Prefer the tab's own URL: it cannot be spoofed by the reporting page the
+    // way a DOM-derived hostname can.
+    try {
+      if (sender.tab && sender.tab.url) {
+        integrityPayload.domain = new URL(sender.tab.url).hostname.replace(/^www\./, "");
+      }
+    } catch (e) {
+      // Leave the reported domain in place when the tab URL is unavailable.
+    }
+    integrityPayload.extensionId = chrome.runtime.id;
+    logIntegrityEvent(integrityPayload)
+      .then(function () { sendResponse({ success: true }); })
+      .catch(function () { sendResponse({ success: false }); });
+    return true;
+  }
   if (message.type === "checkIntegrity") {
     // Re-run the integrity check on demand. Nothing is persisted: the popup
     // asks for the current state, so the answer is always accurate and no

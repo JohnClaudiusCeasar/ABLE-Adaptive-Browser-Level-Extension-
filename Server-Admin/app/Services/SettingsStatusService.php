@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\DomainPolicy;
 use App\Models\EgressEvent;
+use App\Models\ExtensionIntegrityEvent;
 use App\Models\ExtensionLifecycle;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -50,6 +51,19 @@ class SettingsStatusService
             'api_rate_limit' => (int) $this->settings->value('server', 'runtime.api_rate_limit', 120),
             'extension_threshold' => (int) $this->settings->value('extension', 'behavior.risk_threshold', 85),
             'server_threshold' => (int) $this->settings->value('server', 'algorithm.default_risk_threshold', 85),
+            'integrity_total' => $this->safeCount(fn () => ExtensionIntegrityEvent::count()),
+            'integrity_24h' => $this->safeCount(fn () => ExtensionIntegrityEvent::where('occurred_at', '>=', now()->subDay())->count()),
+            'recent_integrity_events' => $this->safeRows(fn () => ExtensionIntegrityEvent::orderByDesc('occurred_at')
+                ->limit(10)
+                ->get()
+                ->map(fn (ExtensionIntegrityEvent $event): array => [
+                    'occurred_at' => $event->occurred_at->toIso8601String(),
+                    'domain' => $event->domain,
+                    'reason' => $event->reason,
+                    'user' => $event->user_id,
+                    'version' => $event->version,
+                ])
+                ->all()),
             'record_counts' => $this->purge->counts(),
         ];
     }
@@ -80,6 +94,20 @@ class SettingsStatusService
             return (int) $callback();
         } catch (\Throwable) {
             return 0;
+        }
+    }
+
+    /**
+     * Read rows for a status card, tolerating an un-migrated table.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function safeRows(callable $callback): array
+    {
+        try {
+            return $callback();
+        } catch (\Throwable) {
+            return [];
         }
     }
 }

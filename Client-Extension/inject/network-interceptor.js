@@ -272,6 +272,13 @@ navigator.sendBeacon = function (url, data) {
       var checkFn = getRequestCheckFn();
       function startCheck(fileInfos) {
         if (fileInfos && fileInfos.length > 0 && checkFn) {
+          // sendBeacon cannot be held: this call returns immediately below and
+          // the browser sends the body. Tag the entries so the page world and
+          // the content script can tell a released transport apart from a
+          // held one, and record it as proceeded instead of denied.
+          for (var b = 0; b < fileInfos.length; b++) {
+            if (fileInfos[b]) fileInfos[b].source = 'beacon';
+          }
           checkFn(fileInfos).then(function () {});
         }
       }

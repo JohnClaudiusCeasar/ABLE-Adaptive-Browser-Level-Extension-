@@ -98,6 +98,23 @@ class EgressEventController extends Controller
             return response()->json(['success' => true, 'egress_event_id' => null]);
         }
 
+        // A guard-tamper signal is not a file upload. New clients report it on
+        // /api/extension/integrity; this backstop stops a pre-split client or a
+        // direct POST from refilling the egress ledger with a fabricated file.
+        if (EgressAuditPolicy::isTamperSignal(
+            $validated['source'] ?? null,
+            $validated['file_name'],
+            (int) ($validated['file_size'] ?? 0),
+            (int) $validated['risk_score'],
+        )) {
+            return response()->json([
+                'success' => true,
+                'egress_event_id' => null,
+                'skipped' => true,
+                'reason' => 'tamper_not_egress',
+            ]);
+        }
+
         // A valid scan token carries the server-computed verdict from
         // /api/score-content AND the metadata that verdict was computed for.
         // Replaying a token for a different file is rejected, and provenance is
@@ -200,6 +217,19 @@ class EgressEventController extends Controller
             if (isset($claims['flagged_items']) && is_array($claims['flagged_items'])) {
                 $flaggedItems = $claims['flagged_items'];
             }
+        }
+
+        // A file row must describe a real file. The extension never audits a
+        // zero-byte payload (provenance drops empty files), so a zero size can
+        // only come from a degraded or fabricated event that is not an upload.
+        // Text rows carry the text length here and are unaffected.
+        if ((int) ($validated['file_size'] ?? 0) < 1) {
+            return response()->json([
+                'success' => true,
+                'egress_event_id' => null,
+                'skipped' => true,
+                'reason' => 'not_a_file',
+            ]);
         }
 
         // Validate flagged_items JSON shape (client-supplied fallback when no token)

@@ -44,6 +44,7 @@ class EgressEventFlagTest extends TestCase
             'domain' => 'example.com',
             'user_id' => 'user-1',
             'file_name' => 'report.txt',
+            'file_size' => 1200,
             'risk_score' => 10,
             'action' => 'allowed',
         ]);

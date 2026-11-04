@@ -100,6 +100,61 @@ async function logExtensionLifecycle(args) {
   }
 }
 
+/**
+ * Report a page-world guard tamper.
+ *
+ * A tamper signal is not a file egress: nothing left the browser and no file
+ * was involved, so it is kept out of the egress ledger and sent to its own
+ * endpoint. Best-effort only — it is never queued or retried, because a stale
+ * tamper report is worse than a missing one.
+ */
+async function logIntegrityEvent(args) {
+  if (!args || !args.reason) return;
+
+  if (await ABLERateLimiter.isEndpointCoolingDown("log-integrity")) return;
+
+  // Content scripts cannot reach an http:// backend from an https page
+  // (Mixed Content), so delegate to the worker exactly like logEgressEvent.
+  if (typeof window !== 'undefined' && window.document && chrome.runtime && chrome.runtime.sendMessage) {
+    try {
+      await chrome.runtime.sendMessage({
+        type: "logIntegrity",
+        payload: args
+      });
+      return;
+    } catch (e) {
+      console.debug("ABLE: Delegating logIntegrity to background failed:", e.message);
+    }
+  }
+
+  try {
+    var userId = await getOrCreateUserId();
+    var manifest = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest)
+      ? chrome.runtime.getManifest()
+      : {};
+
+    var response = await ABLESecurity.secureFetch(`${SERVER_URL}/api/extension/integrity`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify({
+        user_id: userId,
+        domain: args.domain || null,
+        reason: args.reason,
+        extension_id: args.extensionId || (typeof chrome !== 'undefined' && chrome.runtime ? chrome.runtime.id : null),
+        version: manifest.version || null,
+        event_id: args.eventId || generateEventId(),
+        occurred_at: Date.now(),
+      }),
+    });
+
+    if (response.status === 429) {
+      await ABLERateLimiter.recordRateLimitBackoff("log-integrity", response);
+    }
+  } catch (error) {
+    // Silently fail
+  }
+}
+
 async function queueVisitLog(domain, status, source, userId, visitedAt, eventId) {
   try {
     var result = await chrome.storage.local.get(PENDING_VISITS_KEY);
@@ -439,6 +494,7 @@ if (typeof globalThis !== "undefined") {
   globalThis.ABLELogging = {
     getOrCreateUserId: getOrCreateUserId,
     logExtensionLifecycle: logExtensionLifecycle,
+    logIntegrityEvent: logIntegrityEvent,
     logDomainVisit: logDomainVisit,
     queueVisitLog: queueVisitLog,
     processVisitLogQueue: processVisitLogQueue,

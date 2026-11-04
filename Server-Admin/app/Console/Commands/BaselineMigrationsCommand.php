@@ -38,6 +38,7 @@ class BaselineMigrationsCommand extends Command
             'audit_logs' => '2026_08_20_000000_create_audit_logs_table',
             'extension_lifecycles' => '2026_08_20_000001_create_extension_lifecycles_table',
             'able_settings' => '2026_09_05_000000_create_able_settings_table',
+            'extension_integrity_events' => '2026_10_24_000000_create_extension_integrity_events_table',
         ];
 
         $baselined = 0;

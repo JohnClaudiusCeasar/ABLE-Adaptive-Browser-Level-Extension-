@@ -32,6 +32,41 @@ class EgressAuditPolicy
     public const TEXT_FILE_NAME = '[text-input]';
 
     /**
+     * The source older clients report for a guard-tamper signal.
+     */
+    public const TAMPER_SOURCE = 'tamper';
+
+    /**
+     * The fabricated file name those clients report for the same signal.
+     */
+    public const TAMPER_FILE_NAME = 'ABLE guard tampered';
+
+    /**
+     * True when the event is an extension guard-tamper report, not an upload.
+     *
+     * A tamper signal used to be pushed through the file-egress channel with a
+     * fabricated name, a zero size and a fixed 100 score. It is a security
+     * event, not a data transfer, so /api/log-egress drops it: the extension
+     * now reports it on /api/extension/integrity.
+     *
+     * The current clients send the `tamper` source. A client that was installed
+     * before the split may still flush a queued event, and the queued flush
+     * omits `source`, so the exact fabricated row is recognised by all three of
+     * name, size and score. A real user file that happens to be named this
+     * keeps its own size and score and is still audited.
+     */
+    public static function isTamperSignal(?string $source, ?string $fileName, int $fileSize, int $riskScore): bool
+    {
+        if ($source === self::TAMPER_SOURCE) {
+            return true;
+        }
+
+        return mb_strtolower(trim((string) $fileName)) === mb_strtolower(self::TAMPER_FILE_NAME)
+            && $fileSize === 0
+            && $riskScore === 100;
+    }
+
+    /**
      * True when the event describes typed text rather than a file upload.
      *
      * All three markers are checked: the source is what a current client

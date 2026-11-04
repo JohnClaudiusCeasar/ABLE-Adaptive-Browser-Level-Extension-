@@ -57,25 +57,41 @@ function teardownOrphanedContentScript() {
 /**
  * A page-world hook was replaced by page script. We cannot stop the request
  * from here, but the tamper attempt must not be silent: escalate it once per
- * page load as a denied egress event.
+ * page load as an integrity signal. This is not a file egress, so it is sent
+ * to the integrity endpoint rather than the egress ledger.
  */
 function handleGuardTamper(reason) {
   if (guardTamperReported) return;
   guardTamperReported = true;
   console.warn("ABLE: page-world guard tampering detected:", reason);
   try {
-    logEgressEvent({
+    logIntegrityEvent({
       domain: domainStatus?.domain || new URL(window.location.href).hostname.replace(/^www\./, ""),
-      fileName: "ABLE guard tampered",
-      fileSize: 0,
-      riskScore: 100,
-      action: "denied",
-      userAction: "cancelled",
-      source: "tamper",
-      nameSource: "page",
+      reason: reason || "unknown",
     });
   } catch (e) {
-    // Logging is best-effort; never let a tamper report break the page.
+    // Reporting is best-effort; never let a tamper report break the page.
+  }
+}
+
+var reportedInterceptionFailures = new Set();
+
+/**
+ * Report a degraded-interception condition: a request the extension could not
+ * score or hold. That is a guard-health signal, not a verified file egress, so
+ * it goes to the integrity endpoint and never into the incident ledger.
+ */
+function reportInterceptionFailure(reason) {
+  var key = reason || "unknown";
+  if (reportedInterceptionFailures.has(key)) return;
+  reportedInterceptionFailures.add(key);
+  try {
+    logIntegrityEvent({
+      domain: domainStatus?.domain || new URL(window.location.href).hostname.replace(/^www\./, ""),
+      reason: key,
+    });
+  } catch (e) {
+    // Reporting is best-effort; never let it break the page.
   }
 }
 
@@ -372,6 +388,65 @@ async function handleInterceptedFiles(fileInfos, requestId) {
         source: entries[j].source,
         nameSource: entries[j].nameSource,
       });
+    }
+    return;
+  }
+
+  // A beacon or ReadableStream request is released by the page-world
+  // interceptor the moment it is observed (inject/inject.js cannot hold those
+  // transports). The bytes are already gone, so a modal cannot stop them and a
+  // "denied" row would claim containment that never happened. Scan for the
+  // record, but audit what actually happened: the upload proceeded.
+  var releasedSource = fileInfos.some(function (info) {
+    return info && (info.source === "beacon" || info.source === "readablestream");
+  });
+
+  if (releasedSource) {
+    sendDecision(requestId, "proceed");
+
+    var releasedScans = await Promise.all(entries.map(function (entry) {
+      return scanFile(entry.file, entry.nameSource);
+    }));
+
+    var releasedBest = null;
+    for (var r = 0; r < releasedScans.length; r++) {
+      var releasedResult = releasedScans[r];
+      if (releasedResult && releasedResult.ok &&
+        (!releasedBest || releasedResult.score > releasedBest.score)) {
+        releasedBest = releasedResult;
+      }
+    }
+
+    if (releasedBest && isAuditableFileName(releasedBest.fileName, releasedBest.nameSource)) {
+      await logEgressEvent({
+        domain: domainStatus.domain,
+        fileName: releasedBest.fileName,
+        fileSize: releasedBest.fileSize,
+        riskScore: releasedBest.score,
+        action: "proceeded",
+        userAction: "proceeded",
+        source: primarySource,
+        nameSource: releasedBest.nameSource,
+        contentHash: releasedBest.contentHash,
+        scanDurationMs: releasedBest.scanDurationMs,
+        contentSize: releasedBest.fileSize,
+        flaggedItems: releasedBest.flaggedItems,
+        scanToken: releasedBest.scanToken,
+      });
+    } else {
+      var releasedEntry = entries[0];
+      if (isAuditableFileName(releasedEntry.file.name, releasedEntry.nameSource)) {
+        await logEgressEvent({
+          domain: domainStatus.domain,
+          fileName: releasedEntry.file.name,
+          fileSize: releasedEntry.file.size,
+          riskScore: currentDomainBaseline(),
+          action: "proceeded",
+          userAction: "proceeded",
+          source: primarySource,
+          nameSource: releasedEntry.nameSource,
+        });
+      }
     }
     return;
   }
@@ -714,46 +789,17 @@ function setupInterceptionListener() {
     }
 
     if (event.data.type === "ABLE_TIMEOUT") {
-      var _c = event.data.payload, fileInfos$1 = _c.fileInfos;
-      if (fileInfos$1 && fileInfos$1.length > 0) {
-        var domain = domainStatus?.domain || new URL(window.location.href).hostname.replace(/^www\./, "");
-        var firstInfo = fileInfos$1[0];
-        var timeoutFileName = firstInfo.file?.name || firstInfo.source || 'unknown';
-        if (isAuditableFileName(timeoutFileName, firstInfo.nameSource)) {
-          logEgressEvent({
-            domain: domain,
-            fileName: timeoutFileName,
-            fileSize: firstInfo.contentSize || firstInfo.file?.size || 0,
-            riskScore: currentDomainBaseline(),
-            action: "proceeded",
-            userAction: "proceeded",
-            source: firstInfo.source,
-            nameSource: firstInfo.nameSource,
-          });
-        }
-      }
+      // Interception timed out and the request was released unscored. That is a
+      // degradation of the guard, not a verified file egress, so it is reported
+      // as an integrity signal instead of an incident.
+      reportInterceptionFailure("intercept timeout");
       return;
     }
 
     if (event.data.type === "ABLE_NONCE_FAILED") {
-      var _d = event.data.payload, fileInfos$2 = _d.fileInfos;
-      if (fileInfos$2 && fileInfos$2.length > 0) {
-        var domain$1 = new URL(window.location.href).hostname.replace(/^www\./, "");
-        var firstInfo$1 = fileInfos$2[0];
-        var nonceFailedName = firstInfo$1.file?.name || firstInfo$1.source || 'unknown';
-        if (isAuditableFileName(nonceFailedName, firstInfo$1.nameSource)) {
-          logEgressEvent({
-            domain: domain$1,
-            fileName: nonceFailedName,
-            fileSize: firstInfo$1.contentSize || firstInfo$1.file?.size || 0,
-            riskScore: currentDomainBaseline(),
-            action: "proceeded",
-            userAction: "proceeded",
-            source: firstInfo$1.source,
-            nameSource: firstInfo$1.nameSource,
-          });
-        }
-      }
+      // The handshake never completed, so this request was never observing the
+      // guard. Report the degraded guard, not a file the extension never saw.
+      reportInterceptionFailure("nonce handshake failed");
       return;
     }
 
@@ -1049,108 +1095,12 @@ function setupFallbackDetection() {
   marker.style.display = "none";
   document.documentElement.appendChild(marker);
 
-  console.warn("ABLE: Fallback file detection active. Uploads cannot be intercepted, but selected files are still pattern-scored and logged.");
+  console.warn("ABLE: Fallback file detection active. Uploads cannot be intercepted in this mode, so they are not audited.");
 
-  var reportedInputs = new Set();
-
-  async function logFallbackFile(file, domain) {
-    if (typeof ABLEProvenance === "undefined") {
-      handleGuardTamper("provenance module missing (fallback)");
-      return;
-    }
-
-    // The fallback only sees trusted change events (see watchFileInput), so
-    // recording the selection here is legitimate. The isolated-world authority
-    // then re-derives provenance; this path never asserts "user" itself.
-    await ABLEProvenance.trackSelection(file);
-    var admitted = await ABLEProvenance.admit({ file: file, source: "fallback" });
-    if (!admitted) return;
-
-    var resolvedFile = admitted.file;
-    var nameSource = admitted.nameSource;
-    var scan = null;
-    try {
-      if (typeof scanFile === "function") {
-        scan = await scanFile(resolvedFile, nameSource);
-      }
-    } catch (err) {
-      console.warn("ABLE: Fallback file scan failed:", err.message || err);
-    }
-
-    if (scan && scan.ok) {
-      await logEgressEvent({
-        domain: domain,
-        fileName: scan.fileName,
-        fileSize: scan.fileSize,
-        riskScore: scan.score,
-        action: "proceeded",
-        userAction: "proceeded",
-        source: "fallback",
-        nameSource: scan.nameSource,
-        contentHash: scan.contentHash,
-        scanDurationMs: scan.scanDurationMs,
-        contentSize: scan.fileSize,
-        flaggedItems: scan.flaggedItems,
-        scanToken: scan.scanToken,
-      });
-      return;
-    }
-
-    await logEgressEvent({
-      domain: domain,
-      fileName: resolvedFile.name,
-      fileSize: resolvedFile.size,
-      riskScore: currentDomainBaseline(),
-      action: "proceeded",
-      userAction: "proceeded",
-      source: "fallback",
-      nameSource: nameSource,
-    });
-  }
-
-  function watchFileInput(el) {
-    if (reportedInputs.has(el)) return;
-    reportedInputs.add(el);
-    el.addEventListener("change", function (event) {
-      // A page can dispatch a synthetic change with a fabricated FileList.
-      // Only user-agent-initiated selections may reach the scanner.
-      if (!event.isTrusted) return;
-      if (el.files && el.files.length > 0) {
-        var domain = new URL(window.location.href).hostname.replace(/^www\./, "");
-        for (var i = 0; i < el.files.length; i++) {
-          logFallbackFile(el.files[i], domain);
-        }
-      }
-    }, true);
-  }
-
-  var observer = new MutationObserver(function (mutations) {
-    for (var m = 0; m < mutations.length; m++) {
-      var addedNodes = mutations[m].addedNodes;
-      for (var n = 0; n < addedNodes.length; n++) {
-        var node = addedNodes[n];
-        if (node.nodeType === 1) {
-          if (node instanceof HTMLInputElement && node.type === "file") {
-            watchFileInput(node);
-          }
-          var children = node.querySelectorAll("input[type='file']");
-          for (var c = 0; c < children.length; c++) {
-            watchFileInput(children[c]);
-          }
-        }
-      }
-    }
-  });
-
-  observer.observe(document.documentElement || document.body, {
-    childList: true,
-    subtree: true,
-  });
-
-  var existingInputs = document.querySelectorAll("input[type='file']");
-  for (var i = 0; i < existingInputs.length; i++) {
-    watchFileInput(existingInputs[i]);
-  }
+  // A selected file is not an egress event: the fallback cannot observe whether
+  // it is ever submitted, so it must not write incident rows. The degraded
+  // guard itself is still worth reporting once, on the integrity channel.
+  reportInterceptionFailure("fallback detection active");
 }
 
 // ─── Initialization ─────────────────────────────────────────

@@ -315,6 +315,8 @@ class ScopedClearRecordsTest extends TestCase
             ->where('status.record_counts.2.date_column', 'visited_at')
             ->where('status.record_counts.4.key', 'nudge_interactions')
             ->where('status.record_counts.4.implied_by', ['egress_events'])
+            ->where('status.record_counts.13.key', 'extension_integrity_events')
+            ->where('status.record_counts.13.date_column', 'occurred_at')
         );
     }
 

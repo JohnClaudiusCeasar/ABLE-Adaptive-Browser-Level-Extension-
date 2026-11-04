@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\DomainPolicy;
 use App\Models\DomainVisit;
 use App\Models\EgressEvent;
+use App\Models\ExtensionIntegrityEvent;
 use App\Models\Notification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -74,6 +75,28 @@ class PruneTelemetryCommandTest extends TestCase
 
         $this->assertNull(DomainVisit::find($oldVisit->id));
         $this->assertNull(Notification::withTrashed()->find($oldNotification->id));
+    }
+
+    public function test_it_prunes_integrity_events_older_than_the_retention_window(): void
+    {
+        $old = ExtensionIntegrityEvent::create([
+            'user_id' => 'ABLE-TEST1',
+            'domain' => 'old.test',
+            'reason' => 'fetch',
+            'occurred_at' => now()->subDays(400),
+        ]);
+
+        $recent = ExtensionIntegrityEvent::create([
+            'user_id' => 'ABLE-TEST1',
+            'domain' => 'recent.test',
+            'reason' => 'fetch',
+            'occurred_at' => now()->subDays(10),
+        ]);
+
+        $this->artisan('able:prune-telemetry --days=365')->assertSuccessful();
+
+        $this->assertNull(ExtensionIntegrityEvent::find($old->id));
+        $this->assertNotNull(ExtensionIntegrityEvent::find($recent->id));
     }
 
     public function test_it_leaves_configuration_alone(): void

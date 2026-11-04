@@ -31,6 +31,7 @@ if (typeof globalThis !== "undefined") {
   globalThis.logEgressEvent = ABLELogging.logEgressEvent;
   globalThis.getOrCreateUserId = ABLELogging.getOrCreateUserId;
   globalThis.logExtensionLifecycle = ABLELogging.logExtensionLifecycle;
+  globalThis.logIntegrityEvent = ABLELogging.logIntegrityEvent;
   globalThis.processVisitLogQueue = ABLELogging.processVisitLogQueue;
   globalThis.processEgressLogQueue = ABLELogging.processEgressLogQueue;
 }

@@ -8,12 +8,14 @@ use App\Models\ChatMessage;
 use App\Models\DomainPolicy;
 use App\Models\DomainVisit;
 use App\Models\EgressEvent;
+use App\Models\ExtensionIntegrityEvent;
 use App\Models\ExtensionLifecycle;
 use App\Models\LoginActivity;
 use App\Models\Notification;
 use App\Models\NudgeInteraction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
 class NotificationSyncTest extends TestCase
@@ -124,6 +126,37 @@ class NotificationSyncTest extends TestCase
         $this->assertContains('egress', $sources);
         $this->assertContains('domain', $sources);
         $this->assertContains('extension', $sources);
+    }
+
+    public function test_integrity_events_sync_once(): void
+    {
+        // The high-water mark lives in the cache, which is not reset by the
+        // database transaction, so start from a known state.
+        Cache::flush();
+
+        ExtensionIntegrityEvent::create([
+            'user_id' => 'ABLE-TESTUSER',
+            'domain' => 'example.com',
+            'reason' => 'fetch,xhr.send',
+            'extension_id' => 'abcdefghijklmnop',
+            'version' => '1.2.3',
+            'event_id' => 'integrity-event-1',
+            'occurred_at' => now(),
+        ]);
+
+        $user = $this->createUser();
+        $this->actingAs($user);
+
+        $this->get(route('notifications'))->assertOk();
+
+        $notification = Notification::where('source', 'integrity')->firstOrFail();
+        $this->assertSame('Extension Guard Tampered', $notification->type);
+        $this->assertSame('glass-unsafe', $notification->status);
+        $this->assertStringContainsString('example.com', $notification->description);
+
+        // A second sync must not create the same notification twice.
+        $this->get(route('notifications'))->assertOk();
+        $this->assertSame(1, Notification::where('source', 'integrity')->count());
     }
 
     public function test_each_notification_has_a_description(): void

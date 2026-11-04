@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CommunityMessage;
 use App\Models\DomainVisit;
 use App\Models\EgressEvent;
+use App\Models\ExtensionIntegrityEvent;
 use App\Models\ExtensionLifecycle;
 use App\Models\Notification;
 use App\Models\NudgeInteraction;
@@ -15,8 +16,8 @@ use Illuminate\Support\Facades\Schema;
  * Mirrors the research telemetry into the notifications table.
  *
  * Captured sources: egress events, domain visits, extension lifecycle,
- * community feedback. The mirror is idempotent: a notification is only
- * created once per source event.
+ * extension integrity signals, community feedback. The mirror is idempotent: a
+ * notification is only created once per source event.
  *
  * The telemetry tables grow for as long as the deployment is up, so the
  * mirror only looks at the rows it has not seen yet. Each source keeps a
@@ -48,6 +49,7 @@ class SyncNotifications
         $this->syncEgressEvents();
         $this->syncDomainVisits();
         $this->syncExtensionLifecycles();
+        $this->syncExtensionIntegrityEvents();
         $this->syncCommunityMessages();
     }
 
@@ -216,6 +218,58 @@ class SyncNotifications
                 }
 
                 $this->advanceWatermark('extension', $lifecycles->last()->id);
+            });
+    }
+
+    private function syncExtensionIntegrityEvents(): void
+    {
+        if (! Schema::hasTable('extension_integrity_events')) {
+            return;
+        }
+
+        $now = now();
+
+        ExtensionIntegrityEvent::query()
+            ->where('id', '>', $this->watermark('integrity'))
+            ->orderBy('id')
+            ->chunkById(self::CHUNK, function ($events) use ($now) {
+                $existing = $this->existingMessages('integrity', $events
+                    ->map(fn (ExtensionIntegrityEvent $event): string => 'extension-integrity-'.$event->id)
+                    ->all());
+
+                $records = [];
+                foreach ($events as $event) {
+                    $messageKey = 'extension-integrity-'.$event->id;
+                    if (isset($existing[$messageKey])) {
+                        continue;
+                    }
+
+                    $domain = $event->domain ?? 'an unknown site';
+                    $signal = $event->reason ?? 'unknown';
+
+                    $records[] = [
+                        'source' => 'integrity',
+                        'type' => 'Extension Guard Tampered',
+                        'description' => "ABLE guard tampering detected on {$domain} by {$event->user_id} (signal: {$signal})",
+                        'domain' => $event->domain,
+                        'user_id' => $event->user_id,
+                        'email' => null,
+                        'ip_address' => null,
+                        'risk_score' => null,
+                        'status' => 'glass-unsafe',
+                        'message' => $messageKey,
+                        'occurred_at' => $event->occurred_at,
+                        'read_at' => null,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+
+                if (! empty($records)) {
+                    Notification::insert($records);
+                }
+
+                $this->advanceWatermark('integrity', $events->last()->id);
             });
     }
 

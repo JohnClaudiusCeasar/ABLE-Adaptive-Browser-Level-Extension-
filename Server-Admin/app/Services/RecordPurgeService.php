@@ -222,6 +222,16 @@ class RecordPurgeService
                 'implied_by' => [],
                 'query' => fn (?Carbon $from, ?Carbon $to, array $selected): Builder => self::dated(DB::table('audit_logs'), 'occurred_at', $from, $to),
             ],
+            [
+                'key' => 'extension_integrity_events',
+                'table' => 'extension_integrity_events',
+                'label' => 'Extension integrity events',
+                'description' => 'Guard-tamper signals reported by the extension.',
+                'group' => self::GROUP_TELEMETRY,
+                'date_column' => 'occurred_at',
+                'implied_by' => [],
+                'query' => fn (?Carbon $from, ?Carbon $to, array $selected): Builder => self::dated(DB::table('extension_integrity_events'), 'occurred_at', $from, $to),
+            ],
         ];
     }
 

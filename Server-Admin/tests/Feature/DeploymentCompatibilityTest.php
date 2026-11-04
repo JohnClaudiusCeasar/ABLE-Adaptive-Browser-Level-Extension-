@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\DomainPolicy;
 use App\Models\DomainVisit;
 use App\Models\EgressEvent;
+use App\Models\ExtensionIntegrityEvent;
 use App\Models\ExtensionLifecycle;
 use App\Models\NudgeInteraction;
 use App\Models\User;
@@ -165,5 +166,22 @@ class DeploymentCompatibilityTest extends TestCase
             'Boolean column compared to an integer literal; PostgreSQL rejects this: %s',
             implode(' | ', $offenders)
         ));
+    }
+
+    /**
+     * The extension sends only the fields it always has: the pseudonymous user
+     * id and the tamper reason. Every other field is optional on the wire.
+     */
+    public function test_integrity_endpoint_accepts_the_extension_payload(): void
+    {
+        $response = $this->postJson('/api/extension/integrity', [
+            'user_id' => 'ABLE-TESTUSER',
+            'reason' => 'fetch',
+        ]);
+
+        $response->assertOk();
+
+        $this->assertSame(1, ExtensionIntegrityEvent::count());
+        $this->assertSame('fetch', ExtensionIntegrityEvent::first()->reason);
     }
 }

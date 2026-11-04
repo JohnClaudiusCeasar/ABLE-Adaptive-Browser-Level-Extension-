@@ -21,6 +21,11 @@
  *      it there would drop every high-risk text event before it is audited
  *   4. The table blueprint is unchanged: the event kind is read from the
  *      request, never persisted
+ *   5. Guard-tamper signals travel on their own endpoint and never enter the
+ *      egress ledger as a fabricated file
+ *   6. Degraded interception (timeout, failed handshake, fallback mode) is
+ *      reported as an integrity signal, and a released transport is recorded
+ *      as proceeded rather than as containment that never happened
  *
  * Run: npm run verify:audit-policy   (from Client-Extension/)
  */
@@ -215,6 +220,146 @@ check(
   "the server does not treat [text-input] as a placeholder",
   !serverBases.includes("[text-input]"),
   "bases=[" + serverBases.join(", ") + "]"
+);
+
+// ── 5. Guard-tamper signals stay out of the egress ledger ───────────────────
+// A tamper report is a security signal, not a data transfer. It must be sent
+// to its own endpoint on both sides; a fabricated "ABLE guard tampered" file
+// must never reach the egress audit again.
+const tamperStart = content.indexOf("function handleGuardTamper");
+const tamperEnd = content.indexOf("function isDuplicateScan");
+
+check(
+  "content/content.js has a guard-tamper handler",
+  tamperStart !== -1 && tamperEnd > tamperStart
+);
+
+const tamperHandler = tamperStart !== -1 ? content.slice(tamperStart, tamperEnd) : "";
+
+check(
+  "the tamper handler reports an integrity event",
+  /logIntegrityEvent\(/.test(tamperHandler)
+);
+check(
+  "the tamper handler does not write an egress row",
+  !/logEgressEvent\(/.test(tamperHandler)
+);
+check(
+  "the tamper handler does not fabricate a file name",
+  !/fileName\s*:/.test(tamperHandler)
+);
+
+const logging = readRel("api/logging.js");
+check(
+  "api/logging.js has an integrity logger",
+  /async function logIntegrityEvent/.test(logging)
+);
+check(
+  "the integrity logger posts to its own endpoint",
+  /\/api\/extension\/integrity/.test(logging)
+);
+check(
+  "the integrity logger is exported",
+  /logIntegrityEvent: logIntegrityEvent/.test(logging)
+);
+
+const background = readRel("background.js");
+check(
+  "the background worker routes logIntegrity messages",
+  /message\.type === "logIntegrity"/.test(background)
+);
+
+const policySource = fs.existsSync(policyPath) ? read(policyPath) : "";
+check(
+  "the server policy recognises a tamper signal",
+  /function isTamperSignal/.test(policySource)
+);
+check(
+  "the controller drops a tamper signal from the egress ledger",
+  /EgressAuditPolicy::isTamperSignal/.test(controller) &&
+    /tamper_not_egress/.test(controller)
+);
+check(
+  "the API registers the integrity endpoint",
+  /extension\/integrity/.test(readServer("routes/api.php"))
+);
+
+// ── 6. Degraded interception is not egress ──────────────────────────────────
+// A timeout, a failed handshake or a fallback detection means the guard could
+// not see the request. Those are guard-health signals, never incident rows.
+const failureHelperStart = content.indexOf("function reportInterceptionFailure");
+const failureHelperEnd = content.indexOf("function isDuplicateScan");
+check(
+  "content/content.js has an interception-failure reporter",
+  failureHelperStart !== -1 && failureHelperEnd > failureHelperStart
+);
+const failureHelper = failureHelperStart !== -1
+  ? content.slice(failureHelperStart, failureHelperEnd)
+  : "";
+check(
+  "the interception-failure reporter uses the integrity channel",
+  /logIntegrityEvent\(/.test(failureHelper)
+);
+check(
+  "the interception-failure reporter never writes an egress row",
+  !/logEgressEvent\(/.test(failureHelper)
+);
+
+const degradedStart = content.indexOf('if (event.data.type === "ABLE_TIMEOUT")');
+const degradedEnd = content.indexOf('if (event.data.type === "ABLE_FILE_SELECTED")');
+check(
+  "content/content.js has the degraded handlers",
+  degradedStart !== -1 && degradedEnd > degradedStart
+);
+const degradedHandlers = degradedStart !== -1
+  ? content.slice(degradedStart, degradedEnd)
+  : "";
+check(
+  "timeout and handshake failures are not audited as egress",
+  !/logEgressEvent\(/.test(degradedHandlers) &&
+    (degradedHandlers.match(/reportInterceptionFailure\(/g) || []).length === 2
+);
+
+const fallbackStart = content.indexOf("function setupFallbackDetection");
+const fallbackEnd = content.indexOf("function initialize");
+check(
+  "content/content.js has fallback detection",
+  fallbackStart !== -1 && fallbackEnd > fallbackStart
+);
+const fallback = fallbackStart !== -1 ? content.slice(fallbackStart, fallbackEnd) : "";
+check(
+  "fallback detection does not audit file selections as egress",
+  !/logEgressEvent\(/.test(fallback) && !/logFallbackFile/.test(fallback)
+);
+check(
+  "fallback detection reports the degraded guard once",
+  /reportInterceptionFailure\("fallback detection active"\)/.test(fallback)
+);
+
+const releasedStart = content.indexOf("var releasedSource");
+const releasedEnd = content.indexOf("// Parallel file scanning");
+check(
+  "content/content.js identifies released transports",
+  releasedStart !== -1 && releasedEnd > releasedStart
+);
+const released = releasedStart !== -1 ? content.slice(releasedStart, releasedEnd) : "";
+check("released transports are audited as proceeded", /action: "proceeded"/.test(released));
+check(
+  "released transports are never audited as denied",
+  !/action: "denied"/.test(released) && !/action: "blocked"/.test(released)
+);
+check(
+  "released transports never show a hold decision",
+  !/showInterceptModal|showScoreHoldModal/.test(released)
+);
+
+// sendBeacon returns before the body is extracted, so the interceptor must tag
+// those entries: without it the release is invisible and a cancel would record
+// containment that never happened.
+const interceptor = readRel("inject/network-interceptor.js");
+check(
+  "the beacon wrapper tags its entries as released",
+  /\.source\s*=\s*['"]beacon['"]/.test(interceptor)
 );
 
 // ── Report ──────────────────────────────────────────────────────────────────

@@ -4,6 +4,7 @@ use App\Http\Controllers\CommunityMessageController;
 use App\Http\Controllers\DomainPolicyController;
 use App\Http\Controllers\EgressEventController;
 use App\Http\Controllers\ExtensionConfigController;
+use App\Http\Controllers\ExtensionIntegrityController;
 use App\Http\Controllers\ExtensionLifecycleController;
 use App\Http\Controllers\RiskPatternController;
 use App\Http\Controllers\RiskScoringController;
@@ -21,5 +22,6 @@ Route::post('/score-content', [RiskScoringController::class, 'score'])->middlewa
 Route::post('/access-requests', [CommunityMessageController::class, 'storeAccessRequest'])->middleware('throttle:5,1');
 
 Route::post('/extension/lifecycle', [ExtensionLifecycleController::class, 'logLifecycle'])->middleware('throttle:60,1');
+Route::post('/extension/integrity', [ExtensionIntegrityController::class, 'logIntegrity'])->middleware('throttle:60,1');
 Route::get('/extension/uninstall', [ExtensionLifecycleController::class, 'logUninstall'])->middleware('throttle:60,1');
 Route::get('/extension/config', [ExtensionConfigController::class, 'signed'])->middleware('throttle:30,1');

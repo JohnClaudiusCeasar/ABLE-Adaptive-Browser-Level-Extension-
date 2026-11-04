@@ -35,6 +35,7 @@ class PruneTelemetryCommand extends Command
         'audit_logs' => 'occurred_at',
         'login_activities' => 'created_at',
         'extension_lifecycles' => 'occurred_at',
+        'extension_integrity_events' => 'occurred_at',
     ];
 
     /**

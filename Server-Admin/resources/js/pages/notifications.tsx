@@ -6,6 +6,7 @@ import {
     MessageSquare,
     Plug,
     Search,
+    ShieldAlert,
     Trash2,
     X,
 } from 'lucide-react';
@@ -25,7 +26,7 @@ const readCard =
 
 interface NotificationItem {
     id: number;
-    source: 'egress' | 'domain' | 'extension' | 'community';
+    source: 'egress' | 'domain' | 'extension' | 'integrity' | 'community';
     type: string;
     description: string | null;
     domain: string | null;
@@ -49,6 +50,7 @@ const sourceLabels: Record<NotificationItem['source'], string> = {
     egress: 'Egress',
     domain: 'Domain',
     extension: 'Extension',
+    integrity: 'Integrity',
     community: 'Community',
 };
 
@@ -56,6 +58,7 @@ const sourceIcons: Record<NotificationItem['source'], React.ElementType> = {
     egress: AlertTriangle,
     domain: Globe,
     extension: Plug,
+    integrity: ShieldAlert,
     community: MessageSquare,
 };
 
@@ -63,6 +66,7 @@ const sourceColors: Record<NotificationItem['source'], string> = {
     egress: 'text-red-400',
     domain: 'text-purple-400',
     extension: 'text-blue-400',
+    integrity: 'text-orange-400',
     community: 'text-emerald-400',
 };
 
@@ -70,6 +74,7 @@ const sourceBorderColors: Record<NotificationItem['source'], string> = {
     egress: 'border-l-red-500/60',
     domain: 'border-l-purple-500/60',
     extension: 'border-l-blue-500/60',
+    integrity: 'border-l-orange-500/60',
     community: 'border-l-emerald-500/60',
 };
 
@@ -77,6 +82,7 @@ const sourceBadgeClasses: Record<NotificationItem['source'], string> = {
     egress: 'bg-[rgba(255,77,77,0.12)] text-[rgba(255,77,77,0.85)]',
     domain: 'bg-[rgba(204,102,255,0.12)] text-[rgba(204,102,255,0.85)]',
     extension: 'bg-[rgba(59,130,246,0.12)] text-[rgba(59,130,246,0.85)]',
+    integrity: 'bg-[rgba(249,115,22,0.12)] text-[rgba(249,115,22,0.85)]',
     community:
         'bg-[rgba(34,197,94,0.12)] text-able-green dark:text-emerald-300',
 };
@@ -85,6 +91,7 @@ const allSources: NotificationItem['source'][] = [
     'egress',
     'domain',
     'extension',
+    'integrity',
     'community',
 ];
 
@@ -164,6 +171,7 @@ export default function Notifications() {
             egress: 0,
             domain: 0,
             extension: 0,
+            integrity: 0,
             community: 0,
         };
         const base = searchQuery

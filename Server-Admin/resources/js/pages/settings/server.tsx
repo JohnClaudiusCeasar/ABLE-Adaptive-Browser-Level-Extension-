@@ -1,4 +1,4 @@
-import { Form, Head, usePage } from '@inertiajs/react';
+import { Form, Head, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import ServerSettingsController from '@/actions/App/Http/Controllers/Settings/ServerSettingsController';
 import Heading from '@/components/heading';
@@ -28,6 +28,14 @@ type Ut1Run = {
     url?: string;
 } | null;
 
+type IntegrityEvent = {
+    occurred_at: string;
+    domain: string | null;
+    reason: string | null;
+    user: string;
+    version: string | null;
+};
+
 type ServerStatus = {
     signing_key_ok: boolean;
     key_version: number;
@@ -40,6 +48,9 @@ type ServerStatus = {
     api_rate_limit: number;
     extension_threshold: number;
     server_threshold: number;
+    integrity_total: number;
+    integrity_24h: number;
+    recent_integrity_events: IntegrityEvent[];
     record_counts?: RecordCount[];
 };
 
@@ -52,12 +63,22 @@ export default function ServerSettings() {
     const { settings, status } = usePage<PageProps>().props;
     const [showTelemetryPurge, setShowTelemetryPurge] = useState(false);
     const [showClearRecords, setShowClearRecords] = useState(false);
+    const [refreshingIntegrity, setRefreshingIntegrity] = useState(false);
+
+    const refreshIntegrity = () => {
+        setRefreshingIntegrity(true);
+        router.reload({
+            only: ['status'],
+            onFinish: () => setRefreshingIntegrity(false),
+        });
+    };
 
     const ut1 = status?.ut1_last_run;
     const thresholdsMatch =
         (status?.extension_threshold ?? 0) === (status?.server_threshold ?? 0);
     const recordCounts = status?.record_counts ?? [];
     const recordTotal = recordCounts.reduce((sum, item) => sum + item.count, 0);
+    const integrityEvents = status?.recent_integrity_events ?? [];
 
     return (
         <>
@@ -340,6 +361,106 @@ export default function ServerSettings() {
                                         }
                                     />
                                 </SettingsField>
+
+                                <SettingsSection
+                                    title="Extension integrity"
+                                    description="Guard-tamper signals reported by the extension. These are not file egress and never appear in Egress Logs."
+                                >
+                                    <div className="flex flex-wrap items-center justify-between gap-3">
+                                        <p className="text-sm text-muted-foreground">
+                                            <span className="font-medium text-foreground">
+                                                {status?.integrity_24h ?? 0}
+                                            </span>{' '}
+                                            in the last 24 hours
+                                            {' · '}
+                                            <span className="font-medium text-foreground">
+                                                {status?.integrity_total ?? 0}
+                                            </span>{' '}
+                                            total
+                                        </p>
+
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={refreshIntegrity}
+                                            disabled={refreshingIntegrity}
+                                        >
+                                            {refreshingIntegrity
+                                                ? 'Refreshing…'
+                                                : 'Refresh'}
+                                        </Button>
+                                    </div>
+
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full border-collapse text-[0.85rem]">
+                                            <thead>
+                                                <tr className="text-muted-foreground">
+                                                    <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
+                                                        Received
+                                                    </th>
+                                                    <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
+                                                        Domain
+                                                    </th>
+                                                    <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
+                                                        Signal
+                                                    </th>
+                                                    <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
+                                                        Client
+                                                    </th>
+                                                    <th className="border-b border-[rgba(34,197,94,0.7)] pr-2.5 pb-4 text-left font-medium">
+                                                        Version
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {integrityEvents.length ===
+                                                0 ? (
+                                                    <tr>
+                                                        <td
+                                                            colSpan={5}
+                                                            className="py-10 text-center text-muted-foreground"
+                                                        >
+                                                            No tamper signals
+                                                            reported.
+                                                        </td>
+                                                    </tr>
+                                                ) : (
+                                                    integrityEvents.map(
+                                                        (event, index) => (
+                                                            <tr
+                                                                key={`${event.occurred_at}-${index}`}
+                                                                className="border-b border-[rgba(34,197,94,0.3)] last:border-b-0"
+                                                            >
+                                                                <td className="py-3 pr-2.5">
+                                                                    {new Date(
+                                                                        event.occurred_at,
+                                                                    ).toLocaleString()}
+                                                                </td>
+                                                                <td className="py-3 pr-2.5">
+                                                                    {event.domain ||
+                                                                        '—'}
+                                                                </td>
+                                                                <td className="py-3 pr-2.5">
+                                                                    {event.reason ||
+                                                                        '—'}
+                                                                </td>
+                                                                <td className="py-3 pr-2.5">
+                                                                    {event.user ||
+                                                                        '—'}
+                                                                </td>
+                                                                <td className="py-3 pr-2.5">
+                                                                    {event.version ||
+                                                                        '—'}
+                                                                </td>
+                                                            </tr>
+                                                        ),
+                                                    )
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </SettingsSection>
                             </AdvancedDisclosure>
 
                             <div className="flex items-center gap-4">

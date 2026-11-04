@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\DomainPolicy;
+use App\Models\DomainVisit;
 use App\Models\EgressEvent;
 use App\Models\RiskPattern;
 use App\Support\ScanToken;
@@ -236,5 +237,83 @@ class EgressAuditPolicyTest extends TestCase
 
         $this->assertSame(1, EgressEvent::count());
         $this->assertSame('salaries.xlsx', EgressEvent::first()->file_name);
+    }
+
+    public function test_tamper_signal_is_not_written_to_the_egress_ledger(): void
+    {
+        $response = $this->postJson('/api/log-egress', [
+            'domain' => 'unknown-site.test',
+            'user_id' => 'ABLE-12345678',
+            'file_name' => 'ABLE guard tampered',
+            'file_size' => 0,
+            'risk_score' => 100,
+            'action' => 'denied',
+            'user_action' => 'cancelled',
+            'source' => 'tamper',
+            'name_source' => 'page',
+        ]);
+
+        $response->assertOk()->assertJson(['skipped' => true, 'reason' => 'tamper_not_egress']);
+
+        $this->assertSame(0, EgressEvent::count());
+        // The tamper must not fabricate a domain or a visit either.
+        $this->assertSame(0, DomainPolicy::count());
+        $this->assertSame(0, DomainVisit::count());
+    }
+
+    public function test_legacy_tamper_payload_is_recognised_without_a_source_marker(): void
+    {
+        // A pre-split client flushes its queue without "source", so the exact
+        // fabricated row is recognised by name, size and score.
+        $response = $this->postJson('/api/log-egress', [
+            'domain' => 'unknown-site.test',
+            'user_id' => 'ABLE-12345678',
+            'file_name' => 'ABLE guard tampered',
+            'file_size' => 0,
+            'risk_score' => 100,
+            'action' => 'denied',
+        ]);
+
+        $response->assertOk()->assertJson(['skipped' => true]);
+        $this->assertSame(0, EgressEvent::count());
+    }
+
+    public function test_a_real_file_that_matches_the_tamper_name_is_still_audited(): void
+    {
+        $response = $this->postJson('/api/log-egress', [
+            'domain' => 'unknown-site.test',
+            'user_id' => 'ABLE-12345678',
+            'file_name' => 'ABLE guard tampered',
+            'file_size' => 4096,
+            'risk_score' => 100,
+            'action' => 'proceeded',
+            'user_action' => 'proceeded',
+            'name_source' => 'user',
+        ]);
+
+        $response->assertOk();
+
+        $this->assertSame(1, EgressEvent::count());
+    }
+
+    public function test_a_zero_size_file_event_is_not_audited(): void
+    {
+        // The extension never audits an empty file: provenance drops a payload
+        // with no bytes. A zero-size row can only be a degraded or fabricated
+        // event, not an upload.
+        $response = $this->postJson('/api/log-egress', [
+            'domain' => 'unknown-site.test',
+            'user_id' => 'ABLE-12345678',
+            'file_name' => 'empty.pdf',
+            'file_size' => 0,
+            'risk_score' => 60,
+            'action' => 'proceeded',
+            'user_action' => 'proceeded',
+            'source' => 'file',
+            'name_source' => 'user',
+        ]);
+
+        $response->assertOk()->assertJson(['skipped' => true, 'reason' => 'not_a_file']);
+        $this->assertSame(0, EgressEvent::count());
     }
 }
