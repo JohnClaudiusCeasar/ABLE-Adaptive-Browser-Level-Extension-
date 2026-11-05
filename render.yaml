@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: able-server-admin
+    name: able-shadow-security
     runtime: docker
     dockerfilePath: ./Server-Admin/Dockerfile
     dockerContext: ./Server-Admin
