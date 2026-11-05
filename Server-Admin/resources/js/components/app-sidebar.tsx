@@ -4,6 +4,7 @@ import {
     CheckCircle2,
     FileCode2,
     Ghost,
+    Inbox,
     Laptop,
     LayoutGrid,
     Menu,
@@ -125,7 +126,7 @@ export const mainNavItems: NavItem[] = [
             {
                 title: 'Access and Feedback',
                 href: '/community-messages',
-                icon: MessageSquareText,
+                icon: Inbox,
                 permission: 'feedback',
             },
             {
@@ -255,9 +256,6 @@ export function AppSidebar() {
 
                 {/* Search Bar */}
                 <SidebarSearch items={navItems} />
-
-                {/* Divider */}
-                <div className="mx-auto my-2 w-4/5 border-t border-black/10 dark:border-white/10" />
             </SidebarHeader>
 
             <SidebarContent>

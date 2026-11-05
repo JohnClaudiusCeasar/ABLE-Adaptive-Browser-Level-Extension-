@@ -36,6 +36,14 @@ function buildNavTitleMap(): Map<string, LucideIcon> {
 const navTitleMap = buildNavTitleMap();
 
 /**
+ * Breadcrumb titles with no matching navigation title that should still
+ * inherit the icon of the navigation item they belong to.
+ */
+const breadcrumbIconAliases: Record<string, string> = {
+    'Community Feedback': 'Access and Feedback',
+};
+
+/**
  * Resolve icons for breadcrumb items by matching against the navigation structure.
  * Title matching takes precedence over href matching.
  */
@@ -44,7 +52,10 @@ export function getBreadcrumbsWithIcons(
 ): BreadcrumbWithIcon[] {
     return breadcrumbs.map((crumb) => {
         // Match by title first — this ensures each breadcrumb gets its own icon
-        const icon = navTitleMap.get(crumb.title);
+        const alias = breadcrumbIconAliases[crumb.title];
+        const icon =
+            navTitleMap.get(crumb.title) ??
+            (alias ? navTitleMap.get(alias) : undefined);
 
         return { ...crumb, icon };
     });

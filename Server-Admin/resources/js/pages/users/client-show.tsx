@@ -20,6 +20,7 @@ import { StatCard } from '@/components/dashboard/stat-card';
 import { LiveTelemetryStatus } from '@/components/live-telemetry-status';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { DatePicker, toISODate } from '@/components/ui/date-picker';
 import { cn } from '@/lib/utils';
 
 const glassCard =
@@ -196,8 +197,14 @@ export default function ClientTelemetryPage({
     date_to,
 }: ClientShowProps) {
     const [copied, setCopied] = useState(false);
-    const [from, setFrom] = useState(date_from);
-    const [to, setTo] = useState(date_to);
+    const today = new Date();
+    const todayISO = toISODate(today);
+    const weekFromTodayISO = toISODate(
+        new Date(today.getFullYear(), today.getMonth(), today.getDate() + 7),
+    );
+    const [from, setFrom] = useState(todayISO);
+    const [to, setTo] = useState(weekFromTodayISO);
+    const endMin = from > todayISO ? from : todayISO;
 
     const copyId = () => {
         navigator.clipboard.writeText(profile.user_id);
@@ -317,7 +324,7 @@ export default function ClientTelemetryPage({
                     </dl>
                 </header>
 
-                <div className={`${glassCard} mb-5 p-5`}>
+                <div className={`${glassCard} relative z-30 mb-5 p-5`}>
                     <div className="mb-4">
                         <h2 className="flex items-center gap-2 text-sm font-semibold tracking-wide text-foreground uppercase">
                             <CalendarDays
@@ -332,22 +339,21 @@ export default function ClientTelemetryPage({
                         </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
-                        <input
-                            type="date"
+                        <DatePicker
                             value={from}
+                            onChange={setFrom}
+                            min={todayISO}
                             max={to}
-                            onChange={(e) => setFrom(e.target.value)}
-                            className="rounded-full border border-black/10 bg-black/5 px-3.5 py-2 text-[0.85rem] outline-none dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]"
+                            ariaLabel="Activity range start date"
                         />
                         <span className="text-sm text-muted-foreground">
                             to
                         </span>
-                        <input
-                            type="date"
+                        <DatePicker
                             value={to}
-                            min={from}
-                            onChange={(e) => setTo(e.target.value)}
-                            className="rounded-full border border-black/10 bg-black/5 px-3.5 py-2 text-[0.85rem] outline-none dark:border-white/10 dark:bg-[rgba(15,23,42,0.4)]"
+                            onChange={setTo}
+                            min={endMin}
+                            ariaLabel="Activity range end date"
                         />
                         <Button
                             size="sm"
