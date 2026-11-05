@@ -9,6 +9,7 @@ use App\Models\EgressEvent;
 use App\Models\NudgeInteraction;
 use App\Services\AbleSettingsService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -22,36 +23,65 @@ class SecurityAnalyticsController extends Controller
      */
     public function index(): Response
     {
-        // 1. Discovered Shadow Apps - unique domains classified as unsafe/unlisted or blacklisted/under_review
-        $shadowDomainsQuery = DomainPolicy::where(function ($q) {
-            $q->whereIn('policy', ['blacklisted', 'under_review'])
-                ->orWhereIn('domain_status', ['unsafe', 'unlisted']);
-        });
-        $discoveredShadowApps = $shadowDomainsQuery->count();
-        if ($discoveredShadowApps === 0) {
-            $discoveredShadowApps = DomainPolicy::count();
-        }
+        // 1. Active Shadow Apps - domains with more than three proceeded egress events
+        // (same definition as the Dashboard's Active Shadow Apps card).
+        $activeShadowApps = EgressEvent::select('domain')
+            ->where('action', 'proceeded')
+            ->groupBy('domain')
+            ->havingRaw('COUNT(*) > 3')
+            ->count();
 
-        // 2. Shadow Adopters - unique installed extension users accessing shadow domains
-        $shadowDomainsSub = DomainPolicy::where(function ($q) {
-            $q->whereIn('policy', ['blacklisted', 'under_review'])
-                ->orWhereIn('domain_status', ['unsafe', 'unlisted']);
-        })->select('domain');
+        // Detail list behind the Active Shadow Apps card (same >3 proceeded definition).
+        /** @var Collection<int, object{id: int|null, domain: string, usage_count: int|string}> $activeShadowAppRows */
+        $activeShadowAppRows = EgressEvent::select(
+            'egress_events.domain',
+            'domain_policies.id',
+            DB::raw('COUNT(*) as usage_count')
+        )
+            ->leftJoin('domain_policies', 'domain_policies.domain', '=', 'egress_events.domain')
+            ->where('action', 'proceeded')
+            ->groupBy('egress_events.domain', 'domain_policies.id')
+            ->havingRaw('COUNT(*) > 3')
+            ->orderByDesc('usage_count')
+            ->limit(100)
+            ->get();
 
-        $shadowVisitUsersQuery = DomainVisit::where(function ($q) use ($shadowDomainsSub) {
-            $q->whereIn('domain', $shadowDomainsSub)
-                ->orWhereIn('status', ['unsafe', 'unlisted']);
-        })
+        $activeShadowAppsList = $activeShadowAppRows->map(fn ($row) => [
+            'id' => $row->id !== null ? (int) $row->id : null,
+            'domain' => $row->domain,
+            'usage_count' => (int) $row->usage_count,
+        ]);
+
+        // 2. Shadow Adopters - users with more than five egress attempts scoring at or
+        // above the interception threshold against unlisted/unsafe domains.
+        $riskThreshold = (int) app(AbleSettingsService::class)->value('extension', 'behavior.risk_threshold', 85);
+
+        $unlistedUnsafeDomains = DomainPolicy::whereIn('domain_status', ['unsafe', 'unlisted'])
+            ->select('domain');
+
+        $shadowAdopterQuery = fn () => EgressEvent::whereIn('domain', $unlistedUnsafeDomains)
             ->whereNotNull('user_id')
-            ->select('user_id');
-
-        $shadowEgressUsersQuery = EgressEvent::whereIn('domain', $shadowDomainsSub)
-            ->whereNotNull('user_id')
-            ->select('user_id');
+            ->where('risk_score', '>=', $riskThreshold)
+            ->select('user_id')
+            ->groupBy('user_id')
+            ->havingRaw('COUNT(*) > 5');
 
         $shadowAdopters = DB::query()
-            ->fromSub($shadowVisitUsersQuery->union($shadowEgressUsersQuery), 'shadow_adopters')
+            ->fromSub($shadowAdopterQuery(), 'shadow_adopters')
             ->count();
+
+        // Detail list behind the Shadow Adopters card, ordered by attempt volume.
+        $shadowAdopterList = $shadowAdopterQuery()
+            ->selectRaw('COUNT(*) as attempt_count')
+            ->orderByDesc('attempt_count')
+            ->orderBy('user_id')
+            ->limit($this->rowLimit())
+            ->get()
+            ->values()
+            ->map(fn ($row, int $index) => [
+                'id' => $index + 1,
+                'client_name' => $row->user_id,
+            ]);
 
         // 3. Shadow Egress Attempts
         $shadowEgressAttempts = EgressEvent::count();
@@ -146,7 +176,7 @@ class SecurityAnalyticsController extends Controller
 
         return Inertia::render('security-analytics', [
             'kpi' => [
-                'discoveredShadowApps' => $discoveredShadowApps,
+                'activeShadowApps' => $activeShadowApps,
                 'shadowAdopters' => $shadowAdopters,
                 'shadowEgressAttempts' => $shadowEgressAttempts,
                 'criticalEgressAttempts' => $criticalEgressAttempts,
@@ -154,6 +184,8 @@ class SecurityAnalyticsController extends Controller
                 'dataLost' => $this->formatBytes((int) $dataStats->data_lost),
                 'shadowContainmentRate' => $shadowContainmentRate,
             ],
+            'activeShadowAppsList' => $activeShadowAppsList,
+            'shadowAdopterList' => $shadowAdopterList,
             'velocityActivity' => $velocityActivity,
             'categoryDistribution' => $categoryDistribution,
             'policyStance' => $policyStance,

@@ -26,7 +26,7 @@ export function ActiveShadowAppsModal({
 }: ActiveShadowAppsModalProps) {
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-xl gap-6 border border-[rgba(34,197,94,0.4)] bg-background/95 backdrop-blur-xl sm:max-w-xl">
+            <DialogContent className="max-w-xl gap-[1.875rem] border border-[rgba(34,197,94,0.4)] bg-background/95 backdrop-blur-xl sm:max-w-xl">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Ghost size={18} className="text-[#a855f7]" />

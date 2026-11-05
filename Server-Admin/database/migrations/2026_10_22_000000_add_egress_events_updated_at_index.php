@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -62,7 +63,7 @@ return new class extends Migration
                     if ($driver === 'pgsql') {
                         DB::statement('DROP INDEX CONCURRENTLY IF EXISTS "'.$name.'"');
                     } else {
-                        DB::statement('DROP INDEX IF EXISTS "'.$name.'"');
+                        Schema::table($table, fn (Blueprint $blueprint) => $blueprint->dropIndex($name));
                     }
                 } catch (Throwable) {
                     // The index is already gone.
@@ -76,19 +77,26 @@ return new class extends Migration
      */
     private function createIndex(string $driver, string $table, string $name, array $columns): void
     {
-        $columnList = implode(', ', array_map(
-            fn (string $column): string => '"'.$column.'"',
-            $columns,
-        ));
+        if (Schema::hasIndex($table, $name)) {
+            return;
+        }
 
         try {
             if ($driver === 'pgsql') {
+                $columnList = implode(', ', array_map(
+                    fn (string $column): string => '"'.$column.'"',
+                    $columns,
+                ));
+
                 DB::statement('CREATE INDEX CONCURRENTLY IF NOT EXISTS "'.$name.'" ON "'.$table.'" ('.$columnList.')');
-            } elseif ($driver === 'sqlite') {
-                DB::statement('CREATE INDEX IF NOT EXISTS "'.$name.'" ON "'.$table.'" ('.$columnList.')');
-            } elseif (! Schema::hasIndex($table, $name)) {
-                DB::statement('CREATE INDEX "'.$name.'" ON "'.$table.'" ('.$columnList.')');
+
+                return;
             }
+
+            // The schema builder quotes identifiers per driver. Emitting raw
+            // double quotes here broke on MySQL, where "..." is a string
+            // literal, so the index was silently never created.
+            Schema::table($table, fn (Blueprint $blueprint) => $blueprint->index($columns, $name));
         } catch (Throwable) {
             // The index already exists, or the driver refused it. The
             // application works without it; it only costs a scan.

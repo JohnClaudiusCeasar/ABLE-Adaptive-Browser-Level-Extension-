@@ -6,17 +6,21 @@ import {
     ArrowUpFromLine,
     CheckCircle2,
 } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { ActiveShadowAppsModal } from '@/components/dashboard/active-shadow-apps-modal';
+import type { ActiveShadowApp } from '@/components/dashboard/active-shadow-apps-modal';
 import { DonutGauge } from '@/components/dashboard/donut-gauge';
 import { GroupedBarChart } from '@/components/dashboard/grouped-bar-chart';
 import { PanelCard } from '@/components/dashboard/panel-card';
+import { ShadowAdoptersModal } from '@/components/dashboard/shadow-adopters-modal';
+import type { ShadowAdopter } from '@/components/dashboard/shadow-adopters-modal';
 import { StatCard } from '@/components/dashboard/stat-card';
 import { LiveTelemetryStatus } from '@/components/live-telemetry-status';
 import { Button } from '@/components/ui/button';
 import { cn, formatMetricNumber } from '@/lib/utils';
 
 interface KPIData {
-    discoveredShadowApps: number;
+    activeShadowApps: number;
     shadowAdopters: number;
     shadowEgressAttempts: number;
     criticalEgressAttempts: number;
@@ -55,6 +59,8 @@ interface NudgeEfficacyData {
 
 interface ShadowAnalyticsProps {
     kpi: KPIData;
+    activeShadowAppsList: ActiveShadowApp[];
+    shadowAdopterList: ShadowAdopter[];
     velocityActivity: DailyVelocity[];
     categoryDistribution: CategoryDistItem[];
     policyStance: PolicyStanceData;
@@ -75,11 +81,16 @@ function getRiskScoreBadgeClass(score: number): string {
 
 export default function ShadowAnalytics({
     kpi,
+    activeShadowAppsList,
+    shadowAdopterList,
     velocityActivity,
     categoryDistribution,
     policyStance,
     nudgeEfficacy,
 }: ShadowAnalyticsProps) {
+    const [shadowAppsOpen, setShadowAppsOpen] = useState(false);
+    const [shadowAdoptersOpen, setShadowAdoptersOpen] = useState(false);
+
     // Donut Segments
     const policySegments = useMemo(
         () => [
@@ -149,12 +160,13 @@ export default function ShadowAnalytics({
                 <section>
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
                         <StatCard
-                            label="Shadow Apps"
-                            value={kpi.discoveredShadowApps}
+                            label="Active Shadow Apps"
+                            value={kpi.activeShadowApps}
                             icon={Ghost}
                             accent="text-[#a855f7]"
                             underline="bg-[#a855f7]"
-                            subtitle="Unapproved & unlisted"
+                            subtitle=">3 proceeded uploads"
+                            onClick={() => setShadowAppsOpen(true)}
                         />
                         <StatCard
                             label="Shadow Adopters"
@@ -163,6 +175,7 @@ export default function ShadowAnalytics({
                             accent="text-[#f59e0b]"
                             underline="bg-[#f59e0b]"
                             subtitle="Extension users"
+                            onClick={() => setShadowAdoptersOpen(true)}
                         />
                         <StatCard
                             label="Egress Attempts"
@@ -190,6 +203,18 @@ export default function ShadowAnalytics({
                         />
                     </div>
                 </section>
+
+                <ActiveShadowAppsModal
+                    open={shadowAppsOpen}
+                    onOpenChange={setShadowAppsOpen}
+                    apps={activeShadowAppsList}
+                />
+
+                <ShadowAdoptersModal
+                    open={shadowAdoptersOpen}
+                    onOpenChange={setShadowAdoptersOpen}
+                    adopters={shadowAdopterList}
+                />
 
                 {/* Divider */}
                 <div className="flex items-center gap-3">

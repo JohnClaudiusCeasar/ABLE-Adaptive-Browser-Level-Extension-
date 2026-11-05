@@ -54,6 +54,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libzip-dev \
     libpq-dev \
     libsqlite3-dev \
+    libicu-dev \
     zip \
     unzip \
     sqlite3 \
@@ -61,6 +62,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && docker-php-ext-install -j$(nproc) \
         bcmath \
         gd \
+        intl \
         opcache \
         pcntl \
         pdo \

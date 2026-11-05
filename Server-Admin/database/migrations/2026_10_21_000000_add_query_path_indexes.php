@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -16,7 +17,6 @@ use Illuminate\Support\Facades\Schema;
  *  - criteria_pattern_items.criteria_pattern_id, parent_id — the pattern corpus
  *  - risk_patterns.parent_criteria_id — the auto-created single patterns
  *  - domain_policies.block_access, created_at — the policy listing and status
- *  - egress_events.flagged_items — the per-pattern flag counts
  *  - notifications.deleted_at — the soft-delete filter on every read
  *  - domain_visits (domain_policy_id, domain, visited_at) — the visit debounce
  *  - jobs (queue, reserved_at, available_at) — the database queue's pop query
@@ -62,9 +62,6 @@ return new class extends Migration
             'domain_policies_block_access_idx' => ['block_access'],
             'domain_policies_created_at_idx' => ['created_at'],
         ],
-        'egress_events' => [
-            'egress_events_flagged_items_idx' => ['flagged_items'],
-        ],
         'notifications' => [
             'notifications_deleted_at_idx' => ['deleted_at'],
         ],
@@ -105,7 +102,7 @@ return new class extends Migration
                     if (DB::getDriverName() === 'pgsql') {
                         DB::statement('DROP INDEX CONCURRENTLY IF EXISTS "'.$name.'"');
                     } else {
-                        DB::statement('DROP INDEX IF EXISTS "'.$name.'"');
+                        Schema::table($table, fn (Blueprint $blueprint) => $blueprint->dropIndex($name));
                     }
                 } catch (Throwable) {
                     // The index is already gone.
@@ -119,19 +116,26 @@ return new class extends Migration
      */
     private function createIndex(string $driver, string $table, string $name, array $columns): void
     {
-        $columnList = implode(', ', array_map(
-            fn (string $column): string => '"'.$column.'"',
-            $columns,
-        ));
+        if (Schema::hasIndex($table, $name)) {
+            return;
+        }
 
         try {
             if ($driver === 'pgsql') {
+                $columnList = implode(', ', array_map(
+                    fn (string $column): string => '"'.$column.'"',
+                    $columns,
+                ));
+
                 DB::statement('CREATE INDEX CONCURRENTLY IF NOT EXISTS "'.$name.'" ON "'.$table.'" ('.$columnList.')');
-            } elseif ($driver === 'sqlite') {
-                DB::statement('CREATE INDEX IF NOT EXISTS "'.$name.'" ON "'.$table.'" ('.$columnList.')');
-            } elseif (! Schema::hasIndex($table, $name)) {
-                DB::statement('CREATE INDEX "'.$name.'" ON "'.$table.'" ('.$columnList.')');
+
+                return;
             }
+
+            // The schema builder quotes identifiers per driver. Emitting raw
+            // double quotes here broke on MySQL, where "..." is a string
+            // literal, so the index was silently never created.
+            Schema::table($table, fn (Blueprint $blueprint) => $blueprint->index($columns, $name));
         } catch (Throwable) {
             // The index already exists, or the driver refused it. The
             // application works without it; it only costs a scan.

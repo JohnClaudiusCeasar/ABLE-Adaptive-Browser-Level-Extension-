@@ -130,4 +130,113 @@ class SecurityAnalyticsTest extends TestCase
                 ->where('riskThreshold', 85),
             );
     }
+
+    public function test_shadow_adopters_only_counts_users_with_more_than_five_at_risk_egress_attempts()
+    {
+        $admin = User::factory()->create();
+
+        DomainPolicy::create([
+            'domain' => 'dropshare.io',
+            'domain_status' => 'unsafe',
+        ]);
+
+        $this->egressAttempts('usr_repeat', 6, 90);
+        $this->egressAttempts('usr_five_only', 5, 90);
+        $this->egressAttempts('usr_low_risk', 6, 40);
+
+        $response = $this->actingAs($admin)
+            ->get(route('security-analytics'));
+
+        $response->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('security-analytics')
+                ->where('kpi.shadowAdopters', 1)
+                ->has('shadowAdopterList', 1)
+                ->where('shadowAdopterList.0.id', 1)
+                ->where('shadowAdopterList.0.client_name', 'usr_repeat'),
+            );
+    }
+
+    public function test_shadow_adopters_respects_the_configured_risk_threshold()
+    {
+        $admin = User::factory()->create();
+
+        app(AbleSettingsService::class)->put('extension', 'behavior.risk_threshold', 55);
+
+        DomainPolicy::create([
+            'domain' => 'dropshare.io',
+            'domain_status' => 'unlisted',
+        ]);
+
+        // Scores 60: below the default 85, above the configured 55.
+        $this->egressAttempts('usr_above_configured', 6, 60);
+
+        $response = $this->actingAs($admin)
+            ->get(route('security-analytics'));
+
+        $response->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('security-analytics')
+                ->where('kpi.shadowAdopters', 1),
+            );
+    }
+
+    public function test_active_shadow_apps_counts_domains_with_more_than_three_proceeded_uploads()
+    {
+        $admin = User::factory()->create();
+
+        $policy = DomainPolicy::create([
+            'domain' => 'dropshare.io',
+            'domain_status' => 'unsafe',
+        ]);
+
+        $this->proceededUploads('dropshare.io', 4);
+        $this->proceededUploads('megaupload.net', 3);
+
+        // Denied uploads never make an app active.
+        $this->egressAttempts('usr_denied', 5, 90);
+
+        $response = $this->actingAs($admin)
+            ->get(route('security-analytics'));
+
+        $response->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('security-analytics')
+                ->where('kpi.activeShadowApps', 1)
+                ->has('activeShadowAppsList', 1)
+                ->where('activeShadowAppsList.0.id', $policy->id)
+                ->where('activeShadowAppsList.0.domain', 'dropshare.io')
+                ->where('activeShadowAppsList.0.usage_count', 4),
+            );
+    }
+
+    private function egressAttempts(string $userId, int $count, int $riskScore): void
+    {
+        for ($i = 0; $i < $count; $i++) {
+            EgressEvent::create([
+                'domain' => 'dropshare.io',
+                'user_id' => $userId,
+                'file_name' => "file-{$i}.txt",
+                'file_size' => 128,
+                'action' => 'denied',
+                'risk_score' => $riskScore,
+                'occurred_at' => now(),
+            ]);
+        }
+    }
+
+    private function proceededUploads(string $domain, int $count): void
+    {
+        for ($i = 0; $i < $count; $i++) {
+            EgressEvent::create([
+                'domain' => $domain,
+                'user_id' => 'usr_uploader',
+                'file_name' => "upload-{$i}.txt",
+                'file_size' => 256,
+                'action' => 'proceeded',
+                'risk_score' => 90,
+                'occurred_at' => now(),
+            ]);
+        }
+    }
 }
