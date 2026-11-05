@@ -1,10 +1,3 @@
-databases:
-  - name: able-postgres
-    plan: free
-    region: singapore
-    databaseName: able
-    user: able_user
-
 services:
   - type: web
     name: able-server-admin
@@ -43,3 +36,7 @@ services:
         value: stderr
       - key: LOG_LEVEL
         value: info
+      - key: BOOTSTRAP_SUPERADMIN_PASSWORD
+        sync: false
+      - key: ABLE_TELEMETRY_POLL_INTERVAL_MS
+        value: "30000"
