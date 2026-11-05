@@ -30,9 +30,9 @@ services:
       - key: DB_CONNECTION
         value: pgsql
       - key: DB_URL
-        fromDatabase:
-          name: able-postgres
-          property: connectionString
+        sync: false
+      - key: DB_SSLMODE
+        value: require
       - key: SESSION_DRIVER
         value: database
       - key: CACHE_STORE
