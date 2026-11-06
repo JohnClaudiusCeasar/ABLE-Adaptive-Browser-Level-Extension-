@@ -1,0 +1,92 @@
+{
+  "manifest_version": 3,
+  "name": "ABLE - Adaptive Browser-Level Extension",
+  "version": "0.1.52",
+  "description": "Monitors Website Trends, and Safeguards Institutional Data from risk of Shadow IT",
+  "permissions": [
+    "scripting",
+    "storage",
+    "alarms",
+    "tabs",
+    "webNavigation"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": [
+        "config.js",
+        "core/storage.js",
+        "core/security.js",
+        "core/runtime-settings.js",
+        "core/synthetic-names.js",
+        "core/file-identity.js",
+        "parsers/office-parser.js",
+        "api/rate-limiter.js",
+        "api/classification.js",
+        "api/risk-patterns.js",
+        "api/scoring.js",
+        "api/logging.js",
+        "api/index.js",
+        "content/page-signals.js",
+        "content/provenance.js",
+        "content/zoom.js",
+        "content/score-hold-modal.js",
+        "content/file-scanner.js",
+        "content/modal-container.js",
+        "content/intercept-modal.js",
+        "content/text-warning-modal.js",
+        "content/site-warning-modal.js",
+        "content/request-access-modal.js",
+        "content/blocked-access-modal.js",
+        "content/repeat-visit-modal.js",
+        "content/greeting-modal.js",
+        "content/content.js"
+      ],
+      "css": ["content.css"],
+      "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "content.css",
+        "inject/inject.js",
+        "core/synthetic-names.js",
+        "core/file-identity.js",
+        "inject/file-extractor.js",
+        "inject/network-interceptor.js",
+        "inject/file-tracker.js",
+        "assets/ABLE-LOGO.png",
+        "assets/ABLE-LOGO.svg",
+        "icons/icon-128.png",
+        "icons/ABLE-LOGO.png"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' http://localhost:8000 https://able-admin.internal:8443 https://able-shadow-security.onrender.com"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "ABLE - Adaptive Browser-Level Extension",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  }
+}

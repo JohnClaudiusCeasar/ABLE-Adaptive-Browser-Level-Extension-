@@ -13,11 +13,11 @@ const COMPANY_NAME = "ABLE";
  * origin and port can never disagree.
  *
  * DEVELOPMENT: http://localhost:8000
- * PRODUCTION:  https://able-server-admin.onrender.com
+ * PRODUCTION:  https://able-shadow-security.onrender.com
  *
  * Change this value before building for distribution.
  */
-const SERVER_URL = "https://able-server-admin.onrender.com";
+const SERVER_URL = "https://able-shadow-security.onrender.com";
 
 /**
  * Public keys for verifying signed offline cache payloads.

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ABLE - Extension</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700&family=Unbounded:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" href="icons/icon-32.png">
+  <link rel="stylesheet" href="popup.css">
+  <style>
+    html { width: 400px; min-height: 500px; }
+    body { width: 400px; min-height: 500px; margin: 0; padding: 0; }
+  </style>
+</head>
+<body>
+
+  <div class="bg-shape top-left-pill"></div>
+  <div class="bg-shape top-right-pill"></div>
+  <div class="bg-shape bottom-left-triangle"></div>
+  <div class="bg-shape bottom-right-triangle"></div>
+
+  <main class="container">
+
+    <header class="header">
+      <h1 class="brand-title">ABL<span class="highlight">E</span></h1>
+      <p class="brand-subtitle">Adaptive Browser-Level Extension</p>
+    </header>
+
+    <div class="status-pill" id="statusBadge">
+      <span class="status-dot"></span>
+      <span class="status-text" id="statusText">Status: Analyzing...</span>
+    </div>
+
+    <div class="sync-warning" id="syncWarning" hidden>
+      <strong>Server sync error:</strong>
+      <span id="syncWarningText"></span>
+    </div>
+
+    <div class="sync-warning" id="integrityWarning" hidden>
+      <strong>Integrity check failed:</strong>
+      <span id="integrityWarningText"></span>
+    </div>
+
+    <hr class="divider">
+
+    <section class="card info-card">
+      <div class="info-row">
+        <span class="label">Domain:</span>
+        <span class="value" id="domainValue">https://website.com/...</span>
+      </div>
+      <div class="info-row">
+        <span class="label">Status:</span>
+        <span class="value" id="statusValue">Analyzing...</span>
+      </div>
+    </section>
+
+    <section class="card welcome-card">
+      <h2 class="card-title" id="messageTitle">Welcome to ABLE</h2>
+      <div class="message-body" id="messageBody">
+        Initialize the extension to analyze the current website's security status.
+      </div>
+      <div class="message-suggestion" id="messageSuggestion"></div>
+      <button type="button" class="request-access-btn" id="requestAccessBtn" hidden>
+        Request Access
+      </button>
+      <form class="request-access-form" id="requestAccessForm" hidden>
+        <input
+          class="request-access-input"
+          id="requestAccessAlias"
+          type="text"
+          maxlength="32"
+          placeholder="Name or alias (optional)"
+        />
+        <textarea
+          class="request-access-textarea"
+          id="requestAccessReasons"
+          maxlength="800"
+          placeholder="Reasons for access..."
+        ></textarea>
+        <button type="button" class="request-access-submit" id="requestAccessSubmit">
+          Submit Request
+        </button>
+        <p class="request-access-status" id="requestAccessStatus"></p>
+      </form>
+    </section>
+
+    <footer class="footer">
+      <a href="#" id="viewGreetingLink" class="footer-link">Disclaimer</a>
+      <span class="footer-version">v0.1.52</span>
+    </footer>
+
+  </main>
+
+  <script src="config.js"></script>
+  <script src="core/storage.js"></script>
+  <script src="runtime-settings.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

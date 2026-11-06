@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ABLE - Adaptive Browser-Level Extension",
-  "version": "0.1.51",
+  "version": "0.1.52",
   "description": "Monitors Website Trends, and Safeguards Institutional Data from risk of Shadow IT",
   "permissions": [
     "scripting",
@@ -71,7 +71,7 @@
     }
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' http://localhost:8000 https://able-admin.internal:8443 https://able-server-admin.onrender.com"
+    "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' http://localhost:8000 https://able-admin.internal:8443 https://able-shadow-security.onrender.com"
   },
   "action": {
     "default_popup": "popup.html",

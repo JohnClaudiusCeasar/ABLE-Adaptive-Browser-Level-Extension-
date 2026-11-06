@@ -70,7 +70,7 @@ function showBlockedAccessModal(data) {
         if (window.history.length > 1) {
           window.history.back();
         } else {
-          window.location.href = (typeof SERVER_URL !== "undefined" ? SERVER_URL : "https://able-server-admin.onrender.com");
+          window.location.href = (typeof SERVER_URL !== "undefined" ? SERVER_URL : "https://able-shadow-security.onrender.com");
         }
       }
     });
