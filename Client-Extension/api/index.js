@@ -23,6 +23,7 @@ async function fetchSignedEnvelope(url) {
 if (typeof globalThis !== "undefined") {
   globalThis.fetchSignedEnvelope = fetchSignedEnvelope;
   globalThis.getDomainClassification = ABLEClassification.getDomainClassification;
+  globalThis.getRecommendationsFromCache = ABLEClassification.getRecommendationsFromCache;
   globalThis.getRiskPatterns = ABLEARiskPatterns.getRiskPatterns;
   globalThis.refreshRiskPatternsCache = ABLEARiskPatterns.refreshRiskPatternsCache;
   globalThis.requestContentScore = ABLEScoring.requestContentScore;

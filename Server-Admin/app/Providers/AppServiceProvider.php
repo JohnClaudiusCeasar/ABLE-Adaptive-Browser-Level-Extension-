@@ -6,9 +6,11 @@ use App\Listeners\LoginActivityListener;
 use App\Models\AbleSetting;
 use App\Models\CriteriaPatternItem;
 use App\Models\DomainPolicy;
+use App\Models\DomainRecommendation;
 use App\Models\RiskPattern;
 use App\Observers\AuditLogObserver;
 use App\Observers\DomainPolicyCacheObserver;
+use App\Observers\DomainRecommendationCacheObserver;
 use App\Observers\RiskPatternCacheObserver;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Events\Failed;
@@ -62,6 +64,10 @@ class AppServiceProvider extends ServiceProvider
         // The signed policy feed is rebuilt whenever a policy changes in a
         // way the extension can see.
         DomainPolicy::observe(DomainPolicyCacheObserver::class);
+
+        // Recommendations ride in the same signed feed, so they invalidate it
+        // too.
+        DomainRecommendation::observe(DomainRecommendationCacheObserver::class);
     }
 
     /**

@@ -444,6 +444,24 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     })();
     return true;
   }
+  if (message.type === "openRecommendation") {
+    (async function () {
+      try {
+        // The domain comes from server configuration, so never trust it as
+        // an arbitrary URL: HTTPS only, and only what URL() accepts.
+        var url = new URL(message.url);
+        if (url.protocol !== "https:") {
+          sendResponse({ success: false, reason: "invalid-url" });
+          return;
+        }
+        await chrome.tabs.create({ url: url.href });
+        sendResponse({ success: true });
+      } catch (error) {
+        sendResponse({ success: false, reason: error.message });
+      }
+    })();
+    return true;
+  }
   if (message.type === "openWelcomePage") {
     (async function () {
       try {
@@ -491,12 +509,20 @@ async function handleClassifyDomain(url, sendResponse, signals) {
     var serverResult = await getDomainClassification(url, signals);
 
     if (serverResult) {
+      // The server ships the sanctioned alternatives with the classification.
+      // Older servers (and the offline cache path) do not, so fall back to
+      // computing the same list from the signed policy feed.
+      var recommendations = Array.isArray(serverResult.recommendations)
+        ? serverResult.recommendations
+        : await getRecommendationsFromCache(serverResult.category, serverResult.domain);
+
       var messages = getStatusMessage(serverResult.status, serverResult.domain, serverResult.category, []);
       sendResponse({
         status: serverResult.status,
         domain: serverResult.domain,
         category: serverResult.category,
         alternatives: [],
+        recommendations: recommendations,
         risk_score: serverResult.risk_score,
         policy: serverResult.policy,
         block_access: !!serverResult.block_access,
@@ -511,6 +537,7 @@ async function handleClassifyDomain(url, sendResponse, signals) {
       var messages = getStatusMessage(defaultResult.status, defaultResult.domain, defaultResult.category, defaultResult.alternatives);
       sendResponse({
         ...defaultResult,
+        recommendations: [],
         title: messages.title,
         message: messages.message,
         source: "default",
@@ -525,6 +552,7 @@ async function handleClassifyDomain(url, sendResponse, signals) {
       var messages2 = getStatusMessage(defaultResult2.status, defaultResult2.domain, defaultResult2.category, defaultResult2.alternatives);
       sendResponse({
         ...defaultResult2,
+        recommendations: [],
         title: messages2.title,
         message: messages2.message,
         source: "error",
@@ -536,6 +564,7 @@ async function handleClassifyDomain(url, sendResponse, signals) {
         domain: "unknown",
         category: null,
         alternatives: [],
+        recommendations: [],
         policy: "under_review",
         risk_score: 60,
         title: messages3.title,

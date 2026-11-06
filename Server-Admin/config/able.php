@@ -109,7 +109,7 @@ return [
     |
     */
 
-    'extension_version' => env('ABLE_EXTENSION_VERSION', '0.1.52'),
+    'extension_version' => env('ABLE_EXTENSION_VERSION', '0.1.56'),
 
     /*
     |--------------------------------------------------------------------------
@@ -139,6 +139,20 @@ return [
         'block_access',
         'risk_score',
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | ABLE Extension - Recommendations
+    |--------------------------------------------------------------------------
+    |
+    | How many sanctioned alternatives the classify response may carry for a
+    | category. The extension's ABLE Recommends popup shows this list when a
+    | user enters an unsafe/unlisted domain that has a category. Keep
+    | ABLE_RECOMMENDATIONS_LIMIT in Client-Extension/config.js in sync.
+    |
+    */
+
+    'recommendations_limit' => (int) env('ABLE_RECOMMENDATIONS_LIMIT', 6),
 
     /*
     |--------------------------------------------------------------------------

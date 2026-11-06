@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\DomainPolicy;
+use App\Models\DomainRecommendation;
+use App\Support\AppCategories;
 use App\Support\JsCanonical;
 use Illuminate\Support\Facades\Cache;
 
@@ -112,9 +114,25 @@ class DomainPolicyFeed
 
         $list .= ']';
 
+        // The admin-curated alternatives. This rides in the same signed
+        // payload so the extension can show ABLE Recommends offline without a
+        // second request or cache. A flat list (not a map) keeps the empty
+        // case as [] on both sides, so the canonical bytes always agree.
+        $recommendations = [];
+
+        foreach (DomainRecommendation::query()->whereNotIn('category', AppCategories::RECOMMENDATION_EXCLUDED)->orderBy('category')->orderBy('domain')->get(['category', 'domain']) as $recommendation) {
+            $recommendations[] = [
+                'category' => $recommendation->category,
+                'domain' => $recommendation->domain,
+            ];
+        }
+
+        $recommendationsJson = JsCanonical::encode($recommendations);
+
         $unsigned = JsCanonical::assemble([
             'count' => (string) $count,
             'policies' => $list,
+            'recommendations' => $recommendationsJson,
         ]);
 
         $key = config('able.signing_key');
@@ -132,6 +150,7 @@ class DomainPolicyFeed
         $canonical = JsCanonical::assemble([
             'issued_at' => (string) now()->timestamp,
             'policies' => $list,
+            'recommendations' => $recommendationsJson,
         ]);
 
         $signature = JsCanonical::signRaw($canonical, $key);

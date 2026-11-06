@@ -15,35 +15,7 @@ namespace App\Support;
  */
 class HeuristicClassifier
 {
-    public const TAXONOMY = [
-        'Social Media',
-        'Search Engine',
-        'News & Media',
-        'E-commerce',
-        'Finance',
-        'Education',
-        'Government',
-        'Health',
-        'Technology',
-        'Entertainment',
-        'Gaming',
-        'Sports',
-        'Travel',
-        'Food & Dining',
-        'Real Estate',
-        'Automotive',
-        'Jobs & Careers',
-        'Productivity',
-        'Developer Tools',
-        'Cloud & Hosting',
-        'Email',
-        'Streaming',
-        'Gambling',
-        'Adult',
-        'Shopping',
-        'Reference',
-        'AI',
-    ];
+    public const TAXONOMY = AppCategories::NAMES;
 
     private const URL_WEIGHT = 3.0;
 

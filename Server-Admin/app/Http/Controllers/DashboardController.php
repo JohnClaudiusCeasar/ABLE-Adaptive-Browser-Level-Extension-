@@ -3,10 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\DomainPolicy;
+use App\Models\DomainRecommendation;
 use App\Models\DomainVisit;
 use App\Models\EgressEvent;
 use App\Models\ExtensionLifecycle;
 use App\Models\NudgeInteraction;
+use App\Support\AppCategories;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -193,6 +195,7 @@ class DashboardController extends Controller
             'recentEgressEvents' => $recentEgressEvents,
             'recentDomainVisits' => $recentDomainVisits,
             'shadowActivity' => $shadowActivity,
+            'recommendationCount' => DomainRecommendation::whereIn('category', AppCategories::recommendationNames())->count(),
         ]);
     }
 

@@ -147,10 +147,15 @@ const sandbox = {
   String,
   Number,
   JSON,
+  URL,
 };
 sandbox.window.document = document;
 sandbox.globalThis = sandbox;
 sandbox.window.globalThis = sandbox;
+
+// Defined in content.js in production; the site warning calls it when the
+// user acknowledges. The harness only needs it to exist.
+sandbox.setSiteWarningConsent = async function () {};
 
 const ctx = vm.createContext(sandbox);
 
@@ -158,6 +163,7 @@ function load(rel) {
   vm.runInContext(read(rel), ctx, { filename: rel });
 }
 
+load("config.js");
 load("core/storage.js");
 load("content/modal-container.js");
 load("content/intercept-modal.js");
@@ -166,6 +172,8 @@ load("content/score-hold-modal.js");
 load("content/request-access-modal.js");
 load("content/blocked-access-modal.js");
 load("content/greeting-modal.js");
+load("content/able-recommends-modal.js");
+load("content/site-warning-modal.js");
 
 // ── Capture rendered markup ─────────────────────────────────────
 const rendered = {};
@@ -491,6 +499,102 @@ async function greetingVerification() {
     storageStore[PRESENTED_KEY] !== true,
     "presented=" + storageStore[PRESENTED_KEY]);
 }
+
+// ── Site warning + ABLE Recommends ───────────────────────────────
+// The site warning is not part of the generic `modals` inventory above: it
+// has no cancel-classed button, and its second view is swapped into the
+// existing card rather than re-rendered. It carries its own contract.
+function siteWarningVerification() {
+  const base = {
+    title: "The site you are entering is UNSAFE",
+    message: "unsafe.example has been reviewed and declared unsafe to use.",
+    status: "unsafe",
+    domain: "unsafe.example",
+  };
+
+  const withRecs = capture("siteWarning", () => {
+    sandbox.showSiteWarningModal({
+      ...base,
+      category: "Productivity",
+      recommendations: ["notion.test", "asana.test"],
+    });
+  });
+
+  check("siteWarning: uses .able-modal-card", withRecs.includes("able-modal-card"));
+  check("siteWarning: two banner edges (top + bottom)",
+    (withRecs.match(/able-banner-edge/g) || []).length === 2);
+  check("siteWarning: has the I Understand button", withRecs.includes("ableWarningDismiss"));
+  check("siteWarning: has the ABLE Recommends button", withRecs.includes("ableWarningRecommend"));
+  check("siteWarning: recommend button uses .able-btn-alt", withRecs.includes("able-btn-alt"));
+  check("siteWarning: two paragraphs when recommending",
+    (withRecs.match(/<p>/g) || []).length === 2,
+    "paragraphs=" + (withRecs.match(/<p>/g) || []).length);
+  check("siteWarning: highlights the category",
+    withRecs.includes('able-highlight-text">Productivity</span>'));
+  check("siteWarning: no hardcoded hex colors in markup",
+    !/#[0-9A-Fa-f]{6}\b/.test(withRecs.replace(/var\(--[a-z-]+\)/g, "")));
+
+  // No category assigned → legacy warning, even if a stale list exists.
+  const noCategory = capture("siteWarningNoCategory", () => {
+    sandbox.showSiteWarningModal({
+      ...base,
+      category: null,
+      recommendations: ["notion.test"],
+    });
+  });
+  check("siteWarning(no category): no recommend button",
+    !noCategory.includes("ableWarningRecommend"));
+  check("siteWarning(no category): one paragraph",
+    (noCategory.match(/<p>/g) || []).length === 1);
+
+  // Category present but no sanctioned matches → same legacy warning.
+  const noMatches = capture("siteWarningNoMatches", () => {
+    sandbox.showSiteWarningModal({
+      ...base,
+      category: "Productivity",
+      recommendations: [],
+    });
+  });
+  check("siteWarning(no matches): no recommend button",
+    !noMatches.includes("ableWarningRecommend"));
+  check("siteWarning(no matches): one paragraph",
+    (noMatches.match(/<p>/g) || []).length === 1);
+
+  // Open the recommendation view from the button, then go back.
+  const before = stubs.length;
+  sandbox.showSiteWarningModal({
+    ...base,
+    category: "Productivity",
+    recommendations: ["notion.test", "asana.test"],
+  });
+
+  const recommendBtn = stubs.slice(before)
+    .filter((s) => s.selector === "#ableWarningRecommend")
+    .pop();
+  check("siteWarning: binds the recommend button", !!recommendBtn);
+  if (recommendBtn) recommendBtn.dispatch("click", {});
+
+  const recommendCard = stubs.filter((s) => s.selector === ".able-modal-card").pop();
+  const recommendsHtml = recommendCard ? recommendCard.innerHTML : "";
+  check("recommends: title ABLE RECOMMENDS", recommendsHtml.includes("ABLE RECOMMENDS"));
+  check("recommends: lists sanctioned domains",
+    recommendsHtml.includes("notion.test") && recommendsHtml.includes("asana.test"));
+  check("recommends: has a Back button", recommendsHtml.includes("ableRecommendsBack"));
+  check("recommends: two banner edges (top + bottom)",
+    (recommendsHtml.match(/able-banner-edge/g) || []).length === 2);
+  check("recommends: no hardcoded hex colors in markup",
+    !/#[0-9A-Fa-f]{6}\b/.test(recommendsHtml.replace(/var\(--[a-z-]+\)/g, "")));
+
+  const backBtn = stubs.filter((s) => s.selector === "#ableRecommendsBack").pop();
+  check("recommends: binds the Back button", !!backBtn);
+  if (backBtn) backBtn.dispatch("click", {});
+
+  const restoredCard = stubs.filter((s) => s.selector === ".able-modal-card").pop();
+  check("recommends: Back restores the warning view",
+    !!restoredCard && restoredCard.innerHTML.includes("ableWarningDismiss"));
+}
+
+siteWarningVerification();
 
 // ── Report ──────────────────────────────────────────────────────
 greetingVerification()

@@ -1,4 +1,4 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import {
     Users,
     UserMinus,
@@ -6,6 +6,8 @@ import {
     ShieldAlert,
     Ghost,
     ArrowUpFromLine,
+    ChevronRight,
+    Sparkles,
 } from 'lucide-react';
 import { useState } from 'react';
 import { ActiveShadowAppsModal } from '@/components/dashboard/active-shadow-apps-modal';
@@ -21,6 +23,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { truncateFileName, formatMetricNumber } from '@/lib/utils';
 import { dashboard } from '@/routes';
+
+const glassCard =
+    'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
 
 interface RecentEgressEvent {
     occurred_at: string;
@@ -68,6 +73,7 @@ interface DashboardProps {
     recentEgressEvents: RecentEgressEvent[];
     recentDomainVisits: RecentDomainVisit[];
     shadowActivity: DailyActivity[];
+    recommendationCount: number;
 }
 
 function formatTimestamp(ts: string): { date: string; time: string } {
@@ -105,8 +111,11 @@ export default function Dashboard({
     recentEgressEvents,
     recentDomainVisits,
     shadowActivity,
+    recommendationCount,
 }: DashboardProps) {
     const [shadowAppsOpen, setShadowAppsOpen] = useState(false);
+    const { auth } = usePage<{ auth: { modules: string[] } }>().props;
+    const canManagePolicy = auth?.modules?.includes('policy') ?? false;
 
     const totalDomains =
         domainUsage.safe + domainUsage.unsafe + domainUsage.unlisted;
@@ -247,6 +256,34 @@ export default function Dashboard({
                         onClick={() => setShadowAppsOpen(true)}
                     />
                 </div>
+
+                {canManagePolicy && (
+                    <Link
+                        href="/recommendation-policy"
+                        className={`${glassCard} group flex items-center justify-between gap-4 px-6 py-5 transition-colors hover:bg-[rgba(34,197,94,0.14)]`}
+                    >
+                        <span className="flex items-center gap-4">
+                            <span className="flex h-11 w-11 items-center justify-center rounded-full border border-[rgba(34,197,94,0.4)] bg-[rgba(34,197,94,0.12)] text-able-green">
+                                <Sparkles size={22} />
+                            </span>
+                            <span>
+                                <span className="block text-[0.7rem] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
+                                    ABLE Recommends
+                                </span>
+                                <span className="block text-sm text-muted-foreground">
+                                    {recommendationCount > 0
+                                        ? `${recommendationCount} sanctioned ${
+                                              recommendationCount === 1
+                                                  ? 'alternative'
+                                                  : 'alternatives'
+                                          } configured`
+                                        : 'Assign sanctioned alternatives for each app category.'}
+                                </span>
+                            </span>
+                        </span>
+                        <ChevronRight className="text-muted-foreground transition-transform group-hover:translate-x-1" />
+                    </Link>
+                )}
 
                 <ActiveShadowAppsModal
                     open={shadowAppsOpen}

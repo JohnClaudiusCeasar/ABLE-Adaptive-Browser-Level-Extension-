@@ -44,6 +44,7 @@ interface PageProps {
     domainPolicies: DomainPolicy[];
     truncated?: boolean;
     rowLimit?: number;
+    categories: { name: string; detail: string }[];
     [key: string]: unknown;
 }
 
@@ -93,108 +94,6 @@ const policyBadgeVariant: Record<
     under_review: 'glass-unlisted',
 };
 
-const CATEGORY_OPTIONS: { name: string; detail: string }[] = [
-    {
-        name: 'Social Media',
-        detail: 'Social networks, messaging, forums, and community platforms.',
-    },
-    {
-        name: 'Search Engine',
-        detail: 'Web search providers and metasearch portals.',
-    },
-    {
-        name: 'News & Media',
-        detail: 'News outlets, press, blogs, weather, and publishing.',
-    },
-    {
-        name: 'E-commerce',
-        detail: 'Online stores with carts, checkout, and product listings.',
-    },
-    {
-        name: 'Finance',
-        detail: 'Banks, payments, lending, trading, insurance, and billing.',
-    },
-    {
-        name: 'Education',
-        detail: 'Schools, universities, courses, LMS, and research.',
-    },
-    {
-        name: 'Government',
-        detail: 'Official government, municipal, and public-service sites.',
-    },
-    {
-        name: 'Health',
-        detail: 'Hospitals, clinics, pharmacies, and medical information.',
-    },
-    {
-        name: 'Technology',
-        detail: 'Software, hardware, gadgets, IT infrastructure, and tech news.',
-    },
-    {
-        name: 'AI',
-        detail: 'Artificial intelligence platforms, LLMs, AI assistants, and generative tools.',
-    },
-    {
-        name: 'Entertainment',
-        detail: 'Movies, music, celebrities, events, and fan content.',
-    },
-    {
-        name: 'Gaming',
-        detail: 'Video games, storefronts, esports, and walkthroughs.',
-    },
-    { name: 'Sports', detail: 'Leagues, teams, scores, and sports coverage.' },
-    {
-        name: 'Travel',
-        detail: 'Flights, hotels, bookings, maps, and ride-hailing.',
-    },
-    {
-        name: 'Food & Dining',
-        detail: 'Restaurants, recipes, menus, and food delivery.',
-    },
-    {
-        name: 'Real Estate',
-        detail: 'Property listings, rentals, and brokerage sites.',
-    },
-    {
-        name: 'Automotive',
-        detail: 'Car makers, dealers, parts, and vehicle marketplaces.',
-    },
-    {
-        name: 'Jobs & Careers',
-        detail: 'Job boards, hiring, resumes, and freelance gigs.',
-    },
-    {
-        name: 'Productivity',
-        detail: 'Docs, calendars, notes, chat, meetings, and task tools.',
-    },
-    {
-        name: 'Developer Tools',
-        detail: 'Code hosting, docs, SDKs, packages, and cloud dev platforms.',
-    },
-    {
-        name: 'Cloud & Hosting',
-        detail: 'Hosting, domains, VPS, CDNs, and file hosting.',
-    },
-    { name: 'Email', detail: 'Webmail providers and hosted inbox services.' },
-    {
-        name: 'Streaming',
-        detail: 'Video, music, and podcast streaming platforms.',
-    },
-    {
-        name: 'Gambling',
-        detail: 'Casinos, betting, poker, lottery, and wagering.',
-    },
-    { name: 'Adult', detail: 'Adult-only and explicit content sites.' },
-    {
-        name: 'Shopping',
-        detail: 'Deals, coupons, marketplaces, and price comparison.',
-    },
-    {
-        name: 'Reference',
-        detail: 'Wikis, dictionaries, docs, manuals, and how-tos.',
-    },
-];
-
 const statusLabels: Record<string, string> = {
     safe: 'Safe',
     unsafe: 'Unsafe',
@@ -210,9 +109,11 @@ const policyLabels: Record<string, string> = {
 function CategoryPicker({
     value,
     onChange,
+    categories,
 }: {
     value: string;
     onChange: (category: string) => void;
+    categories: { name: string; detail: string }[];
 }) {
     const [open, setOpen] = useState(false);
     const [draft, setDraft] = useState(value);
@@ -263,11 +164,10 @@ function CategoryPicker({
 
     const query = draft.trim().toLowerCase();
     const filtered = query
-        ? CATEGORY_OPTIONS.filter((c) => c.name.toLowerCase().includes(query))
-        : CATEGORY_OPTIONS;
+        ? categories.filter((c) => c.name.toLowerCase().includes(query))
+        : categories;
     const showCustom =
-        query !== '' &&
-        !CATEGORY_OPTIONS.some((c) => c.name.toLowerCase() === query);
+        query !== '' && !categories.some((c) => c.name.toLowerCase() === query);
 
     return (
         <div ref={rootRef} className="relative w-full">
@@ -351,7 +251,8 @@ function CategoryPicker({
 }
 
 export default function PolicyAlgorithm() {
-    const { domainPolicies, truncated, rowLimit } = usePage<PageProps>().props;
+    const { domainPolicies, truncated, rowLimit, categories } =
+        usePage<PageProps>().props;
 
     const initialHighlight =
         typeof window !== 'undefined'
@@ -1292,6 +1193,7 @@ export default function PolicyAlgorithm() {
                                 </label>
                                 <CategoryPicker
                                     value={form.category}
+                                    categories={categories}
                                     onChange={(category) =>
                                         setForm({
                                             ...form,
@@ -1305,6 +1207,13 @@ export default function PolicyAlgorithm() {
                                     value={form.classification_source}
                                     readOnly
                                 />
+                                {form.policy === 'whitelisted' && (
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        {form.category
+                                            ? `Whitelisted domains appear under ABLE Recommends for "${form.category}".`
+                                            : 'Whitelisted domains appear under ABLE Recommends for their category. Set a category to enable it.'}
+                                    </p>
+                                )}
                             </div>
                             <div>
                                 <label className="mb-1 block text-sm font-medium text-muted-foreground">

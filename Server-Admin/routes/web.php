@@ -8,6 +8,7 @@ use App\Http\Controllers\DomainPolicyController;
 use App\Http\Controllers\DomainVisitController;
 use App\Http\Controllers\EgressEventController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\RecommendationPolicyController;
 use App\Http\Controllers\RiskPatternController;
 use App\Http\Controllers\SecurityAnalyticsController;
 use App\Http\Controllers\SessionSecurityController;
@@ -134,6 +135,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('policy-algorithm/{domainPolicy}', [DomainPolicyController::class, 'update'])->name('policy-algorithm.update');
         Route::delete('policy-algorithm/{domainPolicy}', [DomainPolicyController::class, 'destroy'])->name('policy-algorithm.destroy');
         Route::delete('policy-algorithm-all', [DomainPolicyController::class, 'destroyAll'])->name('policy-algorithm.destroyAll');
+        Route::get('recommendation-policy', [RecommendationPolicyController::class, 'index'])->name('recommendation-policy');
+        Route::post('recommendation-policy', [RecommendationPolicyController::class, 'store'])->name('recommendation-policy.store');
+        Route::delete('recommendation-policy/category/{category}', [RecommendationPolicyController::class, 'destroyCategory'])->name('recommendation-policy.destroy-category');
+        Route::delete('recommendation-policy/{domainRecommendation}', [RecommendationPolicyController::class, 'destroy'])->name('recommendation-policy.destroy');
     });
 
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications');

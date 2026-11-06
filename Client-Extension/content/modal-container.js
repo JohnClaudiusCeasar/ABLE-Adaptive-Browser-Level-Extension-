@@ -155,6 +155,9 @@ var MODAL_STYLES = `
   --proceed-border: #FFC99E;
   --cancel-bg: #FBCBCB;
   --cancel-border: #FFA3A3;
+  --alt-bg: #FFFFFF;
+  --alt-border: #D7D7D7;
+  --recommend-hover: #F4F4F4;
   --pie-cc: #EF4444;
   --pie-ssn: #06B6D4;
   --pie-api-key: #F59E0B;
@@ -465,6 +468,70 @@ var MODAL_STYLES = `
   border-color: var(--cancel-border, #FFA3A3);
   padding: 8px 18px;
   border-radius: 16px;
+}
+
+.able-btn-alt {
+  width: 100%;
+  background-color: var(--alt-bg, #FFFFFF);
+  border-color: var(--alt-border, #D7D7D7);
+  padding: 10px 18px;
+  border-radius: 14px;
+}
+
+/* ABLE Recommends */
+.able-recommend-intro {
+  font-size: 14px;
+  line-height: 1.4;
+  font-style: italic;
+}
+
+.able-recommend-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  margin-top: 6px;
+  padding-right: 2px;
+}
+
+.able-recommend-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid var(--track-gray, #E2E2E2);
+  border-radius: 12px;
+  background-color: var(--bg-white, #FFFFFF);
+  font-family: 'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  color: var(--text-black, #000000);
+  text-align: left;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.able-recommend-item:hover {
+  background-color: var(--recommend-hover, #F4F4F4);
+  border-color: var(--brand-green, #00FF44);
+}
+
+.able-recommend-domain {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.able-recommend-tag {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--dark-gray, #B0B0B0);
 }
 
 /* Request Access Modal */

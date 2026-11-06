@@ -129,6 +129,8 @@ function buildDefaultDomainStatus() {
   return {
     status: statusLabel,
     domain: hostname,
+    category: null,
+    recommendations: [],
     risk_score: 60,
     title: "The site you are entering is " + statusLabel.toUpperCase(),
     message: "<span class=\"able-highlight-text\">" + hostname + "</span> is an <span class=\"able-highlight-text\">" + statusLabel + "</span> service that has not been reviewed by our security team. Please refrain from sending sensitive institutional data from this website until it is properly reviewed."
@@ -962,6 +964,12 @@ async function evaluateAndShowModal(visitResult) {
       showSiteWarningModal({
         title: domainStatus.title,
         message: domainStatus.message,
+        status: domainStatus.status,
+        domain: domainStatus.domain,
+        category: domainStatus.category || null,
+        recommendations: Array.isArray(domainStatus.recommendations)
+          ? domainStatus.recommendations
+          : [],
       });
     }
 

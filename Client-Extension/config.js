@@ -12,12 +12,20 @@ const COMPANY_NAME = "ABLE";
  * this constant and security.js derives its ALLOWED_ORIGINS from it so the
  * origin and port can never disagree.
  *
- * DEVELOPMENT: http://localhost:8000
- * PRODUCTION:  https://able-shadow-security.onrender.com
- *
- * Change this value before building for distribution.
+ * An unpacked build is a development build and talks to the local Laravel
+ * server. A store-installed build carries Chrome's update_url and talks to
+ * production, so packaging the same source cannot accidentally ship the
+ * localhost URL.
  */
-const SERVER_URL = "https://able-shadow-security.onrender.com";
+const ABLE_IS_UNPACKED =
+  typeof chrome !== "undefined" &&
+  chrome.runtime &&
+  typeof chrome.runtime.getManifest === "function" &&
+  !chrome.runtime.getManifest().update_url;
+
+const SERVER_URL = ABLE_IS_UNPACKED
+  ? "http://localhost:8000"
+  : "https://able-shadow-security.onrender.com";
 
 /**
  * Public keys for verifying signed offline cache payloads.
@@ -106,6 +114,24 @@ const ABLE_RATE_LIMIT_DEFAULT_BACKOFF_MS = 60000;
 const ABLE_DAILY_EGRESS_CAP = 500;
 const ABLE_VISIT_DEBOUNCE_MS = 5000;
 const ABLE_SKIP_SEARCH_RESULTS = true;
+const ABLE_RECOMMENDATIONS_LIMIT = 6;
+
+// Categories that never receive ABLE Recommends alternatives. The server
+// enforces the same list; this copy covers the offline path.
+const ABLE_RECOMMENDATION_EXCLUDED_CATEGORIES = ["adult", "gambling"];
+
+/**
+ * Second paragraph shown in the site warning when ABLE Recommends has
+ * sanctioned alternatives for the domain's category.
+ *
+ * The copy is split around the category so the renderer can highlight it
+ * without string surgery. The original wording requested for this feature
+ * was "...since you entered into an [App Category]-based platform. ABLE
+ * recommends..."; the punctuation is corrected here and the category
+ * placeholder is removed.
+ */
+const ABLE_RECOMMENDS_PARAGRAPH_PREFIX = "Anyhow, while the system is not discouraging you from using this service, and since you entered an ";
+const ABLE_RECOMMENDS_PARAGRAPH_SUFFIX = "-based platform, ABLE recommends the following sanctioned alternatives that will help improve your workflow as well as improve institutional security.";
 
 /**
  * Detect whether a given URL is a search engine listing / result page.
@@ -218,7 +244,7 @@ function getStatusMessage(status, domain, category, alternatives) {
     },
     unsafe: {
       title: 'The site you are entering is <span class="able-highlight-text">UNSAFE</span>',
-      message: `<span class="able-highlight-text">${domain}</span> has been reviewed, and analyzed by the ${COMPANY_NAME} IT security department and thus declared to be <span class="able-highlight-text">unsafe</span> to use.\nPlease refrain from sending sensitive institutional data to this website.${category && alternatives && alternatives.length ? `\n\nSince you are entering a ${category} website, to make your internet experience safe, please consider the following alternatives: ${alternatives.join(", ")}.` : ""}`,
+      message: `<span class="able-highlight-text">${domain}</span> has been reviewed, and analyzed by the ${COMPANY_NAME} IT security department and thus declared to be <span class="able-highlight-text">unsafe</span> to use.\nPlease refrain from sending sensitive institutional data to this website.`,
       suggestion: ""
     },
     unlisted: {

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\CriteriaPatternItem;
 use App\Models\DomainPolicy;
+use App\Models\DomainRecommendation;
 use App\Models\RiskPattern;
 use App\Support\JsCanonical;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -111,6 +112,20 @@ class ExtensionFeedContractTest extends TestCase
         $this->assertSame(
             $response->json('signature'),
             JsCanonical::sign($response->json('payload'), self::KEY),
+        );
+    }
+
+    public function test_the_signed_policy_feed_carries_the_recommendation_list(): void
+    {
+        $this->policy();
+        DomainRecommendation::create(['category' => 'Productivity', 'domain' => 'notion.so']);
+
+        $payload = $this->getJson('/api/domain-policies/signed')->json('payload');
+
+        $this->assertArrayHasKey('recommendations', $payload);
+        $this->assertSame(
+            [['category' => 'Productivity', 'domain' => 'notion.so']],
+            $payload['recommendations'],
         );
     }
 

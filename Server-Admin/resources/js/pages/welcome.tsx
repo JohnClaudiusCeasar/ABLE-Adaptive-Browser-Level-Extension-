@@ -3178,7 +3178,7 @@ export default function Welcome({
                                                 <span className="tag">
                                                     {extension_version
                                                         ? `v${extension_version}`
-                                                        : 'v0.1.52'}
+                                                        : 'v0.1.56'}
                                                 </span>
                                                 <span className="tag">
                                                     Manifest V3

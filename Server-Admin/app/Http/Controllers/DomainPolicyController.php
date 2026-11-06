@@ -8,6 +8,8 @@ use App\Models\DomainVisit;
 use App\Models\EgressEvent;
 use App\Services\AbleSettingsService;
 use App\Services\DomainPolicyFeed;
+use App\Services\DomainRecommendationService;
+use App\Support\AppCategories;
 use App\Support\DomainBrandMap;
 use App\Support\DomainRiskResolver;
 use App\Support\HeuristicClassifier;
@@ -24,6 +26,10 @@ class DomainPolicyController extends Controller
 {
     use BoundsAdminRows;
 
+    public function __construct(
+        private readonly DomainRecommendationService $recommendationService,
+    ) {}
+
     /**
      * Display a listing of the domain policies.
      */
@@ -39,6 +45,7 @@ class DomainPolicyController extends Controller
             'domainPolicies' => $domainPolicies,
             'truncated' => $domainPolicies->count() >= $limit,
             'rowLimit' => $limit,
+            'categories' => AppCategories::all(),
         ]);
     }
 
@@ -339,7 +346,7 @@ class DomainPolicyController extends Controller
             if ($policy) {
                 $policy = $this->maybeUpgradeHeuristic($policy, $request);
 
-                return response()->json([
+                return response()->json($this->withRecommendations([
                     'status' => $policy->domain_status,
                     'domain' => $domain,
                     'category' => $policy->category,
@@ -349,7 +356,7 @@ class DomainPolicyController extends Controller
                     'source' => 'database',
                     'classification_source' => $policy->classification_source,
                     'confidence' => $policy->confidence !== null ? (float) $policy->confidence : null,
-                ]);
+                ], $domain));
             }
 
             // Curated brand map: deterministic categories for mainstream domains.
@@ -363,7 +370,7 @@ class DomainPolicyController extends Controller
                     'risk_score' => $this->riskForCategory($brandCategory),
                 ], 'brand');
 
-                return response()->json([
+                return response()->json($this->withRecommendations([
                     'status' => 'unlisted',
                     'domain' => $domain,
                     'category' => $brandCategory,
@@ -373,7 +380,7 @@ class DomainPolicyController extends Controller
                     'source' => 'brand',
                     'classification_source' => 'brand',
                     'confidence' => 1.0,
-                ]);
+                ], $domain));
             }
 
             // Check if domain matches safe patterns (edu, gov, org)
@@ -381,7 +388,7 @@ class DomainPolicyController extends Controller
 
             foreach ($safePatterns as $pattern) {
                 if (preg_match($pattern, $domain)) {
-                    return response()->json([
+                    return response()->json($this->withRecommendations([
                         'status' => 'safe',
                         'domain' => $domain,
                         'category' => null,
@@ -391,7 +398,7 @@ class DomainPolicyController extends Controller
                         'source' => 'pattern',
                         'classification_source' => 'pattern',
                         'confidence' => null,
-                    ]);
+                    ], $domain));
                 }
             }
 
@@ -409,7 +416,7 @@ class DomainPolicyController extends Controller
             if ($heuristic !== null) {
                 $this->persistAutoCategory($domain, $heuristic, 'heuristic');
 
-                return response()->json([
+                return response()->json($this->withRecommendations([
                     'status' => 'unlisted',
                     'domain' => $domain,
                     'category' => $heuristic['category'],
@@ -419,7 +426,7 @@ class DomainPolicyController extends Controller
                     'source' => 'heuristic',
                     'classification_source' => 'heuristic',
                     'confidence' => $heuristic['confidence'],
-                ]);
+                ], $domain));
             }
 
             // Nothing matched: park the domain in the admin review queue.
@@ -436,7 +443,7 @@ class DomainPolicyController extends Controller
             $defaultRiskScore = DomainRiskResolver::defaultRiskScore();
             $fallbackPolicy = DomainRiskResolver::fallbackPolicy();
 
-            return response()->json([
+            return response()->json($this->withRecommendations([
                 'status' => 'unlisted',
                 'domain' => $domain,
                 'category' => null,
@@ -446,7 +453,7 @@ class DomainPolicyController extends Controller
                 'source' => 'pending',
                 'classification_source' => 'pending',
                 'confidence' => null,
-            ]);
+            ], $domain));
 
         } catch (\Exception $e) {
             return response()->json([
@@ -457,9 +464,32 @@ class DomainPolicyController extends Controller
                 'block_access' => false,
                 'risk_score' => 60,
                 'source' => 'error',
+                'recommendations' => [],
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Attach the sanctioned alternatives shown under ABLE Recommends.
+     *
+     * Only unsafe/unlisted domains get recommendations; a safe domain is
+     * never nudged, and a blocked domain is handled by the block flow. A
+     * missing category yields an empty list, which the extension treats as
+     * "feature off" and renders the legacy warning.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function withRecommendations(array $payload, ?string $domain): array
+    {
+        $status = $payload['status'] ?? null;
+
+        $payload['recommendations'] = in_array($status, ['unsafe', 'unlisted'], true)
+            ? $this->recommendationService->forCategory($payload['category'] ?? null, $domain)
+            : [];
+
+        return $payload;
     }
 
     /**

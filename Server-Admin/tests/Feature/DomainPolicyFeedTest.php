@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\DomainPolicy;
+use App\Models\DomainRecommendation;
 use App\Services\DomainPolicyFeed;
 use App\Support\JsCanonical;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -68,6 +69,33 @@ class DomainPolicyFeedTest extends TestCase
         $this->assertSame('example.test', $policy['domain']);
         $this->assertTrue($policy['block_access']);
         $this->assertSame(70, $policy['risk_score']);
+    }
+
+    public function test_signed_feed_carries_the_recommendation_list(): void
+    {
+        DomainRecommendation::create(['category' => 'Productivity', 'domain' => 'notion.so']);
+
+        $response = $this->getJson('/api/domain-policies/signed');
+        $payload = $response->json('payload');
+
+        $this->assertSame(
+            [['category' => 'Productivity', 'domain' => 'notion.so']],
+            $payload['recommendations'],
+        );
+        $this->assertSame($response->json('signature'), JsCanonical::sign($payload, self::KEY));
+    }
+
+    public function test_the_recommendation_list_omits_excluded_categories(): void
+    {
+        DomainRecommendation::create(['category' => 'Gambling', 'domain' => 'casino.test']);
+        DomainRecommendation::create(['category' => 'Productivity', 'domain' => 'notion.so']);
+
+        $payload = $this->getJson('/api/domain-policies/signed')->json('payload');
+
+        $this->assertSame(
+            [['category' => 'Productivity', 'domain' => 'notion.so']],
+            $payload['recommendations'],
+        );
     }
 
     public function test_signed_feed_carries_an_etag_and_revalidates_with_304(): void
