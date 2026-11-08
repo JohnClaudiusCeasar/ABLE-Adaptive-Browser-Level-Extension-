@@ -214,6 +214,34 @@ export default function Dashboard({
                     </div>
                 </PanelCard>
 
+                {canManagePolicy && (
+                    <Link
+                        href="/recommendation-policy"
+                        className={`${glassCard} group flex items-center justify-between gap-4 px-6 py-5 transition-colors hover:bg-[rgba(34,197,94,0.14)]`}
+                    >
+                        <span className="flex items-center gap-4">
+                            <span className="flex h-11 w-11 items-center justify-center rounded-full border border-[rgba(34,197,94,0.4)] bg-[rgba(34,197,94,0.12)] text-able-green">
+                                <Sparkles size={22} />
+                            </span>
+                            <span>
+                                <span className="block text-[0.7rem] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
+                                    ABLE Recommends
+                                </span>
+                                <span className="block text-sm text-muted-foreground">
+                                    {recommendationCount > 0
+                                        ? `${recommendationCount} sanctioned ${
+                                              recommendationCount === 1
+                                                  ? 'alternative'
+                                                  : 'alternatives'
+                                          } configured`
+                                        : 'Assign sanctioned alternatives for each app category.'}
+                                </span>
+                            </span>
+                        </span>
+                        <ChevronRight className="text-muted-foreground transition-transform group-hover:translate-x-1" />
+                    </Link>
+                )}
+
                 {/* Divider */}
                 <div className="flex items-center gap-3 py-2">
                     <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[rgba(34,197,94,0.4)] to-transparent" />
@@ -256,34 +284,6 @@ export default function Dashboard({
                         onClick={() => setShadowAppsOpen(true)}
                     />
                 </div>
-
-                {canManagePolicy && (
-                    <Link
-                        href="/recommendation-policy"
-                        className={`${glassCard} group flex items-center justify-between gap-4 px-6 py-5 transition-colors hover:bg-[rgba(34,197,94,0.14)]`}
-                    >
-                        <span className="flex items-center gap-4">
-                            <span className="flex h-11 w-11 items-center justify-center rounded-full border border-[rgba(34,197,94,0.4)] bg-[rgba(34,197,94,0.12)] text-able-green">
-                                <Sparkles size={22} />
-                            </span>
-                            <span>
-                                <span className="block text-[0.7rem] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
-                                    ABLE Recommends
-                                </span>
-                                <span className="block text-sm text-muted-foreground">
-                                    {recommendationCount > 0
-                                        ? `${recommendationCount} sanctioned ${
-                                              recommendationCount === 1
-                                                  ? 'alternative'
-                                                  : 'alternatives'
-                                          } configured`
-                                        : 'Assign sanctioned alternatives for each app category.'}
-                                </span>
-                            </span>
-                        </span>
-                        <ChevronRight className="text-muted-foreground transition-transform group-hover:translate-x-1" />
-                    </Link>
-                )}
 
                 <ActiveShadowAppsModal
                     open={shadowAppsOpen}

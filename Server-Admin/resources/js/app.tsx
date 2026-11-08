@@ -9,38 +9,39 @@ import { installBackNavigationGuard } from '@/lib/back-navigation-guard';
 
 const appTitle = 'ABLE - Shadow IT Prevention and Egress Data Monitoring';
 
-createInertiaApp({
-    title: () => appTitle,
-    layout: (name) => {
-        switch (true) {
-            case name === 'welcome':
-                return null;
-            case name.startsWith('auth/'):
-                return AuthLayout;
-            case name.startsWith('settings/'):
-                return [AppLayout, SettingsLayout];
-            default:
-                return AppLayout;
-        }
-    },
-    strictMode: true,
-    withApp(app) {
-        return (
-            <TooltipProvider delayDuration={0}>
-                {app}
-                <Toaster />
-            </TooltipProvider>
-        );
-    },
-    progress: {
-        color: '#22c55e',
-    },
-});
+// Install before the app boots: a history navigation onto the sign-in screen
+// has to be abandoned without first painting the login form.
+const isLeavingThisPage = installBackNavigationGuard();
 
-// A page restored from the back-forward cache still shows its pre-navigation
-// snapshot, so it is reloaded to let the server decide whether the visitor is
-// still authenticated.
-installBackNavigationGuard();
+if (!isLeavingThisPage) {
+    createInertiaApp({
+        title: () => appTitle,
+        layout: (name) => {
+            switch (true) {
+                case name === 'welcome':
+                    return null;
+                case name.startsWith('auth/'):
+                    return AuthLayout;
+                case name.startsWith('settings/'):
+                    return [AppLayout, SettingsLayout];
+                default:
+                    return AppLayout;
+            }
+        },
+        strictMode: true,
+        withApp(app) {
+            return (
+                <TooltipProvider delayDuration={0}>
+                    {app}
+                    <Toaster />
+                </TooltipProvider>
+            );
+        },
+        progress: {
+            color: '#22c55e',
+        },
+    });
 
-// This will set light / dark mode on load...
-initializeTheme();
+    // This will set light / dark mode on load...
+    initializeTheme();
+}

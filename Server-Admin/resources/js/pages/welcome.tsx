@@ -6,6 +6,7 @@ import React, {
     useCallback,
     useRef,
 } from 'react';
+import { clearSignedOut } from '@/lib/back-navigation-guard';
 import '../../css/landing.css';
 
 interface StreamMessage {
@@ -790,6 +791,9 @@ export default function Welcome({
                             }}
                             onDoubleClick={(e) => {
                                 e.stopPropagation();
+                                // Deliberately opening the sign-in screen, so
+                                // history navigation to it is allowed again.
+                                clearSignedOut();
                                 router.visit('/login');
                             }}
                             className="nav-brand cursor-pointer select-none"

@@ -7,6 +7,9 @@
  * document navigation, discarding the Inertia SPA and replacing the current
  * (authenticated) history entry instead of stacking another one on top.
  */
+
+import { markSignedOut } from '@/lib/back-navigation-guard';
+
 export async function performLogout(redirectTo = '/'): Promise<void> {
     const token =
         document
@@ -23,6 +26,10 @@ export async function performLogout(redirectTo = '/'): Promise<void> {
             },
         });
     } finally {
+        // Record the sign-out before navigating, so a later Back press to the
+        // sign-in screen is recognised as history rather than a fresh visit.
+        markSignedOut();
+
         try {
             // Chat transcript is per-tab state, not part of the server session.
             window.sessionStorage.removeItem('able.chat.session');
