@@ -76,6 +76,40 @@ class AuthenticationTest extends TestCase
         $this->assertGuest();
     }
 
+    public function test_authenticated_pages_are_not_cacheable()
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->get(route('dashboard'));
+
+        $response->assertOk();
+        $this->assertStringContainsString(
+            'no-store',
+            (string) $response->headers->get('Cache-Control')
+        );
+        $this->assertSame('no-cache', $response->headers->get('Pragma'));
+    }
+
+    public function test_login_page_is_not_cacheable()
+    {
+        $response = $this->get(route('login'));
+
+        $response->assertOk();
+        $this->assertStringContainsString(
+            'no-store',
+            (string) $response->headers->get('Cache-Control')
+        );
+    }
+
+    public function test_logged_out_user_is_redirected_to_login_on_protected_page()
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->post(route('logout'));
+
+        $this->get(route('dashboard'))->assertRedirect(route('login'));
+    }
+
     public function test_users_are_rate_limited()
     {
         $user = User::factory()->create();

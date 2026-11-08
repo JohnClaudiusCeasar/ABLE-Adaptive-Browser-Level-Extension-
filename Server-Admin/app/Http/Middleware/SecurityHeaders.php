@@ -37,6 +37,14 @@ class SecurityHeaders
 
         $response->headers->set('Content-Security-Policy', self::buildContentSecurityPolicy());
 
+        // Authenticated pages must not be restorable from the browser cache or the
+        // back-forward cache: pressing Back after a logout has to re-ask the server,
+        // which redirects guests to the login screen. This also stops a stale CSRF
+        // token being reused from a cached auth page.
+        $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+        $response->headers->set('Pragma', 'no-cache');
+        $response->headers->set('Expires', '0');
+
         return $response;
     }
 

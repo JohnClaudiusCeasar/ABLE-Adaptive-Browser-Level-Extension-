@@ -54,13 +54,19 @@ class FortifyServiceProvider extends ServiceProvider
      */
     private function configureViews(): void
     {
-        Fortify::loginView(fn (Request $request) => Inertia::render('auth/login', [
-            'canResetPassword' => Features::enabled(Features::resetPasswords()),
-            'status' => $request->session()->get('status'),
-            'activeConflict' => (bool) $request->session()->get('active_conflict_required', false),
-            'activeConflictEmail' => $request->session()->get('active_conflict_email'),
-            'breakGlassToken' => $request->session()->get('break_glass_token'),
-        ]));
+        Fortify::loginView(function (Request $request) {
+            // A hard redirect to /login?status=... cannot flash to the session,
+            // so the query string is accepted as a fallback for that message.
+            $status = $request->session()->get('status') ?? $request->query('status');
+
+            return Inertia::render('auth/login', [
+                'canResetPassword' => Features::enabled(Features::resetPasswords()),
+                'status' => is_string($status) ? $status : null,
+                'activeConflict' => (bool) $request->session()->get('active_conflict_required', false),
+                'activeConflictEmail' => $request->session()->get('active_conflict_email'),
+                'breakGlassToken' => $request->session()->get('break_glass_token'),
+            ]);
+        });
 
         Fortify::resetPasswordView(fn (Request $request) => Inertia::render('auth/reset-password', [
             'email' => $request->email,

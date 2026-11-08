@@ -1,7 +1,8 @@
-import { Link, router } from '@inertiajs/react';
+import { Link } from '@inertiajs/react';
 import { ChevronRight, LogOut } from 'lucide-react';
 import { Fragment } from 'react';
 import { getBreadcrumbsWithIcons } from '@/lib/breadcrumb-utils';
+import { performLogout } from '@/lib/logout';
 import { dashboard } from '@/routes';
 import type { BreadcrumbItem } from '@/types';
 
@@ -55,13 +56,7 @@ export function AppSidebarHeader({
 
             {/* Logout Button */}
             <button
-                onClick={() =>
-                    router.post(
-                        '/logout',
-                        {},
-                        { onFinish: () => router.visit('/login') },
-                    )
-                }
+                onClick={() => void performLogout()}
                 className="flex items-center gap-2 rounded-lg border border-transparent px-3 py-2 text-sm font-medium text-muted-foreground transition-all duration-200 hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-500 active:scale-95"
                 aria-label="Logout"
             >

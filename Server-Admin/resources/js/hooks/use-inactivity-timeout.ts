@@ -1,5 +1,5 @@
-import { router } from '@inertiajs/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { performLogout as endSession } from '@/lib/logout';
 
 const IDLE_TIMEOUT_MS = 40 * 60 * 1000; // 40 minutes
 const WARNING_WINDOW_MS = 30 * 1000; // 30 seconds
@@ -47,18 +47,12 @@ export function useInactivityTimeout(enabled: boolean = true) {
     // Perform logout when idle expires
     const performLogout = useCallback(() => {
         setIsWarningOpen(false);
-        router.post(
-            '/logout',
-            {},
-            {
-                onFinish: () => {
-                    window.location.href =
-                        '/login?status=' +
-                        encodeURIComponent(
-                            'You were logged out due to 40 minutes of inactivity.',
-                        );
-                },
-            },
+
+        void endSession(
+            '/login?status=' +
+                encodeURIComponent(
+                    'You were logged out due to 40 minutes of inactivity.',
+                ),
         );
     }, []);
 
