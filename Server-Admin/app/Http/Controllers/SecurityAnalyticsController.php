@@ -94,18 +94,13 @@ class SecurityAnalyticsController extends Controller
             COALESCE(SUM(CASE WHEN action IN ('proceeded', 'allowed') THEN file_size ELSE 0 END), 0) as data_lost
         ")->first();
 
-        // 5. Nudge Interactions & Containment Rate
-        /** @var object{cancelled: int, proceeded: int} $nudgeStats */
-        $nudgeStats = NudgeInteraction::selectRaw("
-            COALESCE(SUM(CASE WHEN user_action = 'cancelled' THEN 1 ELSE 0 END), 0) as cancelled,
-            COALESCE(SUM(CASE WHEN user_action = 'proceeded' THEN 1 ELSE 0 END), 0) as proceeded
-        ")->first();
-        $nudgeCancelled = (int) ($nudgeStats->cancelled ?? 0);
-        $nudgeProceeded = (int) ($nudgeStats->proceeded ?? 0);
-        $totalNudgeInteractions = $nudgeCancelled + $nudgeProceeded;
-        $shadowContainmentRate = $totalNudgeInteractions > 0
-            ? round(($nudgeCancelled / $totalNudgeInteractions) * 100, 1)
-            : 0;
+        // 5. Nudge Interactions & Containment Rate (Risk-Differentiated)
+        $threshold = (int) app(AbleSettingsService::class)->value('extension', 'behavior.risk_threshold', 85);
+        $nudgeStatResults = NudgeInteraction::containmentStats(null, $threshold, lowRiskPenaltyWeight: 0.25);
+        $nudgeCancelled = $nudgeStatResults['cancelled'];
+        $nudgeProceeded = $nudgeStatResults['proceeded'];
+        $totalNudgeInteractions = $nudgeStatResults['total'];
+        $shadowContainmentRate = $nudgeStatResults['success_rate'];
 
         // 6. Section 2 Chart 1: Shadow Activity Velocity (Last 7 Days)
         $sevenDaysAgo = now()->subDays(6)->startOfDay();
@@ -114,19 +109,29 @@ class SecurityAnalyticsController extends Controller
             ->groupByRaw('DATE(visited_at)')
             ->pluck('count', 'date');
 
-        $dailyEgress = EgressEvent::selectRaw('DATE(occurred_at) as date, COUNT(*) as count')
+        /** @var Collection<string, object{total: int|string, high: int|string, low: int|string}> $dailyEgressStats */
+        $dailyEgressStats = EgressEvent::selectRaw("
+            DATE(occurred_at) as date,
+            COUNT(*) as total,
+            COALESCE(SUM(CASE WHEN risk_score >= ? THEN 1 ELSE 0 END), 0) as high,
+            COALESCE(SUM(CASE WHEN risk_score < ? THEN 1 ELSE 0 END), 0) as low
+        ", [$threshold, $threshold])
             ->where('occurred_at', '>=', $sevenDaysAgo)
             ->groupByRaw('DATE(occurred_at)')
-            ->pluck('count', 'date');
+            ->get()
+            ->keyBy('date');
 
         $velocityActivity = [];
         for ($i = 6; $i >= 0; $i--) {
             $date = now()->subDays($i)->format('Y-m-d');
+            $dayEgress = $dailyEgressStats->get($date);
             $velocityActivity[] = [
                 'date' => $date,
                 'day' => now()->subDays($i)->format('D'),
                 'visits' => (int) ($dailyVisits[$date] ?? 0),
-                'egress' => (int) ($dailyEgress[$date] ?? 0),
+                'egress' => (int) ($dayEgress->total ?? 0),
+                'egressHigh' => (int) ($dayEgress->high ?? 0),
+                'egressLow' => (int) ($dayEgress->low ?? 0),
             ];
         }
 
@@ -139,7 +144,7 @@ class SecurityAnalyticsController extends Controller
         )
             ->groupByRaw("COALESCE(NULLIF(category, ''), 'General Cloud')")
             ->orderByDesc('count')
-            ->limit(6)
+            ->limit(4)
             ->get();
 
         $categoryDistribution = $categoriesRaw->map(function ($row) use ($totalPolicies) {
@@ -170,8 +175,12 @@ class SecurityAnalyticsController extends Controller
         $nudgeEfficacy = [
             'cancelled' => $nudgeCancelled,
             'proceeded' => $nudgeProceeded,
+            'proceededHigh' => $nudgeStatResults['proceeded_high'],
+            'proceededLow' => $nudgeStatResults['proceeded_low'],
             'total' => $totalNudgeInteractions,
             'rate' => $shadowContainmentRate,
+            'highRiskRate' => $nudgeStatResults['high_risk_success_rate'],
+            'lowRiskRate' => $nudgeStatResults['low_risk_success_rate'],
         ];
 
         return Inertia::render('security-analytics', [

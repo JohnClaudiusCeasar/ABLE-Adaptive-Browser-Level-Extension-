@@ -1,36 +1,69 @@
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
-interface DailyActivity {
+export interface DailyActivity {
     date: string;
     day: string;
     visits: number;
     egress: number;
+    egressHigh?: number;
+    egressLow?: number;
 }
 
 interface GroupedBarChartProps {
     data: DailyActivity[];
+    height?: number;
     className?: string;
 }
 
-export function GroupedBarChart({ data, className }: GroupedBarChartProps) {
+export function GroupedBarChart({
+    data,
+    height = 200,
+    className,
+}: GroupedBarChartProps) {
     const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
+    const hasRiskSplit = data.some(
+        (d) => d.egressHigh !== undefined || d.egressLow !== undefined,
+    );
+
     const maxVisits = Math.max(...data.map((d) => d.visits), 0);
+    const maxEgressHigh = Math.max(
+        ...data.map((d) => d.egressHigh ?? (hasRiskSplit ? 0 : d.egress)),
+        0,
+    );
+    const maxEgressLow = Math.max(...data.map((d) => d.egressLow ?? 0), 0);
     const maxEgress = Math.max(...data.map((d) => d.egress), 0);
-    const rawMax = Math.max(maxVisits, maxEgress);
+    const rawMax = Math.max(
+        maxVisits,
+        hasRiskSplit ? Math.max(maxEgressHigh, maxEgressLow) : maxEgress,
+    );
     // Round max value up with comfortable headroom
     const maxValue = rawMax > 0 ? Math.ceil(rawMax * 1.15) : 10;
-    const hasData = data.some((d) => d.visits > 0 || d.egress > 0);
+    const hasData = data.some(
+        (d) =>
+            d.visits > 0 ||
+            d.egress > 0 ||
+            (d.egressHigh ?? 0) > 0 ||
+            (d.egressLow ?? 0) > 0,
+    );
 
     const totalVisits = data.reduce((acc, d) => acc + d.visits, 0);
     const totalEgress = data.reduce((acc, d) => acc + d.egress, 0);
+    const totalEgressHigh = data.reduce(
+        (acc, d) => acc + (d.egressHigh ?? (hasRiskSplit ? 0 : d.egress)),
+        0,
+    );
+    const totalEgressLow = data.reduce(
+        (acc, d) => acc + (d.egressLow ?? 0),
+        0,
+    );
     const egressRate =
         totalVisits > 0
             ? ((totalEgress / totalVisits) * 100).toFixed(1)
             : '0.0';
 
-    const chartHeight = 200;
+    const chartHeight = height;
 
     // Y-axis ticks (top, 2/3, 1/3, 0)
     const yTicks = [
@@ -45,38 +78,72 @@ export function GroupedBarChart({ data, className }: GroupedBarChartProps) {
             {/* Legend and Summary Stats Header */}
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-black/5 pb-3 dark:border-white/5">
                 {/* Visual Legend */}
-                <div className="flex items-center gap-5 text-xs font-medium">
+                <div className="flex flex-wrap items-center gap-4 text-xs font-medium sm:gap-5">
                     <div className="flex items-center gap-2">
                         <span className="h-3 w-3.5 rounded-[3px] bg-gradient-to-t from-sky-600 to-sky-400 shadow-xs shadow-sky-500/30" />
                         <span className="text-muted-foreground">
                             Domain Visits
                         </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <span className="h-3 w-3.5 rounded-[3px] bg-gradient-to-t from-rose-600 to-rose-400 shadow-xs shadow-rose-500/30" />
-                        <span className="text-muted-foreground">
-                            Egress Incidents
-                        </span>
-                    </div>
+                    {hasRiskSplit ? (
+                        <>
+                            <div className="flex items-center gap-2">
+                                <span className="h-3 w-3.5 rounded-[3px] bg-gradient-to-t from-rose-600 to-rose-400 shadow-xs shadow-rose-500/30" />
+                                <span className="text-muted-foreground">
+                                    Egress Incidents (High)
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="h-3 w-3.5 rounded-[3px] bg-gradient-to-t from-amber-600 to-amber-400 shadow-xs shadow-amber-500/30" />
+                                <span className="text-muted-foreground">
+                                    Egress Incidents (Low)
+                                </span>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="flex items-center gap-2">
+                            <span className="h-3 w-3.5 rounded-[3px] bg-gradient-to-t from-rose-600 to-rose-400 shadow-xs shadow-rose-500/30" />
+                            <span className="text-muted-foreground">
+                                Egress Incidents
+                            </span>
+                        </div>
+                    )}
                 </div>
 
                 {/* 7-Day Snapshot Stats */}
-                <div className="flex items-center gap-4 text-xs">
+                <div className="flex flex-wrap items-center gap-3 text-xs">
                     <div className="flex items-center gap-1.5 rounded-full bg-black/5 px-2.5 py-1 text-muted-foreground dark:bg-white/5">
                         <span>7d Visits:</span>
                         <strong className="font-semibold text-foreground tabular-nums">
                             {totalVisits.toLocaleString()}
                         </strong>
                     </div>
-                    <div className="flex items-center gap-1.5 rounded-full bg-rose-500/10 px-2.5 py-1 text-rose-500 dark:bg-rose-500/15 dark:text-rose-400">
-                        <span>7d Egress:</span>
-                        <strong className="font-semibold tabular-nums">
-                            {totalEgress.toLocaleString()}
-                        </strong>
-                        <span className="text-[10px] opacity-75">
-                            ({egressRate}%)
-                        </span>
-                    </div>
+                    {hasRiskSplit ? (
+                        <>
+                            <div className="flex items-center gap-1.5 rounded-full bg-rose-500/10 px-2.5 py-1 text-rose-500 dark:bg-rose-500/15 dark:text-rose-400">
+                                <span>7d High:</span>
+                                <strong className="font-semibold tabular-nums">
+                                    {totalEgressHigh.toLocaleString()}
+                                </strong>
+                            </div>
+                            <div className="flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2.5 py-1 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400">
+                                <span>7d Low:</span>
+                                <strong className="font-semibold tabular-nums">
+                                    {totalEgressLow.toLocaleString()}
+                                </strong>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="flex items-center gap-1.5 rounded-full bg-rose-500/10 px-2.5 py-1 text-rose-500 dark:bg-rose-500/15 dark:text-rose-400">
+                            <span>7d Egress:</span>
+                            <strong className="font-semibold tabular-nums">
+                                {totalEgress.toLocaleString()}
+                            </strong>
+                            <span className="text-[10px] opacity-75">
+                                ({egressRate}%)
+                            </span>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -120,7 +187,19 @@ export function GroupedBarChart({ data, className }: GroupedBarChartProps) {
                                     (d.visits / maxValue) * chartHeight,
                                     d.visits > 0 ? 6 : 0,
                                 );
-                                const egressHeight = Math.max(
+                                const egressHighVal =
+                                    d.egressHigh ?? (hasRiskSplit ? 0 : d.egress);
+                                const egressLowVal = d.egressLow ?? 0;
+
+                                const highHeight = Math.max(
+                                    (egressHighVal / maxValue) * chartHeight,
+                                    egressHighVal > 0 ? 6 : 0,
+                                );
+                                const lowHeight = Math.max(
+                                    (egressLowVal / maxValue) * chartHeight,
+                                    egressLowVal > 0 ? 6 : 0,
+                                );
+                                const fallbackEgressHeight = Math.max(
                                     (d.egress / maxValue) * chartHeight,
                                     d.egress > 0 ? 6 : 0,
                                 );
@@ -135,8 +214,8 @@ export function GroupedBarChart({ data, className }: GroupedBarChartProps) {
                                     >
                                         {/* Hover Tooltip Card */}
                                         {isHovered && (
-                                            <div className="pointer-events-none absolute -top-16 z-30 flex animate-in flex-col items-center duration-150 zoom-in-95 fade-in">
-                                                <div className="flex min-w-[135px] flex-col gap-1 rounded-md border border-black/10 bg-popover/95 px-3 py-2 text-xs text-popover-foreground shadow-lg backdrop-blur-md dark:border-white/15">
+                                            <div className="pointer-events-none absolute -top-24 z-30 flex animate-in flex-col items-center duration-150 zoom-in-95 fade-in">
+                                                <div className="flex min-w-[155px] flex-col gap-1 rounded-md border border-black/10 bg-popover/95 px-3 py-2 text-xs text-popover-foreground shadow-lg backdrop-blur-md dark:border-white/15">
                                                     <div className="flex items-center justify-between gap-3 border-b border-border/50 pb-1 font-semibold">
                                                         <span>{d.day}</span>
                                                         <span className="text-[10px] font-normal text-muted-foreground">
@@ -152,74 +231,167 @@ export function GroupedBarChart({ data, className }: GroupedBarChartProps) {
                                                             {d.visits.toLocaleString()}
                                                         </span>
                                                     </div>
-                                                    <div className="flex items-center justify-between gap-3 text-[11px]">
-                                                        <div className="flex items-center gap-1.5 text-rose-500 dark:text-rose-400">
-                                                            <span className="h-2 w-2 rounded-full bg-rose-500" />
-                                                            <span>Egress:</span>
-                                                        </div>
-                                                        <span className="font-semibold text-foreground tabular-nums">
-                                                            {d.egress.toLocaleString()}
-                                                        </span>
-                                                    </div>
+                                                    {hasRiskSplit ? (
+                                                        <>
+                                                            <div className="flex items-center justify-between gap-3 text-[11px]">
+                                                                <div className="flex items-center gap-1.5 text-rose-500 dark:text-rose-400">
+                                                                    <span className="h-2 w-2 rounded-full bg-rose-500" />
+                                                                    <span>Egress (High):</span>
+                                                                </div>
+                                                                <span className="font-semibold text-foreground tabular-nums">
+                                                                    {egressHighVal.toLocaleString()}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center justify-between gap-3 text-[11px]">
+                                                                <div className="flex items-center gap-1.5 text-amber-500 dark:text-amber-400">
+                                                                    <span className="h-2 w-2 rounded-full bg-amber-500" />
+                                                                    <span>Egress (Low):</span>
+                                                                </div>
+                                                                <span className="font-semibold text-foreground tabular-nums">
+                                                                    {egressLowVal.toLocaleString()}
+                                                                </span>
+                                                            </div>
+                                                        </>
+                                                    ) : (
+                                                        <div className="flex items-center justify-between gap-3 text-[11px]">
+                                                            <div className="flex items-center gap-1.5 text-rose-500 dark:text-rose-400">
+                                                                    <span className="h-2 w-2 rounded-full bg-rose-500" />
+                                                                    <span>Egress:</span>
+                                                                </div>
+                                                                <span className="font-semibold text-foreground tabular-nums">
+                                                                    {d.egress.toLocaleString()}
+                                                                </span>
+                                                            </div>
+                                                    )}
                                                 </div>
                                                 {/* Tooltip Arrow */}
                                                 <div className="-mt-1 h-2 w-2 -rotate-45 border-b border-l border-black/10 bg-popover/95 dark:border-white/15" />
                                             </div>
                                         )}
 
-                                        {/* Day Column Track: Exactly matches combined width of dual pillars */}
+                                        {/* Day Column Track */}
                                         <div
                                             className={cn(
-                                                'relative flex w-10 items-end justify-center rounded-t-md transition-all duration-300 sm:w-12',
+                                                'relative flex items-end justify-center rounded-t-md transition-all duration-300',
+                                                hasRiskSplit
+                                                    ? 'w-12 sm:w-14'
+                                                    : 'w-10 sm:w-12',
                                                 isHovered
                                                     ? 'bg-black/[0.04] dark:bg-white/[0.06]'
                                                     : 'bg-black/[0.02] dark:bg-white/[0.02]',
                                             )}
                                             style={{ height: chartHeight }}
                                         >
-                                            {/* Touching Dual Pillars Container */}
+                                            {/* Pillars Container */}
                                             <div className="flex w-full items-end justify-center">
-                                                {/* Bar 1: Domain Visits Pillar */}
-                                                <div
-                                                    className={cn(
-                                                        'relative w-1/2 rounded-tl-md bg-gradient-to-t from-sky-600 via-sky-500 to-sky-400 shadow-xs shadow-sky-500/20 transition-all duration-300',
-                                                        isHovered &&
-                                                            'from-sky-500 via-sky-400 to-sky-300 shadow-md shadow-sky-500/30',
-                                                    )}
-                                                    style={{
-                                                        height: visitHeight,
-                                                        opacity:
-                                                            d.visits > 0
-                                                                ? 1
-                                                                : 0.25,
-                                                    }}
-                                                >
-                                                    {/* Visits Top Accent Edge */}
-                                                    {d.visits > 0 && (
-                                                        <div className="absolute inset-x-0 top-0 h-[2px] rounded-tl-md bg-sky-200" />
-                                                    )}
-                                                </div>
+                                                {hasRiskSplit ? (
+                                                    <>
+                                                        {/* Bar 1: Domain Visits Pillar */}
+                                                        <div
+                                                            className={cn(
+                                                                'relative w-1/3 rounded-tl-md bg-gradient-to-t from-sky-600 via-sky-500 to-sky-400 shadow-xs shadow-sky-500/20 transition-all duration-300',
+                                                                isHovered &&
+                                                                    'from-sky-500 via-sky-400 to-sky-300 shadow-md shadow-sky-500/30',
+                                                            )}
+                                                            style={{
+                                                                height: visitHeight,
+                                                                opacity:
+                                                                    d.visits > 0
+                                                                        ? 1
+                                                                        : 0.25,
+                                                            }}
+                                                        >
+                                                            {d.visits > 0 && (
+                                                                <div className="absolute inset-x-0 top-0 h-[2px] rounded-tl-md bg-sky-200" />
+                                                            )}
+                                                        </div>
 
-                                                {/* Bar 2: Egress Incidents Pillar (Flush to Visits) */}
-                                                <div
-                                                    className={cn(
-                                                        'relative w-1/2 rounded-tr-md bg-gradient-to-t from-rose-600 via-rose-500 to-rose-400 shadow-xs shadow-rose-500/20 transition-all duration-300',
-                                                        isHovered &&
-                                                            'from-rose-500 via-rose-400 to-rose-300 shadow-md shadow-rose-500/30',
-                                                    )}
-                                                    style={{
-                                                        height: egressHeight,
-                                                        opacity:
-                                                            d.egress > 0
-                                                                ? 1
-                                                                : 0.25,
-                                                    }}
-                                                >
-                                                    {/* Egress Top Accent Edge */}
-                                                    {d.egress > 0 && (
-                                                        <div className="absolute inset-x-0 top-0 h-[2px] rounded-tr-md bg-rose-200" />
-                                                    )}
-                                                </div>
+                                                        {/* Bar 2: High Egress Pillar */}
+                                                        <div
+                                                            className={cn(
+                                                                'relative w-1/3 bg-gradient-to-t from-rose-600 via-rose-500 to-rose-400 shadow-xs shadow-rose-500/20 transition-all duration-300',
+                                                                isHovered &&
+                                                                    'from-rose-500 via-rose-400 to-rose-300 shadow-md shadow-rose-500/30',
+                                                            )}
+                                                            style={{
+                                                                height: highHeight,
+                                                                opacity:
+                                                                    egressHighVal >
+                                                                    0
+                                                                        ? 1
+                                                                        : 0.25,
+                                                            }}
+                                                        >
+                                                            {egressHighVal >
+                                                                0 && (
+                                                                <div className="absolute inset-x-0 top-0 h-[2px] bg-rose-200" />
+                                                            )}
+                                                        </div>
+
+                                                        {/* Bar 3: Low Egress Pillar */}
+                                                        <div
+                                                            className={cn(
+                                                                'relative w-1/3 rounded-tr-md bg-gradient-to-t from-amber-600 via-amber-500 to-amber-400 shadow-xs shadow-amber-500/20 transition-all duration-300',
+                                                                isHovered &&
+                                                                    'from-amber-500 via-amber-400 to-amber-300 shadow-md shadow-amber-500/30',
+                                                            )}
+                                                            style={{
+                                                                height: lowHeight,
+                                                                opacity:
+                                                                    egressLowVal > 0
+                                                                        ? 1
+                                                                        : 0.25,
+                                                            }}
+                                                        >
+                                                            {egressLowVal >
+                                                                0 && (
+                                                                <div className="absolute inset-x-0 top-0 h-[2px] rounded-tr-md bg-amber-200" />
+                                                            )}
+                                                        </div>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        {/* Bar 1: Domain Visits Pillar */}
+                                                        <div
+                                                            className={cn(
+                                                                'relative w-1/2 rounded-tl-md bg-gradient-to-t from-sky-600 via-sky-500 to-sky-400 shadow-xs shadow-sky-500/20 transition-all duration-300',
+                                                                isHovered &&
+                                                                    'from-sky-500 via-sky-400 to-sky-300 shadow-md shadow-sky-500/30',
+                                                            )}
+                                                            style={{
+                                                                height: visitHeight,
+                                                                opacity:
+                                                                    d.visits > 0
+                                                                        ? 1
+                                                                        : 0.25,
+                                                            }}
+                                                        >
+                                                            {d.visits > 0 && (
+                                                                <div className="absolute inset-x-0 top-0 h-[2px] rounded-tl-md bg-sky-200" />
+                                                            )}
+                                                        </div>
+
+                                                        {/* Bar 2: Egress Incidents Pillar */}
+                                                        <div
+                                                            className={cn(
+                                                                'relative w-1/2 rounded-tr-md bg-gradient-to-t from-rose-600 via-rose-500 to-rose-400 shadow-xs shadow-rose-500/20 transition-all duration-300',
+                                                                isHovered &&
+                                                                    'from-rose-500 via-rose-400 to-rose-300 shadow-md shadow-rose-500/30',
+                                                            )}
+                                                            style={{
+                                                                height: fallbackEgressHeight,
+                                                                opacity:
+                                                                    d.egress > 0
+                                                                        ? 1
+                                                                        : 0.25,
+                                                            }}
+                                                        >
+                                                            {d.egress > 0 && (
+                                                                <div className="absolute inset-x-0 top-0 h-[2px] rounded-tr-md bg-rose-200" />
+                                                            )}
+                                                        </div>
+                                                    </>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -255,18 +427,52 @@ export function GroupedBarChart({ data, className }: GroupedBarChartProps) {
                             {[1, 2, 3, 4, 5, 6, 7].map((i) => (
                                 <div
                                     key={i}
-                                    className="flex w-10 items-end justify-center rounded-t-md bg-black/5 sm:w-12 dark:bg-white/5"
+                                    className={cn(
+                                        'flex items-end justify-center rounded-t-md bg-black/5 dark:bg-white/5',
+                                        hasRiskSplit
+                                            ? 'w-12 sm:w-14'
+                                            : 'w-10 sm:w-12',
+                                    )}
                                     style={{ height: 120 }}
                                 >
                                     <div className="flex w-full items-end justify-center">
-                                        <div
-                                            className="w-1/2 rounded-tl-md bg-sky-500/20"
-                                            style={{ height: 25 + i * 8 }}
-                                        />
-                                        <div
-                                            className="w-1/2 rounded-tr-md bg-rose-500/20"
-                                            style={{ height: 12 + i * 4 }}
-                                        />
+                                        {hasRiskSplit ? (
+                                            <>
+                                                <div
+                                                    className="w-1/3 rounded-tl-md bg-sky-500/20"
+                                                    style={{
+                                                        height: 25 + i * 8,
+                                                    }}
+                                                />
+                                                <div
+                                                    className="w-1/3 bg-rose-500/20"
+                                                    style={{
+                                                        height: 8 + i * 3,
+                                                    }}
+                                                />
+                                                <div
+                                                    className="w-1/3 rounded-tr-md bg-amber-500/20"
+                                                    style={{
+                                                        height: 12 + i * 4,
+                                                    }}
+                                                />
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div
+                                                    className="w-1/2 rounded-tl-md bg-sky-500/20"
+                                                    style={{
+                                                        height: 25 + i * 8,
+                                                    }}
+                                                />
+                                                <div
+                                                    className="w-1/2 rounded-tr-md bg-rose-500/20"
+                                                    style={{
+                                                        height: 12 + i * 4,
+                                                    }}
+                                                />
+                                            </>
+                                        )}
                                     </div>
                                 </div>
                             ))}

@@ -21,7 +21,7 @@ import { UserStatCard } from '@/components/dashboard/user-stat-card';
 import { LiveTelemetryStatus } from '@/components/live-telemetry-status';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { truncateFileName, formatMetricNumber } from '@/lib/utils';
+import { cn, truncateFileName, formatMetricNumber } from '@/lib/utils';
 import { dashboard } from '@/routes';
 
 const glassCard =
@@ -50,6 +50,8 @@ interface DailyActivity {
     day: string;
     visits: number;
     egress: number;
+    egressHigh?: number;
+    egressLow?: number;
 }
 
 interface DashboardProps {
@@ -65,6 +67,10 @@ interface DashboardProps {
     nudgeSuccessRate: number;
     nudgeCancelled?: number;
     nudgeProceeded?: number;
+    nudgeProceededHigh?: number;
+    nudgeProceededLow?: number;
+    nudgeHighRiskSuccessRate?: number | null;
+    nudgeLowRiskSuccessRate?: number | null;
     domainUsage: {
         safe: number;
         unsafe: number;
@@ -107,6 +113,10 @@ export default function Dashboard({
     nudgeSuccessRate,
     nudgeCancelled = 0,
     nudgeProceeded = 0,
+    nudgeProceededHigh = 0,
+    nudgeProceededLow = 0,
+    nudgeHighRiskSuccessRate = null,
+    nudgeLowRiskSuccessRate = null,
     domainUsage,
     recentEgressEvents,
     recentDomainVisits,
@@ -127,12 +137,32 @@ export default function Dashboard({
     const savedPct = totalBytes > 0 ? (savedBytes / totalBytes) * 100 : 0;
     const lostPct = totalBytes > 0 ? (lostBytes / totalBytes) * 100 : 0;
 
-    const totalNudgeInteractions = nudgeCancelled + nudgeProceeded;
+    const totalProceeded =
+        nudgeProceededHigh + nudgeProceededLow > 0
+            ? nudgeProceededHigh + nudgeProceededLow
+            : nudgeProceeded;
+    const totalNudgeInteractions = nudgeCancelled + totalProceeded;
 
-    const nudgeSegments = [
-        { color: '#22c55e', value: nudgeCancelled, label: 'Cancelled' },
-        { color: '#ff3b3b', value: nudgeProceeded, label: 'Proceeded' },
-    ];
+    const hasRiskSplit = nudgeProceededHigh > 0 || nudgeProceededLow > 0;
+
+    const nudgeSegments = hasRiskSplit
+        ? [
+              { color: '#22c55e', value: nudgeCancelled, label: 'Cancelled' },
+              {
+                  color: '#f59e0b',
+                  value: nudgeProceededLow,
+                  label: 'Proceeded (Low Risk)',
+              },
+              {
+                  color: '#ff3b3b',
+                  value: nudgeProceededHigh,
+                  label: 'Proceeded (High Risk)',
+              },
+          ]
+        : [
+              { color: '#22c55e', value: nudgeCancelled, label: 'Cancelled' },
+              { color: '#ff3b3b', value: nudgeProceeded, label: 'Proceeded' },
+          ];
 
     const domainSegments = [
         { color: '#ff3b3b', value: domainUsage.unsafe, label: 'Unsafe' },

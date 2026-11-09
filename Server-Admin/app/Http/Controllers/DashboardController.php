@@ -8,6 +8,7 @@ use App\Models\DomainVisit;
 use App\Models\EgressEvent;
 use App\Models\ExtensionLifecycle;
 use App\Models\NudgeInteraction;
+use App\Services\AbleSettingsService;
 use App\Support\AppCategories;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -87,20 +88,19 @@ class DashboardController extends Controller
             COALESCE(SUM(CASE WHEN action IN ('proceeded', 'allowed') THEN file_size ELSE 0 END), 0) as data_lost
         ")->first();
 
-        // 4. Nudge Success Rate & Event Counts
+        // 4. Nudge Success Rate & Event Counts (Risk-Differentiated)
         // Cancelled = user cancelled upload (nudge prevented data loss)
-        // Proceeded = user proceeded with upload (data left the network)
-        /** @var object{cancelled: int, proceeded: int} $nudgeStats */
-        $nudgeStats = NudgeInteraction::selectRaw("
-            COALESCE(SUM(CASE WHEN user_action = 'cancelled' THEN 1 ELSE 0 END), 0) as cancelled,
-            COALESCE(SUM(CASE WHEN user_action = 'proceeded' THEN 1 ELSE 0 END), 0) as proceeded
-        ")->first();
-        $nudgeCancelled = (int) ($nudgeStats->cancelled ?? 0);
-        $nudgeProceeded = (int) ($nudgeStats->proceeded ?? 0);
-        $totalInteractions = $nudgeCancelled + $nudgeProceeded;
-        $nudgeSuccessRate = $totalInteractions > 0
-            ? round(($nudgeCancelled / $totalInteractions) * 100, 1)
-            : 0;
+        // Proceeded (High Risk) = user proceeded on high-risk egress (critical data breach)
+        // Proceeded (Low Risk) = user proceeded on low-risk egress (tolerated / benign flow)
+        $threshold = (int) app(AbleSettingsService::class)->value('extension', 'behavior.risk_threshold', 85);
+        $nudgeStats = NudgeInteraction::containmentStats(null, $threshold, lowRiskPenaltyWeight: 0.25);
+        $nudgeCancelled = $nudgeStats['cancelled'];
+        $nudgeProceeded = $nudgeStats['proceeded'];
+        $nudgeProceededHigh = $nudgeStats['proceeded_high'];
+        $nudgeProceededLow = $nudgeStats['proceeded_low'];
+        $nudgeSuccessRate = $nudgeStats['success_rate'];
+        $nudgeHighRiskSuccessRate = $nudgeStats['high_risk_success_rate'];
+        $nudgeLowRiskSuccessRate = $nudgeStats['low_risk_success_rate'];
 
         // 5. Domain Usage - single conditional aggregation
         /** @var object{safe: int, unsafe: int, unlisted: int} $statusCounts */
@@ -162,19 +162,29 @@ class DashboardController extends Controller
             ->groupByRaw('DATE(visited_at)')
             ->pluck('count', 'date');
 
-        $dailyEgress = EgressEvent::selectRaw('DATE(occurred_at) as date, COUNT(*) as count')
+        /** @var Collection<string, object{total: int|string, high: int|string, low: int|string}> $dailyEgressStats */
+        $dailyEgressStats = EgressEvent::selectRaw("
+            DATE(occurred_at) as date,
+            COUNT(*) as total,
+            COALESCE(SUM(CASE WHEN risk_score >= ? THEN 1 ELSE 0 END), 0) as high,
+            COALESCE(SUM(CASE WHEN risk_score < ? THEN 1 ELSE 0 END), 0) as low
+        ", [$threshold, $threshold])
             ->where('occurred_at', '>=', $sevenDaysAgo)
             ->groupByRaw('DATE(occurred_at)')
-            ->pluck('count', 'date');
+            ->get()
+            ->keyBy('date');
 
         $shadowActivity = [];
         for ($i = 6; $i >= 0; $i--) {
             $date = now()->subDays($i)->format('Y-m-d');
+            $dayEgress = $dailyEgressStats->get($date);
             $shadowActivity[] = [
                 'date' => $date,
                 'day' => now()->subDays($i)->format('D'),
                 'visits' => (int) ($dailyVisits[$date] ?? 0),
-                'egress' => (int) ($dailyEgress[$date] ?? 0),
+                'egress' => (int) ($dayEgress->total ?? 0),
+                'egressHigh' => (int) ($dayEgress->high ?? 0),
+                'egressLow' => (int) ($dayEgress->low ?? 0),
             ];
         }
 
@@ -191,6 +201,10 @@ class DashboardController extends Controller
             'nudgeSuccessRate' => $nudgeSuccessRate,
             'nudgeCancelled' => $nudgeCancelled,
             'nudgeProceeded' => $nudgeProceeded,
+            'nudgeProceededHigh' => $nudgeProceededHigh,
+            'nudgeProceededLow' => $nudgeProceededLow,
+            'nudgeHighRiskSuccessRate' => $nudgeHighRiskSuccessRate,
+            'nudgeLowRiskSuccessRate' => $nudgeLowRiskSuccessRate,
             'domainUsage' => $domainUsage,
             'recentEgressEvents' => $recentEgressEvents,
             'recentDomainVisits' => $recentDomainVisits,

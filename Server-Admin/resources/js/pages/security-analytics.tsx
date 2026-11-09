@@ -53,8 +53,12 @@ interface PolicyStanceData {
 interface NudgeEfficacyData {
     cancelled: number;
     proceeded: number;
+    proceededHigh?: number;
+    proceededLow?: number;
     total: number;
     rate: number;
+    highRiskRate?: number | null;
+    lowRiskRate?: number | null;
 }
 
 interface ShadowAnalyticsProps {
@@ -113,20 +117,43 @@ export default function ShadowAnalytics({
         [policyStance],
     );
 
+    const hasNudgeRiskSplit =
+        (nudgeEfficacy.proceededHigh ?? 0) > 0 ||
+        (nudgeEfficacy.proceededLow ?? 0) > 0;
+
     const nudgeSegments = useMemo(
-        () => [
-            {
-                color: '#22c55e',
-                value: nudgeEfficacy.cancelled,
-                label: 'Prevented (Cancelled)',
-            },
-            {
-                color: '#ff3b3b',
-                value: nudgeEfficacy.proceeded,
-                label: 'Overridden (Proceeded)',
-            },
-        ],
-        [nudgeEfficacy],
+        () =>
+            hasNudgeRiskSplit
+                ? [
+                      {
+                          color: '#22c55e',
+                          value: nudgeEfficacy.cancelled,
+                          label: 'Cancelled',
+                      },
+                      {
+                          color: '#f59e0b',
+                          value: nudgeEfficacy.proceededLow ?? 0,
+                          label: 'Proceeded (Low Risk)',
+                      },
+                      {
+                          color: '#ff3b3b',
+                          value: nudgeEfficacy.proceededHigh ?? 0,
+                          label: 'Proceeded (High Risk)',
+                      },
+                  ]
+                : [
+                      {
+                          color: '#22c55e',
+                          value: nudgeEfficacy.cancelled,
+                          label: 'Cancelled',
+                      },
+                      {
+                          color: '#ff3b3b',
+                          value: nudgeEfficacy.proceeded,
+                          label: 'Proceeded',
+                      },
+                  ],
+        [nudgeEfficacy, hasNudgeRiskSplit],
     );
 
     return (
@@ -227,151 +254,161 @@ export default function ShadowAnalytics({
                 </div>
 
                 {/* ========================================================================= */}
-                {/* SECTION 2: CHART CARDS (2x2 Grid)                                         */}
+                {/* SECTION 2: CHART CARDS                                                    */}
                 {/* ========================================================================= */}
-                <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                    {/* Chart 1: Shadow Activity Velocity */}
-                    <PanelCard
-                        title="Activity Velocity"
-                        subtitle="Daily domain visits vs. egress upload attempts over the last 7 days"
-                        action={
-                            <Link href="/security-analytics/egress-incidents">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 border-[rgba(34,197,94,0.5)] px-2.5 text-xs hover:bg-[rgba(34,197,94,0.1)]"
-                                >
-                                    View Incidents
-                                </Button>
-                            </Link>
-                        }
-                    >
-                        <GroupedBarChart data={velocityActivity} />
-                    </PanelCard>
-
-                    {/* Chart 2: Shadow Category Risk Distribution */}
-                    <PanelCard
-                        title="Category Breakdown"
-                        subtitle="Discovered applications grouped by risk category & average threat weight"
-                        action={
-                            <Link href="/security-analytics/shadow-apps">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 border-[rgba(34,197,94,0.5)] px-2.5 text-xs hover:bg-[rgba(34,197,94,0.1)]"
-                                >
-                                    View Catalog
-                                </Button>
-                            </Link>
-                        }
-                    >
-                        {categoryDistribution.length === 0 ? (
-                            <div className="flex h-[240px] items-center justify-center text-sm text-muted-foreground italic">
-                                No categorized applications found yet.
-                            </div>
-                        ) : (
-                            <div className="flex flex-col gap-3.5 py-1">
-                                {categoryDistribution.map((item) => (
-                                    <div
-                                        key={item.category}
-                                        className="flex flex-col gap-1.5 rounded-lg border border-black/5 bg-black/[0.02] p-2.5 dark:border-white/5 dark:bg-white/[0.02]"
+                <section className="flex flex-col gap-6">
+                    {/* Row 1: Shadow Activity & Category Breakdown (Shadow Activity is longer) */}
+                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+                        {/* Chart 1: Shadow Activity */}
+                        <PanelCard
+                            title="Shadow Activity"
+                            subtitle="Daily domain visits vs. egress upload attempts over the last 7 days"
+                            className="lg:col-span-7 xl:col-span-8"
+                            action={
+                                <Link href="/security-analytics/egress-incidents">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 border-[rgba(34,197,94,0.5)] px-2.5 text-xs hover:bg-[rgba(34,197,94,0.1)]"
                                     >
-                                        <div className="flex items-center justify-between text-xs">
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-semibold text-foreground">
-                                                    {item.category}
-                                                </span>
-                                                <span className="rounded-full bg-black/5 px-2 py-0.5 text-[10px] text-muted-foreground dark:bg-white/10">
-                                                    {item.count}{' '}
-                                                    {item.count === 1
-                                                        ? 'app'
-                                                        : 'apps'}
-                                                </span>
+                                        View Incidents
+                                    </Button>
+                                </Link>
+                            }
+                        >
+                            <GroupedBarChart
+                                data={velocityActivity}
+                                height={220}
+                            />
+                        </PanelCard>
+
+                        {/* Chart 2: Shadow Category Risk Distribution */}
+                        <PanelCard
+                            title="Category Breakdown"
+                            subtitle="Discovered applications grouped by risk category & average threat weight"
+                            className="lg:col-span-5 xl:col-span-4"
+                            action={
+                                <Link href="/security-analytics/shadow-apps">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 border-[rgba(34,197,94,0.5)] px-2.5 text-xs hover:bg-[rgba(34,197,94,0.1)]"
+                                    >
+                                        View Catalog
+                                    </Button>
+                                </Link>
+                            }
+                        >
+                            {categoryDistribution.length === 0 ? (
+                                <div className="flex h-[240px] items-center justify-center text-sm text-muted-foreground italic">
+                                    No categorized applications found yet.
+                                </div>
+                            ) : (
+                                <div className="flex flex-col gap-3.5 py-1">
+                                    {categoryDistribution.map((item) => (
+                                        <div
+                                            key={item.category}
+                                            className="flex flex-col gap-1.5 rounded-lg border border-black/5 bg-black/[0.02] p-2.5 dark:border-white/5 dark:bg-white/[0.02]"
+                                        >
+                                            <div className="flex items-center justify-between text-xs">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-semibold text-foreground">
+                                                        {item.category}
+                                                    </span>
+                                                    <span className="rounded-full bg-black/5 px-2 py-0.5 text-[10px] text-muted-foreground dark:bg-white/10">
+                                                        {item.count}{' '}
+                                                        {item.count === 1
+                                                            ? 'app'
+                                                            : 'apps'}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span
+                                                        className={cn(
+                                                            'rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                                                            getRiskScoreBadgeClass(
+                                                                item.avgRisk,
+                                                            ),
+                                                        )}
+                                                    >
+                                                        Avg Risk:{' '}
+                                                        {item.avgRisk}%
+                                                    </span>
+                                                </div>
                                             </div>
-                                            <div className="flex items-center gap-2">
-                                                <span
-                                                    className={cn(
-                                                        'rounded-full px-2 py-0.5 text-[10px] font-semibold',
-                                                        getRiskScoreBadgeClass(
-                                                            item.avgRisk,
-                                                        ),
-                                                    )}
-                                                >
-                                                    Avg Risk: {item.avgRisk}%
-                                                </span>
-                                                <span className="font-medium text-muted-foreground tabular-nums">
-                                                    {item.percentage}%
-                                                </span>
+                                            {/* Progress Bar Track */}
+                                            <div className="h-2 w-full overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
+                                                <div
+                                                    className="h-full rounded-full transition-all duration-500"
+                                                    style={{
+                                                        width: `${Math.max(item.percentage, 5)}%`,
+                                                        backgroundColor:
+                                                            item.avgRisk >= 76
+                                                                ? '#ff4d4d'
+                                                                : item.avgRisk >=
+                                                                    41
+                                                                  ? '#f59e0b'
+                                                                  : '#00ff66',
+                                                    }}
+                                                />
                                             </div>
                                         </div>
-                                        {/* Progress Bar Track */}
-                                        <div className="h-2 w-full overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
-                                            <div
-                                                className="h-full rounded-full transition-all duration-500"
-                                                style={{
-                                                    width: `${Math.max(item.percentage, 5)}%`,
-                                                    backgroundColor:
-                                                        item.avgRisk >= 76
-                                                            ? '#ff4d4d'
-                                                            : item.avgRisk >= 41
-                                                              ? '#f59e0b'
-                                                              : '#00ff66',
-                                                }}
-                                            />
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </PanelCard>
+                                    ))}
+                                </div>
+                            )}
+                        </PanelCard>
+                    </div>
 
-                    {/* Chart 3: Policy Control */}
-                    <PanelCard
-                        title="Policy Control"
-                        subtitle="Classification ratio of monitored shadow applications"
-                        action={
-                            <Link href="/policy-algorithm">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 border-[rgba(34,197,94,0.5)] px-2.5 text-xs hover:bg-[rgba(34,197,94,0.1)]"
-                                >
-                                    Policy Rules
-                                </Button>
-                            </Link>
-                        }
-                    >
-                        <DonutGauge
-                            segments={policySegments}
-                            centerLabel="Total Monitored"
-                            centerValue={policyStance.total.toLocaleString()}
-                            noData={policyStance.total === 0}
-                        />
-                    </PanelCard>
+                    {/* Row 2: Policy Control & Nudge Containment (Mirrors Dashboard page) */}
+                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                        {/* Chart 3: Policy Control */}
+                        <PanelCard
+                            title="Policy Control"
+                            subtitle="Classification ratio of monitored shadow applications"
+                            action={
+                                <Link href="/policy-algorithm">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 border-[rgba(34,197,94,0.5)] px-2.5 text-xs hover:bg-[rgba(34,197,94,0.1)]"
+                                    >
+                                        Policy Rules
+                                    </Button>
+                                </Link>
+                            }
+                        >
+                            <DonutGauge
+                                segments={policySegments}
+                                centerLabel="Total Monitored"
+                                centerValue={policyStance.total.toLocaleString()}
+                                noData={policyStance.total === 0}
+                            />
+                        </PanelCard>
 
-                    {/* Chart 4: Nudge Containment */}
-                    <PanelCard
-                        title="Nudge Containment"
-                        subtitle="Employee compliance responses when presented with upload warnings"
-                        action={
-                            <Link href="/security-analytics/nudge-effectiveness">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 border-[rgba(34,197,94,0.5)] px-2.5 text-xs hover:bg-[rgba(34,197,94,0.1)]"
-                                >
-                                    Full Telemetry
-                                </Button>
-                            </Link>
-                        }
-                    >
-                        <DonutGauge
-                            segments={nudgeSegments}
-                            centerLabel="Containment Rate"
-                            centerValue={`${nudgeEfficacy.rate}%`}
-                            noData={nudgeEfficacy.total === 0}
-                        />
-                    </PanelCard>
+                        {/* Chart 4: Nudge Containment */}
+                        <PanelCard
+                            title="Nudge Containment"
+                            subtitle="Share of nudges that prevented data loss"
+                            action={
+                                <Link href="/security-analytics/nudge-effectiveness">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 border-[rgba(34,197,94,0.5)] px-2.5 text-xs hover:bg-[rgba(34,197,94,0.1)]"
+                                    >
+                                        Full Telemetry
+                                    </Button>
+                                </Link>
+                            }
+                        >
+                            <DonutGauge
+                                segments={nudgeSegments}
+                                centerLabel="Success Rate"
+                                centerValue={`${nudgeEfficacy.rate}%`}
+                                noData={nudgeEfficacy.total === 0}
+                            />
+                        </PanelCard>
+                    </div>
                 </section>
             </div>
         </>

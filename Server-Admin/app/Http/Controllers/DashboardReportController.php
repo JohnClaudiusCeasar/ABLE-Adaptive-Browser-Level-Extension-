@@ -8,6 +8,7 @@ use App\Models\DomainVisit;
 use App\Models\EgressEvent;
 use App\Models\ExtensionLifecycle;
 use App\Models\NudgeInteraction;
+use App\Services\AbleSettingsService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
@@ -420,16 +421,13 @@ class DashboardReportController extends Controller
             $nudgeQuery->where('interacted_at', '>=', now()->subMonths(12));
         }
 
-        /** @var object{proceeded: int, cancelled: int} $nudgeStats */
-        $nudgeStats = $nudgeQuery->selectRaw("
-            COALESCE(SUM(CASE WHEN user_action = 'proceeded' THEN 1 ELSE 0 END), 0) as proceeded,
-            COALESCE(SUM(CASE WHEN user_action = 'cancelled' THEN 1 ELSE 0 END), 0) as cancelled
-        ")->first();
+        $threshold = (int) app(AbleSettingsService::class)->value('extension', 'behavior.risk_threshold', 85);
+        $nudgeStats = NudgeInteraction::containmentStats($nudgeQuery, $threshold, lowRiskPenaltyWeight: 0.25);
 
-        $proceeded = (int) ($nudgeStats->proceeded ?? 0);
-        $cancelled = (int) ($nudgeStats->cancelled ?? 0);
-        $total = $proceeded + $cancelled;
-        $rate = $total > 0 ? round(($cancelled / $total) * 100, 1) : 0;
+        $proceeded = $nudgeStats['proceeded'];
+        $cancelled = $nudgeStats['cancelled'];
+        $total = $nudgeStats['total'];
+        $rate = $nudgeStats['success_rate'];
 
         /** @var object{data_saved: int, data_lost: int} $dataStats */
         $dataStats = EgressEvent::selectRaw("
@@ -553,16 +551,10 @@ class DashboardReportController extends Controller
             COALESCE(SUM(CASE WHEN action IN ('proceeded', 'allowed') THEN file_size ELSE 0 END), 0) as data_lost
         ")->first();
 
-        // Nudge Success Rate
-        /** @var object{proceeded: int, cancelled: int} $nudgeStats */
-        $nudgeStats = NudgeInteraction::selectRaw("
-            SUM(CASE WHEN user_action = 'proceeded' THEN 1 ELSE 0 END) as proceeded,
-            SUM(CASE WHEN user_action = 'cancelled' THEN 1 ELSE 0 END) as cancelled
-        ")->first();
-        $totalInteractions = (int) ($nudgeStats->proceeded ?? 0) + (int) ($nudgeStats->cancelled ?? 0);
-        $nudgeSuccessRate = $totalInteractions > 0
-            ? round(((int) $nudgeStats->cancelled / $totalInteractions) * 100, 1)
-            : 0;
+        // Nudge Success Rate (Risk-Differentiated)
+        $threshold = (int) app(AbleSettingsService::class)->value('extension', 'behavior.risk_threshold', 85);
+        $nudgeStats = NudgeInteraction::containmentStats(null, $threshold, lowRiskPenaltyWeight: 0.25);
+        $nudgeSuccessRate = $nudgeStats['success_rate'];
 
         // Domain Usage
         /** @var object{safe: int, unsafe: int, unlisted: int, blocked: int} $statusCounts */
