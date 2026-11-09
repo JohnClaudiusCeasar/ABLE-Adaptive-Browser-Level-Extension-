@@ -58,7 +58,16 @@ function showBlockedAccessModal(data) {
 
   backdrop.querySelector("#ableBlockedRequestAccess").addEventListener("click", function () {
     // The request is filed from this tab: no redirect away from the blocked site.
-    showRequestAccessModal({ domain: data && data.domain ? data.domain : window.location.hostname });
+    var targetDomain = data && data.domain ? data.domain : window.location.hostname;
+    if (typeof getOrCreateUserId === "function") {
+      Promise.resolve(getOrCreateUserId()).then(function (userId) {
+        showRequestAccessModal({ domain: targetDomain, userId: userId });
+      }).catch(function () {
+        showRequestAccessModal({ domain: targetDomain });
+      });
+    } else {
+      showRequestAccessModal({ domain: targetDomain });
+    }
   });
 
   backdrop.querySelector("#ableBlockedGoBack").addEventListener("click", function () {

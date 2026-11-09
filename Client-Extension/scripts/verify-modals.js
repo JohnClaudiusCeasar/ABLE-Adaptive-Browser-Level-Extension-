@@ -322,6 +322,8 @@ check("requestAccess: title is REQUEST ACCESS", requestAccessHtml.includes('REQU
 check("requestAccess: names the blocked domain", requestAccessHtml.includes('blocked.example.com'));
 check("requestAccess: has the request form", requestAccessHtml.includes('able-request-form'));
 check("requestAccess: has an alias field", requestAccessHtml.includes('ableRequestAlias'));
+check("requestAccess: alias field is readonly", requestAccessHtml.includes('readonly'));
+check("requestAccess: labels field as Pseudonymous ID", requestAccessHtml.includes('Pseudonymous ID'));
 check("requestAccess: has a reasons field", requestAccessHtml.includes('ableRequestReasons'));
 check("requestAccess: offers Submit Request", requestAccessHtml.includes('Submit Request'));
 check("requestAccess: offers Cancel", requestAccessHtml.includes('Cancel'));
@@ -376,6 +378,8 @@ check("shared: ring builder escapes nothing unsafe", !/on\w+=/.test(ringA));
 const styles = sandbox.ABLEModalContainer.MODAL_STYLES;
 check("styles: .able-intercept-* rules removed", !/able-intercept-/.test(styles),
   (styles.match(/able-intercept-[a-z-]+/g) || [])[0]);
+check("styles: .able-modal-body p does not use italic", !/\.able-modal-body\s+p\s*\{[^}]*font-style:\s*italic/m.test(styles));
+check("styles: .able-recommend-intro does not use italic", !/\.able-recommend-intro\s*\{[^}]*font-style:\s*italic/m.test(styles));
 
 // 10: content.css is now empty of rules
 const css = read("content.css");
@@ -579,6 +583,8 @@ function siteWarningVerification() {
   check("recommends: title ABLE RECOMMENDS", recommendsHtml.includes("ABLE RECOMMENDS"));
   check("recommends: lists sanctioned domains",
     recommendsHtml.includes("notion.test") && recommendsHtml.includes("asana.test"));
+  check("recommends: item has logo container", recommendsHtml.includes("able-recommend-logo-container"));
+  check("recommends: item has logo image", recommendsHtml.includes("able-recommend-logo"));
   check("recommends: has a Back button", recommendsHtml.includes("ableRecommendsBack"));
   check("recommends: two banner edges (top + bottom)",
     (recommendsHtml.match(/able-banner-edge/g) || []).length === 2);

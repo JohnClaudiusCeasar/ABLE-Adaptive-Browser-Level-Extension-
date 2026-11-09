@@ -192,10 +192,6 @@ function shouldScanContent() {
   if (skipAuth && typeof isAuthOrAccountUrl === "function" && isAuthOrAccountUrl(window.location.href)) {
     return false;
   }
-  var skipSearch = ABLERuntimeSettings.get("logging.skip_search_results", typeof ABLE_SKIP_SEARCH_RESULTS !== "undefined" ? ABLE_SKIP_SEARCH_RESULTS : true);
-  if (skipSearch && typeof isSearchResultUrl === "function" && isSearchResultUrl(window.location.href)) {
-    return false;
-  }
   return !!domainStatus;
 }
 

@@ -91,25 +91,34 @@ function main() {
     check("Normal website pricing is not an auth page", !isAuthOrAccountUrl("https://example.com/pricing"));
   }
 
-  // ── 5. Search Engine Result Pages (SERP) ───────────────────────────────
+  // ── 5. Search Engine Result Pages (SERP) vs Search Portals ─────────────
   {
-    check("Google search query is ignored", isSearchResultUrl("https://www.google.com/search?q=cybersecurity"));
-    check("Google search homepage is ignored", isSearchResultUrl("https://www.google.com/"));
-    check("Google UK search is ignored", isSearchResultUrl("https://www.google.co.uk/search?q=able"));
-    check("Google Philippines search is ignored", isSearchResultUrl("https://www.google.com.ph/search?q=test"));
+    // Search engine homepages / portals are VISIBLE (not search result pages)
+    check("Google homepage is NOT a search result page (visible for telemetry)", !isSearchResultUrl("https://www.google.com/"));
+    check("Google root is NOT a search result page", !isSearchResultUrl("https://google.com/"));
+    check("Bing homepage is NOT a search result page", !isSearchResultUrl("https://www.bing.com/"));
+    check("Yahoo homepage is NOT a search result page", !isSearchResultUrl("https://www.yahoo.com/"));
+    check("DuckDuckGo homepage is NOT a search result page", !isSearchResultUrl("https://duckduckgo.com/"));
+    check("Brave search portal is NOT a search result page", !isSearchResultUrl("https://search.brave.com/"));
+    check("Ecosia homepage is NOT a search result page", !isSearchResultUrl("https://www.ecosia.org/"));
+
+    // Executed queries / SERP pages ARE search result pages
+    check("Google search query is a search result page", isSearchResultUrl("https://www.google.com/search?q=cybersecurity"));
+    check("Google UK search query is a search result page", isSearchResultUrl("https://www.google.co.uk/search?q=able"));
+    check("Google Philippines search query is a search result page", isSearchResultUrl("https://www.google.com.ph/search?q=test"));
     check("Google search redirect URL is ignored", isSearchResultUrl("https://www.google.com/url?sa=t&url=https%3A%2F%2Fexample.com"));
-    check("Yahoo search is ignored", isSearchResultUrl("https://search.yahoo.com/search?p=infosec"));
-    check("Bing search is ignored", isSearchResultUrl("https://www.bing.com/search?q=privacy"));
-    check("Bing China is ignored", isSearchResultUrl("https://cn.bing.com/search?q=test"));
-    check("DuckDuckGo search is ignored", isSearchResultUrl("https://duckduckgo.com/?q=shadow+it"));
-    check("Baidu search is ignored", isSearchResultUrl("https://www.baidu.com/s?wd=able"));
-    check("Yandex search is ignored", isSearchResultUrl("https://yandex.com/search/?text=security"));
-    check("Brave search is ignored", isSearchResultUrl("https://search.brave.com/search?q=browser+extension"));
-    check("Ecosia search is ignored", isSearchResultUrl("https://www.ecosia.org/search?q=green"));
-    check("Kagi search is ignored", isSearchResultUrl("https://kagi.com/search?q=fast"));
-    check("Naver search is ignored", isSearchResultUrl("https://search.naver.com/search.naver?query=korea"));
-    check("Sogou search is ignored", isSearchResultUrl("https://search.sogou.com/web?query=china"));
-    check("Seznam search is ignored", isSearchResultUrl("https://search.seznam.cz/?q=czech"));
+    check("Yahoo search results page is ignored", isSearchResultUrl("https://search.yahoo.com/search?p=infosec"));
+    check("Bing search query is a search result page", isSearchResultUrl("https://www.bing.com/search?q=privacy"));
+    check("Bing China search query is a search result page", isSearchResultUrl("https://cn.bing.com/search?q=test"));
+    check("DuckDuckGo search query is a search result page", isSearchResultUrl("https://duckduckgo.com/?q=shadow+it"));
+    check("Baidu search query is a search result page", isSearchResultUrl("https://www.baidu.com/s?wd=able"));
+    check("Yandex search query is a search result page", isSearchResultUrl("https://yandex.com/search/?text=security"));
+    check("Brave search query is a search result page", isSearchResultUrl("https://search.brave.com/search?q=browser+extension"));
+    check("Ecosia search query is a search result page", isSearchResultUrl("https://www.ecosia.org/search?q=green"));
+    check("Kagi search query is a search result page", isSearchResultUrl("https://kagi.com/search?q=fast"));
+    check("Naver search query is a search result page", isSearchResultUrl("https://search.naver.com/search.naver?query=korea"));
+    check("Sogou search query is a search result page", isSearchResultUrl("https://search.sogou.com/web?query=china"));
+    check("Seznam search query is a search result page", isSearchResultUrl("https://search.seznam.cz/?q=czech"));
 
     // Negative SERP cases
     check("Google Cloud console is not search", !isSearchResultUrl("https://console.cloud.google.com/home"));
@@ -123,7 +132,17 @@ function main() {
     check("127.0.0.1 is ignored", shouldIgnoreDomainVisit("http://127.0.0.1:3000/"));
     check("Google Chrome sync is ignored via master check", shouldIgnoreDomainVisit("https://accounts.google.com/signin/chrome/sync"));
     check("Microsoft login is ignored via master check", shouldIgnoreDomainVisit("https://login.microsoftonline.com/oauth"));
-    check("Google search is ignored via master check", shouldIgnoreDomainVisit("https://www.google.com/search?q=test"));
+
+    // Search engine homepages ARE recorded in telemetry (not ignored)
+    check("Google homepage visit IS recorded in telemetry", !shouldIgnoreDomainVisit("https://www.google.com/"));
+    check("Bing homepage visit IS recorded in telemetry", !shouldIgnoreDomainVisit("https://www.bing.com/"));
+    check("Yahoo homepage visit IS recorded in telemetry", !shouldIgnoreDomainVisit("https://www.yahoo.com/"));
+    check("DuckDuckGo homepage visit IS recorded in telemetry", !shouldIgnoreDomainVisit("https://duckduckgo.com/"));
+
+    // Executed query results pages ARE ignored (avoid visit bloat)
+    check("Google search results page is ignored for visit logging", shouldIgnoreDomainVisit("https://www.google.com/search?q=test"));
+    check("Bing search results page is ignored for visit logging", shouldIgnoreDomainVisit("https://www.bing.com/search?q=test"));
+
     check("Legitimate business SaaS is NOT ignored", !shouldIgnoreDomainVisit("https://app.asana.com/0/12345/list"));
     check("Legitimate cloud console is NOT ignored", !shouldIgnoreDomainVisit("https://us-east-1.console.aws.amazon.com/"));
   }

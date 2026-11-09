@@ -23,6 +23,7 @@ function showRequestAccessModal(data) {
   var domain = escapeRequestText(
     data && data.domain ? data.domain : window.location.hostname
   );
+  var userId = escapeRequestText(data && data.userId ? data.userId : "");
 
   var html = `
     <div class="able-modal-card">
@@ -38,8 +39,8 @@ function showRequestAccessModal(data) {
         </div>
         <div class="able-request-form">
           <label class="able-request-field">
-            <span class="able-request-label">Name or alias (optional)</span>
-            <input class="able-request-input" id="ableRequestAlias" type="text" maxlength="32" placeholder="e.g. Auditor7" />
+            <span class="able-request-label">Pseudonymous ID</span>
+            <input class="able-request-input" id="ableRequestAlias" type="text" value="${userId}" readonly tabindex="-1" />
           </label>
           <label class="able-request-field">
             <span class="able-request-label">Reasons for access</span>
@@ -73,6 +74,23 @@ function showRequestAccessModal(data) {
   var reasonsInput = backdrop.querySelector("#ableRequestReasons");
   var statusEl = backdrop.querySelector("#ableRequestStatus");
   var submitBtn = backdrop.querySelector("#ableRequestSubmit");
+
+  if (aliasInput && !aliasInput.value) {
+    if (typeof getOrCreateUserId === "function") {
+      Promise.resolve(getOrCreateUserId()).then(function (id) {
+        if (aliasInput && id) {
+          aliasInput.value = id;
+        }
+      }).catch(function () {});
+    } else if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local && typeof ABLEStorage !== "undefined") {
+      chrome.storage.local.get(ABLEStorage.USER_ID, function (res) {
+        var id = res && res[ABLEStorage.USER_ID];
+        if (aliasInput && id) {
+          aliasInput.value = id;
+        }
+      });
+    }
+  }
 
   backdrop.querySelector("#ableRequestCancel").addEventListener("click", function () {
     // The site is still blocked, so return to the blocked modal.

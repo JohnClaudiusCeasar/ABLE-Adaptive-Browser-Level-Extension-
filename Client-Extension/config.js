@@ -135,9 +135,10 @@ const ABLE_RECOMMENDS_PARAGRAPH_PREFIX = "Anyhow, while the system is not discou
 const ABLE_RECOMMENDS_PARAGRAPH_SUFFIX = "-based platform, ABLE recommends the following sanctioned alternatives that will help improve your workflow as well as improve institutional security.";
 
 /**
- * Detect whether a given URL is a search engine listing / result page.
- * Prevents search queries (e.g. Google Search, Yahoo Search, Bing) from bloating
- * the domain visits audit table or showing intrusive site warnings.
+ * Detect whether a given URL is an active search engine listing / result page.
+ * Distinguishes the search engine's homepage/portal (e.g. google.com/, yahoo.com/)
+ * from the actual query results page (e.g. google.com/search?q=...).
+ * Prevents active search queries from bloating the domain visits audit table.
  */
 function isSearchResultUrl(url) {
   if (!url || typeof url !== "string") return false;
@@ -147,105 +148,101 @@ function isSearchResultUrl(url) {
     var path = u.pathname.toLowerCase();
     var search = u.searchParams;
 
-    // Google Search (excludes docs, drive, mail, meet, maps, finance, etc.)
+    // Google Search Results (only when an active query, image result, or redirect is present)
     if (/^google\.(com?|org|[a-z]{2})(\.[a-z]{2})?$/.test(host)) {
-      var isSearchPath = path === "/" || path === "" || path === "/search" || path === "/webhp" || path === "/imghp" || path === "/url" || path === "/imgres";
-      if (isSearchPath) return true;
+      if (path === "/url" || path === "/imgres") return true;
+      if ((path === "/search" || path.startsWith("/search/")) && (search.has("q") || search.has("query") || search.has("tbm"))) {
+        return true;
+      }
       return false;
     }
 
-    // Yahoo Search (excludes finance, mail, sports, news, etc.)
+    // Yahoo Search Results
     if (host === "search.yahoo.com" || host.endsWith(".search.yahoo.com") || /^search\.yahoo\.[a-z]{2,3}(\.[a-z]{2})?$/.test(host)) {
-      return true;
+      if (search.has("p") || search.has("q") || (path !== "/" && path !== "" && path.startsWith("/search"))) return true;
     }
     if (host === "yahoo.com" || /^([a-z]{2}\.)?yahoo\.(com?|[a-z]{2})$/.test(host)) {
-      if (path.startsWith("/search") || search.has("p")) {
+      if (search.has("p") || (path.startsWith("/search") && (search.has("q") || search.has("p")))) {
         return true;
       }
     }
 
-    // Bing
+    // Bing Search Results
     if (host === "bing.com" || /^([a-z]{2}\.)?bing\.com$/.test(host) || host === "cn.bing.com" || host === "global.bing.com") {
-      if (path === "/" || path === "" || path.startsWith("/search") || search.has("q")) {
+      if (path.startsWith("/search") && (search.has("q") || search.has("query"))) {
         return true;
       }
     }
 
-    // DuckDuckGo
+    // DuckDuckGo Search Results
     if (host === "duckduckgo.com" || host.endsWith(".duckduckgo.com")) {
-      return true;
+      if (search.has("q") || path.startsWith("/html") || path.startsWith("/lite")) {
+        return true;
+      }
     }
 
-    // Baidu
+    // Baidu Search Results
     if (host === "baidu.com" || host === "m.baidu.com") {
-      if (path === "/" || path === "" || path === "/s" || search.has("wd") || search.has("word")) {
+      if ((path === "/s" || path.startsWith("/s")) && (search.has("wd") || search.has("word"))) {
         return true;
       }
     }
 
-    // Yandex
+    // Yandex Search Results
     if (/^yandex\.(com?|[a-z]{2})(\.[a-z]{2})?$/.test(host)) {
-      if (path === "/" || path === "" || path.startsWith("/search") || search.has("text")) {
+      if (path.startsWith("/search") && (search.has("text") || search.has("q"))) {
         return true;
       }
     }
 
-    // Brave Search
+    // Brave Search Results
     if (host === "search.brave.com") {
-      return true;
+      if (search.has("q") || (path !== "/" && path !== "" && path.startsWith("/search"))) return true;
     }
 
-    // Ecosia
+    // Ecosia Search Results
     if (host === "ecosia.org" || host.endsWith(".ecosia.org")) {
-      if (path === "/" || path === "" || path.startsWith("/search") || search.has("q")) {
-        return true;
-      }
+      if (search.has("q") && path.startsWith("/search")) return true;
     }
 
-    // Ask.com
+    // Ask.com Search Results
     if (host === "ask.com" || host.endsWith(".ask.com")) {
-      if (path === "/" || path === "" || path.startsWith("/web") || search.has("q")) {
-        return true;
-      }
+      if (search.has("q") && (path.startsWith("/web") || path.startsWith("/search"))) return true;
     }
 
-    // Startpage
+    // Startpage Search Results
     if (host === "startpage.com" || host.endsWith(".startpage.com")) {
-      return true;
+      if ((search.has("query") || search.has("q")) && (path.startsWith("/sp/search") || path.startsWith("/search") || path === "/do/search")) return true;
     }
 
-    // AOL Search
+    // AOL Search Results
     if (host === "search.aol.com") {
-      return true;
+      if (search.has("q") || path.startsWith("/aol/search")) return true;
     }
 
-    // Qwant
+    // Qwant Search Results
     if (host === "qwant.com" || host.endsWith(".qwant.com")) {
-      return true;
+      if (search.has("q") && path.startsWith("/search")) return true;
     }
 
-    // Kagi Search
+    // Kagi Search Results
     if (host === "kagi.com" || host.endsWith(".kagi.com")) {
-      if (path === "/" || path === "" || path.startsWith("/search") || search.has("q")) {
-        return true;
-      }
+      if (search.has("q") && path.startsWith("/search")) return true;
     }
 
-    // Naver Search
+    // Naver Search Results
     if (host === "search.naver.com") {
-      return true;
+      if (search.has("query") || search.has("q")) return true;
     }
 
-    // Sogou Search
+    // Sogou Search Results
     if (host === "sogou.com" || host === "search.sogou.com") {
-      if (path === "/" || path === "" || path.startsWith("/web") || search.has("query")) {
-        return true;
-      }
+      if (search.has("query") || (path.startsWith("/web") && search.has("q"))) return true;
     }
 
-    // Seznam Search
+    // Seznam Search Results
     if (host === "search.seznam.cz") {
-      return true;
+      if (search.has("q")) return true;
     }
 
     return false;

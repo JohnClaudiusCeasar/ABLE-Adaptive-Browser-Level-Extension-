@@ -55,8 +55,18 @@ function buildRecommendationsCardHtml(data) {
   if (!category || domains.length === 0) return "";
 
   var items = domains.map(function (domain) {
-    return '<button type="button" class="able-recommend-item" data-rec-domain="' + escapeHtml(domain) + '">' +
-        '<span class="able-recommend-domain">' + escapeHtml(domain) + '</span>' +
+    var safeDomain = escapeHtml(domain);
+    var logoUrl = "https://www.google.com/s2/favicons?domain=" + encodeURIComponent(domain) + "&sz=64";
+    var initial = escapeHtml((domain.replace(/^(?:www\.)+/i, "").charAt(0) || "D").toUpperCase());
+
+    return '<button type="button" class="able-recommend-item" data-rec-domain="' + safeDomain + '">' +
+        '<div class="able-recommend-info">' +
+          '<div class="able-recommend-logo-container">' +
+            '<img class="able-recommend-logo" src="' + escapeHtml(logoUrl) + '" alt="" loading="lazy" onerror="this.style.display=\'none\';if(this.nextElementSibling)this.nextElementSibling.style.display=\'flex\';" />' +
+            '<span class="able-recommend-logo-fallback" style="display:none;">' + initial + '</span>' +
+          '</div>' +
+          '<span class="able-recommend-domain">' + safeDomain + '</span>' +
+        '</div>' +
         '<span class="able-recommend-tag">Sanctioned</span>' +
       '</button>';
   }).join("");
