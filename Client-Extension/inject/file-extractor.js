@@ -254,6 +254,105 @@ function extractBufferBody(body, context) {
   )];
 }
 
+function extractFileFromNode(node) {
+  if (!node || typeof node !== 'object') return null;
+  var rawName = node.file_name || node.fileName || node.filename || node.name || node.title;
+  if (!rawName || typeof rawName !== 'string') return null;
+  rawName = rawName.trim();
+  if (!/\.[a-zA-Z0-9]{2,5}$/.test(rawName)) return null;
+
+  var content = node.extracted_content || node.file_content || node.fileContent ||
+                node.file || node.fileData || node.file_data ||
+                node.content || node.data || node.payload || node.text;
+
+  var mime = node.mime_type || node.mimeType || node.type || 'text/plain';
+
+  // Direct string content
+  if (typeof content === 'string' && content.length > 0) {
+    if (node.encoding === 'base64' || (node.source && node.source.type === 'base64')) {
+      var b64Data = (node.source && node.source.data) || content;
+      try {
+        var bin = typeof atob === 'function' ? atob(b64Data) : (typeof Buffer !== 'undefined' ? Buffer.from(b64Data, 'base64').toString('binary') : null);
+        if (bin) {
+          var u8 = new Uint8Array(bin.length);
+          for (var k = 0; k < bin.length; k++) u8[k] = bin.charCodeAt(k);
+          return new File([u8], rawName, { type: mime });
+        }
+      } catch (e) {}
+    }
+    return new File([content], rawName, { type: mime });
+  }
+
+  // Base64 document block (e.g. Anthropic/Claude API document blocks: { source: { type: 'base64', data: '...', media_type: '...' } })
+  if (node.source && typeof node.source === 'object' && node.source.type === 'base64' && typeof node.source.data === 'string') {
+    try {
+      var binSource = typeof atob === 'function' ? atob(node.source.data) : (typeof Buffer !== 'undefined' ? Buffer.from(node.source.data, 'base64').toString('binary') : null);
+      if (binSource) {
+        var u8Source = new Uint8Array(binSource.length);
+        for (var m = 0; m < binSource.length; m++) u8Source[m] = binSource.charCodeAt(m);
+        return new File([u8Source], rawName, { type: node.source.media_type || mime });
+      }
+    } catch (e) {}
+  }
+
+  return null;
+}
+
+function extractFilesFromJson(json) {
+  var entries = [];
+  if (!json || typeof json !== 'object') return entries;
+
+  // 1. Single file object at root
+  var rootFile = extractFileFromNode(json);
+  if (rootFile) {
+    entries.push(makeEntry(rootFile, 'json-upload'));
+  }
+
+  // 2. Arrays of file/attachment objects
+  var candidateArrays = [
+    json.attachments,
+    json.files,
+    json.documents,
+    json.message && json.message.attachments,
+    json.message && json.message.content,
+    json.messages,
+  ];
+
+  if (Array.isArray(json)) {
+    candidateArrays.push(json);
+  }
+
+  for (var a = 0; a < candidateArrays.length; a++) {
+    var arr = candidateArrays[a];
+    if (Array.isArray(arr)) {
+      for (var b = 0; b < arr.length; b++) {
+        var item = arr[b];
+        var f = extractFileFromNode(item);
+        if (f) {
+          entries.push(makeEntry(f, 'json-upload'));
+        }
+        if (item && typeof item === 'object') {
+          if (Array.isArray(item.attachments)) {
+            for (var c = 0; c < item.attachments.length; c++) {
+              var nestedF = extractFileFromNode(item.attachments[c]);
+              if (nestedF) entries.push(makeEntry(nestedF, 'json-upload'));
+            }
+          }
+          if (Array.isArray(item.content)) {
+            for (var d = 0; d < item.content.length; d++) {
+              var contentBlock = item.content[d];
+              var blockF = extractFileFromNode(contentBlock);
+              if (blockF) entries.push(makeEntry(blockF, 'json-upload'));
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return entries;
+}
+
 function extractFiles(body, context) {
   context = context || {};
 
@@ -273,29 +372,39 @@ function extractFiles(body, context) {
     return extractBufferBody(body, context);
   }
 
-  if (body instanceof URLSearchParams) {
+  if (typeof URLSearchParams !== 'undefined' && body instanceof URLSearchParams) {
     return [];
   }
 
-  if (typeof body === 'string' && body.length >= 100) {
-    // Check for multipart form-data encoded as string
-    var cdMatch = body.match(/Content-Disposition:\s*form-data;\s*name="([^"]+)";\s*filename="([^"]+)"/i);
-    if (cdMatch && cdMatch[2]) {
-      return [makeEntry(new File([body], cdMatch[2], { type: 'text/plain' }), 'string-multipart')];
+  if (typeof body === 'string') {
+    var trimmed = body.trim();
+    if (trimmed.length >= 10) {
+      // Check for multipart form-data encoded as string
+      var cdMatch = body.match(/Content-Disposition:\s*form-data;\s*name="([^"]+)";\s*filename="([^"]+)"/i);
+      if (cdMatch && cdMatch[2]) {
+        return [makeEntry(new File([body], cdMatch[2], { type: 'text/plain' }), 'string-multipart')];
+      }
+      // Check for JSON containing explicit file upload structure
+      var firstChar = trimmed.charCodeAt(0);
+      if (firstChar === 123 || firstChar === 91) {
+        try {
+          var json = JSON.parse(trimmed);
+          var jsonEntries = extractFilesFromJson(json);
+          if (jsonEntries.length > 0) return jsonEntries;
+        } catch (e) {}
+      }
     }
-    // Check for JSON containing explicit file upload structure with file extension
-    if (body.charCodeAt(0) === 123) {
-      try {
-        var json = JSON.parse(body);
-        var rawFileName = json.fileName || json.filename;
-        if (rawFileName && typeof rawFileName === 'string' && /\.[a-zA-Z0-9]{2,5}$/.test(rawFileName)) {
-          var fileContent = json.file || json.fileData || json.content || json.data || json.payload;
-          if (typeof fileContent === 'string' && fileContent.length > 100) {
-            return [makeEntry(new File([fileContent], rawFileName, { type: 'text/plain' }), 'json-upload')];
-          }
-        }
-      } catch (e) {}
-    }
+  }
+
+  if (typeof body === 'object' && body !== null &&
+      !(body instanceof File) &&
+      !(body instanceof Blob) &&
+      !(body instanceof FormData) &&
+      !(body instanceof ArrayBuffer) &&
+      !ArrayBuffer.isView(body) &&
+      (typeof URLSearchParams === 'undefined' || !(body instanceof URLSearchParams))) {
+    var objEntries = extractFilesFromJson(body);
+    if (objEntries.length > 0) return objEntries;
   }
 
   return [];
@@ -316,10 +425,10 @@ async function extractFilesAsync(body, context) {
 }
 
 async function extractStreamAsync(body, context) {
-  // A stream cannot be content-matched without consuming it, so only a name the
-  // request itself carries can attribute it. This is a known coverage gap.
-  var name = requestFilename(context);
-  if (!name) return [];
+  // A stream without a request filename is given the placeholder 'stream-upload'.
+  // content/provenance.js re-derives provenance by correlating the peeked head
+  // with active user selections and drops unattributed streams.
+  var name = requestFilename(context) || 'stream-upload';
 
   var peeked = await peekReadableStream(body, 512);
   if (!peeked) return [];

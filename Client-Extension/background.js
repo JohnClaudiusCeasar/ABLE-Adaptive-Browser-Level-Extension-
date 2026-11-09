@@ -260,8 +260,7 @@ async function auditNavigation(url, transitionType) {
     if (urlObj.protocol !== "http:" && urlObj.protocol !== "https:") return;
     if (isExcludedHostname(urlObj.hostname)) return;
 
-    var skipSearch = ABLERuntimeSettings.get("logging.skip_search_results", typeof ABLE_SKIP_SEARCH_RESULTS !== "undefined" ? ABLE_SKIP_SEARCH_RESULTS : true);
-    if (skipSearch && typeof isSearchResultUrl === "function" && isSearchResultUrl(url)) {
+    if (typeof shouldIgnoreDomainVisit === "function" && shouldIgnoreDomainVisit(url)) {
       return;
     }
 
@@ -309,8 +308,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     return true;
   }
   if (message.type === "logVisit") {
-    var skipSearch = ABLERuntimeSettings.get("logging.skip_search_results", typeof ABLE_SKIP_SEARCH_RESULTS !== "undefined" ? ABLE_SKIP_SEARCH_RESULTS : true);
-    if (skipSearch && typeof isSearchResultUrl === "function" && message.url && isSearchResultUrl(message.url)) {
+    if (typeof shouldIgnoreDomainVisit === "function" && message.url && shouldIgnoreDomainVisit(message.url)) {
       sendResponse({ success: true, visit_count: null, duplicate: true, skipped: true });
       return false;
     }

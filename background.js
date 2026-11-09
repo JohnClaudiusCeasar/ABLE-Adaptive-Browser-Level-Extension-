@@ -260,8 +260,7 @@ async function auditNavigation(url, transitionType) {
     if (urlObj.protocol !== "http:" && urlObj.protocol !== "https:") return;
     if (isExcludedHostname(urlObj.hostname)) return;
 
-    var skipSearch = ABLERuntimeSettings.get("logging.skip_search_results", typeof ABLE_SKIP_SEARCH_RESULTS !== "undefined" ? ABLE_SKIP_SEARCH_RESULTS : true);
-    if (skipSearch && typeof isSearchResultUrl === "function" && isSearchResultUrl(url)) {
+    if (typeof shouldIgnoreDomainVisit === "function" && shouldIgnoreDomainVisit(url)) {
       return;
     }
 
@@ -309,8 +308,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     return true;
   }
   if (message.type === "logVisit") {
-    var skipSearch = ABLERuntimeSettings.get("logging.skip_search_results", typeof ABLE_SKIP_SEARCH_RESULTS !== "undefined" ? ABLE_SKIP_SEARCH_RESULTS : true);
-    if (skipSearch && typeof isSearchResultUrl === "function" && message.url && isSearchResultUrl(message.url)) {
+    if (typeof shouldIgnoreDomainVisit === "function" && message.url && shouldIgnoreDomainVisit(message.url)) {
       sendResponse({ success: true, visit_count: null, duplicate: true, skipped: true });
       return false;
     }
@@ -444,6 +442,24 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     })();
     return true;
   }
+  if (message.type === "openRecommendation") {
+    (async function () {
+      try {
+        // The domain comes from server configuration, so never trust it as
+        // an arbitrary URL: HTTPS only, and only what URL() accepts.
+        var url = new URL(message.url);
+        if (url.protocol !== "https:") {
+          sendResponse({ success: false, reason: "invalid-url" });
+          return;
+        }
+        await chrome.tabs.create({ url: url.href });
+        sendResponse({ success: true });
+      } catch (error) {
+        sendResponse({ success: false, reason: error.message });
+      }
+    })();
+    return true;
+  }
   if (message.type === "openWelcomePage") {
     (async function () {
       try {
@@ -491,12 +507,20 @@ async function handleClassifyDomain(url, sendResponse, signals) {
     var serverResult = await getDomainClassification(url, signals);
 
     if (serverResult) {
+      // The server ships the sanctioned alternatives with the classification.
+      // Older servers (and the offline cache path) do not, so fall back to
+      // computing the same list from the signed policy feed.
+      var recommendations = Array.isArray(serverResult.recommendations)
+        ? serverResult.recommendations
+        : await getRecommendationsFromCache(serverResult.category, serverResult.domain);
+
       var messages = getStatusMessage(serverResult.status, serverResult.domain, serverResult.category, []);
       sendResponse({
         status: serverResult.status,
         domain: serverResult.domain,
         category: serverResult.category,
         alternatives: [],
+        recommendations: recommendations,
         risk_score: serverResult.risk_score,
         policy: serverResult.policy,
         block_access: !!serverResult.block_access,
@@ -511,6 +535,7 @@ async function handleClassifyDomain(url, sendResponse, signals) {
       var messages = getStatusMessage(defaultResult.status, defaultResult.domain, defaultResult.category, defaultResult.alternatives);
       sendResponse({
         ...defaultResult,
+        recommendations: [],
         title: messages.title,
         message: messages.message,
         source: "default",
@@ -525,6 +550,7 @@ async function handleClassifyDomain(url, sendResponse, signals) {
       var messages2 = getStatusMessage(defaultResult2.status, defaultResult2.domain, defaultResult2.category, defaultResult2.alternatives);
       sendResponse({
         ...defaultResult2,
+        recommendations: [],
         title: messages2.title,
         message: messages2.message,
         source: "error",
@@ -536,6 +562,7 @@ async function handleClassifyDomain(url, sendResponse, signals) {
         domain: "unknown",
         category: null,
         alternatives: [],
+        recommendations: [],
         policy: "under_review",
         risk_score: 60,
         title: messages3.title,

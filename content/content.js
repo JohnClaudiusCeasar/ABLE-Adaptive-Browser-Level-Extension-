@@ -129,6 +129,8 @@ function buildDefaultDomainStatus() {
   return {
     status: statusLabel,
     domain: hostname,
+    category: null,
+    recommendations: [],
     risk_score: 60,
     title: "The site you are entering is " + statusLabel.toUpperCase(),
     message: "<span class=\"able-highlight-text\">" + hostname + "</span> is an <span class=\"able-highlight-text\">" + statusLabel + "</span> service that has not been reviewed by our security team. Please refrain from sending sensitive institutional data from this website until it is properly reviewed."
@@ -186,6 +188,10 @@ function isExcludedDomain() {
 // Safe domains are scored silently; only the nudge gates below exclude them.
 function shouldScanContent() {
   if (isExcludedDomain()) return false;
+  var skipAuth = ABLERuntimeSettings.get("logging.skip_account_login", typeof ABLE_SKIP_ACCOUNT_LOGIN !== "undefined" ? ABLE_SKIP_ACCOUNT_LOGIN : true);
+  if (skipAuth && typeof isAuthOrAccountUrl === "function" && isAuthOrAccountUrl(window.location.href)) {
+    return false;
+  }
   var skipSearch = ABLERuntimeSettings.get("logging.skip_search_results", typeof ABLE_SKIP_SEARCH_RESULTS !== "undefined" ? ABLE_SKIP_SEARCH_RESULTS : true);
   if (skipSearch && typeof isSearchResultUrl === "function" && isSearchResultUrl(window.location.href)) {
     return false;
@@ -841,8 +847,7 @@ async function logDomainVisit() {
 
   if (isExcludedDomain()) return null;
 
-  var skipSearch = ABLERuntimeSettings.get("logging.skip_search_results", typeof ABLE_SKIP_SEARCH_RESULTS !== "undefined" ? ABLE_SKIP_SEARCH_RESULTS : true);
-  if (skipSearch && typeof isSearchResultUrl === "function" && isSearchResultUrl(window.location.href)) {
+  if (typeof shouldIgnoreDomainVisit === "function" && shouldIgnoreDomainVisit(window.location.href)) {
     return null;
   }
 
@@ -962,6 +967,12 @@ async function evaluateAndShowModal(visitResult) {
       showSiteWarningModal({
         title: domainStatus.title,
         message: domainStatus.message,
+        status: domainStatus.status,
+        domain: domainStatus.domain,
+        category: domainStatus.category || null,
+        recommendations: Array.isArray(domainStatus.recommendations)
+          ? domainStatus.recommendations
+          : [],
       });
     }
 

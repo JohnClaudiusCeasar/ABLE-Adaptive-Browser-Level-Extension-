@@ -150,9 +150,17 @@ class DomainPolicyController extends Controller
             'event_id' => 'nullable|string|max:255',
         ]);
 
-        // Skip excluded domains (defense-in-depth)
-        if (in_array($validated['domain'], config('able.excluded_domains', []))) {
-            return response()->json(['success' => true, 'visit_count' => 0]);
+        // Skip excluded and dedicated authentication/IdP domains (defense-in-depth)
+        $ignoredDomains = array_merge(
+            config('able.excluded_domains', []),
+            config('able.ignored_visit_domains', [])
+        );
+        $domainLower = strtolower($validated['domain']);
+        foreach ($ignoredDomains as $ignored) {
+            $ignored = strtolower($ignored);
+            if ($domainLower === $ignored || str_ends_with($domainLower, '.'.$ignored)) {
+                return response()->json(['success' => true, 'visit_count' => 0, 'ignored' => true]);
+            }
         }
 
         $domain = $validated['domain'];

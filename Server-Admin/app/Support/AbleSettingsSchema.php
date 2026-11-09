@@ -174,6 +174,12 @@ class AbleSettingsSchema
                 'rule' => 'required|boolean',
                 'description' => 'Skip domain visit auditing for search engine result listings (e.g. Google, Yahoo, Bing).',
             ],
+            'logging.skip_account_login' => [
+                'type' => 'boolean',
+                'default' => true,
+                'rule' => 'required|boolean',
+                'description' => 'Skip domain visit auditing and content scanning for dedicated authentication, account registration, and SSO/OAuth pages.',
+            ],
             'excluded_domains' => [
                 'type' => 'array',
                 'default' => ['localhost', '127.0.0.1', '[::1]'],

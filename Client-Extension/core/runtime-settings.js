@@ -60,6 +60,8 @@ function buildDefaults() {
       typeof ABLE_VISIT_DEBOUNCE_MS !== "undefined" ? ABLE_VISIT_DEBOUNCE_MS : 5000,
     "logging.skip_search_results":
       typeof ABLE_SKIP_SEARCH_RESULTS !== "undefined" ? ABLE_SKIP_SEARCH_RESULTS : true,
+    "logging.skip_account_login":
+      typeof ABLE_SKIP_ACCOUNT_LOGIN !== "undefined" ? ABLE_SKIP_ACCOUNT_LOGIN : true,
     "excluded_domains":
       typeof EXCLUDED_DOMAINS !== "undefined" ? EXCLUDED_DOMAINS : [],
     // Integrity pins for the web-accessible assets. The build-time constants

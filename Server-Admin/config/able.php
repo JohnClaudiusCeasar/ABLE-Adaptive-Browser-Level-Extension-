@@ -41,6 +41,31 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Dedicated Authentication & Identity Provider Domains
+    |--------------------------------------------------------------------------
+    |
+    | Domains whose traffic represents user login, account registration, or SSO
+    | token exchanges. Visits to these domains are ignored by the audit ledger
+    | to avoid database bloat and preserve user credential privacy.
+    |
+    */
+
+    'ignored_visit_domains' => [
+        'accounts.google.com',
+        'login.microsoftonline.com',
+        'login.live.com',
+        'account.microsoft.com',
+        'login.windows.net',
+        'appleid.apple.com',
+        'auth0.com',
+        'okta.com',
+        'onelogin.com',
+        'pingidentity.com',
+        'duosecurity.com',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | ABLE - UT1 Blacklist Sync
     |--------------------------------------------------------------------------
     |

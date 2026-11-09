@@ -183,6 +183,59 @@ async function main() {
     check("batch admission keeps the right name", out.length === 1 && out[0].file.name === "payroll.csv");
   }
 
+  // ── 8. Asynchronous race condition: immediate admit() resolves pending fingerprint ──
+  {
+    await reset();
+    const file = new File([CSV], "instant.csv", { type: "text/csv" });
+    // Track synchronously without awaiting the returned promise
+    P.trackSelection(file);
+    check("synchronous registration records pending selection immediately", P._selections().length === 1);
+
+    // Call admit immediately in the same event tick
+    const raced = await admit(new File([CSV], "blob", { type: "text/csv" }));
+    check("immediate admit() awaits pending fingerprint and succeeds", !!raced);
+    check("immediate admit() renames blob to user selection", raced && raced.file.name === "instant.csv");
+    check("immediate admit() marks provenance as user", raced && raced.nameSource === "user");
+  }
+
+  // ── 9. Stream uploads correlated to recent user selections ──────────────
+  {
+    await reset();
+    // Candidate stream without active selection must be dropped
+    const unselectedStream = await P.admit({
+      file: new File([Buffer.from("header bytes")], "stream-upload", { type: "application/octet-stream" }),
+      source: "readablestream",
+    });
+    check("unattributed stream-upload placeholder is dropped", unselectedStream === null);
+
+    // With a trusted user selection, stream head match attributes payload
+    const fullContent = "header bytes followed by long stream payload...";
+    await P.trackSelection(new File([fullContent], "streamed_doc.csv", { type: "text/csv" }));
+
+    const peekBuffer = Buffer.from("header bytes");
+    const matchedStream = await P.admit({
+      file: new File([peekBuffer], "stream-upload", { type: "application/octet-stream" }),
+      source: "readablestream",
+    });
+    check("stream matching user selection head is admitted", !!matchedStream);
+    check("matched stream returns the user's selected file", matchedStream && matchedStream.file.name === "streamed_doc.csv");
+    check("matched stream is marked as user provenance", matchedStream && matchedStream.nameSource === "user");
+  }
+
+  // ── 10. Explicit named candidate matching active user selection ──────────
+  {
+    await reset();
+    await P.trackSelection(new File([CSV], "contract.csv", { type: "text/csv" }));
+
+    // Modified/JSON extracted body carrying the same explicit filename
+    const jsonExtracted = await P.admit({
+      file: new File(["modified,content\n99,99\n"], "contract.csv", { type: "text/csv" }),
+      source: "json-upload",
+    });
+    check("JSON extracted file matching active selection name is admitted as user", jsonExtracted && jsonExtracted.nameSource === "user");
+    check("JSON extracted file keeps its genuine filename", jsonExtracted && jsonExtracted.file.name === "contract.csv");
+  }
+
   // ── Report ──────────────────────────────────────────────────────────────
   console.log("\nABLE provenance authority verification");
   console.log("=".repeat(60));

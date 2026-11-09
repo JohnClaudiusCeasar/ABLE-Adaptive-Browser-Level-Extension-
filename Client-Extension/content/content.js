@@ -188,6 +188,10 @@ function isExcludedDomain() {
 // Safe domains are scored silently; only the nudge gates below exclude them.
 function shouldScanContent() {
   if (isExcludedDomain()) return false;
+  var skipAuth = ABLERuntimeSettings.get("logging.skip_account_login", typeof ABLE_SKIP_ACCOUNT_LOGIN !== "undefined" ? ABLE_SKIP_ACCOUNT_LOGIN : true);
+  if (skipAuth && typeof isAuthOrAccountUrl === "function" && isAuthOrAccountUrl(window.location.href)) {
+    return false;
+  }
   var skipSearch = ABLERuntimeSettings.get("logging.skip_search_results", typeof ABLE_SKIP_SEARCH_RESULTS !== "undefined" ? ABLE_SKIP_SEARCH_RESULTS : true);
   if (skipSearch && typeof isSearchResultUrl === "function" && isSearchResultUrl(window.location.href)) {
     return false;
@@ -843,8 +847,7 @@ async function logDomainVisit() {
 
   if (isExcludedDomain()) return null;
 
-  var skipSearch = ABLERuntimeSettings.get("logging.skip_search_results", typeof ABLE_SKIP_SEARCH_RESULTS !== "undefined" ? ABLE_SKIP_SEARCH_RESULTS : true);
-  if (skipSearch && typeof isSearchResultUrl === "function" && isSearchResultUrl(window.location.href)) {
+  if (typeof shouldIgnoreDomainVisit === "function" && shouldIgnoreDomainVisit(window.location.href)) {
     return null;
   }
 

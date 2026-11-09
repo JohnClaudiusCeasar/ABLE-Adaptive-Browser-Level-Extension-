@@ -42,6 +42,7 @@ const sandbox = {
   Uint8Array,
   ReadableStream,
   URL,
+  URLSearchParams,
   Promise,
   setTimeout,
   clearTimeout,
@@ -136,6 +137,47 @@ async function main() {
   {
     const syncOut = extractFiles(new File([CSV], "blob", { type: "text/csv" }), URL_API);
     check("sync path forwards a 'blob' File as well", syncOut.length === 1, describe(syncOut));
+  }
+
+  // ── 6. Nested JSON document and attachment extraction ────────────────────
+  {
+    const claudeJson = JSON.stringify({
+      prompt: "Analyze this document",
+      attachments: [
+        { file_name: "financial_report.csv", extracted_content: "q1,100\nq2,200" }
+      ]
+    });
+    const jsonOut = await extract(claudeJson);
+    check("nested JSON attachment is extracted", jsonOut.length === 1, describe(jsonOut));
+    check("extracted attachment keeps genuine filename", jsonOut.length === 1 && jsonOut[0].file.name === "financial_report.csv");
+    check("extracted attachment tags source as json-upload", jsonOut.length === 1 && jsonOut[0].source === "json-upload");
+
+    const messageJson = JSON.stringify({
+      message: {
+        attachments: [
+          { file_name: "keys.env", content: "SECRET_KEY=abcdef123456" }
+        ]
+      }
+    });
+    const messageOut = await extract(messageJson);
+    check("nested message.attachments is extracted", messageOut.length === 1 && messageOut[0].file.name === "keys.env");
+
+    const plainChat = JSON.stringify({ prompt: "Hello world" });
+    const emptyOut = await extract(plainChat);
+    check("plain JSON without attachments produces no candidates", emptyOut.length === 0);
+  }
+
+  // ── 7. Stream extraction provides stream-upload placeholder ───────────────
+  {
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new Uint8Array([1, 2, 3, 4]));
+        controller.close();
+      }
+    });
+    const streamOut = await extractFilesAsync(stream, URL_API);
+    check("nameless stream produces a stream-upload candidate", streamOut.length === 1 && streamOut[0].file.name === "stream-upload");
+    check("stream candidate source is readablestream", streamOut.length === 1 && streamOut[0].source === "readablestream");
   }
 
   // ── Report ──────────────────────────────────────────────────────────────

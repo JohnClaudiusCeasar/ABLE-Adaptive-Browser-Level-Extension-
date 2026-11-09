@@ -43,17 +43,29 @@
     var lib = identity();
     if (!lib || !file || typeof file.size !== 'number' || !file.size) return Promise.resolve(null);
 
-    return lib.computeFileFingerprint(file).then(function (fp) {
-      if (!fp) return null;
-      selections.push({
-        name: file.name || 'blob',
-        size: file.size,
-        fp: fp,
-        timestamp: Date.now(),
-      });
-      trim();
+    // Synchronously record the selection so immediate fetch() cannot race past it
+    var entry = {
+      name: file.name || 'blob',
+      size: file.size,
+      type: file.type || '',
+      fp: null,
+      timestamp: Date.now(),
+      rawFile: file,
+      fpPromise: null,
+    };
+    selections.push(entry);
+    trim();
+
+    entry.fpPromise = lib.computeFileFingerprint(file).then(function (fp) {
+      if (fp) {
+        entry.fp = fp;
+      }
       return fp;
+    }).catch(function () {
+      return null;
     });
+
+    return entry.fpPromise;
   }
 
   function trackFiles(files) {
@@ -69,6 +81,17 @@
       if (selections[i].size === size) return true;
     }
     return false;
+  }
+
+  function awaitPendingFingerprintsOfSize(size) {
+    var promises = [];
+    for (var i = 0; i < selections.length; i++) {
+      if (selections[i].size === size && selections[i].fpPromise && !selections[i].fp) {
+        promises.push(selections[i].fpPromise);
+      }
+    }
+    if (promises.length === 0) return Promise.resolve();
+    return Promise.all(promises);
   }
 
   function matchFingerprint(fp, size) {
@@ -90,6 +113,81 @@
     }
   }
 
+  function matchStreamToRecentSelection(entry) {
+    var file = entry.file;
+    if (!file || !file.size) return Promise.resolve(null);
+    var now = Date.now();
+    var recentWindow = 30 * 1000;
+    var candidates = selections.filter(function (s) {
+      return (now - s.timestamp <= recentWindow) && s.rawFile;
+    });
+    if (candidates.length === 0) return Promise.resolve(null);
+
+    var sampleLen = Math.min(file.size, 512);
+    if (!sampleLen) return Promise.resolve(null);
+
+    return (typeof file.slice === 'function' ? file.slice(0, sampleLen).arrayBuffer() : Promise.resolve(null))
+      .then(function (peekBytes) {
+        if (!peekBytes) return null;
+        var peekU8 = new Uint8Array(peekBytes);
+        if (peekU8.length === 0) return null;
+
+        var checkIdx = function (i) {
+          if (i < 0) return Promise.resolve(null);
+          var sel = candidates[i];
+          if (!sel.rawFile || typeof sel.rawFile.slice !== 'function') return checkIdx(i - 1);
+
+          return sel.rawFile.slice(0, peekU8.length).arrayBuffer().then(function (selBytes) {
+            var selU8 = new Uint8Array(selBytes);
+            if (selU8.length === peekU8.length) {
+              var matches = true;
+              for (var j = 0; j < peekU8.length; j++) {
+                if (peekU8[j] !== selU8[j]) {
+                  matches = false;
+                  break;
+                }
+              }
+              if (matches) {
+                return {
+                  file: sel.rawFile,
+                  source: entry.source || 'readablestream',
+                  contentSize: sel.size,
+                  nameSource: 'user',
+                };
+              }
+            }
+            return checkIdx(i - 1);
+          }).catch(function () {
+            return checkIdx(i - 1);
+          });
+        };
+
+        return checkIdx(candidates.length - 1);
+      }).catch(function () {
+        return null;
+      });
+  }
+
+  function matchRecentSelectionByName(entry, lib) {
+    var file = entry.file;
+    if (!file || !file.name || !lib.isRealFileName(file.name)) return null;
+    if (file.type && !lib.nameAgreesWithMime(file.name, file.type)) return null;
+    var now = Date.now();
+    var recentWindow = 60 * 1000;
+    for (var i = selections.length - 1; i >= 0; i--) {
+      var s = selections[i];
+      if (now - s.timestamp <= recentWindow && s.name === file.name && lib.isRealFileName(s.name)) {
+        return {
+          file: file,
+          source: entry.source || 'unknown',
+          contentSize: file.size,
+          nameSource: 'user',
+        };
+      }
+    }
+    return null;
+  }
+
   /**
    * Resolve one candidate entry. `entry.nameSource` is deliberately ignored:
    * it is page-supplied and therefore not evidence.
@@ -103,12 +201,26 @@
     var file = entry.file;
     if (!file.size) return Promise.resolve(null);
 
+    // Stream attribution via recent user selection head match
+    if (entry.source === 'readablestream' || file.name === 'stream-upload') {
+      return matchStreamToRecentSelection(entry).then(function (matched) {
+        if (matched) return matched;
+        return pageNameOrNull(entry, lib);
+      });
+    }
+
     // Content identity first. Only read the payload when a recorded selection
     // has the same byte length, so unrelated API blobs stay cheap.
     if (hasSelectionOfSize(file.size)) {
-      return lib.computeFileFingerprint(file).then(function (fp) {
+      return awaitPendingFingerprintsOfSize(file.size).then(function () {
+        return lib.computeFileFingerprint(file);
+      }).then(function (fp) {
         var match = fp ? matchFingerprint(fp, file.size) : null;
-        if (!match) return pageNameOrNull(entry, lib);
+        if (!match) {
+          var pageFallback = pageNameOrNull(entry, lib);
+          if (pageFallback) return pageFallback;
+          return null;
+        }
 
         return {
           file: renameFile(file, match.name),
@@ -118,6 +230,9 @@
         };
       });
     }
+
+    var namedUserMatch = matchRecentSelectionByName(entry, lib);
+    if (namedUserMatch) return Promise.resolve(namedUserMatch);
 
     return Promise.resolve(pageNameOrNull(entry, lib));
   }
