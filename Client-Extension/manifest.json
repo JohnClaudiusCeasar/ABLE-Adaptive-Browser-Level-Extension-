@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ABLE - Adaptive Browser-Level Extension",
-  "version": "0.1.56",
+  "version": "0.1.57",
   "description": "Monitors Website Trends, and Safeguards Institutional Data from risk of Shadow IT",
   "permissions": [
     "scripting",
