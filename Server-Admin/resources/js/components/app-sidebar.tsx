@@ -130,7 +130,7 @@ export const mainNavItems: NavItem[] = [
                 permission: 'chat',
             },
             {
-                title: 'Access and Feedback',
+                title: 'Community Feedback',
                 href: '/community-messages',
                 icon: Inbox,
                 permission: 'feedback',

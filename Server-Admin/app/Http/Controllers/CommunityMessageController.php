@@ -208,7 +208,7 @@ class CommunityMessageController extends Controller
         try {
             $scoped = fn () => $category !== null
                 ? CommunityMessage::where('category', $category)
-                : CommunityMessage::query();
+                : CommunityMessage::where('category', '!=', 'access-request');
 
             $query = $scoped()->orderByDesc('created_at');
 

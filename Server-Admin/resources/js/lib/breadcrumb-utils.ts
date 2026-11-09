@@ -40,7 +40,8 @@ const navTitleMap = buildNavTitleMap();
  * inherit the icon of the navigation item they belong to.
  */
 const breadcrumbIconAliases: Record<string, string> = {
-    'Community Feedback': 'Access and Feedback',
+    'Community Feedback': 'Community Feedback',
+    'Access and Feedback': 'Community Feedback',
 };
 
 /**

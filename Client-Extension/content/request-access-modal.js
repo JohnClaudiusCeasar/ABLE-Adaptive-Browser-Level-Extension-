@@ -39,7 +39,7 @@ function showRequestAccessModal(data) {
         </div>
         <div class="able-request-form">
           <label class="able-request-field">
-            <span class="able-request-label">Pseudonymous ID</span>
+            <span class="able-request-label">User ID</span>
             <input class="able-request-input" id="ableRequestAlias" type="text" value="${userId}" readonly tabindex="-1" />
           </label>
           <label class="able-request-field">

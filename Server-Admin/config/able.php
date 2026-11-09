@@ -134,7 +134,7 @@ return [
     |
     */
 
-    'extension_version' => env('ABLE_EXTENSION_VERSION', '0.1.57'),
+    'extension_version' => env('ABLE_EXTENSION_VERSION', '0.1.58'),
 
     /*
     |--------------------------------------------------------------------------

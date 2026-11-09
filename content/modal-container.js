@@ -463,11 +463,11 @@ var MODAL_STYLES = `
 }
 
 .able-btn-cancel {
-  width: 50%;
+  width: 100%;
   background-color: var(--cancel-bg, #FBCBCB);
   border-color: var(--cancel-border, #FFA3A3);
-  padding: 8px 18px;
-  border-radius: 16px;
+  padding: 10px 18px;
+  border-radius: 14px;
 }
 
 .able-btn-alt {

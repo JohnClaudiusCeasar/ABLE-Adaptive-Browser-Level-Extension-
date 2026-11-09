@@ -323,7 +323,7 @@ check("requestAccess: names the blocked domain", requestAccessHtml.includes('blo
 check("requestAccess: has the request form", requestAccessHtml.includes('able-request-form'));
 check("requestAccess: has an alias field", requestAccessHtml.includes('ableRequestAlias'));
 check("requestAccess: alias field is readonly", requestAccessHtml.includes('readonly'));
-check("requestAccess: labels field as Pseudonymous ID", requestAccessHtml.includes('Pseudonymous ID'));
+check("requestAccess: labels field as User ID", requestAccessHtml.includes('User ID'));
 check("requestAccess: has a reasons field", requestAccessHtml.includes('ableRequestReasons'));
 check("requestAccess: offers Submit Request", requestAccessHtml.includes('Submit Request'));
 check("requestAccess: offers Cancel", requestAccessHtml.includes('Cancel'));

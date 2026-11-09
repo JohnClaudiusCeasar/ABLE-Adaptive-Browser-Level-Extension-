@@ -317,12 +317,16 @@ class CommunityMessageTest extends TestCase
                 ->where('counts.all', 1);
         });
 
-        // The shared board still shows both categories
-        $sharedResponse = $this->actingAs(User::factory()->create())
+        // The Community Feedback board lists only feedback messages (excludes access requests)
+        $feedbackResponse = $this->actingAs(User::factory()->create())
             ->get(route('community-messages.index'));
 
-        $sharedResponse->assertOk();
-        $sharedResponse->assertInertia(fn ($page) => $page->component('community-messages')->has('messages.data', 2));
+        $feedbackResponse->assertOk();
+        $feedbackResponse->assertInertia(fn ($page) => $page->component('community-messages')
+            ->has('messages.data', 1)
+            ->where('messages.data.0.category', 'suggestion')
+            ->where('counts.all', 1)
+        );
     }
 
     public function test_admin_can_view_and_moderate_community_messages(): void

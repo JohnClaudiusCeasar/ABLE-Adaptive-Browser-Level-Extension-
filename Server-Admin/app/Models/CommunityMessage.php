@@ -86,4 +86,26 @@ class CommunityMessage extends Model
         return $query->where('status', 'approved')
             ->where('category', '!=', 'access-request');
     }
+
+    /**
+     * Scope query to general community feedback (excludes access requests).
+     *
+     * @param  Builder<CommunityMessage>  $query
+     * @return Builder<CommunityMessage>
+     */
+    public function scopeFeedback(Builder $query): Builder
+    {
+        return $query->where('category', '!=', 'access-request');
+    }
+
+    /**
+     * Scope query to extension access requests.
+     *
+     * @param  Builder<CommunityMessage>  $query
+     * @return Builder<CommunityMessage>
+     */
+    public function scopeAccessRequests(Builder $query): Builder
+    {
+        return $query->where('category', 'access-request');
+    }
 }
