@@ -1,10 +1,12 @@
 import { Head, router, usePage } from '@inertiajs/react';
-import { Search, Plus, X, Trash2, Copy, ArrowLeft, Info } from 'lucide-react';
+import { Search, Plus, X, Trash2, Copy, ArrowLeft, Info, Wand2, Check, AlertCircle } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useState, Fragment, useMemo, useEffect, useRef } from 'react';
 import AlertError from '@/components/alert-error';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { ContextIntelligenceSection } from './context-intelligence-section';
+import { RegexBuilderModal } from './regex-builder-modal';
+import { validateRegex } from './regex-utils';
 
 interface CriteriaPatternItem {
     id: number;
@@ -120,7 +122,96 @@ export default function EditCriteriaPattern() {
     const [existingSort, setExistingSort] = useState<ExistingSort>('newest');
     const [confirmUpdate, setConfirmUpdate] = useState(false);
     const [confirmCancel, setConfirmCancel] = useState(false);
+    const [builderModal, setBuilderModal] = useState<{
+        isOpen: boolean;
+        itemIndex: number | null;
+        subItemIndex: number | null;
+        isNewItem?: boolean;
+    } | null>(null);
     const formErrorRef = useRef<HTMLDivElement>(null);
+
+    function openBuilderForItem(itemIndex: number, subItemIndex: number | null = null) {
+        setBuilderModal({
+            isOpen: true,
+            itemIndex,
+            subItemIndex,
+            isNewItem: false,
+        });
+    }
+
+    function openBuilderForNew() {
+        setBuilderModal({
+            isOpen: true,
+            itemIndex: null,
+            subItemIndex: null,
+            isNewItem: true,
+        });
+    }
+
+    function handleBuilderApply(result: { regex: string; title?: string; score?: number }) {
+        if (!builderModal) {
+return;
+}
+
+        if (builderModal.isNewItem) {
+            setCriteriaForm((prev) => ({
+                ...prev,
+                criteria_pattern_items: [
+                    ...prev.criteria_pattern_items,
+                    {
+                        id: nextTempId(),
+                        title: result.title || 'New Pattern',
+                        regex: result.regex,
+                        score: result.score ?? 20,
+                        operator: 'and',
+                        sub_items: [],
+                    },
+                ],
+            }));
+        } else if (builderModal.subItemIndex !== null && builderModal.itemIndex !== null) {
+            updateSubCriteriaItem(builderModal.itemIndex, builderModal.subItemIndex, 'regex', result.regex);
+
+            if (result.title) {
+                updateSubCriteriaItem(builderModal.itemIndex, builderModal.subItemIndex, 'title', result.title);
+            }
+
+            if (result.score !== undefined) {
+                updateSubCriteriaItem(builderModal.itemIndex, builderModal.subItemIndex, 'score', result.score);
+            }
+        } else if (builderModal.itemIndex !== null) {
+            updateCriteriaItem(builderModal.itemIndex, 'regex', result.regex);
+
+            if (result.title) {
+                updateCriteriaItem(builderModal.itemIndex, 'title', result.title);
+            }
+
+            if (result.score !== undefined) {
+                updateCriteriaItem(builderModal.itemIndex, 'score', result.score);
+            }
+        }
+    }
+
+    const activeBuilderItem = useMemo(() => {
+        if (!builderModal || !builderModal.isOpen) {
+return null;
+}
+
+        if (builderModal.isNewItem) {
+return { title: '', regex: '', score: 20 };
+}
+
+        if (builderModal.subItemIndex !== null && builderModal.itemIndex !== null) {
+            const parent = criteriaForm.criteria_pattern_items[builderModal.itemIndex];
+
+            return parent?.sub_items?.[builderModal.subItemIndex] ?? null;
+        }
+
+        if (builderModal.itemIndex !== null) {
+            return criteriaForm.criteria_pattern_items[builderModal.itemIndex] ?? null;
+        }
+
+        return null;
+    }, [builderModal, criteriaForm.criteria_pattern_items]);
 
     // The error banner sits at the top of a long form, so bring it into view
     // when a save is rejected instead of leaving the operator at the button.
@@ -237,20 +328,7 @@ export default function EditCriteriaPattern() {
     // ── Item helpers ────────────────────────────────────────────────────────
 
     function addCriteriaItem() {
-        setCriteriaForm({
-            ...criteriaForm,
-            criteria_pattern_items: [
-                ...criteriaForm.criteria_pattern_items,
-                {
-                    id: nextTempId(),
-                    title: '',
-                    regex: '',
-                    score: 0,
-                    operator: 'and',
-                    sub_items: [],
-                },
-            ],
-        });
+        openBuilderForNew();
     }
 
     function addSubCriteriaItem(parentIndex: number) {
@@ -895,44 +973,75 @@ export default function EditCriteriaPattern() {
                                                                 </div>
                                                             </td>
                                                             <td className="px-3 py-2.5">
-                                                                <input
-                                                                    type="text"
-                                                                    required={
-                                                                        !hasSubItems
-                                                                    }
-                                                                    readOnly={
-                                                                        hasSubItems
-                                                                    }
-                                                                    disabled={
-                                                                        hasSubItems
-                                                                    }
-                                                                    value={
-                                                                        hasSubItems
-                                                                            ? ''
-                                                                            : item.regex
-                                                                    }
-                                                                    onChange={(
-                                                                        e,
-                                                                    ) =>
-                                                                        updateCriteriaItem(
-                                                                            idx,
-                                                                            'regex',
-                                                                            e
-                                                                                .target
-                                                                                .value,
-                                                                        )
-                                                                    }
-                                                                    placeholder={
-                                                                        hasSubItems
-                                                                            ? 'Group — evaluated via sub-patterns'
-                                                                            : 'Regex pattern'
-                                                                    }
-                                                                    className={`w-full rounded-md border px-3 py-1.5 font-mono text-sm transition-colors outline-none ${
-                                                                        hasSubItems
-                                                                            ? 'cursor-not-allowed border-black/5 bg-black/5 text-muted-foreground placeholder:italic dark:border-white/5 dark:bg-white/5'
-                                                                            : 'border-black/10 bg-transparent text-foreground focus:border-able-green dark:border-white/10'
-                                                                    }`}
-                                                                />
+                                                                <div className="relative flex items-center">
+                                                                    <input
+                                                                        type="text"
+                                                                        required={
+                                                                            !hasSubItems
+                                                                        }
+                                                                        readOnly={
+                                                                            hasSubItems
+                                                                        }
+                                                                        disabled={
+                                                                            hasSubItems
+                                                                        }
+                                                                        value={
+                                                                            hasSubItems
+                                                                                ? ''
+                                                                                : item.regex
+                                                                        }
+                                                                        onChange={(
+                                                                            e,
+                                                                        ) =>
+                                                                            updateCriteriaItem(
+                                                                                idx,
+                                                                                'regex',
+                                                                                e
+                                                                                    .target
+                                                                                    .value,
+                                                                            )
+                                                                        }
+                                                                        placeholder={
+                                                                            hasSubItems
+                                                                                ? 'Group — evaluated via sub-patterns'
+                                                                                : 'Regex pattern'
+                                                                        }
+                                                                        className={`w-full rounded-md border py-1.5 font-mono text-sm transition-colors outline-none ${
+                                                                            hasSubItems
+                                                                                ? 'cursor-not-allowed border-black/5 bg-black/5 text-muted-foreground placeholder:italic dark:border-white/5 dark:bg-white/5 px-3'
+                                                                                : !hasSubItems && item.regex && !validateRegex(item.regex).isValid
+                                                                                  ? 'border-red-500 bg-transparent text-foreground focus:border-red-500 pr-16 pl-3'
+                                                                                  : 'border-black/10 bg-transparent text-foreground focus:border-able-green dark:border-white/10 pr-16 pl-3'
+                                                                        }`}
+                                                                    />
+                                                                    {!hasSubItems && (
+                                                                        <div className="absolute right-1.5 flex items-center gap-1">
+                                                                            {item.regex && (
+                                                                                <span
+                                                                                    title={
+                                                                                        validateRegex(item.regex).isValid
+                                                                                            ? 'Valid regular expression'
+                                                                                            : (validateRegex(item.regex).error ?? 'Invalid regex')
+                                                                                    }
+                                                                                >
+                                                                                    {validateRegex(item.regex).isValid ? (
+                                                                                        <Check size={14} className="text-emerald-500" />
+                                                                                    ) : (
+                                                                                        <AlertCircle size={14} className="text-red-500" />
+                                                                                    )}
+                                                                                </span>
+                                                                            )}
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => openBuilderForItem(idx)}
+                                                                                title="Open Regex Pattern Assistant"
+                                                                                className="cursor-pointer rounded p-1 text-muted-foreground transition-colors hover:bg-black/5 hover:text-able-green dark:hover:bg-white/5"
+                                                                            >
+                                                                                <Wand2 size={14} />
+                                                                            </button>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
                                                             </td>
                                                             <td className="px-3 py-2.5">
                                                                 <input
@@ -1091,27 +1200,58 @@ export default function EditCriteriaPattern() {
                                                                             </div>
                                                                         </td>
                                                                         <td className="px-3 py-2.5">
-                                                                            <input
-                                                                                type="text"
-                                                                                required
-                                                                                value={
-                                                                                    subItem.regex
-                                                                                }
-                                                                                onChange={(
-                                                                                    e,
-                                                                                ) =>
-                                                                                    updateSubCriteriaItem(
-                                                                                        idx,
-                                                                                        subIdx,
-                                                                                        'regex',
-                                                                                        e
-                                                                                            .target
-                                                                                            .value,
-                                                                                    )
-                                                                                }
-                                                                                placeholder="Sub-item regex"
-                                                                                className="w-full rounded-md border border-black/10 bg-transparent px-3 py-1.5 font-mono text-sm text-foreground transition-colors outline-none focus:border-able-green dark:border-white/10"
-                                                                            />
+                                                                            <div className="relative flex items-center">
+                                                                                <input
+                                                                                    type="text"
+                                                                                    required
+                                                                                    value={
+                                                                                        subItem.regex
+                                                                                    }
+                                                                                    onChange={(
+                                                                                        e,
+                                                                                    ) =>
+                                                                                        updateSubCriteriaItem(
+                                                                                            idx,
+                                                                                            subIdx,
+                                                                                            'regex',
+                                                                                            e
+                                                                                                .target
+                                                                                                .value,
+                                                                                        )
+                                                                                    }
+                                                                                    placeholder="Sub-item regex"
+                                                                                    className={`w-full rounded-md border py-1.5 pr-16 pl-3 font-mono text-sm transition-colors outline-none ${
+                                                                                        subItem.regex && !validateRegex(subItem.regex).isValid
+                                                                                            ? 'border-red-500 bg-transparent text-foreground focus:border-red-500'
+                                                                                            : 'border-black/10 bg-transparent text-foreground focus:border-able-green dark:border-white/10'
+                                                                                    }`}
+                                                                                />
+                                                                                <div className="absolute right-1.5 flex items-center gap-1">
+                                                                                    {subItem.regex && (
+                                                                                        <span
+                                                                                            title={
+                                                                                                validateRegex(subItem.regex).isValid
+                                                                                                    ? 'Valid regular expression'
+                                                                                                    : (validateRegex(subItem.regex).error ?? 'Invalid regex')
+                                                                                            }
+                                                                                        >
+                                                                                            {validateRegex(subItem.regex).isValid ? (
+                                                                                                <Check size={14} className="text-emerald-500" />
+                                                                                            ) : (
+                                                                                                <AlertCircle size={14} className="text-red-500" />
+                                                                                            )}
+                                                                                        </span>
+                                                                                    )}
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => openBuilderForItem(idx, subIdx)}
+                                                                                        title="Open Regex Pattern Assistant"
+                                                                                        className="cursor-pointer rounded p-1 text-muted-foreground transition-colors hover:bg-black/5 hover:text-able-green dark:hover:bg-white/5"
+                                                                                    >
+                                                                                        <Wand2 size={14} />
+                                                                                    </button>
+                                                                                </div>
+                                                                            </div>
                                                                         </td>
                                                                         <td className="px-3 py-2.5">
                                                                             <input
@@ -1218,6 +1358,18 @@ export default function EditCriteriaPattern() {
                 variant="destructive"
                 onConfirm={() => router.visit('/risk-algorithm/criteria')}
             />
+
+            {/* Regex Pattern Assistant & Tester Modal */}
+            {builderModal?.isOpen && (
+                <RegexBuilderModal
+                    isOpen={builderModal.isOpen}
+                    onClose={() => setBuilderModal(null)}
+                    initialTitle={activeBuilderItem?.title || ''}
+                    initialRegex={activeBuilderItem?.regex || ''}
+                    initialScore={activeBuilderItem?.score || 20}
+                    onApply={handleBuilderApply}
+                />
+            )}
         </>
     );
 }

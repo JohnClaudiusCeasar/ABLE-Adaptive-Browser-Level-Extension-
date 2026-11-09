@@ -1,5 +1,6 @@
-import { ChevronDown, Info } from 'lucide-react';
-import { useState } from 'react';
+import { ChevronDown, Info, Check, AlertCircle, Plus } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { validateRegex } from './regex-utils';
 
 interface Props {
     negationRegex: string;
@@ -14,16 +15,21 @@ const NEGATION_EXAMPLES = 'example|format|e\\.g\\.|dummy|redacted|template';
 const AMPLIFIER_EXAMPLES = 'employee|patient|my ssn|social security';
 const DEFAULT_WINDOW = 150;
 
+const NEGATION_PRESETS = [
+    { label: 'Sample / Template', value: 'example|sample|dummy|redacted|placeholder|template' },
+    { label: 'Academic Guide / Policy', value: 'syllabus|curriculum|handbook|guidelines?|course\\s*outline' },
+    { label: 'Mock / Test Data', value: 'mock|test|demo|hypothetical|fictitious' },
+];
+
+const AMPLIFIER_PRESETS = [
+    { label: 'Official / Sealed', value: 'official|registrar|certified|sealed|approved' },
+    { label: 'Student / Employee', value: 'student|employee|patient|faculty|applicant' },
+    { label: 'Payroll / Financial', value: 'salary|payroll|compensation|tuition|account' },
+];
+
 /**
  * Reusable collapsible section that lets admins annotate a risk pattern with
- * contextual suppression and amplification cues. These fields are consumed by
- * `RiskScoringService::applySchemaContextModifier()` on the server — the
- * extension posts extracted text to /api/score-content and the server applies
- * them while scoring:
- *
- *   negation_context_regex — if this matches within N chars of a hit → hit is excluded
- *   amplifier_context_regex — if this matches within N chars of a hit → hit counts double
- *   negation_window — character radius to inspect on each side of a match (default 150)
+ * contextual suppression and amplification cues.
  */
 export function ContextIntelligenceSection({
     negationRegex,
@@ -39,6 +45,35 @@ export function ContextIntelligenceSection({
         negationRegex.trim() !== '' ||
         amplifierRegex.trim() !== '' ||
         negationWindow !== null;
+
+    const negationValidation = useMemo(
+        () => validateRegex(negationRegex),
+        [negationRegex],
+    );
+
+    const amplifierValidation = useMemo(
+        () => validateRegex(amplifierRegex),
+        [amplifierRegex],
+    );
+
+    function addPreset(
+        current: string,
+        presetVal: string,
+        onChange: (v: string) => void,
+    ) {
+        if (!current.trim()) {
+            onChange(presetVal);
+
+            return;
+        }
+
+        // Avoid duplicate appends
+        if (current.includes(presetVal)) {
+return;
+}
+
+        onChange(`${current}|${presetVal}`);
+    }
 
     return (
         <div className="mt-[29px]">
@@ -75,32 +110,48 @@ export function ContextIntelligenceSection({
                 <div className="mt-3 space-y-4 rounded-lg border border-black/10 bg-black/[0.02] p-4 dark:border-white/10 dark:bg-white/[0.02]">
                     {/* Explainer */}
                     <p className="text-xs leading-relaxed text-muted-foreground">
-                        These optional fields let you guide the scoring engine
-                        beyond simple pattern matching. When the engine finds a
-                        match for this pattern, it inspects the surrounding text
-                        within the context window.{' '}
+                        These optional fields guide the scoring engine beyond simple keyword matching.
+                        When a match is found, the engine scans the surrounding context window.{' '}
                         <span className="font-semibold text-foreground">
                             Negation context
                         </span>{' '}
-                        cancels the score contribution if the match appears to
-                        be descriptive (e.g. an example or template).{' '}
+                        cancels the match score if the text appears to be descriptive (e.g. templates, outlines).{' '}
                         <span className="font-semibold text-foreground">
                             Amplifier context
                         </span>{' '}
-                        doubles the contribution when the match appears
-                        alongside real-data indicators (e.g. "employee",
-                        "patient").
+                        doubles the score when the match appears alongside genuine operational records.
                     </p>
 
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                         {/* Negation Context Regex */}
-                        <div>
-                            <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
-                                Negation Context{' '}
-                                <span className="text-xs font-normal opacity-60">
-                                    (optional)
-                                </span>
-                            </label>
+                        <div className="flex flex-col gap-2">
+                            <div className="flex items-center justify-between">
+                                <label className="text-sm font-medium text-muted-foreground">
+                                    Negation Context{' '}
+                                    <span className="text-xs font-normal opacity-60">
+                                        (optional)
+                                    </span>
+                                </label>
+                                {negationRegex.trim() && (
+                                    <span
+                                        className={`flex items-center gap-1 text-xs ${
+                                            negationValidation.isValid
+                                                ? 'text-emerald-500'
+                                                : 'text-red-500'
+                                        }`}
+                                    >
+                                        {negationValidation.isValid ? (
+                                            <>
+                                                <Check size={12} /> Valid
+                                            </>
+                                        ) : (
+                                            <>
+                                                <AlertCircle size={12} /> Syntax Error
+                                            </>
+                                        )}
+                                    </span>
+                                )}
+                            </div>
                             <input
                                 type="text"
                                 value={negationRegex}
@@ -108,22 +159,69 @@ export function ContextIntelligenceSection({
                                     onNegationChange(e.target.value)
                                 }
                                 placeholder={`e.g. ${NEGATION_EXAMPLES}`}
-                                className="w-full rounded-lg border border-black/10 bg-transparent px-4 py-2 font-mono text-sm text-foreground transition-colors outline-none focus:border-[#f87171] dark:border-white/10"
+                                className={`w-full rounded-lg border bg-transparent px-4 py-2 font-mono text-sm text-foreground transition-colors outline-none ${
+                                    negationValidation.isValid
+                                        ? 'border-black/10 focus:border-[#f87171] dark:border-white/10'
+                                        : 'border-red-500 focus:border-red-500'
+                                }`}
                             />
-                            <p className="mt-1 text-xs text-muted-foreground">
-                                If this regex matches near a hit, the hit is
-                                excluded — it looks like sample/example content.
+                            {/* Preset chips */}
+                            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                <span className="text-[11px] font-medium text-muted-foreground">
+                                    Quick presets:
+                                </span>
+                                {NEGATION_PRESETS.map((p) => (
+                                    <button
+                                        key={p.label}
+                                        type="button"
+                                        onClick={() =>
+                                            addPreset(
+                                                negationRegex,
+                                                p.value,
+                                                onNegationChange,
+                                            )
+                                        }
+                                        className="flex items-center gap-1 rounded-md border border-black/10 bg-black/5 px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-[#f87171] hover:text-[#f87171] dark:border-white/10 dark:bg-white/5"
+                                    >
+                                        <Plus size={10} />
+                                        {p.label}
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                                If this regex matches near a hit, the hit is excluded (e.g. template/sample marker).
                             </p>
                         </div>
 
                         {/* Amplifier Context Regex */}
-                        <div>
-                            <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
-                                Amplifier Context{' '}
-                                <span className="text-xs font-normal opacity-60">
-                                    (optional)
-                                </span>
-                            </label>
+                        <div className="flex flex-col gap-2">
+                            <div className="flex items-center justify-between">
+                                <label className="text-sm font-medium text-muted-foreground">
+                                    Amplifier Context{' '}
+                                    <span className="text-xs font-normal opacity-60">
+                                        (optional)
+                                    </span>
+                                </label>
+                                {amplifierRegex.trim() && (
+                                    <span
+                                        className={`flex items-center gap-1 text-xs ${
+                                            amplifierValidation.isValid
+                                                ? 'text-emerald-500'
+                                                : 'text-red-500'
+                                        }`}
+                                    >
+                                        {amplifierValidation.isValid ? (
+                                            <>
+                                                <Check size={12} /> Valid
+                                            </>
+                                        ) : (
+                                            <>
+                                                <AlertCircle size={12} /> Syntax Error
+                                            </>
+                                        )}
+                                    </span>
+                                )}
+                            </div>
                             <input
                                 type="text"
                                 value={amplifierRegex}
@@ -131,17 +229,43 @@ export function ContextIntelligenceSection({
                                     onAmplifierChange(e.target.value)
                                 }
                                 placeholder={`e.g. ${AMPLIFIER_EXAMPLES}`}
-                                className="w-full rounded-lg border border-black/10 bg-transparent px-4 py-2 font-mono text-sm text-foreground transition-colors outline-none focus:border-able-green dark:border-white/10"
+                                className={`w-full rounded-lg border bg-transparent px-4 py-2 font-mono text-sm text-foreground transition-colors outline-none ${
+                                    amplifierValidation.isValid
+                                        ? 'border-black/10 focus:border-able-green dark:border-white/10'
+                                        : 'border-red-500 focus:border-red-500'
+                                }`}
                             />
-                            <p className="mt-1 text-xs text-muted-foreground">
-                                If this regex matches near a hit, the hit counts
-                                double — it looks like genuine real data.
+                            {/* Preset chips */}
+                            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                <span className="text-[11px] font-medium text-muted-foreground">
+                                    Quick presets:
+                                </span>
+                                {AMPLIFIER_PRESETS.map((p) => (
+                                    <button
+                                        key={p.label}
+                                        type="button"
+                                        onClick={() =>
+                                            addPreset(
+                                                amplifierRegex,
+                                                p.value,
+                                                onAmplifierChange,
+                                            )
+                                        }
+                                        className="flex items-center gap-1 rounded-md border border-black/10 bg-black/5 px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-able-green hover:text-able-green dark:border-white/10 dark:bg-white/5"
+                                    >
+                                        <Plus size={10} />
+                                        {p.label}
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                                If this regex matches near a hit, the hit score doubles (confirms live data).
                             </p>
                         </div>
                     </div>
 
                     {/* Context Window */}
-                    <div className="max-w-xs">
+                    <div className="max-w-xs pt-2">
                         <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
                             Context Window{' '}
                             <span className="text-xs font-normal opacity-60">
@@ -174,8 +298,7 @@ export function ContextIntelligenceSection({
                             )}
                         </div>
                         <p className="mt-1 text-xs text-muted-foreground">
-                            How many characters on each side of a match to
-                            inspect for context signals.
+                            Character radius on each side of a match to inspect for context signals.
                         </p>
                     </div>
                 </div>
