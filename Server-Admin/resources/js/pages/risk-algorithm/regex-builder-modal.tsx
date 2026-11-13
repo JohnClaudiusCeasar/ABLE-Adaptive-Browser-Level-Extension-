@@ -1,7 +1,5 @@
-import { X, Search, Check, AlertCircle, AlertTriangle, Sparkles, BookOpen, Wand2, TestTube2, Plus } from 'lucide-react';
-import { useState, useMemo } from 'react';
-import type { PatternTemplate } from './regex-templates';
-import { PATTERN_TEMPLATES } from './regex-templates';
+import { X, Check, AlertCircle, AlertTriangle, Sparkles, Wand2, TestTube2, Plus, SlidersHorizontal } from 'lucide-react';
+import { useState, useMemo, useRef } from 'react';
 import type { RegexMatchResult } from './regex-utils';
 import { validateRegex, unifiedMaskToRegex, testRegexMatches } from './regex-utils';
 
@@ -14,12 +12,25 @@ interface RegexBuilderModalProps {
     onApply: (result: { regex: string; title?: string; score?: number }) => void;
 }
 
-type BuilderTab = 'templates' | 'builder' | 'tester';
+type BuilderTab = 'builder' | 'tester';
+type FlexTokenType = '#' | '@' | '*' | '~';
+type FlexLengthMode = 'range' | 'min' | 'oneOrMore';
+
+const FLEX_TOKEN_LABELS: Record<FlexTokenType, { label: string; regexPreview: string }> = {
+    '#': { label: 'Digits (0-9)', regexPreview: '\\d' },
+    '@': { label: 'Letters (A-Z)', regexPreview: '[A-Za-z]' },
+    '*': { label: 'Alphanumeric', regexPreview: '[A-Za-z0-9]' },
+    '~': { label: 'Any text', regexPreview: '[^\\n]' },
+};
 
 const UNIFIED_EXAMPLES = [
     {
         label: 'Student ID with Year Mask',
         value: '20##-#####, 19##-#####, STU-####-#####',
+    },
+    {
+        label: 'Variable-Length IDs',
+        value: '20##-#{4,6}, STU-*{3,8}',
     },
     {
         label: 'Document Classification Phrases',
@@ -28,10 +39,6 @@ const UNIFIED_EXAMPLES = [
     {
         label: 'Label with Value Mask',
         value: 'Account No: ####-####, Card: ####-####-####-####',
-    },
-    {
-        label: 'University Form Titles',
-        value: 'Transcript of Records, Grading Sheet, Class Record, Student Clearance',
     },
 ];
 
@@ -44,7 +51,7 @@ export function RegexBuilderModal({
     onApply,
 }: RegexBuilderModalProps) {
     const [activeTab, setActiveTab] = useState<BuilderTab>(
-        initialRegex ? 'tester' : 'templates',
+        initialRegex ? 'tester' : 'builder',
     );
 
     // Working state
@@ -56,10 +63,14 @@ export function RegexBuilderModal({
     const [unifiedInput, setUnifiedInput] = useState('');
     const [wholeWord, setWholeWord] = useState(true);
     const [flexibleWhitespace, setFlexibleWhitespace] = useState(true);
+    const unifiedInputRef = useRef<HTMLTextAreaElement | null>(null);
 
-    // Templates state
-    const [selectedCategory, setSelectedCategory] = useState<string>('All');
-    const [templateSearch, setTemplateSearch] = useState('');
+    // Flexible-length configuration shortcut state
+    const [showFlexConfig, setShowFlexConfig] = useState(false);
+    const [flexTokenType, setFlexTokenType] = useState<FlexTokenType>('#');
+    const [flexLengthMode, setFlexLengthMode] = useState<FlexLengthMode>('range');
+    const [flexMin, setFlexMin] = useState<number>(2);
+    const [flexMax, setFlexMax] = useState<number>(6);
 
     // Tester state
     const [sampleText, setSampleText] = useState(
@@ -96,37 +107,53 @@ export function RegexBuilderModal({
     }
 
     function appendToken(token: string) {
+        const el = unifiedInputRef.current;
+
+        if (el && document.activeElement === el) {
+            const start = el.selectionStart ?? unifiedInput.length;
+            const end = el.selectionEnd ?? unifiedInput.length;
+            const nextInput = `${unifiedInput.slice(0, start)}${token}${unifiedInput.slice(end)}`;
+            const nextCursor = start + token.length;
+
+            handleUnifiedInputChange(nextInput, wholeWord, flexibleWhitespace);
+            requestAnimationFrame(() => {
+                el.focus();
+                el.setSelectionRange(nextCursor, nextCursor);
+            });
+
+            return;
+        }
+
         const nextInput = unifiedInput ? `${unifiedInput}${token}` : token;
 
         handleUnifiedInputChange(nextInput, wholeWord, flexibleWhitespace);
     }
 
-    // Filter templates
-    const filteredTemplates = useMemo(() => {
-        const query = templateSearch.toLowerCase().trim();
+    const configuredFlexToken = useMemo(() => {
+        const safeMin = Math.max(0, Number.isFinite(flexMin) ? flexMin : 0);
+        const safeMax = Math.max(safeMin, Number.isFinite(flexMax) ? flexMax : safeMin);
 
-        return PATTERN_TEMPLATES.filter((tpl) => {
-            const matchesCat = selectedCategory === 'All' || tpl.category === selectedCategory;
-            const matchesQuery =
-                !query ||
-                tpl.title.toLowerCase().includes(query) ||
-                tpl.description.toLowerCase().includes(query) ||
-                tpl.regex.toLowerCase().includes(query);
-
-            return matchesCat && matchesQuery;
-        });
-    }, [selectedCategory, templateSearch]);
-
-    function handleSelectTemplate(tpl: PatternTemplate) {
-        setTitle(tpl.title);
-        setRegex(tpl.regex);
-        setScore(tpl.defaultScore);
-
-        if (tpl.sampleMatch) {
-            setSampleText(`${tpl.sampleMatch}\n${tpl.sampleNonMatch}`);
+        if (flexLengthMode === 'oneOrMore') {
+            return `${flexTokenType}+`;
         }
 
-        setActiveTab('tester');
+        if (flexLengthMode === 'min') {
+            return `${flexTokenType}{${safeMin},}`;
+        }
+
+        return `${flexTokenType}{${safeMin},${safeMax}}`;
+    }, [flexTokenType, flexLengthMode, flexMin, flexMax]);
+
+    const configuredFlexRegexPreview = useMemo(() => {
+        const base = FLEX_TOKEN_LABELS[flexTokenType].regexPreview;
+        const suffix = configuredFlexToken.slice(1);
+
+        return `${base}${suffix}`;
+    }, [flexTokenType, configuredFlexToken]);
+
+    function handleInsertFlexToken() {
+        appendToken(configuredFlexToken);
+        setShowFlexConfig(false);
     }
 
     function handleApply() {
@@ -164,7 +191,7 @@ export function RegexBuilderModal({
                                 Regex Pattern Assistant
                             </h2>
                             <p className="text-xs text-muted-foreground">
-                                Build, test, and choose validated regex patterns for sensitive data detection.
+                                Build and test validated regex patterns for sensitive data detection.
                             </p>
                         </div>
                     </div>
@@ -179,21 +206,6 @@ export function RegexBuilderModal({
 
                 {/* Tabs */}
                 <div className="flex shrink-0 border-b border-border bg-muted/40 px-6">
-                    <button
-                        type="button"
-                        onClick={() => setActiveTab('templates')}
-                        className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${
-                            activeTab === 'templates'
-                                ? 'border-able-green text-able-green'
-                                : 'border-transparent text-muted-foreground hover:text-foreground'
-                        }`}
-                    >
-                        <BookOpen size={16} />
-                        Template Catalog
-                        <span className="rounded-full bg-able-green/10 px-2 py-0.5 text-xs text-able-green">
-                            {PATTERN_TEMPLATES.length}
-                        </span>
-                    </button>
                     <button
                         type="button"
                         onClick={() => setActiveTab('builder')}
@@ -227,83 +239,7 @@ export function RegexBuilderModal({
 
                 {/* Tab Content Body */}
                 <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-6">
-                    {/* TAB 1: TEMPLATE CATALOG */}
-                    {activeTab === 'templates' && (
-                        <div className="flex flex-col gap-4">
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                <div className="relative flex-1">
-                                    <Search size={15} className="absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground" />
-                                    <input
-                                        type="text"
-                                        placeholder="Search template name, description, or regex..."
-                                        value={templateSearch}
-                                        onChange={(e) => setTemplateSearch(e.target.value)}
-                                        className="w-full rounded-lg border border-border bg-background py-2 pr-3 pl-9 text-sm text-foreground outline-none focus:border-able-green"
-                                    />
-                                </div>
-                                <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                                    {['All', 'Academic & University', 'PII & Identity', 'Credentials & Secrets', 'Document Classification'].map(
-                                        (cat) => (
-                                            <button
-                                                key={cat}
-                                                type="button"
-                                                onClick={() => setSelectedCategory(cat)}
-                                                className={`rounded-full px-3 py-1 font-medium transition-colors ${
-                                                    selectedCategory === cat
-                                                        ? 'bg-able-green text-white'
-                                                        : 'bg-muted text-muted-foreground hover:text-foreground'
-                                                }`}
-                                            >
-                                                {cat}
-                                            </button>
-                                        ),
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                {filteredTemplates.map((tpl) => (
-                                    <div
-                                        key={tpl.id}
-                                        onClick={() => handleSelectTemplate(tpl)}
-                                        className="group flex cursor-pointer flex-col justify-between rounded-lg border border-border bg-card p-4 transition-all hover:border-able-green/60 hover:shadow-md dark:bg-card/40"
-                                    >
-                                        <div>
-                                            <div className="mb-1 flex items-start justify-between gap-2">
-                                                <h4 className="font-semibold text-foreground group-hover:text-able-green">
-                                                    {tpl.title}
-                                                </h4>
-                                                <span className="shrink-0 rounded-full bg-able-green/10 px-2 py-0.5 text-[11px] font-semibold text-able-green">
-                                                    Score: {tpl.defaultScore}
-                                                </span>
-                                            </div>
-                                            <p className="mb-2 text-xs text-muted-foreground line-clamp-2">
-                                                {tpl.description}
-                                            </p>
-                                            <div className="rounded bg-muted/60 p-2 font-mono text-[11px] text-foreground/90 break-all select-all">
-                                                {tpl.regex}
-                                            </div>
-                                        </div>
-                                        <div className="mt-3 flex items-center justify-between pt-2 border-t border-border/50 text-[11px]">
-                                            <span className="text-muted-foreground">
-                                                Match example: <span className="font-semibold text-emerald-600 dark:text-emerald-400">{tpl.sampleMatch}</span>
-                                            </span>
-                                            <span className="font-semibold text-able-green group-hover:underline">
-                                                Select & Test →
-                                            </span>
-                                        </div>
-                                    </div>
-                                ))}
-                                {filteredTemplates.length === 0 && (
-                                    <div className="col-span-2 py-12 text-center text-sm text-muted-foreground">
-                                        No templates found matching your search.
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* TAB 2: ADD PATTERN (UNIFIED MASK & KEYWORD BUILDER) */}
+                    {/* TAB 1: ADD PATTERN (UNIFIED MASK & KEYWORD BUILDER) */}
                     {activeTab === 'builder' && (
                         <div className="flex flex-col gap-5">
                             <div>
@@ -339,6 +275,14 @@ export function RegexBuilderModal({
                                     </button>
                                     <button
                                         type="button"
+                                        onClick={() => appendToken('#+')}
+                                        className="flex items-center gap-1 rounded-md border border-border bg-muted/60 px-2 py-1 font-mono text-[11px] font-semibold text-foreground transition-colors hover:border-able-green hover:text-able-green"
+                                        title="Match 1 or more digits (\d+)"
+                                    >
+                                        <Plus size={11} /> #+ (1+ Digits)
+                                    </button>
+                                    <button
+                                        type="button"
                                         onClick={() => appendToken('@')}
                                         className="flex items-center gap-1 rounded-md border border-border bg-muted/60 px-2 py-1 font-mono text-[11px] font-semibold text-foreground transition-colors hover:border-able-green hover:text-able-green"
                                         title="Match an alphabet letter (A-Z)"
@@ -347,11 +291,11 @@ export function RegexBuilderModal({
                                     </button>
                                     <button
                                         type="button"
-                                        onClick={() => appendToken('*')}
+                                        onClick={() => appendToken('*+')}
                                         className="flex items-center gap-1 rounded-md border border-border bg-muted/60 px-2 py-1 font-mono text-[11px] font-semibold text-foreground transition-colors hover:border-able-green hover:text-able-green"
-                                        title="Match any alphanumeric character"
+                                        title="Match 1 or more alphanumeric characters ([A-Za-z0-9]+)"
                                     >
-                                        <Plus size={11} /> * (Alphanumeric)
+                                        <Plus size={11} /> *+ (1+ Alnum)
                                     </button>
                                     <button
                                         type="button"
@@ -361,9 +305,120 @@ export function RegexBuilderModal({
                                     >
                                         <Plus size={11} /> (A|B) Choices
                                     </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowFlexConfig((prev) => !prev)}
+                                        className={`flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-semibold transition-colors ${
+                                            showFlexConfig
+                                                ? 'border-able-green bg-able-green/15 text-able-green'
+                                                : 'border-border bg-muted/60 text-foreground hover:border-able-green hover:text-able-green'
+                                        }`}
+                                        title="Configure and insert a flexible-length pattern token"
+                                    >
+                                        <SlidersHorizontal size={11} /> Flexible Length
+                                    </button>
                                 </div>
 
+                                {/* Inline Flexible-Length Configuration Shortcut */}
+                                {showFlexConfig && (
+                                    <div className="mb-3 rounded-lg border border-able-green/40 bg-able-green/5 p-3">
+                                        <div className="mb-2 flex items-center justify-between">
+                                            <span className="text-xs font-semibold text-foreground">
+                                                Flexible Length Token Shortcut
+                                            </span>
+                                            <span className="font-mono text-xs text-able-green">
+                                                {configuredFlexToken} → {configuredFlexRegexPreview}
+                                            </span>
+                                        </div>
+                                        <div className="flex flex-wrap items-end gap-3 text-xs">
+                                            <div>
+                                                <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
+                                                    Character Type
+                                                </label>
+                                                <select
+                                                    value={flexTokenType}
+                                                    onChange={(e) =>
+                                                        setFlexTokenType(e.target.value as FlexTokenType)
+                                                    }
+                                                    className="rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-foreground outline-none focus:border-able-green"
+                                                >
+                                                    {(Object.keys(FLEX_TOKEN_LABELS) as FlexTokenType[]).map(
+                                                        (key) => (
+                                                            <option key={key} value={key}>
+                                                                {key} — {FLEX_TOKEN_LABELS[key].label}
+                                                            </option>
+                                                        ),
+                                                    )}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
+                                                    Length Rule
+                                                </label>
+                                                <select
+                                                    value={flexLengthMode}
+                                                    onChange={(e) =>
+                                                        setFlexLengthMode(e.target.value as FlexLengthMode)
+                                                    }
+                                                    className="rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-foreground outline-none focus:border-able-green"
+                                                >
+                                                    <option value="range">Range (min–max)</option>
+                                                    <option value="min">At least (min+)</option>
+                                                    <option value="oneOrMore">1 or more (+)</option>
+                                                </select>
+                                            </div>
+                                            {flexLengthMode !== 'oneOrMore' && (
+                                                <div>
+                                                    <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
+                                                        Min
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        min={0}
+                                                        max={999}
+                                                        value={flexMin}
+                                                        onChange={(e) =>
+                                                            setFlexMin(Math.max(0, parseInt(e.target.value, 10) || 0))
+                                                        }
+                                                        className="w-16 rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground outline-none focus:border-able-green"
+                                                    />
+                                                </div>
+                                            )}
+                                            {flexLengthMode === 'range' && (
+                                                <div>
+                                                    <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
+                                                        Max
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        min={flexMin}
+                                                        max={999}
+                                                        value={flexMax}
+                                                        onChange={(e) =>
+                                                            setFlexMax(
+                                                                Math.max(
+                                                                    flexMin,
+                                                                    parseInt(e.target.value, 10) || flexMin,
+                                                                ),
+                                                            )
+                                                        }
+                                                        className="w-16 rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground outline-none focus:border-able-green"
+                                                    />
+                                                </div>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={handleInsertFlexToken}
+                                                className="ml-auto rounded-md bg-able-green px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-600"
+                                            >
+                                                Insert {configuredFlexToken}
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <textarea
+                                    ref={unifiedInputRef}
                                     rows={4}
                                     value={unifiedInput}
                                     onChange={(e) =>
@@ -373,7 +428,7 @@ export function RegexBuilderModal({
                                             flexibleWhitespace,
                                         )
                                     }
-                                    placeholder="e.g. Student ID: 20##-#####, STU-####-#####, Transcript of Records, CONFIDENTIAL"
+                                    placeholder="e.g. Student ID: 20##-#{4,6}, STU-*{3,8}, Transcript of Records"
                                     className="w-full rounded-lg border border-border bg-background p-3 font-mono text-sm text-foreground outline-none focus:border-able-green"
                                 />
 
@@ -386,15 +441,15 @@ export function RegexBuilderModal({
                                         </div>
                                     </div>
                                     <div className="rounded-lg border border-border/70 bg-muted/30 p-2.5">
-                                        <div className="font-mono font-bold text-cyan-600 dark:text-cyan-400"># = Digit (0-9)</div>
+                                        <div className="font-mono font-bold text-cyan-600 dark:text-cyan-400"># @ * ~ Tokens</div>
                                         <div className="text-[11px] text-muted-foreground mt-0.5">
-                                            <span className="text-foreground">####</span> becomes <span className="font-mono text-foreground">\d&#123;4&#125;</span>
+                                            <span className="text-foreground">####</span> → <span className="font-mono text-foreground">\d&#123;4&#125;</span>, <span className="text-foreground">~</span> → any char
                                         </div>
                                     </div>
                                     <div className="rounded-lg border border-border/70 bg-muted/30 p-2.5">
-                                        <div className="font-mono font-bold text-purple-600 dark:text-purple-400">@ = Letter (A-Z)</div>
+                                        <div className="font-mono font-bold text-purple-600 dark:text-purple-400">Flexible Length</div>
                                         <div className="text-[11px] text-muted-foreground mt-0.5">
-                                            <span className="text-foreground">@@@</span> becomes <span className="font-mono text-foreground">[A-Za-z]&#123;3&#125;</span>
+                                            <span className="text-foreground">#&#123;2,6&#125;</span> or <span className="text-foreground">*+</span> for variable length
                                         </div>
                                     </div>
                                     <div className="rounded-lg border border-border/70 bg-muted/30 p-2.5">

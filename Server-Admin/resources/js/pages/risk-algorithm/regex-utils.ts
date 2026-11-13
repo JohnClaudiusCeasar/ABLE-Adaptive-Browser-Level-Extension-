@@ -179,8 +179,50 @@ export interface UnifiedMaskOptions {
 }
 
 /**
+ * Reads an optional quantifier suffix (+, ?, {m}, {m,}, {m,n}) at startIndex.
+ * Invalid or inverted ranges (min > max) are ignored so they fall back to literal escaping.
+ */
+function readQuantifierSuffix(
+    item: string,
+    startIndex: number,
+): { suffix: string; nextIndex: number } {
+    if (startIndex >= item.length) {
+        return { suffix: '', nextIndex: startIndex };
+    }
+
+    const nextChar = item[startIndex];
+
+    if (nextChar === '+' || nextChar === '?') {
+        return { suffix: nextChar, nextIndex: startIndex + 1 };
+    }
+
+    if (nextChar === '{') {
+        const match = item.slice(startIndex).match(/^\{(\d+)(?:,(\d*))?\}/);
+
+        if (match) {
+            const min = Number(match[1]);
+            const maxStr = match[2];
+
+            if (maxStr === undefined || maxStr === '' || Number(maxStr) >= min) {
+                return { suffix: match[0], nextIndex: startIndex + match[0].length };
+            }
+        }
+    }
+
+    return { suffix: '', nextIndex: startIndex };
+}
+
+const MASK_TOKEN_MAP: Record<string, string> = {
+    '#': '\\d',
+    '@': '[A-Za-z]',
+    '*': '[A-Za-z0-9]',
+    '~': '[^\\n]',
+};
+
+/**
  * Compiles a single mask item that can combine literal keywords,
- * placeholders (# for digit, @ for letter, * for alphanumeric), and choices.
+ * placeholders (# for digit, @ for letter, * for alphanumeric, ~ for any non-newline char),
+ * flexible length quantifiers (+, ?, {min,max}, {min,}), and choices.
  */
 function compileSingleMaskItem(item: string, flexibleWhitespace: boolean = true): string {
     let result = '';
@@ -189,14 +231,18 @@ function compileSingleMaskItem(item: string, flexibleWhitespace: boolean = true)
     while (i < item.length) {
         const char = item[i];
 
-        // Escaped placeholder literal: \#, \@, or \*
-        if (char === '\\' && i + 1 < item.length && ['#', '@', '*'].includes(item[i + 1])) {
+        // Escaped placeholder or quantifier literal: \#, \@, \*, \~, \+, \?, \{, \}
+        if (
+            char === '\\' &&
+            i + 1 < item.length &&
+            ['#', '@', '*', '~', '+', '?', '{', '}'].includes(item[i + 1])
+        ) {
             result += escapeRegex(item[i + 1]);
             i += 2;
             continue;
         }
 
-        // Choice group like (option1|option2)
+        // Choice group like (option1|option2), optionally followed by a quantifier
         if (char === '(') {
             const closeParen = item.indexOf(')', i);
 
@@ -205,48 +251,34 @@ function compileSingleMaskItem(item: string, flexibleWhitespace: boolean = true)
                     .slice(i + 1, closeParen)
                     .split('|')
                     .map((c) => escapeRegex(c.trim()));
-                result += `(?:${choices.join('|')})`;
-                i = closeParen + 1;
+                const { suffix, nextIndex } = readQuantifierSuffix(item, closeParen + 1);
+                result += `(?:${choices.join('|')})${suffix}`;
+                i = nextIndex;
                 continue;
             }
         }
 
-        // Digits placeholder #
-        if (char === '#') {
+        // Mask placeholder tokens (#, @, *, ~)
+        if (char in MASK_TOKEN_MAP) {
+            const tokenRegex = MASK_TOKEN_MAP[char];
             let count = 0;
 
-            while (i < item.length && item[i] === '#') {
+            while (i < item.length && item[i] === char) {
                 count++;
                 i++;
             }
 
-            result += count === 1 ? '\\d' : `\\d{${count}}`;
-            continue;
-        }
+            if (count === 1) {
+                const { suffix, nextIndex } = readQuantifierSuffix(item, i);
 
-        // Letters placeholder @
-        if (char === '@') {
-            let count = 0;
-
-            while (i < item.length && item[i] === '@') {
-                count++;
-                i++;
+                if (suffix) {
+                    result += `${tokenRegex}${suffix}`;
+                    i = nextIndex;
+                    continue;
+                }
             }
 
-            result += count === 1 ? '[A-Za-z]' : `[A-Za-z]{${count}}`;
-            continue;
-        }
-
-        // Alphanumeric placeholder *
-        if (char === '*') {
-            let count = 0;
-
-            while (i < item.length && item[i] === '*') {
-                count++;
-                i++;
-            }
-
-            result += count === 1 ? '[A-Za-z0-9]' : `[A-Za-z0-9]{${count}}`;
+            result += count === 1 ? tokenRegex : `${tokenRegex}{${count}}`;
             continue;
         }
 
@@ -282,12 +314,63 @@ function compileSingleMaskItem(item: string, flexibleWhitespace: boolean = true)
 }
 
 /**
+ * Splits unified mask input on commas or newlines, ignoring commas inside {min,max} quantifiers.
+ */
+function splitUnifiedMaskItems(input: string): string[] {
+    const items: string[] = [];
+    let current = '';
+    let i = 0;
+
+    while (i < input.length) {
+        if (input[i] === '\\' && i + 1 < input.length) {
+            current += input.slice(i, i + 2);
+            i += 2;
+            continue;
+        }
+
+        if (input[i] === '{') {
+            const quantifierMatch = input.slice(i).match(/^\{(\d+),(\d*)\}/);
+
+            if (quantifierMatch) {
+                current += quantifierMatch[0];
+                i += quantifierMatch[0].length;
+                continue;
+            }
+        }
+
+        if (input[i] === ',' || input[i] === '\n') {
+            const trimmed = current.trim();
+
+            if (trimmed) {
+                items.push(trimmed);
+            }
+
+            current = '';
+            i++;
+            continue;
+        }
+
+        current += input[i];
+        i++;
+    }
+
+    const trimmed = current.trim();
+
+    if (trimmed) {
+        items.push(trimmed);
+    }
+
+    return items;
+}
+
+/**
  * Unified Format Mask & Keyword to Regex Compiler.
  *
  * Combines keyword lists, phrases, and format masks in a single unified input.
  * Supports:
  *   - Plain words: "Transcript of Records, Grading Sheet"
  *   - Masks: "####-#####"
+ *   - Flexible lengths: "20##-#{4,6}, STU-*{3,8}, #+, ~{2,40}"
  *   - Combined words & masks: "Student ID: 20##-#####, STU-####-#####"
  *   - Alternation choices: "(19|20)##-#####"
  */
@@ -301,10 +384,7 @@ export function unifiedMaskToRegex(
         return '';
     }
 
-    const rawItems = input
-        .split(/[,\n]/)
-        .map((s) => s.trim())
-        .filter(Boolean);
+    const rawItems = splitUnifiedMaskItems(input);
 
     if (rawItems.length === 0) {
         return '';
