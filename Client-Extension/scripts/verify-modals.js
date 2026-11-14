@@ -165,15 +165,15 @@ function load(rel) {
 
 load("config.js");
 load("core/storage.js");
-load("content/modal-container.js");
-load("content/intercept-modal.js");
-load("content/text-warning-modal.js");
-load("content/score-hold-modal.js");
-load("content/request-access-modal.js");
-load("content/blocked-access-modal.js");
-load("content/greeting-modal.js");
-load("content/able-recommends-modal.js");
-load("content/site-warning-modal.js");
+load("content/modals/modal-container.js");
+load("content/modals/intercept-modal.js");
+load("content/modals/text-warning-modal.js");
+load("content/modals/score-hold-modal.js");
+load("content/modals/request-access-modal.js");
+load("content/modals/blocked-access-modal.js");
+load("content/modals/greeting-modal.js");
+load("content/modals/able-recommends-modal.js");
+load("content/modals/site-warning-modal.js");
 
 // ── Capture rendered markup ─────────────────────────────────────
 const rendered = {};

@@ -5,61 +5,39 @@ import {
     Pencil,
     Trash2,
     Plus,
-    X,
     ArrowUpDown,
     Layers,
     Trash,
     Eye,
-    Globe,
-    Users,
 } from 'lucide-react';
 import type { FormEvent } from 'react';
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import DomainPolicyController from '@/actions/App/Http/Controllers/DomainPolicyController';
 import { TablePagination } from '@/components/pagination';
+import { DeletePolicyModals } from '@/components/policy-algorithm/DeletePolicyModals';
+import { DomainDetailModal } from '@/components/policy-algorithm/DomainDetailModal';
+import { DomainPolicyFormModal } from '@/components/policy-algorithm/DomainPolicyFormModal';
+import type {
+    CategoryOption,
+    DomainPolicy,
+    DomainPolicyFormData,
+    DomainVisitRecord,
+} from '@/components/policy-algorithm/types';
 import { RowLimitNotice } from '@/components/row-limit-notice';
 import { Badge } from '@/components/ui/badge';
 
 const glassCard =
     'bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.4)] rounded-lg backdrop-blur-[10px] shadow-sm dark:bg-white/5 dark:border-[rgba(34,197,94,0.7)] dark:shadow-none';
 
-interface DomainPolicy {
-    id: number;
-    domain: string;
-    domain_status: 'safe' | 'unsafe' | 'unlisted';
-    policy: 'whitelisted' | 'blacklisted' | 'under_review';
-    block_access: boolean;
-    category: string | null;
-    classification_source: string | null;
-    confidence: number | null;
-    risk_score: number;
-    visit_count: number;
-    last_visited_at: string | null;
-    last_source: string | null;
-    created_at: string;
-    updated_at: string;
-}
-
 interface PageProps {
     domainPolicies: DomainPolicy[];
     truncated?: boolean;
     rowLimit?: number;
-    categories: { name: string; detail: string }[];
+    categories: CategoryOption[];
     [key: string]: unknown;
 }
 
-interface FormData {
-    domain: string;
-    domain_status: 'safe' | 'unsafe' | 'unlisted';
-    policy: 'whitelisted' | 'blacklisted' | 'under_review';
-    block_access: boolean;
-    category: string;
-    classification_source: string;
-    confidence: number | null;
-    risk_score: number;
-}
-
-const emptyForm: FormData = {
+const emptyForm: DomainPolicyFormData = {
     domain: '',
     domain_status: 'unlisted',
     policy: 'under_review',
@@ -106,150 +84,6 @@ const policyLabels: Record<string, string> = {
     under_review: 'Under Review',
 };
 
-function CategoryPicker({
-    value,
-    onChange,
-    categories,
-}: {
-    value: string;
-    onChange: (category: string) => void;
-    categories: { name: string; detail: string }[];
-}) {
-    const [open, setOpen] = useState(false);
-    const [draft, setDraft] = useState(value);
-    const [prevValue, setPrevValue] = useState(value);
-    const rootRef = useRef<HTMLDivElement>(null);
-
-    if (prevValue !== value) {
-        setPrevValue(value);
-        setDraft(value);
-    }
-
-    useEffect(() => {
-        if (!open) {
-            return;
-        }
-
-        function handleClickOutside(e: MouseEvent) {
-            if (
-                rootRef.current &&
-                !rootRef.current.contains(e.target as Node)
-            ) {
-                setOpen(false);
-            }
-        }
-        function handleEscape(e: KeyboardEvent) {
-            if (e.key === 'Escape') {
-                setOpen(false);
-            }
-        }
-        document.addEventListener('mousedown', handleClickOutside);
-        document.addEventListener('keydown', handleEscape);
-
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-            document.removeEventListener('keydown', handleEscape);
-        };
-    }, [open]);
-
-    function commitTyped() {
-        const trimmed = draft.trim();
-
-        if (trimmed && trimmed !== value) {
-            onChange(trimmed);
-        } else {
-            setDraft(value);
-        }
-    }
-
-    const query = draft.trim().toLowerCase();
-    const filtered = query
-        ? categories.filter((c) => c.name.toLowerCase().includes(query))
-        : categories;
-    const showCustom =
-        query !== '' && !categories.some((c) => c.name.toLowerCase() === query);
-
-    return (
-        <div ref={rootRef} className="relative w-full">
-            <div className="flex w-full items-center rounded-lg border border-black/10 bg-transparent transition-colors focus-within:border-able-green dark:border-white/10">
-                <input
-                    type="text"
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    onBlur={commitTyped}
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                            e.preventDefault();
-                            commitTyped();
-                            setOpen(false);
-                        }
-                    }}
-                    placeholder="Type or pick a category…"
-                    className="min-w-0 flex-1 bg-transparent px-3 py-2 text-foreground outline-none placeholder:text-muted-foreground"
-                />
-                <button
-                    type="button"
-                    onClick={() => setOpen((o) => !o)}
-                    aria-haspopup="listbox"
-                    aria-expanded={open}
-                    aria-label="Open category list"
-                    className="shrink-0 px-3 py-2 text-muted-foreground transition-colors hover:text-foreground"
-                >
-                    ▾
-                </button>
-            </div>
-            {open && (
-                <ul
-                    role="listbox"
-                    className="absolute z-10 mt-1 max-h-40 w-[480px] max-w-full overflow-y-auto rounded-lg border border-black/10 bg-[#1a2f2b] py-1 shadow-xl dark:border-white/10"
-                >
-                    {filtered.map((c) => (
-                        <li key={c.name} title={c.detail}>
-                            <button
-                                type="button"
-                                role="option"
-                                aria-selected={c.name === value}
-                                title={c.detail}
-                                onClick={() => {
-                                    onChange(c.name);
-                                    setDraft(c.name);
-                                    setOpen(false);
-                                }}
-                                className={`block w-full px-3 py-1 text-left text-[0.8rem] transition-colors ${
-                                    c.name === value
-                                        ? 'bg-[rgba(34,197,94,0.35)] text-white'
-                                        : 'text-slate-100 hover:bg-[rgba(34,197,94,0.15)]'
-                                }`}
-                            >
-                                {c.name}
-                            </button>
-                        </li>
-                    ))}
-                    {showCustom && (
-                        <li>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    commitTyped();
-                                    setOpen(false);
-                                }}
-                                className="block w-full px-3 py-1 text-left text-[0.8rem] text-slate-100 hover:bg-[rgba(34,197,94,0.15)]"
-                            >
-                                Use “{draft.trim()}”
-                            </button>
-                        </li>
-                    )}
-                    {filtered.length === 0 && !showCustom && (
-                        <li className="px-3 py-1 text-[0.8rem] text-slate-400">
-                            No matches — press Enter to use your text.
-                        </li>
-                    )}
-                </ul>
-            )}
-        </div>
-    );
-}
-
 export default function PolicyAlgorithm() {
     const { domainPolicies, truncated, rowLimit, categories } =
         usePage<PageProps>().props;
@@ -261,7 +95,7 @@ export default function PolicyAlgorithm() {
 
     const [showModal, setShowModal] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
-    const [form, setForm] = useState<FormData>(emptyForm);
+    const [form, setForm] = useState<DomainPolicyFormData>(emptyForm);
     const [searchQuery, setSearchQuery] = useState('');
     const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
     const [deleteAllConfirm, setDeleteAllConfirm] = useState(false);
@@ -297,15 +131,7 @@ export default function PolicyAlgorithm() {
         null,
     );
     const [showDetailModal, setShowDetailModal] = useState(false);
-    const [domainVisits, setDomainVisits] = useState<
-        {
-            id: number;
-            domain_policy_id: number;
-            domain: string;
-            user_id: string | null;
-            visited_at: string;
-        }[]
-    >([]);
+    const [domainVisits, setDomainVisits] = useState<DomainVisitRecord[]>([]);
     const [visitsLoading, setVisitsLoading] = useState(false);
     const [visitsPagination, setVisitsPagination] = useState({
         current_page: 1,
@@ -1002,517 +828,38 @@ export default function PolicyAlgorithm() {
                 </div>
             </div>
 
-            {/* Add/Edit Modal */}
-            {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm">
-                    <div className="mx-4 max-h-[75vh] w-full max-w-lg overflow-y-auto rounded-xl border border-[rgba(34,197,94,0.3)] bg-white shadow-2xl dark:bg-[#0f172a]">
-                        <div className="flex items-center justify-between border-b border-black/10 px-6 py-4 dark:border-white/10">
-                            <h3
-                                className="text-lg font-bold"
-                                style={{
-                                    fontFamily: "'Unbounded', sans-serif",
-                                }}
-                            >
-                                {editingId
-                                    ? 'Edit Domain Policy'
-                                    : 'Add Domain Policy'}
-                            </h3>
-                            <button
-                                onClick={closeModal}
-                                className="rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
-                            >
-                                <X size={20} />
-                            </button>
-                        </div>
-                        <form
-                            onSubmit={handleSubmit}
-                            className="space-y-4 px-6 py-5"
-                        >
-                            <div>
-                                <label className="mb-1 block text-sm font-medium text-muted-foreground">
-                                    Domain Name
-                                </label>
-                                <input
-                                    type="text"
-                                    required
-                                    readOnly={!!editingId}
-                                    value={form.domain}
-                                    onChange={(e) =>
-                                        setForm({
-                                            ...form,
-                                            domain: e.target.value,
-                                        })
-                                    }
-                                    placeholder="e.g., example.com"
-                                    className={`w-full rounded-lg border bg-transparent px-3 py-2 text-foreground transition-colors outline-none focus:border-able-green ${formErrors.domain ? 'border-[#f87171]' : 'border-black/10 dark:border-white/10'} ${editingId ? 'cursor-not-allowed opacity-60' : ''}`}
-                                />
-                                {formErrors.domain && (
-                                    <p className="mt-1 text-xs text-[#f87171]">
-                                        {formErrors.domain}
-                                    </p>
-                                )}
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="mb-1 block text-sm font-medium text-muted-foreground">
-                                        Domain Status
-                                    </label>
-                                    <select
-                                        value={form.domain_status}
-                                        disabled={
-                                            form.policy === 'whitelisted' ||
-                                            form.policy === 'blacklisted'
-                                        }
-                                        onChange={(e) =>
-                                            setForm({
-                                                ...form,
-                                                domain_status: e.target
-                                                    .value as FormData['domain_status'],
-                                            })
-                                        }
-                                        className={`w-full rounded-lg border bg-transparent px-3 py-2 text-foreground transition-colors outline-none focus:border-able-green ${
-                                            form.policy === 'whitelisted' ||
-                                            form.policy === 'blacklisted'
-                                                ? 'cursor-not-allowed border-black/10 bg-black/5 opacity-60 dark:border-white/10 dark:bg-white/5'
-                                                : 'border-black/10 dark:border-white/10'
-                                        }`}
-                                    >
-                                        <option value="safe">Safe</option>
-                                        <option value="unsafe">Unsafe</option>
-                                        <option value="unlisted">
-                                            Unlisted
-                                        </option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="mb-1 block text-sm font-medium text-muted-foreground">
-                                        Policy
-                                    </label>
-                                    <select
-                                        value={form.policy}
-                                        onChange={(e) => {
-                                            const policy = e.target
-                                                .value as FormData['policy'];
-                                            const statusMap: Record<
-                                                FormData['policy'],
-                                                FormData['domain_status']
-                                            > = {
-                                                whitelisted: 'safe',
-                                                blacklisted: 'unsafe',
-                                                under_review: 'unlisted',
-                                            };
-                                            setForm({
-                                                ...form,
-                                                policy,
-                                                block_access:
-                                                    policy === 'blacklisted'
-                                                        ? form.block_access
-                                                        : false,
-                                                domain_status:
-                                                    statusMap[policy],
-                                                risk_score:
-                                                    policy === 'blacklisted'
-                                                        ? 70
-                                                        : policy ===
-                                                            'whitelisted'
-                                                          ? 0
-                                                          : policy ===
-                                                              'under_review'
-                                                            ? 60
-                                                            : form.risk_score,
-                                            });
-                                        }}
-                                        className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-foreground transition-colors outline-none focus:border-able-green dark:border-white/10"
-                                    >
-                                        <option value="whitelisted">
-                                            Whitelisted
-                                        </option>
-                                        <option value="blacklisted">
-                                            Blacklisted
-                                        </option>
-                                        <option value="under_review">
-                                            Under Review
-                                        </option>
-                                    </select>
-                                    {form.policy === 'blacklisted' && (
-                                        <div className="mt-2.5 flex items-center justify-between gap-3 rounded-lg border border-red-500/35 bg-red-500/10 px-3 py-2.5 shadow-sm">
-                                            <div className="flex flex-col gap-0.5">
-                                                <span className="flex items-center gap-1.5 text-xs font-bold tracking-wide text-red-500 uppercase">
-                                                    <svg
-                                                        width="13"
-                                                        height="13"
-                                                        viewBox="0 0 24 24"
-                                                        fill="none"
-                                                        stroke="currentColor"
-                                                        strokeWidth="2.5"
-                                                        aria-hidden="true"
-                                                    >
-                                                        <circle
-                                                            cx="12"
-                                                            cy="12"
-                                                            r="10"
-                                                        />
-                                                        <line
-                                                            x1="4.93"
-                                                            y1="4.93"
-                                                            x2="19.07"
-                                                            y2="19.07"
-                                                        />
-                                                    </svg>
-                                                    Block Access
-                                                </span>
-                                                <span className="text-[11px] leading-snug text-muted-foreground">
-                                                    Instruct extension to block
-                                                    user access to this site
-                                                </span>
-                                            </div>
-                                            <label className="relative inline-flex h-6 w-11 shrink-0 cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    className="peer sr-only"
-                                                    checked={form.block_access}
-                                                    onChange={(e) =>
-                                                        setForm({
-                                                            ...form,
-                                                            block_access:
-                                                                e.target
-                                                                    .checked,
-                                                        })
-                                                    }
-                                                />
-                                                <span className="absolute inset-0 rounded-full border border-black/10 bg-black/15 transition-colors peer-checked:border-red-500 peer-checked:bg-red-500 dark:border-white/10 dark:bg-white/15" />
-                                                <span className="absolute bottom-0.5 left-0.5 h-[18px] w-[18px] rounded-full bg-white shadow transition-transform peer-checked:translate-x-[20px]" />
-                                            </label>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                            <div>
-                                <label className="mb-1 block text-sm font-medium text-muted-foreground">
-                                    Category
-                                </label>
-                                <CategoryPicker
-                                    value={form.category}
-                                    categories={categories}
-                                    onChange={(category) =>
-                                        setForm({
-                                            ...form,
-                                            category,
-                                            classification_source: 'manual',
-                                        })
-                                    }
-                                />
-                                <input
-                                    type="hidden"
-                                    value={form.classification_source}
-                                    readOnly
-                                />
-                                {form.policy === 'whitelisted' && (
-                                    <p className="mt-1 text-xs text-muted-foreground">
-                                        {form.category
-                                            ? `Whitelisted domains appear under ABLE Recommends for "${form.category}".`
-                                            : 'Whitelisted domains appear under ABLE Recommends for their category. Set a category to enable it.'}
-                                    </p>
-                                )}
-                            </div>
-                            <div>
-                                <label className="mb-1 block text-sm font-medium text-muted-foreground">
-                                    Risk Score (0-100)
-                                </label>
-                                <input
-                                    type="text"
-                                    inputMode="numeric"
-                                    required
-                                    value={form.risk_score}
-                                    onChange={(e) =>
-                                        setForm({
-                                            ...form,
-                                            risk_score:
-                                                parseInt(e.target.value) || 0,
-                                        })
-                                    }
-                                    className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-foreground transition-colors outline-none focus:border-able-green dark:border-white/10"
-                                />
-                            </div>
-                            <div className="flex justify-end gap-3 pt-2">
-                                <button
-                                    type="button"
-                                    onClick={closeModal}
-                                    className="rounded-lg border border-black/10 px-4 py-2 text-muted-foreground transition-colors hover:text-foreground dark:border-white/10"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={isSubmitting}
-                                    className="rounded-lg bg-able-green px-4 py-2 font-semibold text-white transition-colors hover:bg-[#1a9e4b] disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                    {isSubmitting
-                                        ? 'Saving...'
-                                        : editingId
-                                          ? 'Update'
-                                          : 'Create'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
+            <DomainPolicyFormModal
+                open={showModal}
+                editingId={editingId}
+                form={form}
+                setForm={setForm}
+                formErrors={formErrors}
+                isSubmitting={isSubmitting}
+                categories={categories}
+                onClose={closeModal}
+                onSubmit={handleSubmit}
+            />
 
-            {/* Delete Single Confirmation Modal */}
-            {deleteConfirmId !== null && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                    <div className="mx-4 w-full max-w-sm rounded-xl border border-[rgba(248,113,113,0.3)] bg-white p-6 shadow-2xl dark:bg-[#0f172a]">
-                        <h3
-                            className="mb-2 text-lg font-semibold"
-                            style={{ fontFamily: "'Unbounded', sans-serif" }}
-                        >
-                            Delete Domain Policy
-                        </h3>
-                        <p className="mb-6 text-muted-foreground">
-                            Are you sure you want to delete this domain policy?
-                            This action cannot be undone.
-                        </p>
-                        <div className="flex justify-end gap-3">
-                            <button
-                                onClick={() => setDeleteConfirmId(null)}
-                                className="rounded-lg border border-black/10 px-4 py-2 text-muted-foreground transition-colors hover:text-foreground dark:border-white/10"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={() => handleDelete(deleteConfirmId)}
-                                className="rounded-lg bg-[#f87171] px-4 py-2 font-semibold text-white transition-colors hover:bg-[#ef4444]"
-                            >
-                                Delete
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <DeletePolicyModals
+                deleteConfirmId={deleteConfirmId}
+                deleteAllConfirm={deleteAllConfirm}
+                onCancelSingle={() => setDeleteConfirmId(null)}
+                onConfirmSingle={handleDelete}
+                onCancelAll={() => setDeleteAllConfirm(false)}
+                onConfirmAll={handleDeleteAll}
+            />
 
-            {/* Delete All Confirmation Modal */}
-            {deleteAllConfirm && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                    <div className="mx-4 w-full max-w-sm rounded-xl border border-[rgba(248,113,113,0.3)] bg-white p-6 shadow-2xl dark:bg-[#0f172a]">
-                        <h3
-                            className="mb-2 text-lg font-semibold"
-                            style={{ fontFamily: "'Unbounded', sans-serif" }}
-                        >
-                            Delete All Domain Policies
-                        </h3>
-                        <p className="mb-6 text-muted-foreground">
-                            Are you sure you want to delete <strong>all</strong>{' '}
-                            domain policies? This action cannot be undone.
-                        </p>
-                        <div className="flex justify-end gap-3">
-                            <button
-                                onClick={() => setDeleteAllConfirm(false)}
-                                className="rounded-lg border border-black/10 px-4 py-2 text-muted-foreground transition-colors hover:text-foreground dark:border-white/10"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleDeleteAll}
-                                className="rounded-lg bg-[#f87171] px-4 py-2 font-semibold text-white transition-colors hover:bg-[#ef4444]"
-                            >
-                                Delete All
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Domain Detail Modal */}
-            {showDetailModal && selectedDomain && (
-                <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-                    onClick={(e) => {
-                        if (e.target === e.currentTarget) {
-                            closeDetailModal();
-                        }
-                    }}
-                >
-                    <div className="mx-4 flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-[rgba(34,197,94,0.3)] bg-white shadow-2xl dark:bg-[#0f172a]">
-                        {/* Header */}
-                        <div className="flex items-center justify-between border-b border-black/10 px-6 py-4 dark:border-white/10">
-                            <div className="flex items-center gap-3">
-                                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-[rgba(34,197,94,0.1)]">
-                                    <img
-                                        src={`https://www.google.com/s2/favicons?domain=${selectedDomain.domain}&sz=32`}
-                                        alt={selectedDomain.domain}
-                                        className="h-8 w-8 rounded-md"
-                                        onError={(e) => {
-                                            e.currentTarget.style.display =
-                                                'none';
-                                        }}
-                                    />
-                                </div>
-                                <div>
-                                    <h3
-                                        className="text-xl font-bold"
-                                        style={{
-                                            fontFamily:
-                                                "'Unbounded', sans-serif",
-                                        }}
-                                    >
-                                        {getDomainNameWithoutTLD(
-                                            selectedDomain.domain,
-                                        )}
-                                    </h3>
-                                    <p className="mt-1 text-sm text-muted-foreground">
-                                        {selectedDomain.domain}
-                                    </p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={closeDetailModal}
-                                className="rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
-                            >
-                                <X size={20} />
-                            </button>
-                        </div>
-
-                        {/* Stats */}
-                        <div className="border-b border-black/10 px-6 py-4 dark:border-white/10">
-                            <div className="flex gap-8">
-                                <div>
-                                    <span className="text-sm text-muted-foreground">
-                                        User Opened
-                                    </span>
-                                    <p className="text-lg font-semibold">
-                                        {domainVisits.length > 0 &&
-                                        domainVisits[0].user_id
-                                            ? domainVisits[0].user_id
-                                            : '—'}
-                                    </p>
-                                </div>
-                                <div>
-                                    <span className="text-sm text-muted-foreground">
-                                        Date Detected
-                                    </span>
-                                    <p className="text-lg font-semibold">
-                                        {new Date(
-                                            selectedDomain.created_at,
-                                        ).toLocaleDateString()}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* 2x1 KPI Card Grid */}
-                        <div className="border-b border-black/10 px-6 py-4 dark:border-white/10">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="flex flex-col gap-1.5 rounded-lg border border-[rgba(34,197,94,0.3)] bg-[rgba(34,197,94,0.06)] p-4 dark:bg-white/5">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
-                                            Visit Count
-                                        </span>
-                                        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-able-green/10 text-able-green">
-                                            <Globe size={15} />
-                                        </div>
-                                    </div>
-                                    <p className="text-2xl font-bold text-foreground tabular-nums">
-                                        {visitMetrics.visit_count.toLocaleString()}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">
-                                        Counts the number of times this domain
-                                        has been visited.
-                                    </p>
-                                </div>
-
-                                <div className="flex flex-col gap-1.5 rounded-lg border border-[rgba(34,197,94,0.3)] bg-[rgba(34,197,94,0.06)] p-4 dark:bg-white/5">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
-                                            Active Users
-                                        </span>
-                                        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-500">
-                                            <Users size={15} />
-                                        </div>
-                                    </div>
-                                    <p className="text-2xl font-bold text-foreground tabular-nums">
-                                        {visitMetrics.active_users.toLocaleString()}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">
-                                        Counts users currently active on this
-                                        domain (last 15m).
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Visits Table */}
-                        <div className="flex-1 overflow-auto px-6 py-4">
-                            {visitsLoading ? (
-                                <div className="flex items-center justify-center py-8">
-                                    <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-able-green"></div>
-                                </div>
-                            ) : domainVisits.length === 0 ? (
-                                <div className="py-8 text-center text-muted-foreground">
-                                    No visit records found.
-                                </div>
-                            ) : (
-                                <table className="w-full border-collapse text-sm">
-                                    <thead>
-                                        <tr>
-                                            <th className="border-b border-[rgba(34,197,94,0.7)] px-3 py-2 text-left font-normal text-muted-foreground">
-                                                Date
-                                            </th>
-                                            <th className="border-b border-[rgba(34,197,94,0.7)] px-3 py-2 text-left font-normal text-muted-foreground">
-                                                Time
-                                            </th>
-                                            <th className="border-b border-[rgba(34,197,94,0.7)] px-3 py-2 text-left font-normal text-muted-foreground">
-                                                User ID
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {domainVisits.map((visit: any) => (
-                                            <tr
-                                                key={visit.id}
-                                                className="border-b border-black/5 dark:border-white/5"
-                                            >
-                                                <td className="px-3 py-3">
-                                                    {new Date(
-                                                        visit.visited_at,
-                                                    ).toLocaleDateString()}
-                                                </td>
-                                                <td className="px-3 py-3">
-                                                    {new Date(
-                                                        visit.visited_at,
-                                                    ).toLocaleTimeString(
-                                                        undefined,
-                                                        {
-                                                            hour: '2-digit',
-                                                            minute: '2-digit',
-                                                            second: '2-digit',
-                                                            hour12: true,
-                                                        },
-                                                    )}
-                                                </td>
-                                                <td className="px-3 py-3">
-                                                    {visit.user_id || '—'}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            )}
-                        </div>
-
-                        {/* Pagination */}
-                        {visitsPagination.last_page > 1 && (
-                            <div className="border-t border-black/10 px-6 py-4 dark:border-white/10">
-                                <TablePagination
-                                    currentPage={visitsPagination.current_page}
-                                    totalPages={visitsPagination.last_page}
-                                    onPageChange={handleVisitsPageChange}
-                                />
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
+            <DomainDetailModal
+                open={showDetailModal}
+                selectedDomain={selectedDomain}
+                domainVisits={domainVisits}
+                visitsLoading={visitsLoading}
+                visitMetrics={visitMetrics}
+                visitsPagination={visitsPagination}
+                getDomainNameWithoutTLD={getDomainNameWithoutTLD}
+                onClose={closeDetailModal}
+                onPageChange={handleVisitsPageChange}
+            />
         </>
     );
 }
